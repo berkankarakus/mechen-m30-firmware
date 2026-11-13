@@ -1,5 +1,13 @@
 # M30 flash candidate
 
+
+> **Düzeltme (statik analiz, cihazda test edilmedi):** Bu belgedeki "önceki tuş
+> eşiği 5.000 ms → 0 ms" değişikliği `mengine.ap` içinde `0x3a64`'teki hızlı
+> geri sarma başlangıç ofsetini (−5000 ms) değiştiriyor; motorda Previous için
+> bir süre eşiği yok. Bu yama Previous'u "parçayı başa sar" yapmayabilir.
+> Ayrıntı: [`codex-handoff.md`](codex-handoff.md) ve
+> [`findings-artwork-start.md`](findings-artwork-start.md).
+
 ## Candidate
 
 `build/MECHEN_M30-community-v1.292-red-back.HEX`

@@ -4,6 +4,14 @@ This note records the community fixes incorporated into the current M30
 candidate and the work that remains. It is intentionally separate from the
 older experimental 24,000-song library work.
 
+
+> **Düzeltme (statik analiz, cihazda test edilmedi):** Bu belgedeki "önceki tuş
+> eşiği 5.000 ms → 0 ms" değişikliği `mengine.ap` içinde `0x3a64`'teki hızlı
+> geri sarma başlangıç ofsetini (−5000 ms) değiştiriyor; motorda Previous için
+> bir süre eşiği yok. Bu yama Previous'u "parçayı başa sar" yapmayabilir.
+> Ayrıntı: [`codex-handoff.md`](codex-handoff.md) ve
+> [`findings-artwork-start.md`](findings-artwork-start.md).
+
 ## Firmware inputs
 
 | Input | SHA-256 | Role |
