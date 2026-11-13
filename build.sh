@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build patched MECHEN M30 firmware from the official 2025-06-26 MECHEN_M30.HEX.
 #
-# usage: ./build.sh [--test] [--no-playall] [--no-keys] [--no-library] STOCK_MECHEN_M30.HEX [OUTDIR]
+# usage: ./build.sh [--test] [--no-playall] [--no-keys] [--library] STOCK_MECHEN_M30.HEX [OUTDIR]
 #   --test        also run the QEMU harnesses (shuffle, shuffle all, scroll, keys, library)
 #   --no-playall  leave out shuffle-all mode
 #   --no-keys     leave out the screen-off media keys
-#   --no-library  leave out the whole-card library (keep the stock 4,000-song limit)
+#   --library     opt in to the experimental whole-card library (up to 24,000 songs)
 #   --library-bench  diagnostic: scan 100 files, then time the file operations (tools/library/bench.c)
 #   --library-probe  diagnostic: scan 100 files, run the real passes, leave MUSIC.TMP and the
 #                    passes' globals on the card for comparison with the harness
@@ -17,13 +17,14 @@
 #   CROSS=mips64-linux-gnu-   ATJBOOTTOOL=atjboottool   QEMU=qemu-mipsel-static   PYTHON=python3
 set -euo pipefail
 
-TEST=0 PLAYALL=1 KEYS=1 LIBRARY=1 LIB_MAX=24000 LIB_SRC=index.c LIB_PREALLOC= LIB_DEFS=
+TEST=0 PLAYALL=1 KEYS=1 LIBRARY=0 LIB_MAX=24000 LIB_SRC=index.c LIB_PREALLOC= LIB_DEFS=
 while [ $# -gt 0 ]; do
   case $1 in
     --test) TEST=1; shift ;;
     --no-playall) PLAYALL=0; shift ;;
     --no-keys) KEYS=0; shift ;;
-    --no-library) LIBRARY=0; shift ;;
+    --library) LIBRARY=1; shift ;;
+    --no-library) LIBRARY=0; shift ;; # compatibility with older build commands
     --library-bench) LIB_SRC=bench.c; LIB_PREALLOC=$LIB_MAX; LIB_MAX=100; shift ;;
     --library-probe) LIB_DEFS=-DPROBE; LIB_PREALLOC=$LIB_MAX; LIB_MAX=100; shift ;;
     --library-iotest) LIB_SRC=iotest.c; LIB_PREALLOC=$LIB_MAX; LIB_MAX=100; shift ;;
