@@ -23,12 +23,14 @@ class BankAddressTests(unittest.TestCase):
         self.assertEqual(address.classification, "bank-stub-or-resident")
         self.assertFalse(address.is_overlay_window)
         self.assertEqual(address.payload_offset, 0x471)
+        self.assertEqual(address.entry_offset, 0x470)
 
     def test_far_entry_candidates_preserve_bank_window(self):
         address = decode(0x26409401)
         self.assertEqual(address.bank_index, 16)
         self.assertEqual(address.window_start, 0x26425000)
         self.assertEqual(address.payload_offset, 0x401)
+        self.assertEqual(address.entry_offset, 0x400)
 
     def test_non_overlay_pointer_is_external(self):
         address = decode(0xBFC09C01)

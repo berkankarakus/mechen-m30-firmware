@@ -32,6 +32,14 @@ class BankAddress:
     def is_overlay_window(self) -> bool:
         return self.classification in {"overlay", "overlay-lead-in"}
 
+    @property
+    def entry_offset(self) -> int | None:
+        """Return the aligned MIPS16 entry offset for a far candidate."""
+
+        if self.payload_offset is None:
+            return None
+        return self.payload_offset & ~1
+
 
 def decode(address: int, *, ui_group: int = 6, lead_in_bytes: int = 0x0C) -> BankAddress:
     """Classify an Actions runtime pointer without dereferencing it."""

@@ -24,6 +24,8 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(second.bank.bank_index, 2)
         self.assertEqual(first.bank.payload_offset, 0x471)
         self.assertEqual(second.bank.payload_offset, 0x4E9)
+        self.assertEqual(first.bank.entry_offset, 0x470)
+        self.assertEqual(second.bank.entry_offset, 0x4E8)
 
     def test_b16_sdimage_renderer(self):
         call = classify(0x26409401)
@@ -31,6 +33,7 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(call.bank.bank_type, "B")
         self.assertEqual(call.bank.bank_index, 16)
         self.assertEqual(call.bank.payload_offset, 0x401)
+        self.assertEqual(call.bank.entry_offset, 0x400)
         self.assertEqual(call.confidence, "high")
 
     def test_unknown_pointer_is_not_guessed(self):
