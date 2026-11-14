@@ -1,3 +1,4 @@
+import struct
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,18 @@ DRIVER = REPO / "analysis" / "community" / "fw" / "drv_ui.drv"
 
 @unittest.skipUnless(DRIVER.is_file(), "archived community drv_ui.drv is unavailable")
 class RealDriverUiTests(unittest.TestCase):
+    def test_real_b3_pool_keeps_observed_far_pointer_positions(self) -> None:
+        data = DRIVER.read_bytes()
+        observed = {
+            0x992C: 0x164C90ED,
+            0x995C: 0x26089471,
+            0x9960: 0x260894E9,
+            0x9964: 0x164C9001,
+            0x996C: 0x26409401,
+        }
+        for offset, pointer in observed.items():
+            self.assertEqual(struct.unpack_from("<I", data, offset)[0], pointer)
+
     def test_real_b2_candidate_preserves_aligned_entry(self) -> None:
         image = DriverBankImage.load(DRIVER)
         candidate = image.resolve_far_candidate(0x26089471)
