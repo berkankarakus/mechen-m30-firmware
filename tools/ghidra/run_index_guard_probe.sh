@@ -34,7 +34,7 @@ decompile() {
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$root/$app.ap" \
-    -postScript DumpAt.java "$address" "$WORK/$label.c" exact \
+    -postScript DumpAt.java "$address" "$WORK/$label.c" \
     2>&1 | tee "$WORK/$label.log"
   local rc=${PIPESTATUS[0]}
   set -e

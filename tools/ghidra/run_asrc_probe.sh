@@ -31,7 +31,7 @@ run_decomp() {
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$image" \
-    -postScript DumpAt.java 0x40494f5d "$WORK/$label/decomp.c" \
+    -postScript DumpAt.java 0x40494f5d "$WORK/$label/decomp.c" containing \
     >"$WORK/$label/run.log" 2>&1
   grep -q 'DumpAt: 40494f5d -> FUN_40494e94 (containing) @ 40494e94' "$WORK/$label/run.log"
   grep -q '11000U' "$WORK/$label/decomp.c"
