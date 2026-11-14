@@ -61,6 +61,9 @@ providers are absent from the extracted M30 driver.
 `DispatchResult`, so callers do not have to infer safety from the status
 string or execute an unresolved candidate accidentally.
 
+`test_real_drv_ui.py` repeats the critical B02/A19/B16 assertions against the
+archived community `drv_ui.drv`, in addition to the synthetic unit fixtures.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh
