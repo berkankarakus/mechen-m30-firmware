@@ -65,6 +65,11 @@ deterministic:
     B3 UI function. It verifies the two resident entries and three
     bank-qualified candidates without treating any candidate as a directly
     executable address.
+21. `tools/ghidra/run_drvui_b3_candidate_probe.sh` maps the B04, B07, and B08
+    candidate banks together with their post-bank literal areas. The three
+    aligned candidate offsets decompile as coherent MIPS16 functions, which is
+    stronger evidence than a numeric bank-offset match but still not a proof
+    of the hardware dispatcher ABI.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

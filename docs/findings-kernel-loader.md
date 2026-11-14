@@ -528,3 +528,29 @@ The read-only mapping and word dump are reproducible with:
 ```sh
 bash tools/ghidra/run_drvui_b3_table_probe.sh analysis/community/fw/drv_ui.drv
 ```
+
+## B3 candidate bank bodies
+
+Mapping only the nominal `0x800`-byte bank windows leaves the candidate
+functions' literal pools outside the Ghidra memory map. Including the next
+`0x800` bytes after each bank produces coherent decompilations for all three
+entries referenced by the B3 table:
+
+| Raw pointer | Candidate bank/offset | Public runtime entry | Observed decompilation shape |
+|---|---|---:|---|
+| `0x26109751` | B04 `+0x751` | `0x26125750` | six-argument UI/text renderer; kernel and filesystem calls |
+| `0x261c9694` | B07 `+0x694` | `0x261e5694` | two-argument lookup/dispatch helper returning `ushort` |
+| `0x26209401` | B08 `+0x401` | `0x26225400` | descriptor/line renderer with alignment and clipping flags |
+
+The odd low bit is handled as MIPS16 mode metadata: the first and third raw
+values enter at the preceding aligned address. This is now a stronger
+candidate-body result, not proof that the raw pointer can be called directly
+by the host emulator. The provider bank and dispatcher behavior still need a
+runtime observation or an extracted resident implementation before execution
+is enabled.
+
+The reproducible probe is:
+
+```sh
+bash tools/ghidra/run_drvui_b3_candidate_probe.sh analysis/community/fw/drv_ui.drv
+```
