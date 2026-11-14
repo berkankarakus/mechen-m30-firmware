@@ -175,6 +175,17 @@ of those firmware bytes. The scan is reproducible with:
 PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py analysis/community/fw
 ```
 
+The same scan widened to every extracted firmware member (`--all-files`)
+produces exactly the same 16 occurrences, all still in `drv_ui.drv`; no `.ap`,
+`.sty`, `.bin`, DSP, or other extracted file provides a second copy of any
+observed far pointer. This closes the remaining local-file provider search
+without claiming anything about fixed ROM.
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
+  --all-files analysis/community/fw
+```
+
 The resident `kernel.drv` was also scanned at its established `0xbfc08000`
 base for constants relevant to the proposed far-pointer translation. It
 contains no literal `0x00009000` prefix and no literal `0x00025000` B-window

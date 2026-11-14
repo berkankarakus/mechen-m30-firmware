@@ -60,6 +60,14 @@ Static references to the resident loader candidates can be checked with
 has zero direct references to all six targets, so their callers remain table
 or external-dispatch mediated.
 
+The external-provider scan can be widened from `.drv` members to the complete
+extracted firmware tree:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
+  --all-files analysis/community/fw
+```
+
 Run it with extracted firmware resources:
 
 ```sh

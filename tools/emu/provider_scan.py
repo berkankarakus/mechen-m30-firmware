@@ -57,12 +57,27 @@ def scan_driver_directory(root: Path) -> dict[int, tuple[Occurrence, ...]]:
     return {pointer: tuple(items) for pointer, items in merged.items()}
 
 
+def scan_tree(root: Path) -> dict[int, tuple[Occurrence, ...]]:
+    """Scan every regular extracted firmware member below ``root``."""
+
+    merged: dict[int, list[Occurrence]] = {}
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        for pointer, occurrences in scan_file(path).items():
+            merged.setdefault(pointer, []).extend(occurrences)
+    return {pointer: tuple(items) for pointer, items in merged.items()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path, help="directory containing extracted .drv files")
     parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument(
+        "--all-files",
+        action="store_true",
+        help="scan every regular file below root instead of only top-level .drv files",
+    )
     args = parser.parse_args()
-    result = scan_driver_directory(args.root)
+    result = scan_tree(args.root) if args.all_files else scan_driver_directory(args.root)
     if args.as_json:
         payload = {
             f"0x{pointer:08x}": {
