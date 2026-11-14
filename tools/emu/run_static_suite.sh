@@ -37,6 +37,7 @@ fi
 [ -f "$AP" ] || { echo "missing $AP" >&2; exit 1; }
 
 echo "[2/3] Ghidra driver and kernel probes"
+bash "$ROOT/tools/ghidra/run_asrc_probe.sh"
 bash "$ROOT/tools/ghidra/run_index_guard_probe.sh" "$ROOT/analysis/stock/fw" "$ROOT/analysis/community/fw"
 bash "$ROOT/tools/ghidra/run_drvui_pointer_probe.sh" "$FW/drv_ui.drv"
 bash "$ROOT/tools/ghidra/run_drvui_pointer_cluster_probe.sh" "$FW/drv_ui.drv"
