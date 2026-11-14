@@ -48,6 +48,13 @@ deterministic:
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called.
 
+The kernel-side constant boundary can be reproduced without a device with:
+
+```sh
+bash tools/ghidra/run_kernel_bank_boundary_probe.sh \
+  analysis/community/fw/kernel.drv
+```
+
 Run it with extracted firmware resources:
 
 ```sh

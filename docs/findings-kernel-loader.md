@@ -175,6 +175,20 @@ of those firmware bytes. The scan is reproducible with:
 PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py analysis/community/fw
 ```
 
+The resident `kernel.drv` was also scanned at its established `0xbfc08000`
+base for constants relevant to the proposed far-pointer translation. It
+contains no literal `0x00009000` prefix and no literal `0x00025000` B-window
+base. It does contain one `0x0003ffff` mask at `0xbfc0a9ac`, consumed as a
+generic address mask by `FUN_bfc0a944`, plus unrelated `0x400` and `0x40000`
+constants. This does not identify a bank-window translator; it is negative
+evidence against placing the observed `0x9000` conversion directly in the
+extracted resident image. The check is reproducible with:
+
+```sh
+bash tools/ghidra/run_kernel_bank_boundary_probe.sh \
+  analysis/community/fw/kernel.drv
+```
+
 This rules out the simplest explanation that A19/B16 are provided by a second
 extracted driver; the remaining search boundary is the resident dispatcher or
 unavailable fixed ROM code.
