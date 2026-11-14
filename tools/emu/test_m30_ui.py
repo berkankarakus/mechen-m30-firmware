@@ -1,0 +1,54 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from m30_ui import MAIN_PAINT_STYLE, FirmwareTrace, MusicStyle, NowPlaying
+
+
+ROOT = Path(__file__).parents[2]
+AP = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.ap"
+STY = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.sty"
+
+
+@unittest.skipUnless(AP.exists() and STY.exists(), "extracted firmware resources are not present")
+class M30UiTests(unittest.TestCase):
+    def test_real_bank_contains_audited_scroll_call(self):
+        trace = FirmwareTrace.load(AP)
+        self.assertEqual(trace.instruction, bytes.fromhex("04 f0 05 6a"))
+        self.assertTrue(trace.scroll_bank.virtual_address <= 0x40D55078 < trace.scroll_bank.virtual_address + trace.scroll_bank.size)
+        self.assertEqual(trace.dispatch_targets["ui_dispatch"], 0xBFC16405)
+        self.assertEqual(trace.dispatch_targets["timer_ms"], 0xBFC16BB1)
+        self.assertEqual(trace.dispatch_targets["key_read_begin"], 0xBFC16AE9)
+        self.assertEqual(trace.dispatch_targets["scroll_event_local"], 0x40D54DF8)
+
+    def test_real_style_contains_panel_geometry(self):
+        style = MusicStyle.load(STY)
+        panel = [box for box in style.textboxes if box.width == 129 and box.height == 20]
+        self.assertEqual([(box.x, box.y) for box in panel], [(190, 40), (190, 75), (190, 111), (190, 147)])
+        self.assertEqual(style.color(panel[0]), (255, 255, 255))
+
+    def test_trace_keeps_shared_scroll_style_distinct(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        calls = ui.dispatch_trace()
+        self.assertEqual(calls[0]["style_id"], f"0x{MAIN_PAINT_STYLE:04x}")
+        self.assertEqual(calls[1]["style_id"], "0x2005")
+
+    def test_observed_dispatch_trace_has_real_call_order(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
+        calls = ui.observed_dispatch_trace()
+        self.assertEqual(len(calls), 9)
+        self.assertEqual([call["op"] for call in calls], [0x14, 0x12, 0x14, 0x12, 0x02, 0x02, 0x03, 0x06, 0x03])
+        self.assertEqual(calls[4]["payload"], "control_0x1012")
+        self.assertEqual(calls[7]["role"], "draw_dynamic_text")
+
+    def test_render_is_320x240_ppm(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "frame.ppm"
+            ui.render().ppm(out)
+            self.assertEqual(out.read_bytes()[:15], b"P6\n320 240\n255\n")
+            self.assertEqual(len(out.read_bytes()), 15 + 320 * 240 * 3)
+
+
+if __name__ == "__main__":
+    unittest.main()
