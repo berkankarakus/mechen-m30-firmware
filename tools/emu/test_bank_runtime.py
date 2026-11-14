@@ -28,7 +28,7 @@ class LazyBankRuntimeTests(unittest.TestCase):
         return LazyBankRuntime.from_path(path, validated_entries=set(entries))
 
     def test_validated_entry_loads_once(self):
-        runtime = self.runtime({("B", 2, 0x471)})
+        runtime = self.runtime({("B", 2, 0x470)})
         first = runtime.dispatch(0x26089471)
         second = runtime.dispatch(0x26089471)
         self.assertEqual(first.status, "validated-entry")

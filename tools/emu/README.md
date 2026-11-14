@@ -22,8 +22,9 @@ deterministic:
    unavailable here.
 8. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
    far-pointer payload candidates without treating every candidate as code.
-   This keeps the unresolved B2 `0x4e9` entry separate from the validated B2
-   `0x471` path.
+   It preserves the raw B2 `0x471` provenance while exposing its aligned
+   MIPS16 entry offset `0x470`; the unresolved B2 `0x4e9` entry remains
+   separate from that validated path.
 9. `tools/ghidra/run_kernel_exception_probe.sh` checks the extracted
    `ker_xsys` exception entry and records the boundary where the unavailable
    fixed handler begins.

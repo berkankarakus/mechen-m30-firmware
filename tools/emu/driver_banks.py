@@ -38,6 +38,25 @@ class FarEntryCandidate:
     payload: bytes
     bank_present: bool
 
+    @property
+    def entry_offset(self) -> int:
+        """Return the aligned MIPS16 code offset for the far pointer.
+
+        Actions far-call pointers carry the MIPS16 mode bit in bit 0.  Keep
+        ``payload_offset`` lossless for provenance, but do not make callers
+        rediscover that the code address is one byte earlier for odd entries.
+        """
+
+        return self.payload_offset & ~1
+
+    @property
+    def entry_file_offset(self) -> int | None:
+        """Return the aligned file offset when the bank is present."""
+
+        if self.file_offset is None:
+            return None
+        return self.file_offset - (self.payload_offset - self.entry_offset)
+
 
 class DriverBankImage:
     """Parse a driver without pretending to execute its overlays."""

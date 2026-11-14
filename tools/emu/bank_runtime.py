@@ -56,7 +56,9 @@ class LazyBankRuntime:
         if not candidate.bank_present:
             return DispatchResult(candidate.pointer, "bank-missing-or-external", candidate, False)
 
-        key = (candidate.group, candidate.index, candidate.payload_offset)
+        # Validation is keyed by the actual aligned MIPS16 entry, while the
+        # candidate keeps the raw odd pointer offset for provenance.
+        key = (candidate.group, candidate.index, candidate.entry_offset)
         loaded = self.active != (candidate.group, candidate.index)
         if loaded:
             self.active = (candidate.group, candidate.index)

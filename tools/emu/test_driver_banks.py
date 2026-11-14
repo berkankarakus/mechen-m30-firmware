@@ -30,6 +30,8 @@ class DriverBankImageTests(unittest.TestCase):
             self.assertEqual((candidate.group, candidate.index), ("B", 2))
             self.assertEqual(candidate.payload_offset, 0x471)
             self.assertEqual(candidate.file_offset, 0xF71)
+            self.assertEqual(candidate.entry_offset, 0x470)
+            self.assertEqual(candidate.entry_file_offset, 0xF70)
 
     def test_rejects_candidate_outside_payload_window(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -48,6 +50,7 @@ class DriverBankImageTests(unittest.TestCase):
             assert candidate is not None
             self.assertFalse(candidate.bank_present)
             self.assertIsNone(candidate.file_offset)
+            self.assertIsNone(candidate.entry_file_offset)
 
 
 if __name__ == "__main__":
