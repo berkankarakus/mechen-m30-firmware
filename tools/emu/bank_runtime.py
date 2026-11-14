@@ -15,7 +15,9 @@ class BankLoad:
     group: str
     index: int
     payload_offset: int
+    entry_offset: int
     file_offset: int
+    entry_file_offset: int
 
 
 @dataclass(frozen=True)
@@ -68,7 +70,9 @@ class LazyBankRuntime:
                     candidate.group,
                     candidate.index,
                     candidate.payload_offset,
+                    candidate.entry_offset,
                     candidate.file_offset,
+                    candidate.entry_file_offset,
                 )
             )
 

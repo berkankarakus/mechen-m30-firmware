@@ -35,6 +35,10 @@ class LazyBankRuntimeTests(unittest.TestCase):
         self.assertTrue(first.loaded)
         self.assertFalse(second.loaded)
         self.assertEqual(len(runtime.loads), 1)
+        self.assertEqual(runtime.loads[0].payload_offset, 0x471)
+        self.assertEqual(runtime.loads[0].entry_offset, 0x470)
+        self.assertEqual(runtime.loads[0].file_offset, 0xF71)
+        self.assertEqual(runtime.loads[0].entry_file_offset, 0xF70)
 
     def test_unvalidated_entry_is_never_executed(self):
         runtime = self.runtime()

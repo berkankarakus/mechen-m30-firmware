@@ -46,7 +46,8 @@ deterministic:
     data.
 15. `bank_runtime.py` models lazy bank selection and load events. It only
     permits explicitly validated entry offsets to become executable; an
-    unresolved candidate is recorded but never called.
+    unresolved candidate is recorded but never called. Load events preserve
+    both the raw pointer offset and the aligned MIPS16 entry offset.
 
 The kernel-side constant boundary can be reproduced without a device with:
 
