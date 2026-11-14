@@ -2,7 +2,9 @@
 
 The model mirrors ``tools/scroll/accel.c`` rather than inventing a new UI
 policy. It models the selection index, burst timing, and page-reload flags
-that the patched MIPS16 handlers write.
+that the patched MIPS16 handlers write. The input is a next/previous list
+event; it is deliberately independent of whether the device generated that
+event from an up/down key, wheel, or another control.
 """
 
 from __future__ import annotations

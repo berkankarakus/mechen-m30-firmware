@@ -214,6 +214,8 @@ The probe asserts the active/previous slot bytes and status after each event.
 
 `scroll_accel.py` mirrors the existing `tools/scroll/accel.c` candidate in
 the host emulator. It covers the burst gears, direction/pause reset, list
-boundaries, and the mode-4/update-2 page-reload contract. It is a model only:
-it does not patch an AP or claim that the physical wheel/key event rate has
-been measured.
+boundaries, and the mode-4/update-2 page-reload contract. The modeled input is
+the shared folder-list next/previous callback, so it applies to up/down key
+events as well as any other control routed through those callbacks. It is a
+model only: it does not patch an AP or claim that the device's physical key
+repeat/event rate has been measured.

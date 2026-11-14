@@ -1,5 +1,7 @@
 /* QEMU harness: runs the real browser.ap dirlist bank (0x48714400, stock or patched)
- * with timed wheel events and checks list invariants and step counts. */
+ * with timed next/previous navigation events and checks list invariants and step
+ * counts. The physical source may be an up/down key or another control that calls
+ * the shared handlers. */
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;

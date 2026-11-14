@@ -131,7 +131,7 @@ mevcut akışı değiştirmek yerine sınır durumlarını düzeltmektir.
 | 4.000-entry M3U playlist sınırını yükseltme | Büyük playlist'lerde kesilmeyi önler | Whole-card library'den bağımsız ama playlist parser, storage ve UI tüketicilerinin birlikte incelenmesi gerekir |
 | Index ilerleme ekranı | Manuel Update Playlist sırasında yüzde, geçen süre ve yaklaşık kalan süre | Önce yalnızca gösterge; iptal/rollback daha sonra. Uzun taramada watchdog ve message pump korunmalı |
 | Index “dirty” göstergesi | Kullanıcı ne zaman manuel Update Playlist gerektiğini görür | Tam kart hash'i pahalı olabilir; önce güvenli bir “son güncelleme tarihi / manuel güncelleme gerekli” durumu düşünülmeli |
-| Hızlı alfabetik atlama | Binlerce dosyada wheel'i uzun süre çevirmeden A–Z / 0–9 sıçrama | Browser arama/pozisyon cache'iyle birleştirilmeli; mevcut uzun-list optimizasyonundan sonra yapılmalı |
+| Hızlı alfabetik atlama | Binlerce dosyada yukarı/aşağı ile uzun süre ilerlemeden A–Z / 0–9 sıçrama | Browser arama/pozisyon cache'iyle birleştirilmeli; mevcut uzun-list optimizasyonundan sonra yapılmalı |
 | Playlist/favorite yönetimi | Seçili dosyayı doğrudan favoriye veya kullanıcı playlist'ine ekleme/çıkarma | `favorite position zero` düzeltmesinden sonra daha güvenli; yine de playlist kayıtlarının bozulma senaryosu test edilmeli |
 | Ayarların yedeklenmesi | EQ, repeat, resume ve UI tercihlerini kartta küçük bir ayar dosyasına almak | Firmware'in mevcut settings commit/restore yolunu bulmadan storage I/O eklenmemeli |
 
