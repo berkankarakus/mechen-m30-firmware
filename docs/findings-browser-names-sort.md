@@ -7,6 +7,23 @@ Dumps: ghidra/browser_community.c (B), playlist_community.c (P), music_community
 
 ## 1. List item name buffer
 
+### Reproducible current-AP check
+
+The current community browser image can be checked without a device or a
+firmware patch:
+
+```sh
+bash tools/ghidra/run_browser_name_probe.sh analysis/community/fw/browser.ap
+```
+
+The probe decompiles the directory initializer, directory callback,
+library-mode callback, and dispatch table from the AP itself. It asserts the
+two limits that matter for the truncation report: directory records are
+initialized with `0x32`-byte slots, while the community library callback caps
+the copied title at `0x40` bytes and writes a two-byte terminator. This is a
+static reproduction of the current AP, not proof that every screen uses the
+same path.
+
 - VERIFIED: SDK has the constant. `PD196/case/inc/common_ui.h:32`: `#define LIST_ITEM_BUFFER_LEN 52`
   (GBK comment: "max string size of a list item, 52 bytes"). Unit = BYTES. Users: ap/common/common_ui/ui_directory.c:39
   (`g_list_buffer[LEN*(LIST_NUM_ONE_PAGE_MAX+1)]`), ui_directory_sub2.c:122-127 (init_directory_env), browser_scene_menu.c:397.

@@ -102,18 +102,23 @@ outside the safe candidate and is now explicitly marked unsafe.
 
 ## Next investigation
 
-1. Map the indirect runtime pointers around `drv_ui.drv` file offset
-   `0x9924`–`0x9974` to resident/kernel functions. The resident loader and
-   public bank formula are now documented in
-   [`findings-kernel-loader.md`](findings-kernel-loader.md); the final M30
-   indirect bank-window edge remains open.
-2. Identify whether the `0x7c` clear helper is a solid-color clear or an
+The former “map the indirect runtime pointers” step is now covered by the B3
+candidate probes and the browser AP name probe. The exact browser callback
+entry points and their copy limits are reproducible with:
+
+```sh
+bash tools/ghidra/run_browser_name_probe.sh analysis/community/fw/browser.ap
+```
+
+The remaining high-value work is:
+
+1. Identify whether the `0x7c` clear helper is a solid-color clear or an
    image-backed restore, then compare it with the public `SDIMAGE` path.
-3. Trace the directory-mode callback separately from the library-mode callback;
-   they have different copy limits.
-4. Only after the buffer ownership is proven, consider a binary patch. Any
-   candidate must show that adjacent list entries and the listbox state remain
-   intact.
+2. Trace the directory-mode callback separately from the library-mode callback
+   at runtime, including the filesystem name format returned by kernel op 2.
+3. Resolve ownership of the list buffer and adjacent `path_info`; only then
+   consider a binary patch. Any candidate must show that adjacent list entries
+   and listbox state remain intact.
 
 ## Driver bank layout recovered
 
