@@ -477,3 +477,25 @@ not imported into the project:
 The practical outcome is a stronger offline/recovery boundary, not a claim
 that we are ready to flash a custom image. We still need an M30-specific
 provider/bank-window proof before modifying executable UI code with confidence.
+
+## MIPS16 import-selector evidence
+
+The B3 bank has a repeatable indirect-call pattern in which a `jalr` is
+immediately followed by a MIPS16 delay-slot instruction `li a3,<selector>`.
+The mapped B3 disassembly contains one selector-15 call immediately paired
+with one selector-17 call in a second UI function. Other indirect calls in the
+same bank use different selectors, so this is evidence for a reusable import
+ABI rather than proof that selectors 15/17 are the marquee operation. It is
+stronger than a byte-pattern match because the values are attached to decoded
+call sites, but it still does not establish the selector semantics or the
+resident dispatch table that receives them.
+
+The read-only cross-check is reproducible with:
+
+```sh
+bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv
+```
+
+The probe deliberately reports selector numbers only. It does not model them
+as rendering, storage, or bank-loading operations until an M30-specific
+dispatcher path is recovered.

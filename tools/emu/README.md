@@ -56,6 +56,10 @@ deterministic:
     `bfc09c00` syscall wrapper plus the `bfc0a8bc`/`bfc0a8c8` state setters.
 18. `resident_ui.py` carries those verified resident effects into the host
     model while aligning odd MIPS16 pointers and refusing unknown targets.
+19. `scan_mips16_imports.py` parses the real B3 MIPS16 disassembly and reports
+    indirect-call delay slots that select an import number. The current M30
+    bank proves selector 15/17 pairs, but the tool intentionally does not
+    assign semantics to those selectors.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
@@ -161,6 +165,13 @@ CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
 
 If user-mode QEMU is unavailable, the script still produces `qemu_probe.elf`
 and exits with a clear not-executed status.
+
+The B3 import-selector cross-check is read-only and uses MIPS binutils for a
+second decoder view of the Ghidra mapping:
+
+```sh
+bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv
+```
 
 ## Executing the real MIPS16 path in Ghidra
 
