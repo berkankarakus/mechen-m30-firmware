@@ -14,6 +14,8 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(switch.bank.bank_type, "A")
         self.assertEqual(switch.bank.bank_index, 19)
         self.assertEqual(measure.bank.bank_index, 19)
+        self.assertEqual(switch.dispatch_policy, "lazy-only")
+        self.assertEqual(measure.entry_evidence, "external-provider-or-missing-bank")
 
     def test_b2_preprocessing_order(self):
         first = classify(0x26089471)
@@ -26,6 +28,10 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(second.bank.payload_offset, 0x4E9)
         self.assertEqual(first.bank.entry_offset, 0x470)
         self.assertEqual(second.bank.entry_offset, 0x4E8)
+        self.assertEqual(first.entry_evidence, "validated-local-code-at-aligned-entry")
+        self.assertEqual(first.dispatch_policy, "lazy-load-then-call")
+        self.assertEqual(second.entry_evidence, "local-data-or-unresolved-provider")
+        self.assertEqual(second.dispatch_policy, "never-direct-call")
 
     def test_b16_sdimage_renderer(self):
         call = classify(0x26409401)
@@ -35,6 +41,7 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(call.bank.payload_offset, 0x401)
         self.assertEqual(call.bank.entry_offset, 0x400)
         self.assertEqual(call.confidence, "high")
+        self.assertEqual(call.dispatch_policy, "lazy-only")
 
     def test_unknown_pointer_is_not_guessed(self):
         self.assertIsNone(classify(0x260E4FF4))

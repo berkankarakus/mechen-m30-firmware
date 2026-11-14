@@ -52,6 +52,11 @@ deterministic:
     far-pointer literals by nearby file offsets; the B3 literal pool is the
     verified five-hit cluster at `0x992c..0x996c`.
 
+`tools/sim/ui_calls.py` carries the resulting safety policy into the host
+model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
+`never-direct-call`, and A19/B16 candidates remain `lazy-only` because their
+providers are absent from the extracted M30 driver.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh

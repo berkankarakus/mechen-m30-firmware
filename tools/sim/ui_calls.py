@@ -22,36 +22,48 @@ class UiCall:
     candidates: tuple[str, ...]
     confidence: str
     note: str
+    entry_evidence: str
+    dispatch_policy: str
 
 
 # These are the exact values loaded from the B3 literal pool at file offset
 # 0x9924.  A19 contains more than one function, hence the two separate
 # pointers in that bank.
-OBSERVED_CALLS: dict[int, tuple[tuple[str, ...], str, str]] = {
+OBSERVED_CALLS: dict[int, tuple[tuple[str, ...], str, str, str, str]] = {
     0x164C90ED: (
         ("fix_switch_fontlib",),
         "high",
         "one display-mode argument in the B3 call site",
+        "external-provider-or-missing-bank",
+        "lazy-only",
     ),
     0x164C9001: (
         ("fixf_get_string_length",),
         "high",
         "(string descriptor, max width, result) call shape",
+        "external-provider-or-missing-bank",
+        "lazy-only",
     ),
     0x26089471: (
         ("arabic_uni_join",),
         "medium",
         "first one-argument Arabic/Hebrew preprocessing call",
+        "validated-local-code-at-aligned-entry",
+        "lazy-load-then-call",
     ),
     0x260894E9: (
         ("arabic_ascii_turn",),
         "medium",
         "second one-argument Arabic/Hebrew preprocessing call",
+        "local-data-or-unresolved-provider",
+        "never-direct-call",
     ),
     0x26409401: (
         ("put_string_line_sdimage",),
         "high",
         "(string descriptor, region, mode) call shape",
+        "external-provider-or-missing-bank",
+        "lazy-only",
     ),
 }
 
@@ -63,5 +75,13 @@ def classify(pointer: int) -> UiCall | None:
     entry = OBSERVED_CALLS.get(pointer)
     if entry is None:
         return None
-    candidates, confidence, note = entry
-    return UiCall(pointer, decode(pointer), candidates, confidence, note)
+    candidates, confidence, note, entry_evidence, dispatch_policy = entry
+    return UiCall(
+        pointer,
+        decode(pointer),
+        candidates,
+        confidence,
+        note,
+        entry_evidence,
+        dispatch_policy,
+    )
