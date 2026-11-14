@@ -18,7 +18,8 @@ older experimental 24,000-song library work.
 |---|---|---|
 | Official MECHEN 2025-06-26 / V1.101.10 | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` | Rollback source |
 | Community V1.292.00 | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` | Accepted community baseline |
-| Combined candidate | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` | Community baseline plus our changes |
+| Historical combined candidate | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` | Community baseline plus unsafe Previous experiment |
+| Current safe UI candidate | `59959053aac9ed8d58d4ac39129bd988bc92ca1b64d4dddcaf8b28bb32be091d` | Community baseline plus artwork/icon/prompt resources |
 
 The community release is based on the same official V1.101.10 payload. Its
 release notes describe hardware acceptance on a Mechen M30, but the testing
@@ -26,7 +27,7 @@ scope is limited to the tested device and cases described by that project.
 
 ## Community fixes included
 
-The combined candidate takes the community payload wholesale, so the
+The historical combined candidate took the community payload wholesale, so the
 following are included:
 
 - Automatic file-list regeneration is disabled after USB use, card changes,
@@ -49,10 +50,12 @@ not included.
 
 ## Our changes layered on top
 
-Only three FWIMAGE members differ from the community baseline:
+The historical candidate differed from the community baseline in three
+FWIMAGE members:
 
-- `mengine.ap`: the previous-key threshold changes from 5,000 ms to 0 ms,
-  so pressing Previous restarts the current song instead of changing songs.
+- `mengine.ap`: an unsafe experiment changed the fast-backward start offset
+  at `0x3a64`; it does **not** implement Previous-as-restart and must not be
+  carried into the next release candidate.
 - `music.sty`: the missing-artwork bitmap remains our red waveform, and only
   transport resources 7, 8, 29, and 30 are recolored to its main red. Their
   pale/white source pixels are mapped to darker red antialiasing tones.
@@ -72,7 +75,12 @@ Only three FWIMAGE members differ from the community baseline:
 - All other community members, including `playlist.ap`, `config.ap`,
   `mainmenu.ap`, `udisk.ap`, and `browser.ap`, remain byte-identical to the
   V1.292.00 baseline.
-- The candidate has not yet been flashed or physically tested.
+- The historical candidate has not been flashed or physically tested and is
+  not a release recommendation because of the unsafe `mengine.ap` experiment.
+- The current safe UI candidate keeps `mengine.ap` byte-identical to the
+  community baseline. It changes only `music.sty` and `setting.sty`; its FWU
+  trailer checksum and member-level diff were verified offline. It has not
+  been physically tested.
 
 ## Remaining work
 

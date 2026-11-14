@@ -75,14 +75,18 @@ işaretçisi olduğundan çağrı grafiği eksik.
 
 ### `.drv` dosyaları (düz haritalama)
 
-`drv_ui.drv` aynı `yqhx` başlığını taşır ama banka tablosu farklıdır (0x80 ve
-0x100'de `u16` listeleri, bank yükleme adresleri çözülemedi). Bu yüzden dosya
-düz haritalanıyor: adres = `0x30000000` + dosya ofseti, 0x200'den itibaren.
-PC-göreli literal yüklemeleri doğru çözülür; işaretçi üzerinden bankalar
-arası çağrılar çözülmez.
+`drv_ui.drv` aynı `yqhx` başlığını taşır ama banka tablosu farklıdır. `0x80`,
+`0x100` ve `0x180` bölgeleri, üç overlay grubunun byte-order `u16` başlangıç/
+bitiş çiftlerini taşır; grup dosya başlangıçları başlıktaki `0x48/0x4c/0x50`
+alanlarından gelir. Bu yapı artık `tools/inspect_drv.py` ile raporlanıyor.
+Bank yükleme adreslerinin M30 loader tarafındaki son eşlemesi yine çözülmediği
+için dosya düz haritalanıyor: adres = `0x30000000` + dosya ofseti,
+0x200'den itibaren. PC-göreli literal yüklemeleri doğru çözülür; işaretçi
+üzerinden bankalar arası çağrılar çözülmez.
 
 ```java
 // FlatLoad.java: Ghidra headless postScript. Arguments: file, base, startOffset.
+// The maintained copy is tools/ghidra/FlatLoad.java.
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.*;
 import ghidra.program.model.lang.Register;

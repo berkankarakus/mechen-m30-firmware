@@ -1,0 +1,264 @@
+# Kernel driver loader and UI bank addresses
+
+This note records the first resident/kernel-side evidence for the `yqhx`
+driver format. It is based on the extracted community image and cross-checked
+against the archived stock images. It does not claim a complete ATJ2127 boot
+emulation.
+
+## Stable image evidence
+
+`kernel.drv` and `drv_ui.drv` are byte-identical in all six locally archived
+images (`stock`, `v1.101.11`, `v1.101.12`, `v5`, `community`, and
+`first-pass-verify`). Their hashes are:
+
+```text
+kernel.drv  58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6
+drv_ui.drv  011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a
+```
+
+This means the loader observations below apply to the firmware versions we
+have been comparing, rather than to one community-only variant.
+
+## Resident addresses
+
+The firmware's `dec.bin` contains the fixed kernel-component address table.
+Two mappings are independently supported by code references:
+
+- `ker_init.bin` at `0xbfc32000`: its code forms pointers such as
+  `0xbfc32fac`, which land on the local data/string area in that segment.
+- `kernel.drv` at `0xbfc08000`: this is also the EBase value installed by the
+  kernel init routine (`FUN_bfc32224`).
+
+The headless Ghidra dumps used for these findings are generated outside the
+repository under `/private/tmp/m30-kernel.c` and `/private/tmp/m30-kerinit.c`.
+The raw input files in the repository remain unchanged.
+
+## Resident driver-loader behavior
+
+The two decompiled resident routines use the same three-segment `yqhx`
+contract but have separate driver-state tables. The host-side parser and
+load-plan model is now in `tools/emu/yqhx.py`; it intentionally stops at file
+copies and BSS zeroing rather than pretending to execute an unverified bank.
+
+### `FUN_bfc0a408`
+
+`kernel.drv`, loaded at `0xbfc08000`, contains the routine
+`FUN_bfc0a408` at `0xbfc0a408`. The decompilation shows this sequence:
+
+1. Select a per-driver slot from the group/mode argument.
+2. Open the requested file.
+3. Read `0x4c` bytes from its beginning.
+4. Require the four-byte magic at header offset `+0x04` to be `yqhx`.
+5. Iterate three `(file_offset, length, destination)` triples beginning at
+   header offset `+0x08`; zero-length entries are skipped.
+6. Clear the BSS described by the header fields at `+0x38` and `+0x3c`.
+7. Save the installed handle/state and invoke the driver entry callback using
+   the header's trailing entry fields.
+
+The routine is not itself the proof that every overlay bank is copied on every
+call. It does, however, establish that the UI driver header is consumed by a
+resident kernel loader and that the file is not simply executed at its flash
+file offset.
+
+The same decompilation contains a mode-dependent slot calculation: modes 6
+and 7 use a four-byte slot stride, while other modes use a twelve-byte stride.
+This is exposed as `slot_layout()` in `tools/emu/yqhx.py`; it is a structural
+constraint for the emulator, not a claim that every mode has been identified.
+
+### `FUN_bfc0a578`
+
+The neighboring loader reads `0x44` bytes, uses a separate resident table,
+parses the same three segment triples at `+0x08`, clears BSS using `+0x38` and
+`+0x3c`, and stores the installed state plus a separate `+0x240` value. It
+does not call the header's entry/context callback. The shorter read means its
+surrounding ABI is not identical to `FUN_bfc0a408`, even though the copy/BSS
+portion is compatible with the `yqhx` model. We therefore model the common
+header and keep the two resident dispatch tables separate until their callers
+are mapped. The executable host model is `tools/emu/driver_loader.py`.
+
+Both function boundaries are reproducible with:
+
+```sh
+bash tools/ghidra/run_kernel_loader_probe.sh analysis/community/fw/kernel.drv
+```
+
+## `ker_xsys` exception-vector evidence
+
+The extracted firmware's `fw.log` gives the fixed offsets and sizes of the
+kernel support members: `kernel.drv` at `0x2000..0x6c00`, `ker_text.bin` at
+`0x6c00..0x7800`, `ker_init.bin` at `0x7800..0x9000`, `ker_data.bin` at
+`0x9000..0x9200`, and `ker_xsys.bin` at `0x9200..0x9a00` in `FWIMAGE.FW`.
+
+Direct MIPS32 disassembly of `ker_xsys.bin` at its established runtime base
+`0xbfc34000` shows that the exception entry at `0xbfc34074` reads COP0 EPC,
+saves it at `0x13dd8`, saves the return address at `0x13ddc`, and jumps to
+the fixed address `0xbfc06d6c`. The neighboring entry at `0xbfc340a4` reads a
+byte at `0x9fc1a495`, indexes a four-byte table beginning at `0xbfc19974`,
+and compares the result with `SP & 0x3ffff` before selecting an alternate
+exception stack.
+
+This is relevant to far calls because it proves that an exception/dispatch
+path exists outside the extracted UI driver. It does **not** yet prove that
+the `0x3ffff` comparison performs bank loading: the same code can be an
+exception-stack guard, and the final `0xbfc06d6c` handler is in fixed ROM or
+another component not present in the extracted `.drv` members. The current
+emulator therefore keeps far entries lazy and unresolved. The multi-segment
+Ghidra mapping used for this check is reproducible with
+`tools/ghidra/MapSegments.java`.
+
+A byte-signature sweep across the extracted `FWIMAGE.FW`, `kernel.drv`,
+`NORHWSC.BIN`, `NORFWSC.BIN`, and all `ker_*.bin` members finds the exact
+`0xbfc06d6c` sequence only in `ker_xsys.bin` as a jump target; no extracted
+member contains the handler body. The reproducible probe is:
+
+```sh
+bash tools/ghidra/run_kernel_exception_probe.sh
+```
+
+For the present image, the safest interpretation is “firmware exception entry
+into an unavailable fixed handler”, not “a complete bank loader recovered”.
+
+## `drv_ui.drv` header and public bank formula
+
+For the M30 `drv_ui.drv` header, the group-start fields are:
+
+```text
+header + 0x48 = 0x00001600   A group file start
+header + 0x4c = 0x00006600   B group file start
+header + 0x50 = 0x00010600   C group file start
+```
+
+The public ATJ2127 SDK's `link_base.xn` and `ui_driver.xn` define the
+corresponding bank windows as:
+
+```text
+A bank 0: 0x16024c00, size 0x400
+B bank 0: 0x26025000, size 0x800
+C bank 0: 0x36021a00, size 0x400
+next bank: +0x40000
+```
+
+The M30 bank table has the same three groups and the same bank sizes. This
+makes the public formula a high-confidence runtime-address candidate for the
+M30 image, and it is now exposed by `tools/inspect_drv.py --runtime-base`.
+The final M30-specific proof still requires following the kernel's indirect
+bank-window lookup or observing a resident pointer at runtime; the tool keeps
+the label `public_runtime` to avoid silently presenting a candidate as a
+hardware observation.
+
+## Cross-version bank corpus check
+
+The six locally archived `drv_ui.drv` files (`stock`, `v1.101.11`,
+`v1.101.12`, `v5`, `community`, and `first-pass-verify`) are identical at
+the byte level: each is 75,264 bytes and exposes exactly 24 banks:
+
+```text
+A00-A09  B00-B09  C00-C03
+```
+
+None of those six images contains A19 or B16. The A19/B16-qualified pointers
+in the B3 literal pool are therefore not alternate copies hidden in another
+locally archived M30 UI driver. They remain external-provider or
+resident-dispatch candidates, which is why `LazyBankRuntime` records them but
+does not execute them.
+
+## Consequence for the marquee investigation
+
+The fourth B window begins at file offset `0x9680`; the static marquee routine
+starts at `0x9674`, immediately before that payload boundary. With B3 mapped
+at `0x260e5000`, the function begins at `0x260e4ff4` (the same 12-byte
+lead-in relationship). A full Ghidra remap of the B3 bytes decompiles this
+address cleanly and reproduces the expected behavior: it clears `0x7c`
+pixels, reads the two text records, applies the active width/offset state, and
+submits the resulting text rectangles.
+
+This is a strong static/runtime-address confirmation of the public bank
+formula and of the marquee candidate. It is still not a physical-device
+trace, so it should be used for emulation and call-edge work before any patch
+is built.
+
+The remap is reproducible with:
+
+```sh
+bash tools/ghidra/run_drvui_runtime_probe.sh
+```
+
+## B3 literal-pool call classification
+
+The runtime remap puts the B3 literal pool at `0x260e52a4`, corresponding to
+`drv_ui.drv` file offset `0x9924`. The important values are:
+
+| Pool address | Value | Current classification |
+|---|---:|---|
+| `0x260e52ac` | `0x164c90ed` | bank-qualified external UI entry; target bank bits identify A group 6, bank 19 |
+| `0x260e52b0` | `0xbfc09ce1` | resident UI entry near `bfc09ce0` |
+| `0x260e52bc` | `0xbfc09c01` | resident system-operation entry; the even-address disassembly is a trap/syscall stub, not the clear implementation itself |
+| `0x260e52c0` | `0xbfc0a8bd` | resident UI state setter at `FUN_bfc0a8bc` |
+| `0x260e52c4` | `0xbfc0a8c9` | resident UI state setter at `FUN_bfc0a8c8` |
+| `0x260e52dc` | `0x26089471` | bank-qualified external UI entry; target bank bits identify B group 6, bank 2 |
+| `0x260e52e0` | `0x260894e9` | second entry in the same B2-qualified region |
+| `0x260e52ec` | `0x26409401` | bank-qualified external UI entry; target bank bits identify B group 6, bank 16 |
+| `0x260e52f0` | `0x9fc0bf98` | resident RAM callback/state pointer |
+| `0x260e52f4` | `0x9fc0bf84` | resident RAM callback/state pointer |
+
+The resident targets were checked by remapping the `drv_ui` resident sections
+at `0xbfc09c00` and `0xbfc0a800`. The bank-qualified values have the expected
+Actions address encoding, but their low-offset entry/stub area is not the
+`0x25000` overlay window itself. They should therefore be modeled as lazy bank
+entries first; treating them as ordinary direct calls would skip the bank
+manager behavior that QEMU still lacks.
+
+The B3 call shapes narrow down the semantic roles without pretending that the
+M30 bank table is complete:
+
+| Pointer | B3 call shape | Strongest public-SDK match | Confidence |
+|---|---|---|---|
+| `0x164c90ed` | one display-mode argument | `fix_switch_fontlib` in A19 | high |
+| `0x164c9001` | descriptor, max width, result | `fixf_get_string_length` in A19 | high |
+| `0x26089471` | first one-argument Arabic/Hebrew transform | `arabic_uni_join` in B2 | medium |
+| `0x260894e9` | second one-argument Arabic/Hebrew transform | `arabic_ascii_turn` in B2 | medium |
+| `0x26409401` | descriptor, region, mode | `put_string_line_sdimage` in B16 | high |
+
+This is now represented by the host-only classifier in
+`tools/sim/ui_calls.py`. It deliberately returns no label for an unobserved
+pointer. The distinction matters: the M30 `drv_ui.drv` table currently ends at
+A09/B09/C03, so A19 and B16 are not proven to be payloads in this particular
+driver file. The public headers establish the signatures and the B3 call sites
+establish the argument shapes, but the resident/provider that services these
+far pointers remains to be mapped.
+
+There is one additional loader clue. All five observed far entries use the
+same `0x9000` logical prefix in their low offset. Subtracting that prefix gives
+the following candidate offset in the corresponding overlay window:
+
+```text
+0x164c9001 -> A19 + 0x001
+0x164c90ed -> A19 + 0x0ed
+0x26089471 -> B02 + 0x471
+0x260894e9 -> B02 + 0x4e9
+0x26409401 -> B16 + 0x401
+```
+
+The B02 `+0x471` candidate lands on valid MIPS16 code when the real B02
+payload is mapped at `0x260a5000`; Ghidra identifies it as a thunk into the
+bank body. This is stronger than a numeric coincidence, but it does not yet
+prove how the hardware or resident loader translates the `0x9000` prefix, so
+the host model exposes it as `payload_offset` and never executes the far
+pointer directly.
+
+The paired B02 `+0x4e9` candidate is a useful negative result. Under the same
+candidate mapping it lands at `drv_ui.drv` file offset `0x8b69`, inside the
+literal/data area following the nearby B02 code; Ghidra reports bad
+instruction data there. Therefore the second B3 call must not be emulated by
+blindly jumping to `B02 + 0x4e9`. It may use a different lazy-entry/stub
+translation, or the literal value may be an address into a provider not
+present in this M30 `drv_ui.drv`. The host model now preserves both the bank
+and candidate payload offset, while leaving code-entry validation separate.
+
+## Next investigation
+
+The remaining useful kernel-side target is the indirect bank-window lookup,
+not the already-understood resident driver installation path. We should map
+the low-offset stub area for the A19/B2/B16-qualified entries and connect each
+stub to the corresponding `drv_ui` bank or shared UI module. Until then, the
+host emulator and Ghidra p-code probes remain the safe test surface.

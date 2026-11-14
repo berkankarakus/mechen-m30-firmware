@@ -10,12 +10,12 @@
 
 ## Candidate
 
-`build/MECHEN_M30-community-v1.292-red-back.HEX`
+`build/MECHEN_M30-community-v1.292-red-ui-safe.HEX`
 
 SHA-256:
 
 ```text
-f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c
+59959053aac9ed8d58d4ac39129bd988bc92ca1b64d4dddcaf8b28bb32be091d
 ```
 
 This image is based on community V1.292.00:
@@ -26,8 +26,9 @@ This image is based on community V1.292.00:
 
 The candidate is based on community V1.292.00. It keeps the community's
 accepted metadata, CUE, M3U, long-list, ASRC, artwork, and manual-index
-changes. Our additions are limited to `mengine.ap`, `music.sty`, and
-`setting.sty`; `common.sty` is unchanged. See
+changes. Our additions are limited to `music.sty` and `setting.sty`;
+`mengine.ap` and `common.sty` are byte-identical to the community baseline.
+See
 [`community-integration.md`](community-integration.md) for the complete
 change map and remaining work.
 
@@ -36,8 +37,10 @@ change map and remaining work.
 - FWU trailer checksum: passed.
 - Resource size: unchanged.
 - Repacked FWU trailer checksum: passed.
-- Decrypted member comparison: exactly `mengine.ap`, `music.sty`, and
-  `setting.sty` differ from community V1.292.00.
+- Decrypted member comparison: exactly `music.sty` and `setting.sty` differ
+  from community V1.292.00.
+- `mengine.ap` is byte-identical to the community baseline; the unsafe
+  Previous experiment is not included.
 - No 24,000-track library patch included.
 - Stock rollback source: `MECHEN_M30.HEX`, SHA-256
   `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258`.
@@ -46,15 +49,14 @@ change map and remaining work.
 
 The following remain separate research items and are not silently presented as
 working features: the persistent play counter, additional EQ coefficient
-presets, asynchronous artwork decode, true gapless playback, and filename-based
-browser ordering. Automatic indexing also needs a fresh physical test on this
-combined image, especially for powered card insertion.
+presets, asynchronous artwork decode, true Previous-as-restart behavior, and
+filename-based browser ordering. Automatic indexing also needs a fresh
+physical test on this combined image, especially for powered card insertion.
 
-The clean-icon change is expected to remove the red rectangle around folder
-icons. It does not change the browser's text rectangle or marquee logic, so
-long-folder-name clipping still needs a physical check before it can be
-called fixed. Song-title scrolling is a useful control observation, not proof
-that folder-title scrolling uses the same layout path.
+The candidate changes only the default artwork, the four transport-icon
+colours, and the upgrade prompt. It does not change the browser's text
+rectangle or marquee logic, so long-folder-name clipping and its red rectangle
+still need a physical check before they can be called fixed.
 
 ## Install naming
 

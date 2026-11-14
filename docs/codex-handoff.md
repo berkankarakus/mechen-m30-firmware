@@ -163,9 +163,18 @@ Riskler ve doğrulanmamış varsayımlar:
   repo dışında).
 - Komut (Docker içinde):
   `$GHIDRA PROJE_DİZİNİ ad -import X.ap -loader BinaryLoader -processor "MIPS:LE:32:default" -noanalysis -scriptPath tools/ghidra -postScript LoadAP.java X.ap -postScript DumpC.java out.c`
-- `drv_ui.drv` (75 KB) aynı `yqhx` header'ına sahip ama banka tablosu farklı
-  (0x80 ve 0x100'de `u16` listeleri); `LoadAP.java` bunu eşleyemiyor ve
-  banka yükleme adresleri çözülmedi. Geçici çözüm: dosya düz haritalanıyor
+- `drv_ui.drv` (75 KB) aynı `yqhx` header'ına sahip ama banka tablosu farklı.
+  `0x80/0x100/0x180` bölgelerindeki byte-order `u16` başlangıç/bitiş çiftleri
+  artık `tools/inspect_drv.py` ile okunuyor; üç overlay grubunda 10 A, 10 B,
+  4 C bankası var. Kernel tarafındaki `FUN_bfc0a408` artık `kernel.drv`
+  (`0xbfc08000`) içinde decompile edildi: `yqhx` başlığını, üç yükleme
+  üçlüsünü ve BSS temizliğini tüketiyor. Public SDK `link_base.xn` de A/B/C
+  pencerelerini `0x16024c00/0x26025000/0x36021a00` + `0x40000` adımıyla
+  tanımlıyor. B3 bankası `0x260e5000` adresine remap edildiğinde statik
+  `FUN_30009674` fonksiyonu `0x260e4ff4` adresinde temizce decompile oluyor;
+  `0x7c` temizleme çağrısı ve iki kayıtlı metin yolu korunuyor. Bu güçlü bir
+  statik doğrulama, fakat fiziksel cihaz trace'i değil. Bu nedenle dosya hâlâ düz
+  haritalanıyor
   (adres = `0x30000000` + dosya ofseti, 0x200'den itibaren; script
   `FlatLoad.java`; kodu `docs/discovery-environment.md` içinde).
   Sonuç: 119 fonksiyon, dump
@@ -175,7 +184,9 @@ Riskler ve doğrulanmamış varsayımlar:
   Bilinen fonksiyonlar: `FUN_300007c4` (UTF-16 karakter sınıfı),
   `FUN_3000083c` (8-bit karakter sınıfı), `FUN_30008600` (çok satırlı
   `put_string`, hizalama hesabı). Liste (`ui_show_listbox`) ve kayan yazı
-  (`hori_scroll`/`scroll_string`) fonksiyonları henüz işaretlenmedi.
+  (`hori_scroll`/`scroll_string`) adımı `FUN_30009674` olarak işaretlendi;
+  indirect helper'ların M30 runtime adresleri henüz bağlanmadı. Ayrıntı:
+  `docs/findings-kernel-loader.md`.
 - `browser.ap` içindeki `0x34` (52) eşleşmeleri liste buffer'ı değil;
   `FUN_48654884` başlık metni biçimleyicisinin (`%d`/`%x`) 52 baytlık
   buffer'ı. Çizim bölgesi `0x140 - x` genişliğinde; yani ekran genişliği 320
@@ -191,7 +202,7 @@ yok.
 | # | İş | Bilinen ipucu | Sonraki keşif adımı |
 |---|---|---|---|
 | 1 | Uzun isim kayması / kesilmesi | **Doğrulandı (statik):** SDK'da `LIST_ITEM_BUFFER_LEN 52` bayt (`ref/PD196/case/inc/common_ui.h:32`); firmware'de 50 (`0x32`) bayt kullanılıyor: `browser.ap` `FUN_48754574` (`browser_community.c:5158`) ad uzunluğunu `0x32`, 7 slotun aralığını `0x32` yapıyor. Stock ve community aynı. Dizin modunda `FUN_71352820` adı çekirdek çağrısıyla `name_len>>1` = 25 UTF-16 birimi okuyor (görünür sınır ≈ 23-24 karakter; kesin sayı çekirdek çağrısı dump'ta olmadığı için doğrulanmadı). Kütüphane (MUSIC.LIB) modunda `FUN_714d2658` 48 bayt kopyalayıp 2 baytlık sonlandırıcı yazıyor (BOM + 23 karakter). Yani kesme `drv_ui`'nin 102 baytlık kayan yazı taramasından ÖNCE, 50 baytlık slotta oluyor. Çağıran `FUN_40cd4e00` (`gui_directory`) liste buffer'ını `0x40cd4c00` olarak veriyor (≈512 baytlık banka veri sayfası; hipotez), yerinde büyütmeye az yer var. Community kütüphane kopyalama fonksiyonunu yeniden yönlendirmiş: `browser.ap` `0x46cc` (3 bayt `e12641` → `59264d`), yeni fonksiyon 1240 bayt `0xec58`. Ayrıntı: `docs/findings-browser-names-sort.md` | 50 baytlık slotu büyütmenin yolunu bul: slot dizisi (7 × 50) RAM'de `0x9fc15598` civarı; komşu RAM boş mu, `FUN_40cd4e00`'ın `0x40cd4c00` sayfası nasıl ayrılıyor; alternatif: yalnızca kırpmayı değiştirmeden ilk 23 karakterden sonra sonekle kaydır (UI) |
-| 2 | Kırmızı/siyah dikdörtgen artefaktı | Referansta arka plan resimli seçili öğe `load_bgpic_sd()` ile SD'den arka plan resmini yükleyip `CHAR_FILL_SDIMAGE` ile kayıyor; `scroll_desc.back_id` yalnızca düz renk için saklanıyor ve kayma sınırı yalnızca 1 piksellik `clear_remain_pixel_sdimage()` ile temizleniyor. Bunlar kırmızı/siyah dikdörtgen ve eksik karakter için güçlü adaylar (M30 ikilisinde doğrulanmadı) | `drv_ui.drv` içinde `hori_scroll` ve `load_bgpic_sd` karşılığını bul; seçili öğe arka planı resim mi düz renk mi (`common.sty` listbox item `attrib`) kontrol et; fiziksel test gerekli |
+| 2 | Kırmızı/siyah dikdörtgen artefaktı | **Güçlü statik/runtime eşleşme:** M30 B3 `FUN_260e4ff4` marquee adımı; `0x7c` clear çağrısı, ölçülen genişliğe göre x düzeltmesi ve iki metin kaydı var. `bfc0a8bd/bfc0a8c9` resident UI yardımcıları doğrudan bağlandı. `0x26089471/0x260894e9/0x26409401` bank-qualified girişleri ise lazy bank stub adayı; doğrudan çağrı olarak emüle edilmemeli. `ker_xsys` EPC’yi `0xbfc06d6c` sabit handler’ına yönlendiriyor ve `0x3ffff` maskeli bir guard içeriyor, ancak bunun bank loader olduğu kanıtlanmadı. Referans `load_bgpic_sd()` + `CHAR_FILL_SDIMAGE` yolunda yalnızca 1 px tail restore ediyor. | A19/B2/B16 stub girişlerini ROM/kernel dispatcher ile eşleştir; seçili öğenin `common.sty` `attrib` alanını doğrula; fiziksel test gerekli |
 | 3 | Artwork oynatmayı geciktiriyor | **Statik bulgu (ajan, kısmen doğrulandı; ölçüm yok):** Motor `PLAY` mesajına ancak `SET_FILE`, `MEDIA_INFO`, `PLAY` bittikten sonra yanıt veriyor (`FUN_60090d64` → `FUN_600911b0` → `_play` `FUN_60190eec` → `FUN_60150fec`, `mmm_mp_cmd 0x19`); UI play mesajını paint döngüsünden ÖNCE gönderiyor. `mengine.ap` içinde artwork/APIC/ID3 kodu yok; `mmm_mp.al` ve `mmm_id.al` stock ile bayt bayt aynı. Community'nin 7 `mengine` bölgesi (248 bayt) artwork değil (durum işleyicisi ve tablo yükleyici). Gecikme UI iş parçacığında, yanıttan sonra: `FUN_4011508c` → `FUN_400951e4` → getid3 `FUN_401d51b8` → `FUN_781db200`; ardından `FUN_40154ddc` (paint) → `FUN_40154c00` → `FUN_480546e8` (`music_paint_albumart` karşılığı) → `FUN_4805447c` (ALBUM.PIC çizimi). `FUN_480546e8`'de SDK'daki `sys_os_time_dly(2)` bekleme döngüsü YOK: `mmm_id_cmd` decode bloklayıcı; sonuç `ALBUM.PIC` önbelleğine (RGB565, en çok 150×150) yazılıp okunuyor (stock'ta da var). APIC/FLAC PICTURE taraması sınırlı ve ucuz (`FUN_714127dc`, en çok 128 bayt, FFD8 arar; FLAC `FUN_714d284c`). Community CPU JPEG fallback'i yalnızca `mmm_id` başarısız olduğunda (durum `0xFF`) çalışıyor: `music.ap` `0xed50` (4 bayt dal) + `0xefa0-0xeff3` (84 bayt mağara) → `FUN_7111295e`; gövde `0x16550-0x168fb`, `0x20410-0x20ad7`, `0x2240c-0x239db`. Yani fallback başarısızlık yolunu yavaşlatır, başarılı yolu değil. Sesin başlamasını doğrudan geciktirmez; algılanan gecikme büyük olasılıkla UI'nin decode boyunca donması (tuş/ekran/süre 0:00'da takılı) ve olası CPU/SD çekişmesi (hipotez, ölçülmedi). Ayrıntı: `docs/findings-artwork-start.md` | Cihazda `FUN_480546e8` öncesi/sonrası süre ölç (ör. QEMU + SD imajı veya log); artwork decode'u UI'yı bloklamayacak şekilde bölmek için kod alanı ve `mmm_id_cmd` iptal/parçalama olanağını ara; ses yolunun etkilenip etkilenmediğini FS kilidi (`0x33/0x34` çiftleri) üzerinden ayır |
 | 4 | Dosya adına göre sıralama | **Doğrulandı (statik):** `browser.ap` içinde sıralama yok; dizin görünümü FAT disk sırasında. Sıralama yalnızca `playlist.ap` içinde (MUSIC.LIB): banka `0x71812500` (dosya `0xa400`), `FUN_71812874` hızlı sıralama üç karşılaştırmaya dağıtıyor: mod 2 `FUN_71812548` (bayt bayt, ASCII a-z'yi büyük harfe katlar, 100 bayt sınırı, sayısal işleme YOK), mod 0 `FUN_71812650` (önceki sıra), mod 1 `FUN_718126c0` (track baytı sonra sıra). Anahtar ID3 başlığı okunabiliyorsa o, yoksa 8.3 dosya adı (`FUN_40094f2c`, `FUN_40094d60`). Community: `0xa5ed` (3 bayt, `844082` → `a440a2`) iki işaretli yüklemeyi işaretsiz yapıyor (`FUN_718126c0`, unsigned track düzeltmesi, **doğrulandı**); `0x310c` (22 bayt) `FUN_40094fec` içinde ondalık track fallback; `0x8e2e-0x9381` banka `0x480d4400` içinde, Ghidra yanlış çözüyor, amacı bilinmiyor. Mod 2 karşılaştırması stock ile aynı. Dizin görünümünde sıralama yok: dosya adı sıralaması MUSIC.LIB görünümleriyle sınırlı kalır ya da yeni bir sıralama + indeks eşlemesi gerekir (muhtemelen yer yok). Ayrıntı: `docs/findings-browser-names-sort.md` | Klasör görünümü için FAT sırasını değiştirmeden sıralamanın mümkün olup olmadığına karar ver (kullanıcı: klasör içi dosya adı sırası isteniyor). Adaylar: kütüphane için `FUN_40094f2c` anahtarını dosya adına zorla ve mod 2 karşılaştırıcısının işaretçi literalini (`0x71812a88`) yeni doğal-sıralı karşılaştırıcıya çevir; boş yer adayları (bank kuyruğu, hepsi hipotez): `0x9382` (126 bayt), `0x3350` (176), `0x3b44` (188), `0xbb7c` (132), `0x12580` (128). Bank `0x71812500` içinde boş yer yok (sıfır kuyruğu çalışma alanı). Tie-refine `FUN_40114d54` uzun anahtarları yeniden okuyor, yeni karşılaştırıcıyla tutarlı kalmalı |
 | 5 | Dinleme sayacı | Önerilen tasarım `docs/community-integration.md` içinde (`M30PLAY.CNT`) | Stock'ta güvenilir yazma yolu ve yazma sınırı keşfedilmedi; bulunamazsa deneysel olarak belgele, yama yazma |
@@ -287,18 +298,15 @@ sınırlarıdır.
 
 ### `tools/sim/listbox.py`
 
-- `NAME_BUFFER_BYTES = 52` SDK'daki `LIST_ITEM_BUFFER_LEN` değeriyle (bayt)
-  uyuşuyor (`common_ui.h:32`), ama M30 `browser.ap` bu ad buffer'ını 50
-  (`0x32`) bayt olarak kuruyor (`FUN_48754574`), dizin modunda 25 UTF-16
-  birimi, kütüphane modunda BOM + 23 karakter okuyor. Model 52 baytı
-  firmware değeri sayıyor; doğru değer 50. Kesinti `drv_ui`'nin 102 baytlık
-  kayan yazı taramasından önce oluşuyor. Test
-  (`test_firmware_name_buffer_is_smaller_than_the_scroll_region`) bu
-  yanlış değere dayanıyor.
-- `scroll_window()` karakter hücresi başına bir adım ilerliyor; gerçek
-  sürücü piksel başına bir adım ilerliyor (`scroll_width += 1`, 80 ms).
-  Model hızı ve gap davranışını yansıtmıyor. Gap (2 boşluk) yalnızca ilk
-  102 baytta sonlandırıcı varsa ekleniyor; model her zaman ekliyor.
+- `NAME_BUFFER_BYTES = 50` olarak düzeltilmiştir. SDK'daki 52 baytlık
+  `LIST_ITEM_BUFFER_LEN` değerine rağmen M30 `browser.ap` bu ad buffer'ını
+  `0x32` bayt olarak kuruyor (`FUN_48754574`), kesinti `drv_ui`'nin 102 baytlık
+  kayan yazı taramasından önce oluşuyor.
+- Eski karakter hücresi modeli geriye dönük uyumluluk için duruyor. Yeni
+  `marquee_frame()` modeli ofseti piksel cinsinden ilerletiyor ve her frame'de
+  tüm viewport'un temizlenmesini zorunlu kılıyor; kırmızı/siyah kalıntı için
+  host regresyon testleri eklendi. Bu hâlâ vendor fontunu veya gerçek LCD
+  rasterizer'ını emüle etmiyor.
 - Kayan yazı sırasında ortalı yazının sola alınması (`scroll_string`),
   BOM atlama, resimli arka planın SD'den yeniden yüklenmesi ve yalnızca
   1 piksellik kenar temizleme modellenmiyor. Kullanıcının bildirdiği
@@ -405,11 +413,21 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 
 ## Bekleyen işler (bu belge yazılırken)
 
-- `build.sh --test` (Docker, stock HEX ile): çalıştırıldı, sonuç henüz yok.
+- `build.sh --test` (Docker, stock HEX ile): Docker/QEMU ortamı erişilebilir
+  olmadığından çalıştırılamadı; host tarafında `tools/sim` 32 ve `tools/emu`
+  22 test geçti. `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
+  lead-in ve lazy bank-stub olarak ayırıyor; `tools/sim/ui_calls.py` B3'teki
+  çağrıları temkinli biçimde etiketliyor; `tools/emu/driver_banks.py` ise
+  `drv_ui.drv` içindeki far-entry adaylarını payload konumuna çözüyor ama
+  doğrulanmamış adrese doğrudan kod gibi atlamıyor; `tools/emu/bank_runtime.py`
+  yükleme olayını ve doğrulanmış giriş filtresini host üzerinde izliyor.
+  indirekt UI çağrılarını SDK imzalarına göre yalnızca kanıt düzeyinde
+  etiketliyor.
 - Dinleme sayacı için güvenli yazma yolu ve yazma sınırı: incelenmedi.
 - Kayan yazı artefaktının (kırmızı/siyah dikdörtgen) M30 ikilisindeki
-  karşılığı (`hori_scroll`, `load_bgpic_sd`): `drv_ui.drv` içinde henüz
-  işaretlenmedi.
+  karşılığı (`hori_scroll`, `load_bgpic_sd`): `FUN_30009674` artık gerçek
+  marquee adımı olarak statik decompile ile işaretlendi; indirect helper
+  pointer'larının runtime çözümü ve fiziksel LCD doğrulaması bekliyor.
 - `[%s]` yer tutucusunun genişletildiği an ve aynı string'in başka
   ekranlarda kullanılıp kullanılmadığı: incelenmedi.
 - EQ: `FUN_601d0d58` indeks sınırı, `music.mcg`/`setting.mcg` menü düğümleri,
@@ -419,6 +437,32 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 - `usound`: SDK'da `APP_ID_UDISK` 0x12 iken bu firmware'in `manager.ap`
   tablosunda `udisk` 12 (`0xc`), `usound` 18 (`0x12`); kimlik=indeks eşlemesi
   hipotez.
+
+## Boot ROM inceleme hazırlığı
+
+ROM tarafı için `tools/rom/` altında yalnızca okuma yapan bir hazırlık akışı
+eklendi. `dump_bootrom.sh` varsayılan olarak kuru çalışır; `--execute`
+verilmediği sürece USB'ye bağlanmaz. Çalıştırılan gerçek akışta yalnızca
+RAM'e `adfus.bin` yüklenir ve `0x9fc00000..0x9fc3ffff` aralığı
+`read_mem2` ile okunur. `write_flash`, `read_lfi` ve NAND yazma komutları
+wrapper içinde bulunmaz. `inspect_bootrom.py` boyutu, SHA-256'yı ve ROM'daki
+`0x5f90` / `0x6d6c` aday handler ofsetlerini raporlar.
+
+macOS'ta libusb host istemcisi `/private/tmp/actions_dump` olarak derlendi ve
+kuru çalışma doğrulandı. Payload, geçici amd64 Fedora Docker konteynerinde
+MIPS32/MIPS16 ve little-endian seçenekleriyle yeniden üretildi:
+
+```text
+/private/tmp/m30-adfus-output.s59Bow/adfus.bin
+size:   1680 bytes
+sha256: 778bff42fa636343a4bf3bb61aaa30cdbb1db93e7a84dd5a542103a74ae01924
+ELF:    elf32-tradlittlemips, MIPS32, entry 0xbfc18000
+```
+
+Kaynak ve linker düzeni `/Users/berkankarakus/Projects/actions_flash/payload`
+altında duruyor. Bu payload cihaza gönderilmedi. USB taramasında da M30'un
+`10d6:1101` veya ADFU `10d6:10d6` kimliği görülmedi; dolayısıyla ROM okuma
+denemesi yapılmadı.
 
 ## Belge dizini
 
@@ -430,6 +474,9 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 | `docs/findings-browser-names-sort.md` | Liste ad buffer'ı (50 bayt) ve sıralama fonksiyonları |
 | `docs/findings-eq-usound.md` | EQ tabloları ve `usound` başlatma yolu |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
+| `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
+| `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
+| `tools/rom/README.md` | ATJ2127 Boot ROM dump hazırlığı ve doğrulama akışı |
 
 ## Değişmez kurallar
 

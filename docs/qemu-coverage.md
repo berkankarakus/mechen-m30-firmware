@@ -2,11 +2,52 @@
 
 ## What is emulated
 
-The current test setup uses QEMU's MIPS32 little-endian user-mode CPU runner.
-It loads real M30 `.ap` banks into freestanding test harnesses and replaces
-only the kernel/file-system/timer calls that each harness needs. This is much
-closer to executing the firmware code than a browser mockup, but it is not a
-complete M30 boot.
+The QEMU harness is prepared for QEMU's MIPS32 little-endian user-mode CPU
+runner. It loads real M30 `.ap` banks into freestanding test harnesses and
+replaces only the kernel/file-system/timer calls that each harness needs. On
+this macOS host the equivalent executable check currently runs through
+Ghidra's MIPS p-code emulator; neither path is a complete M30 boot.
+
+The first Ghidra-guided UI layer is now in `tools/emu/`.  It consumes the real
+`music.ap` bank table and verifies the audited shared marquee instruction at
+`0x40d55078`, consumes the real `music.sty` textbox records, and renders a
+320x240 host framebuffer plus a JSON UI-dispatch trace.  This gives us a
+repeatable target for the eventual QEMU host shim without presenting a static
+HTML mockup as firmware execution.  The renderer is deliberately labelled a
+host emulator: it does not claim to emulate the proprietary LCD or UI
+dispatcher.
+
+`tools/emu/prepare_qemu_banks.py` is the next bridge toward real bank
+execution. It extracts all 87 `music.ap` banks and emits exact-address
+assembly/linker inputs plus a manifest. The eventual user-mode harness will
+add only the dispatcher/timer/resource shims that the traced function reaches;
+it will not treat `qemu-system-mipsel -M malta` as an ATJ2127 machine.
+
+The isolated probe is reproducible with `bash tools/emu/run_qemu_probe.sh`. On a
+Linux host with MIPS binutils and `qemu-mipsel-static`, it links the real bank
+code and runs the cancel-event path. On this macOS host the probe ELF links
+successfully, but user-mode QEMU is not installed; `qemu-system-mipsel` cannot
+substitute for it because it has no Linux user-mode runner or ATJ2127 machine.
+
+As a working executable fallback, `bash tools/ghidra/run_scroll_probe.sh`
+executes the same real MIPS16 bank path in Ghidra 12.2's p-code emulator. The
+scroll probe passed at the isolated boundary (359 steps); this raises
+confidence in the call/return and state layout, but does not emulate the
+ATJ2127 peripherals.
+
+The decompiled function signature and first shim boundary are now confirmed:
+`FUN_40d54f2c(ushort event_or_style, int *scroll_state) -> short`. Its
+literal-pool targets include the UI dispatcher `0xbfc16405`, backlight/status
+helpers in `0x4845xxxx`, and the timer `0xbfc16bb1`. The host harness can now
+fail closed on an unexpected AP pointer instead of calling an unverified
+address.
+
+For the driver-side marquee path, `tools/sim/ui_calls.py` now adds a second
+fail-closed layer: the five observed B3 far pointers are labelled only when
+their call shape matches the public UI signature (`fix_switch_fontlib`,
+`fixf_get_string_length`, the two Arabic/Hebrew transforms, or
+`put_string_line_sdimage`). This improves the host trace without pretending
+that the missing ATJ2127 bank manager has been emulated.
 
 ## Latest results
 
@@ -20,6 +61,9 @@ complete M30 boot.
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |
 | Manual-index policy | host state model + static automatic-index guards | PASS |
 | Artwork audio-first contract | host state model | PASS |
+| Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
+| Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
+| Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
 diagnostic build with the experimental whole-card library enabled. It was not
