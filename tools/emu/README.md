@@ -55,6 +55,11 @@ bash tools/ghidra/run_kernel_bank_boundary_probe.sh \
   analysis/community/fw/kernel.drv
 ```
 
+Static references to the resident loader candidates can be checked with
+`tools/ghidra/run_kernel_loader_refs_probe.sh`; the current extracted image
+has zero direct references to all six targets, so their callers remain table
+or external-dispatch mediated.
+
 Run it with extracted firmware resources:
 
 ```sh

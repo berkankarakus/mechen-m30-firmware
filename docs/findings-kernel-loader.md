@@ -314,6 +314,18 @@ translation, or the literal value may be an address into a provider not
 present in this M30 `drv_ui.drv`. The host model now preserves both the bank
 and candidate payload offset, while leaving code-entry validation separate.
 
+As a separate cross-check, Ghidra's reference manager finds zero direct code
+or data references in `kernel.drv` to the six recovered loader/mask candidates
+(`FUN_bfc0a408`, `FUN_bfc0a578`, `FUN_bfc0a6a0`, `FUN_bfc0a808`,
+`FUN_bfc0a944`, and `FUN_bfc0ac98`). Their bodies are present, but calls are
+therefore likely reached through resident function tables, indirect pointers,
+or code outside this extracted image. The check is reproducible with:
+
+```sh
+bash tools/ghidra/run_kernel_loader_refs_probe.sh \
+  analysis/community/fw/kernel.drv
+```
+
 ## Next investigation
 
 The remaining useful kernel-side target is the indirect bank-window lookup,
