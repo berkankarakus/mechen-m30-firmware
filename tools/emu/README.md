@@ -39,7 +39,11 @@ deterministic:
 13. `tools/ghidra/run_drvui_pointer_probe.sh` maps the complete UI driver as
    a static MIPS16 corpus and reports each observed far-pointer literal with
    its containing Ghidra function when one is known.
-14. `bank_runtime.py` models lazy bank selection and load events. It only
+14. `tools/ghidra/run_drvui_b2_probe.sh` remaps the real B02 bank and checks
+    the paired `+0x471`/`+0x4e9` candidates: the former decompiles from the
+    aligned MIPS16 address while the latter terminates as bad instruction
+    data.
+15. `bank_runtime.py` models lazy bank selection and load events. It only
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called.
 

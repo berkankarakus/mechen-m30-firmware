@@ -279,10 +279,17 @@ the following candidate offset in the corresponding overlay window:
 
 The B02 `+0x471` candidate lands on valid MIPS16 code when the real B02
 payload is mapped at `0x260a5000`; Ghidra identifies it as a thunk into the
-bank body. This is stronger than a numeric coincidence, but it does not yet
-prove how the hardware or resident loader translates the `0x9000` prefix, so
-the host model exposes it as `payload_offset` and never executes the far
-pointer directly.
+bank body. The pointer's low MIPS16 bit means the decompiler entry is the
+aligned address `0x260a5470` (file offset `0x8af0`), while the host candidate
+retains payload offset `0x471` from the pointer value. This is stronger than a
+numeric coincidence, but it does not yet prove how the hardware or resident
+loader translates the `0x9000` prefix, so the host model exposes it as
+`payload_offset` and never executes the far pointer directly. The reproducible
+probe is:
+
+```sh
+bash tools/ghidra/run_drvui_b2_probe.sh analysis/community/fw/drv_ui.drv
+```
 
 The paired B02 `+0x4e9` candidate is a useful negative result. Under the same
 candidate mapping it lands at `drv_ui.drv` file offset `0x8b69`, inside the
