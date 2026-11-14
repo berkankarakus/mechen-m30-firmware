@@ -64,6 +64,15 @@ string or execute an unresolved candidate accidentally.
 `test_real_drv_ui.py` repeats the critical B02/A19/B16 assertions against the
 archived community `drv_ui.drv`, in addition to the synthetic unit fixtures.
 
+The complete read-only validation suite is:
+
+```sh
+bash tools/emu/run_static_suite.sh
+```
+
+Use `--host-only` when Ghidra/MIPS binutils are unavailable; the default mode
+also runs the real driver, kernel, exception, and MIPS16 scroll probes.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh
