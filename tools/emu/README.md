@@ -166,8 +166,8 @@ CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
 If user-mode QEMU is unavailable, the script still produces `qemu_probe.elf`
 and exits with a clear not-executed status.
 
-The B3 import-selector cross-check is read-only and uses MIPS binutils for a
-second decoder view of the Ghidra mapping:
+The B3 import-selector cross-check is read-only and compares MIPS binutils with
+Ghidra's mapped instruction list:
 
 ```sh
 bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv

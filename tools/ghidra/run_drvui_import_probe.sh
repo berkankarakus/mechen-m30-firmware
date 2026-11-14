@@ -6,13 +6,39 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DRIVER=${1:-$ROOT/analysis/community/fw/drv_ui.drv}
+GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
+JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
 
 [ -f "$DRIVER" ] || { echo "missing driver: $DRIVER" >&2; exit 1; }
+[ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 
 PYTHONPATH="$ROOT/tools/emu${PYTHONPATH:+:$PYTHONPATH}" \
   python3 "$ROOT/tools/emu/scan_mips16_imports.py" \
   "$DRIVER" \
   --require-selector 15 \
   --require-selector 17
+
+WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-import.XXXXXX")
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/project"
+
+set +e
+JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
+GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+  "$GHIDRA" "$WORK/project" m30imports \
+  -import "$DRIVER" \
+  -loader BinaryLoader \
+  -processor 'MIPS:LE:32:default' \
+  -noanalysis \
+  -scriptPath "$ROOT/tools/ghidra" \
+  -postScript FlatLoad.java "$DRIVER" 0x260db980 0x9674 0x80c \
+  -postScript FindMips16Imports.java 0x260e4ff4 0x260e5800 15,17 \
+  2>&1 | tee "$WORK/ghidra.log"
+STATUS=${PIPESTATUS[0]}
+set -e
+[ "$STATUS" -eq 0 ] || exit "$STATUS"
+grep -q 'MIPS16_IMPORT_SUMMARY calls=5' "$WORK/ghidra.log"
+grep -q 'MIPS16_IMPORT_TOTAL selector=0xf count=1' "$WORK/ghidra.log"
+grep -q 'MIPS16_IMPORT_TOTAL selector=0x11 count=1' "$WORK/ghidra.log"
 
 echo 'DRV_UI IMPORT PASS selectors=15,17'
