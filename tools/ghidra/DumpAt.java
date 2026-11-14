@@ -20,6 +20,11 @@ public class DumpAt extends GhidraScript {
                 Address address = currentProgram.getAddressFactory().getDefaultAddressSpace()
                     .getAddress(Long.decode(text));
                 Function function = getFunctionAt(address);
+                boolean contained = false;
+                if (function == null) {
+                    function = getFunctionContaining(address);
+                    contained = function != null;
+                }
                 if (function == null) {
                     disassemble(address);
                     function = createFunction(address, null);
@@ -39,7 +44,9 @@ public class DumpAt extends GhidraScript {
                     println("// ===== " + function.getName() + " @ " + address);
                     println(body);
                 }
-                println("DumpAt: " + address + " -> " + function.getName());
+                String relation = contained ? " (containing)" : "";
+                println("DumpAt: " + address + " -> " + function.getName() + relation
+                    + " @ " + function.getEntryPoint());
             }
         } finally {
             if (writer != null) writer.close();
