@@ -209,3 +209,11 @@ bash tools/ghidra/run_scroll_probe.sh \
 ```
 
 The probe asserts the active/previous slot bytes and status after each event.
+
+## Folder-list acceleration model
+
+`scroll_accel.py` mirrors the existing `tools/scroll/accel.c` candidate in
+the host emulator. It covers the burst gears, direction/pause reset, list
+boundaries, and the mode-4/update-2 page-reload contract. It is a model only:
+it does not patch an AP or claim that the physical wheel/key event rate has
+been measured.
