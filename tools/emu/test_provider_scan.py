@@ -1,9 +1,13 @@
+import contextlib
+import io
 import struct
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from provider_scan import scan_driver_directory, scan_file, scan_tree
+from provider_scan import main, scan_driver_directory, scan_file, scan_tree
 
 
 class ProviderScanTests(unittest.TestCase):
@@ -48,6 +52,23 @@ class ProviderScanTests(unittest.TestCase):
             path.write_bytes(b"x" + struct.pack("<I", pointer))
             result = scan_tree(root, (pointer,))
         self.assertEqual([item.offset for item in result[pointer]], [1])
+
+    def test_cli_require_zero_rejects_a_present_pointer(self) -> None:
+        pointer = 0xBFC06D6C
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "ker_xsys.bin").write_bytes(struct.pack("<I", pointer))
+            argv = [
+                "provider_scan.py",
+                str(root),
+                "--all-files",
+                "--pointer",
+                hex(pointer),
+                "--require-zero",
+            ]
+            with patch.object(sys, "argv", argv):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(main(), 1)
 
 
 if __name__ == "__main__":

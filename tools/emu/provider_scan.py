@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import struct
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -87,6 +88,11 @@ def main() -> int:
         dest="pointers",
         help="additional custom 32-bit pointer to scan; repeat for multiple values",
     )
+    parser.add_argument(
+        "--require-zero",
+        action="store_true",
+        help="fail if any requested pointer occurs in the scanned files",
+    )
     args = parser.parse_args()
     pointers = tuple(args.pointers) if args.pointers else tuple(OBSERVED_POINTERS)
     result = (
@@ -105,6 +111,15 @@ def main() -> int:
         print(json.dumps(payload, indent=2))
         return 0
     labels = {pointer: OBSERVED_POINTERS.get(pointer, "custom pointer") for pointer in pointers}
+    if args.require_zero:
+        nonzero = [pointer for pointer in pointers if result.get(pointer)]
+        if nonzero:
+            print(
+                "unexpected provider occurrences: "
+                + ", ".join(f"0x{pointer:08x}" for pointer in nonzero),
+                file=sys.stderr,
+            )
+            return 1
     for pointer, label in labels.items():
         occurrences = result.get(pointer, ())
         print(f"0x{pointer:08x} {label}: {len(occurrences)} occurrence(s)")

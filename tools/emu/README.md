@@ -102,7 +102,8 @@ PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
 Repeatable `--pointer 0x...` arguments allow the same tool to scan a custom
 provenance set. Scanning the six resident loader addresses plus
 `0xbfc06d6c` currently finds zero raw little-endian occurrences anywhere in
-the extracted tree.
+the extracted tree. `--require-zero` turns that negative result into a failing
+guard if a future extracted image contains any of those pointers.
 
 Run it with extracted firmware resources:
 

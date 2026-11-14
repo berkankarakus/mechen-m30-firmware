@@ -20,6 +20,11 @@ python3 -m unittest discover -s "$ROOT/tools/sim" -p 'test_*.py'
 python3 -m unittest discover -s "$ROOT/tools/emu" -p 'test_*.py'
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
   --all-files "$FW" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
+  --all-files "$FW" --require-zero \
+  --pointer 0xbfc0a408 --pointer 0xbfc0a578 --pointer 0xbfc0a6a0 \
+  --pointer 0xbfc0a808 --pointer 0xbfc0a944 --pointer 0xbfc0ac98 \
+  --pointer 0xbfc06d6c >/dev/null
 
 if [ "$HOST_ONLY" -eq 1 ]; then
   echo 'STATIC SUITE PASS host-only'
