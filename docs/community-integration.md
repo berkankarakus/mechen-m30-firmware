@@ -109,8 +109,11 @@ FWIMAGE members:
 2. Check boot, playback, next/previous, volume, and screen-off controls.
 3. Confirm Previous always restarts the current song.
 4. Test the four red transport icons against the red default artwork.
-5. Test cold boot, powered card insertion, and manual playlist update to see
-   whether automatic indexing is actually suppressed on this unit.
+5. Cold-boot and manual-update tests remain. On 2026-11-15, the untouched
+   community V1.292.00 image was successfully flashed, but removing and
+   reinserting the card while powered still started indexing. The card-event
+   trigger is therefore not covered by the two known guard sites, or it uses a
+   separate builder-start path; see [`findings-index-guards.md`](findings-index-guards.md).
 6. Test an Audacity fade-out and a CUE/M3U sample set.
 
 ### Play counter

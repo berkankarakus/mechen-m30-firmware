@@ -45,3 +45,15 @@ image:
 `/Users/berkankarakus/Projects/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX`
 
 with the stock image retained offline for rollback.
+
+## Physical result on this M30
+
+User-reported test on 2026-11-15: the untouched community V1.292.00 image was
+flashed successfully, and removing/reinserting the card while the device was
+running started indexing again.
+
+This is now a device observation, not a static inference. It shows that the
+two community guard sites do not cover this powered card-insertion trigger on
+the tested unit, or that a separate card-event path starts the builder. It
+does not invalidate the decompiled meaning of the two guard sites; it narrows
+the remaining work to the card-event/startup call chain.
