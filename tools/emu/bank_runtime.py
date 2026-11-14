@@ -24,6 +24,7 @@ class BankLoad:
 class DispatchResult:
     pointer: int
     status: str
+    dispatch_policy: str
     candidate: FarEntryCandidate | None
     loaded: bool
 
@@ -54,9 +55,21 @@ class LazyBankRuntime:
     def dispatch(self, pointer: int) -> DispatchResult:
         candidate = self.driver.resolve_far_candidate(pointer)
         if candidate is None:
-            return DispatchResult(pointer & 0xFFFFFFFF, "resident-or-unresolved", None, False)
+            return DispatchResult(
+                pointer & 0xFFFFFFFF,
+                "resident-or-unresolved",
+                "resident-or-unresolved",
+                None,
+                False,
+            )
         if not candidate.bank_present:
-            return DispatchResult(candidate.pointer, "bank-missing-or-external", candidate, False)
+            return DispatchResult(
+                candidate.pointer,
+                "bank-missing-or-external",
+                "lazy-only",
+                candidate,
+                False,
+            )
 
         # Validation is keyed by the actual aligned MIPS16 entry, while the
         # candidate keeps the raw odd pointer offset for provenance.
@@ -77,5 +90,17 @@ class LazyBankRuntime:
             )
 
         if key not in self.validated_entries:
-            return DispatchResult(candidate.pointer, "bank-loaded-entry-unresolved", candidate, loaded)
-        return DispatchResult(candidate.pointer, "validated-entry", candidate, loaded)
+            return DispatchResult(
+                candidate.pointer,
+                "bank-loaded-entry-unresolved",
+                "never-direct-call",
+                candidate,
+                loaded,
+            )
+        return DispatchResult(
+            candidate.pointer,
+            "validated-entry",
+            "lazy-load-then-call",
+            candidate,
+            loaded,
+        )

@@ -57,6 +57,10 @@ model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
 `never-direct-call`, and A19/B16 candidates remain `lazy-only` because their
 providers are absent from the extracted M30 driver.
 
+`LazyBankRuntime.dispatch()` exposes the same policy in every
+`DispatchResult`, so callers do not have to infer safety from the status
+string or execute an unresolved candidate accidentally.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh

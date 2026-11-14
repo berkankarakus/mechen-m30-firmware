@@ -32,6 +32,7 @@ class LazyBankRuntimeTests(unittest.TestCase):
         first = runtime.dispatch(0x26089471)
         second = runtime.dispatch(0x26089471)
         self.assertEqual(first.status, "validated-entry")
+        self.assertEqual(first.dispatch_policy, "lazy-load-then-call")
         self.assertTrue(first.loaded)
         self.assertFalse(second.loaded)
         self.assertEqual(len(runtime.loads), 1)
@@ -44,6 +45,7 @@ class LazyBankRuntimeTests(unittest.TestCase):
         runtime = self.runtime()
         result = runtime.dispatch(0x260894E9)
         self.assertEqual(result.status, "bank-loaded-entry-unresolved")
+        self.assertEqual(result.dispatch_policy, "never-direct-call")
         self.assertTrue(result.loaded)
         self.assertEqual(len(runtime.loads), 1)
 
@@ -51,12 +53,14 @@ class LazyBankRuntimeTests(unittest.TestCase):
         runtime = self.runtime()
         result = runtime.dispatch(0xBFC09C01)
         self.assertEqual(result.status, "resident-or-unresolved")
+        self.assertEqual(result.dispatch_policy, "resident-or-unresolved")
         self.assertFalse(runtime.loads)
 
     def test_missing_bank_is_recorded_without_loading(self):
         runtime = self.runtime()
         result = runtime.dispatch(0x26409401)
         self.assertEqual(result.status, "bank-missing-or-external")
+        self.assertEqual(result.dispatch_policy, "lazy-only")
         self.assertIsNotNone(result.candidate)
         assert result.candidate is not None
         self.assertFalse(result.candidate.bank_present)
