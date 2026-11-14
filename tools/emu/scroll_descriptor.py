@@ -20,7 +20,8 @@ EVENT_EXIT = 0x2905
 EVENT_CANCEL = 0x2906
 
 STATUS_IDLE = 0
-STATUS_REDRAW = 2
+STATUS_REDRAW = 1
+STATUS_SELECTION = 2
 STATUS_INITIAL = 3
 
 
@@ -85,12 +86,12 @@ class ScrollContext:
     def apply_event(self, event: int) -> int:
         if event == EVENT_NEXT:
             self.state.select_next()
-            self.status = STATUS_REDRAW
-            return STATUS_REDRAW
+            self.status = STATUS_SELECTION
+            return STATUS_SELECTION
         if event == EVENT_PREV:
             self.state.select_previous()
-            self.status = STATUS_REDRAW
-            return STATUS_REDRAW
+            self.status = STATUS_SELECTION
+            return STATUS_SELECTION
         if event == EVENT_REDRAW:
             self.status = STATUS_REDRAW
             return STATUS_REDRAW
