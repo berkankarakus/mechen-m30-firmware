@@ -283,6 +283,75 @@ def draw_text(fb: Framebuffer, text: str, x: int, y: int, color: tuple[int, int,
                             fb.pixel(px, py, color)
 
 
+MARQUEE_GAP_PX = 12
+
+
+def text_pixel_width(text: str, scale: int = 1) -> int:
+    """Return the host model's fixed-cell width for one string.
+
+    The proprietary font is not available to the emulator.  Keeping this
+    measurement in one place still lets the renderer exercise the important
+    contract: the scroll viewport is measured in pixels, not characters.
+    """
+    if scale <= 0:
+        raise ValueError("scale must be positive")
+    return len(text.upper()) * 6 * scale
+
+
+def marquee_positions(
+    text: str,
+    offset: int,
+    viewport_width: int,
+    *,
+    scale: int = 1,
+    gap_px: int = MARQUEE_GAP_PX,
+) -> tuple[int, ...]:
+    """Return relative x positions for the visible copies of a marquee.
+
+    A long string is repeated with a fixed gap, matching the verified
+    two-space wrap in the firmware at the host model's six-pixel glyph width.
+    Short strings remain stationary even when a later frame carries a shared
+    scroll offset.  Positions are relative to the viewport's left edge and
+    may be negative when a copy is leaving the viewport.
+    """
+    if viewport_width <= 0:
+        raise ValueError("viewport_width must be positive")
+    if gap_px < 0:
+        raise ValueError("gap_px must be non-negative")
+    width = text_pixel_width(text, scale)
+    if not text or width <= viewport_width:
+        return (0,) if text else ()
+
+    cycle = width + gap_px
+    normalized = offset % cycle
+    positions: list[int] = []
+    position = -normalized
+    while position < viewport_width:
+        if position + width > 0:
+            positions.append(position)
+        position += cycle
+    return tuple(positions)
+
+
+def draw_marquee(
+    fb: Framebuffer,
+    text: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    color: tuple[int, int, int],
+    *,
+    offset: int = 0,
+    scale: int = 1,
+    gap_px: int = MARQUEE_GAP_PX,
+) -> None:
+    """Draw a clipped, repeating text stream for one metadata viewport."""
+    clip = (x, y, width, height)
+    for relative_x in marquee_positions(text, offset, width, scale=scale, gap_px=gap_px):
+        draw_text(fb, text, x + relative_x, y, color, scale, clip)
+
+
 @dataclass
 class NowPlaying:
     style: MusicStyle
@@ -345,9 +414,21 @@ class NowPlaying:
         for box, label, value in zip(boxes, labels, values):
             color = self.style.color(box)
             draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, box.width, box.height))
-            # Keep the value inside the exact M30 clipping rectangle.  The
-            # offset models the shared renderer's horizontal pass.
-            draw_text(fb, value, box.x + 42 - self.scroll_offset, box.y + 9, color, 1, (box.x, box.y, box.width, box.height))
+            # Keep the value inside its own viewport.  The offset models the
+            # shared renderer's horizontal pass and repeats long text with
+            # the same bounded gap used by the host listbox model.
+            value_x = box.x + 42
+            value_width = box.width - 42
+            draw_marquee(
+                fb,
+                value,
+                value_x,
+                box.y + 9,
+                value_width,
+                box.height,
+                color,
+                offset=self.scroll_offset,
+            )
             fb.rect(box.x, box.y + box.height - 1, box.width, 1, dim)
         # Transport/progress area: geometry is from the actual resource, not
         # the HTML mockup.  It is intentionally schematic until picbox image

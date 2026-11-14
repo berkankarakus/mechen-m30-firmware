@@ -2,7 +2,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from m30_ui import MAIN_PAINT_STYLE, FirmwareTrace, MusicStyle, NowPlaying
+from m30_ui import (
+    MAIN_PAINT_STYLE,
+    FirmwareTrace,
+    MusicStyle,
+    NowPlaying,
+    marquee_positions,
+    text_pixel_width,
+)
 
 
 ROOT = Path(__file__).parents[2]
@@ -48,6 +55,26 @@ class M30UiTests(unittest.TestCase):
             ui.render().ppm(out)
             self.assertEqual(out.read_bytes()[:15], b"P6\n320 240\n255\n")
             self.assertEqual(len(out.read_bytes()), 15 + 320 * 240 * 3)
+
+    def test_marquee_uses_pixel_positions_and_gap(self):
+        self.assertEqual(text_pixel_width("AB", 1), 12)
+        self.assertEqual(marquee_positions("AB", 99, 40), (0,))
+        positions = marquee_positions("ABCDEFGHIJK", 10, 30)
+        self.assertEqual(positions[0], -10)
+        self.assertGreaterEqual(len(positions), 1)
+
+    def test_marquee_does_not_leak_into_field_label(self):
+        ui = NowPlaying(
+            MusicStyle.load(STY),
+            FirmwareTrace.load(AP),
+            title="A VERY LONG TITLE THAT MUST WRAP",
+            scroll_offset=17,
+        )
+        frame = ui.render()
+        # The first metadata label begins at x=190.  The value viewport starts
+        # 42 pixels later; pixels before it must remain the label/background.
+        label_pixel = frame.pixels[(40 * 320 + 190) * 3 : (40 * 320 + 190) * 3 + 3]
+        self.assertEqual(label_pixel, bytes((255, 24, 32)))
 
 
 if __name__ == "__main__":
