@@ -40,6 +40,15 @@ class ProviderScanTests(unittest.TestCase):
         self.assertEqual(len(result[pointer]), 1)
         self.assertEqual(result[pointer][0].path, str(path))
 
+    def test_custom_pointer_set_is_supported(self) -> None:
+        pointer = 0xBFC06D6C
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "ker_xsys.bin"
+            path.write_bytes(b"x" + struct.pack("<I", pointer))
+            result = scan_tree(root, (pointer,))
+        self.assertEqual([item.offset for item in result[pointer]], [1])
+
 
 if __name__ == "__main__":
     unittest.main()

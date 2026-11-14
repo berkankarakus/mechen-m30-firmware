@@ -49,20 +49,24 @@ def scan_file(path: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)) 
     return result
 
 
-def scan_driver_directory(root: Path) -> dict[int, tuple[Occurrence, ...]]:
+def scan_driver_directory(
+    root: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)
+) -> dict[int, tuple[Occurrence, ...]]:
     merged: dict[int, list[Occurrence]] = {}
     for path in sorted(root.glob("*.drv")):
-        for pointer, occurrences in scan_file(path).items():
+        for pointer, occurrences in scan_file(path, pointers).items():
             merged.setdefault(pointer, []).extend(occurrences)
     return {pointer: tuple(items) for pointer, items in merged.items()}
 
 
-def scan_tree(root: Path) -> dict[int, tuple[Occurrence, ...]]:
+def scan_tree(
+    root: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)
+) -> dict[int, tuple[Occurrence, ...]]:
     """Scan every regular extracted firmware member below ``root``."""
 
     merged: dict[int, list[Occurrence]] = {}
     for path in sorted(item for item in root.rglob("*") if item.is_file()):
-        for pointer, occurrences in scan_file(path).items():
+        for pointer, occurrences in scan_file(path, pointers).items():
             merged.setdefault(pointer, []).extend(occurrences)
     return {pointer: tuple(items) for pointer, items in merged.items()}
 
@@ -76,19 +80,32 @@ def main() -> int:
         action="store_true",
         help="scan every regular file below root instead of only top-level .drv files",
     )
+    parser.add_argument(
+        "--pointer",
+        action="append",
+        type=lambda value: int(value, 0),
+        dest="pointers",
+        help="additional custom 32-bit pointer to scan; repeat for multiple values",
+    )
     args = parser.parse_args()
-    result = scan_tree(args.root) if args.all_files else scan_driver_directory(args.root)
+    pointers = tuple(args.pointers) if args.pointers else tuple(OBSERVED_POINTERS)
+    result = (
+        scan_tree(args.root, pointers)
+        if args.all_files
+        else scan_driver_directory(args.root, pointers)
+    )
     if args.as_json:
         payload = {
             f"0x{pointer:08x}": {
-                "label": OBSERVED_POINTERS[pointer],
+                "label": OBSERVED_POINTERS.get(pointer, "custom pointer"),
                 "occurrences": [asdict(item) for item in occurrences],
             }
             for pointer, occurrences in result.items()
         }
         print(json.dumps(payload, indent=2))
         return 0
-    for pointer, label in OBSERVED_POINTERS.items():
+    labels = {pointer: OBSERVED_POINTERS.get(pointer, "custom pointer") for pointer in pointers}
+    for pointer, label in labels.items():
         occurrences = result.get(pointer, ())
         print(f"0x{pointer:08x} {label}: {len(occurrences)} occurrence(s)")
         for item in occurrences:

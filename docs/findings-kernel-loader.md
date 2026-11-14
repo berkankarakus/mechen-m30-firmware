@@ -186,6 +186,13 @@ PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
   --all-files analysis/community/fw
 ```
 
+The raw-byte scan was also rerun for the six resident loader/mask addresses
+and the `0xbfc06d6c` exception target across every extracted member. All seven
+values have zero little-endian occurrences in the local tree. This agrees
+with the Ghidra reference result and further narrows the missing call path to
+indirect runtime tables or fixed ROM rather than an overlooked extracted
+literal.
+
 The resident `kernel.drv` was also scanned at its established `0xbfc08000`
 base for constants relevant to the proposed far-pointer translation. It
 contains no literal `0x00009000` prefix and no literal `0x00025000` B-window
