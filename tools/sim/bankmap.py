@@ -40,6 +40,18 @@ class BankAddress:
             return None
         return self.payload_offset & ~1
 
+    @property
+    def candidate_runtime_entry(self) -> int | None:
+        """Return the public-formula runtime address for a validated candidate.
+
+        This is an address-model result, not a hardware observation. Callers
+        must still require an explicit entry validation before executing it.
+        """
+
+        if self.window_start is None or self.entry_offset is None:
+            return None
+        return self.window_start + self.entry_offset
+
 
 def decode(address: int, *, ui_group: int = 6, lead_in_bytes: int = 0x0C) -> BankAddress:
     """Classify an Actions runtime pointer without dereferencing it."""

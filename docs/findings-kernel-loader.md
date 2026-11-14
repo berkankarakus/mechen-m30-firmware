@@ -549,6 +549,11 @@ by the host emulator. The provider bank and dispatcher behavior still need a
 runtime observation or an extracted resident implementation before execution
 is enabled.
 
+The host address model exposes these three derived addresses as
+`candidate_runtime_entry`; it deliberately keeps the field separate from an
+executable function pointer. This preserves the useful Ghidra/public-window
+mapping while keeping unresolved bank dispatch fail-closed.
+
 The reproducible probe is:
 
 ```sh
