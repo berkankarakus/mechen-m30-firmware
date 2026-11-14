@@ -121,6 +121,7 @@ The script writes `build/MECHEN_M30.HEX` and keeps intermediate files in `build/
 The script takes these options:
 
 - `--test`: runs the QEMU tests. They take a few minutes.
+- `--ui-emu`: after verification, renders a deterministic now-playing framebuffer and JSON UI trace under `OUTDIR/ui-emulator/` from the real extracted `music.ap` and `music.sty`.
 - `--no-playall`: leaves out shuffle-all mode.
 - `--no-keys`: leaves out the screen-off buttons patch.
 
@@ -197,6 +198,7 @@ The repository contains these files and folders:
 | `tools/scroll/` | Scroll acceleration (`accel.c`, `tramp.S`), the app patcher, and the harness. |
 | `tools/keys/` | Screen-off buttons (`keypass.S`), the app patcher, and the harness. |
 | `tools/library/` | Whole-card library: the file-backed index passes (`index.c`), their loader (`loader.c`), the app patcher (`patch_library.py`), the QEMU harness that runs the stock or the new passes (`harness.c`, `testbanks.py`, `test.sh`), a Python model of the new passes (`libmodel.py`), a synthetic library generator (`mklib.py`), and library comparison tools (`libdiff.py`, `libgroups.py`). See `docs/library-builder.md`. |
+| `tools/emu/` | Ghidra-guided host framebuffer and UI-dispatch trace for the real `music.ap`/`music.sty` now-playing path. It is the first layer of the hybrid emulator; it is not a full ATJ2127 boot. |
 | `tools/sim/` | Host-side contracts and the register-level ATJ2127 peripheral model used by emulator harnesses. |
 | `tools/patch_mengine.py` | Applies the shuffle fix and shuffle-all code to `mengine.ap`. |
 | `tools/bps.py` | Creates and applies the BPS patches that releases use. |

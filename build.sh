@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Build patched MECHEN M30 firmware from the official 2025-06-26 MECHEN_M30.HEX.
 #
-# usage: ./build.sh [--test] [--no-playall] [--no-keys] [--library] STOCK_MECHEN_M30.HEX [OUTDIR]
+# usage: ./build.sh [--test] [--ui-emu] [--no-playall] [--no-keys] [--library] STOCK_MECHEN_M30.HEX [OUTDIR]
 #   --test        also run the QEMU harnesses (shuffle, shuffle all, scroll, keys, library)
+#   --ui-emu      render a Ghidra-guided now-playing framebuffer and UI trace under OUTDIR/ui-emulator
 #   --no-playall  leave out shuffle-all mode
 #   --no-keys     leave out the screen-off media keys
 #   --library     opt in to the experimental whole-card library (up to 24,000 songs)
@@ -17,10 +18,11 @@
 #   CROSS=mips64-linux-gnu-   ATJBOOTTOOL=atjboottool   QEMU=qemu-mipsel-static   PYTHON=python3
 set -euo pipefail
 
-TEST=0 PLAYALL=1 KEYS=1 LIBRARY=0 LIB_MAX=24000 LIB_SRC=index.c LIB_PREALLOC= LIB_DEFS=
+TEST=0 UIEMU=0 PLAYALL=1 KEYS=1 LIBRARY=0 LIB_MAX=24000 LIB_SRC=index.c LIB_PREALLOC= LIB_DEFS=
 while [ $# -gt 0 ]; do
   case $1 in
     --test) TEST=1; shift ;;
+    --ui-emu) UIEMU=1; shift ;;
     --no-playall) PLAYALL=0; shift ;;
     --no-keys) KEYS=0; shift ;;
     --library) LIBRARY=1; shift ;;
@@ -166,6 +168,17 @@ changed=$(for f in "$F"/*; do b=$(basename "$f"); cmp -s "$f" "$W/verify/fw/$b" 
 echo "   files changed from stock: $changed"
 [ "$changed" = "$(printf '%s\n' $PATCHED | sort | tr '\n' ' ')" ] || { echo "   unexpected set of changed files"; exit 1; }
 "$PY" -I "$T/refscan.py" mengine.ap 0x7300:0x7b068000:0x800 0x7b00:0x7b0a8000:0x500 0x8d00:0x7b1a8000:0x800 > refscan.txt
+
+if [ $UIEMU = 1 ]; then
+  echo "== Ghidra-guided now-playing UI emulator"
+  mkdir -p "$OUT/ui-emulator"
+  "$PY" -I "$T/emu/prepare_qemu_banks.py" "$W/verify/fw/music.ap" "$OUT/ui-emulator/qemu-banks" \
+    | sed 's/^/   /'
+  PYTHONPATH="$T/emu" "$PY" -I "$T/emu/m30_ui.py" \
+    --music-ap "$W/verify/fw/music.ap" --music-sty "$W/verify/fw/music.sty" \
+    --out "$OUT/ui-emulator/now-playing.ppm" --trace "$OUT/ui-emulator/trace.json" \
+    | sed 's/^/   /'
+fi
 
 if [ $TEST = 1 ]; then
   echo "== QEMU tests"

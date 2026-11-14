@@ -7,7 +7,15 @@ from listbox import (
     DIRECTORY_TEXT_WIDTH,
     M30_DIRECTORY_STYLE,
     active_redraw_period_ms,
+    EXPERIMENTAL_NAME_BUFFER_BYTES,
+    INFERRED_LIST_BUFFER_BYTES,
+    LIST_BUFFER_ADDR,
+    LIST_SLOT_COUNT,
+    MAX_NON_OVERLAPPING_NAME_BYTES,
+    PATH_INFO_ADDR,
+    experimental_name_layout,
     firmware_name_capacity_bytes,
+    marquee_frame,
     needs_active_scroll,
     scroll_window,
 )
@@ -25,9 +33,18 @@ class DirectoryListboxTests(unittest.TestCase):
         self.assertEqual(active_redraw_period_ms(), DIRECTORY_SCROLL_PERIOD_MS)
 
     def test_firmware_name_buffer_is_smaller_than_the_scroll_region(self):
-        self.assertEqual(firmware_name_capacity_bytes(), 52)
+        # The SDK says 52, but M30's browser binary uses 0x32 = 50 bytes.
+        self.assertEqual(firmware_name_capacity_bytes(), 50)
         # A name can be truncated before the renderer gets a chance to scroll.
         self.assertLess(firmware_name_capacity_bytes(), DIRECTORY_TEXT_WIDTH)
+
+    def test_experimental_64_byte_layout_fits_the_page_but_overlaps_path_info(self):
+        slot_bytes, used = experimental_name_layout()
+        self.assertEqual(slot_bytes, EXPERIMENTAL_NAME_BUFFER_BYTES)
+        self.assertEqual(used, LIST_SLOT_COUNT * EXPERIMENTAL_NAME_BUFFER_BYTES)
+        self.assertEqual(used, INFERRED_LIST_BUFFER_BYTES)
+        self.assertEqual(MAX_NON_OVERLAPPING_NAME_BYTES, 50)
+        self.assertGreater(LIST_BUFFER_ADDR + used, PATH_INFO_ADDR)
 
     def test_scroll_wraps_with_two_space_gap(self):
         self.assertEqual(scroll_window("abcdefghij", 0, 5), "abcde")
@@ -35,6 +52,22 @@ class DirectoryListboxTests(unittest.TestCase):
 
     def test_short_names_are_not_modified(self):
         self.assertEqual(scroll_window("folder", 37, 20), "folder")
+
+    def test_marquee_advances_by_pixels_and_restores_background_tail(self):
+        first = marquee_frame("A long folder name", 0)
+        next_frame = marquee_frame("A long folder name", 1)
+        self.assertEqual(first.offset_px, 0)
+        self.assertEqual(next_frame.offset_px, 1)
+        self.assertEqual(first.clear_width_px, 1)
+        self.assertEqual(next_frame.clear_width_px, 1)
+        self.assertEqual(first.restore_mode, "sdimage-tail")
+        self.assertEqual(first.background, "selection-red")
+
+    def test_marquee_wraps_offsets_without_stale_background(self):
+        frame = marquee_frame("abc", 10_000, viewport_width_px=32)
+        self.assertLess(frame.offset_px, len("abc  ") * M30_DIRECTORY_STYLE.glyph_width_px)
+        self.assertEqual(frame.clear_width_px, 1)
+        self.assertEqual(frame.restore_mode, "sdimage-tail")
 
 
 if __name__ == "__main__":

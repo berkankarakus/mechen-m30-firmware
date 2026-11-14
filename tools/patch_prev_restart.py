@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Make the music previous key restart the current track from the beginning."""
+"""Reproduce an unsafe historical patch; this does not implement restart.
+
+Static analysis showed that this site is the -5000 ms fast-backward
+breakpoint, not a Previous-key time threshold.  Changing it can make a
+previous-track transition start at the wrong position or chain-skip tracks.
+The script remains only for forensic reproduction and refuses to patch unless
+the caller explicitly acknowledges that risk.
+"""
 
 from pathlib import Path
 import sys
@@ -22,6 +29,9 @@ def patch(src: Path, dst: Path) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: patch_prev_restart.py INPUT_MENGINE.AP OUTPUT_MENGINE.AP")
-    patch(Path(sys.argv[1]), Path(sys.argv[2]))
+    if len(sys.argv) != 4 or sys.argv[1] != "--acknowledge-unsafe":
+        raise SystemExit(
+            "unsafe historical patch disabled; for forensic reproduction only: "
+            "patch_prev_restart.py --acknowledge-unsafe INPUT_MENGINE.AP OUTPUT_MENGINE.AP"
+        )
+    patch(Path(sys.argv[2]), Path(sys.argv[3]))
