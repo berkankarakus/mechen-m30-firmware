@@ -43,6 +43,23 @@ class UiCallTests(unittest.TestCase):
         self.assertEqual(call.confidence, "high")
         self.assertEqual(call.dispatch_policy, "lazy-only")
 
+    def test_b3_trailing_table_candidates_are_validated_lazy_entries(self):
+        b04 = classify(0x26109751)
+        b07 = classify(0x261C9694)
+        b08 = classify(0x26209401)
+        self.assertEqual(b04.candidates, ("m30_b04_text_renderer",))
+        self.assertEqual(b07.candidates, ("m30_b07_lookup_dispatch",))
+        self.assertEqual(b08.candidates, ("put_string_line_sdimage",))
+        self.assertEqual((b04.bank.bank_type, b04.bank.bank_index), ("B", 4))
+        self.assertEqual((b07.bank.bank_type, b07.bank.bank_index), ("B", 7))
+        self.assertEqual((b08.bank.bank_type, b08.bank.bank_index), ("B", 8))
+        self.assertEqual(b04.bank.entry_offset, 0x750)
+        self.assertEqual(b07.bank.entry_offset, 0x694)
+        self.assertEqual(b08.bank.entry_offset, 0x400)
+        for call in (b04, b07, b08):
+            self.assertEqual(call.entry_evidence, "validated-local-code-at-aligned-entry")
+            self.assertEqual(call.dispatch_policy, "lazy-load-then-call")
+
     def test_unknown_pointer_is_not_guessed(self):
         self.assertIsNone(classify(0x260E4FF4))
 

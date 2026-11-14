@@ -1,11 +1,10 @@
-"""Semantic labels for the indirect UI calls observed in the M30 B3 bank.
+"""Semantic labels for indirect UI calls observed in the M30 B3 bank.
 
 The values in this table are far pointers, not direct host addresses.  The
 bank-qualified part is decoded with :mod:`bankmap`; the semantic label comes
-from the call arity in ``FUN_260e4ff4`` and the matching public ATJ2127 UI
-function signatures.  A label is useful to the host model, but it must not be
-used as proof that the corresponding M30 payload bank is present in
-``drv_ui.drv``.
+from the call arity in the B3 functions and, where available, matching public
+ATJ2127 UI function signatures. A label is useful to the host model, but it
+must not be used as proof that a raw far pointer can be called directly.
 """
 
 from __future__ import annotations
@@ -64,6 +63,27 @@ OBSERVED_CALLS: dict[int, tuple[tuple[str, ...], str, str, str, str]] = {
         "(string descriptor, region, mode) call shape",
         "external-provider-or-missing-bank",
         "lazy-only",
+    ),
+    0x26109751: (
+        ("m30_b04_text_renderer",),
+        "medium",
+        "B04 table entry; six-argument renderer decompiles with post-bank literals",
+        "validated-local-code-at-aligned-entry",
+        "lazy-load-then-call",
+    ),
+    0x261C9694: (
+        ("m30_b07_lookup_dispatch",),
+        "medium",
+        "B07 table entry; two-argument lookup/dispatch helper decompiles locally",
+        "validated-local-code-at-aligned-entry",
+        "lazy-load-then-call",
+    ),
+    0x26209401: (
+        ("put_string_line_sdimage",),
+        "high",
+        "B08 table entry; descriptor/line renderer with alignment and clipping",
+        "validated-local-code-at-aligned-entry",
+        "lazy-load-then-call",
     ),
 }
 

@@ -49,6 +49,13 @@ their call shape matches the public UI signature (`fix_switch_fontlib`,
 `put_string_line_sdimage`). This improves the host trace without pretending
 that the missing ATJ2127 bank manager has been emulated.
 
+The same model now records three additional B3 trailing-table entries. Their
+aligned MIPS16 bodies were decompiled after mapping each nominal bank together
+with its post-bank literal area: B04 `+0x751`, B07 `+0x694`, and B08 `+0x401`.
+They are marked `lazy-load-then-call` only after that static validation; the
+host never jumps to the raw far pointer or claims that the hardware dispatcher
+has been recovered.
+
 ## Latest results
 
 | Area | Runner | Result |
