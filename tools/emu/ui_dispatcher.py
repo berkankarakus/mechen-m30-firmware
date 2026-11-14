@@ -13,7 +13,13 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from m30_ui import Framebuffer, MAIN_PAINT_STYLE, SECONDARY_STYLE, draw_text
+from m30_ui import (
+    Framebuffer,
+    MAIN_PAINT_STYLE,
+    SECONDARY_STYLE,
+    draw_marquee,
+    draw_text,
+)
 
 
 OP_CLEAR_COLOR = 0x14
@@ -86,9 +92,21 @@ class UiDispatcher:
         elif op == OP_CLEAR_RECT and isinstance(arg0, Rect):
             self.framebuffer.rect(arg0.x, arg0.y, arg0.width, arg0.height, (18, 19, 22))
             rendered = True
-        elif op in (OP_DRAW_TEXT, OP_DRAW_DYNAMIC) and isinstance(arg1, TextPayload):
+        elif op == OP_DRAW_TEXT and isinstance(arg1, TextPayload):
             clip = (arg1.x, arg1.y, arg1.width, arg1.height)
             draw_text(self.framebuffer, arg1.text, arg1.x - arg1.offset, arg1.y, arg1.color, 1, clip)
+            rendered = True
+        elif op == OP_DRAW_DYNAMIC and isinstance(arg1, TextPayload):
+            draw_marquee(
+                self.framebuffer,
+                arg1.text,
+                arg1.x,
+                arg1.y,
+                arg1.width,
+                arg1.height,
+                arg1.color,
+                offset=arg1.offset,
+            )
             rendered = True
         self.calls.append(DispatcherCall(op, style_id, type(arg0).__name__, type(arg1).__name__, arg2, 1, rendered))
         return 1

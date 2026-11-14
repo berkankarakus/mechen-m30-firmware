@@ -38,6 +38,20 @@ class UiDispatcherTests(unittest.TestCase):
         self.assertIn(MAIN_PAINT_STYLE, styles)
         self.assertIn(SECONDARY_STYLE, styles)
 
+    def test_dynamic_text_uses_the_clipped_marquee_path(self):
+        dispatcher = UiDispatcher()
+        dispatcher.call(
+            {"style_id": MAIN_PAINT_STYLE},
+            TextPayload("A LONG TITLE THAT WRAPS", 190, 40, 87, 20, offset=17),
+            6,
+            0x06,
+        )
+        self.assertTrue(dispatcher.calls[0].rendered)
+        # The dynamic viewport starts at x=190 and is clipped to 87 pixels;
+        # drawing must not write into the neighboring column.
+        for y in range(40, 60):
+            self.assertEqual(bytes(dispatcher.framebuffer.pixels[(y * 320 + 277) * 3 : (y * 320 + 277) * 3 + 3]), bytes((18, 19, 22)))
+
 
 if __name__ == "__main__":
     unittest.main()
