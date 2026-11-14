@@ -33,7 +33,10 @@ deterministic:
 11. `driver_loader.py` models the two decompiled resident loader contracts:
    `FUN_bfc0a408` has the mode 6/7 compact-slot branch and entry callback,
    while `FUN_bfc0a578` always uses twelve-byte slots and has no callback.
-12. `bank_runtime.py` models lazy bank selection and load events. It only
+12. `provider_scan.py` reproduces the negative A19/B16 provider scan across
+   extracted `.drv` members. It reports byte occurrences only and does not
+   infer executable ownership from a match.
+13. `bank_runtime.py` models lazy bank selection and load events. It only
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called.
 

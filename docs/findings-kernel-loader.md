@@ -165,12 +165,19 @@ does not execute them.
 A second scan across every extracted `.drv` member in the community image found
 the same negative result: the five exact little-endian pointer values
 `0x164c9001`, `0x164c90ed`, `0x26089471`, `0x260894e9`, and `0x26409401` occur
-in `drv_ui.drv`'s literal pool, but not as payload occurrences in the other
-driver files (`kernel.drv`, `drv_lcd.drv`, `drv_dac.drv`, storage, USB, key,
-and audio drivers). The copies in `dec.bin`/`FWIMAGE.FW` are container-level
-duplicates of those firmware bytes. This rules out the simplest explanation
-that A19/B16 are provided by a second extracted driver; the remaining search
-boundary is the resident dispatcher or unavailable fixed ROM code.
+within `drv_ui.drv` (including its B3 literal pool and related embedded
+code/literal regions), but not as payload occurrences in the other driver
+files (`kernel.drv`, `drv_lcd.drv`, `drv_dac.drv`, storage, USB, key, and audio
+drivers). The copies in `dec.bin`/`FWIMAGE.FW` are container-level duplicates
+of those firmware bytes. The scan is reproducible with:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py analysis/community/fw
+```
+
+This rules out the simplest explanation that A19/B16 are provided by a second
+extracted driver; the remaining search boundary is the resident dispatcher or
+unavailable fixed ROM code.
 
 ## Consequence for the marquee investigation
 
