@@ -33,6 +33,8 @@ one-byte change as the manual-index guard used in this repository:
 evidence that the community image includes an automatic file-list bypass, but
 it is not proof that every trigger path is disabled. In particular, the
 powered card-insertion and cold-boot paths still require a device test.
+The stock-versus-community control-flow comparison is reproducible in
+[`findings-index-guards.md`](findings-index-guards.md).
 
 The locally tested `build/MECHEN_M30-index-off-space-preview.HEX` must not be
 used as evidence against the community baseline: it was built from the stock
