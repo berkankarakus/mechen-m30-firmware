@@ -15,6 +15,8 @@ from listbox import (
     PATH_INFO_ADDR,
     experimental_name_layout,
     firmware_name_capacity_bytes,
+    firmware_name_payload_bytes,
+    directory_slot_text,
     marquee_frame,
     needs_active_scroll,
     scroll_window,
@@ -37,6 +39,16 @@ class DirectoryListboxTests(unittest.TestCase):
         self.assertEqual(firmware_name_capacity_bytes(), 50)
         # A name can be truncated before the renderer gets a chance to scroll.
         self.assertLess(firmware_name_capacity_bytes(), DIRECTORY_TEXT_WIDTH)
+
+    def test_directory_slot_truncates_before_marquee(self):
+        self.assertEqual(firmware_name_payload_bytes(), 46)
+        prepared = directory_slot_text("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        self.assertEqual(prepared, "ABCDEFGHIJKLMNOPQRSTUVW")
+        self.assertLessEqual(len(prepared.encode("utf-16le")) + 4, firmware_name_capacity_bytes())
+
+    def test_directory_slot_does_not_split_non_bmp_character(self):
+        prepared = directory_slot_text("A" * 22 + "😀B")
+        self.assertEqual(prepared, "A" * 22)
 
     def test_experimental_64_byte_layout_fits_the_page_but_overlaps_path_info(self):
         slot_bytes, used = experimental_name_layout()

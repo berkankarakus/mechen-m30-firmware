@@ -137,8 +137,10 @@ uses a measured text rectangle and an 80 ms refresh callback. For the M30
 resources, the extracted `common.sty` gives the directory text rectangle as
 `x=35, width=205, height=16`, with the folder icon beginning at `x=5`.
 Those values are now represented in `tools/sim/listbox.py` and covered by
-tests. The same source defines `LIST_ITEM_BUFFER_LEN` as 52 bytes for each
-directory entry, so a name can be truncated before the 205-pixel marquee ever
-sees it. This explains why the song/folder text can scroll while the full
-folder name is still missing; it also gives us a concrete next target for a
-safe buffer-size patch instead of guessing from screenshots.
+tests. The model now also applies the M30 directory callback's 50-byte UTF-16
+slot budget before scrolling: 2 bytes for the BOM and 2 for the terminator
+leave 46 payload bytes. The same source defines `LIST_ITEM_BUFFER_LEN` as 52
+bytes for each directory entry, so a name can be truncated before the
+205-pixel marquee ever sees it. This explains why the song/folder text can
+scroll while the full folder name is still missing; it also gives us a concrete
+next target for a safe buffer-size patch instead of guessing from screenshots.

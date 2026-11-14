@@ -24,6 +24,9 @@ DIRECTORY_GLYPH_WIDTH_PX = 8
 # directory-list slot with 0x32 (50) bytes.  This is the limit that matters
 # before the marquee renderer gets a chance to scroll the name.
 NAME_BUFFER_BYTES = 50
+UTF16_UNIT_BYTES = 2
+UTF16_BOM_BYTES = 2
+UTF16_TERMINATOR_BYTES = 2
 LIST_SLOT_COUNT = 8  # title slot + seven visible directory rows
 INFERRED_LIST_BUFFER_BYTES = 0x200
 EXPERIMENTAL_NAME_BUFFER_BYTES = 64
@@ -103,6 +106,35 @@ def marquee_frame(
 def firmware_name_capacity_bytes() -> int:
     """Return the fixed per-entry name buffer used by the M30 binary."""
     return NAME_BUFFER_BYTES
+
+
+def firmware_name_payload_bytes() -> int:
+    """Return UTF-16 payload space after the slot's BOM and terminator."""
+    return NAME_BUFFER_BYTES - UTF16_BOM_BYTES - UTF16_TERMINATOR_BYTES
+
+
+def directory_slot_text(name: str) -> str:
+    """Model the directory callback's text after copying into a 0x32 slot.
+
+    The browser's directory path receives a UTF-16 name length of 25 code
+    units, leaving 2 bytes for the BOM and 2 for the terminator.  Apply that
+    limit before the marquee model so the emulator cannot accidentally imply
+    that scrolling can recover bytes the list buffer already discarded.
+    Iterate by Python characters rather than slicing encoded bytes so a
+    non-BMP character is never split into a dangling UTF-16 surrogate.
+    """
+    if not name:
+        return ""
+    limit = firmware_name_payload_bytes()
+    used = 0
+    visible: list[str] = []
+    for char in name:
+        encoded = char.encode("utf-16le")
+        if used + len(encoded) > limit:
+            break
+        visible.append(char)
+        used += len(encoded)
+    return "".join(visible)
 
 
 def experimental_name_layout() -> tuple[int, int]:

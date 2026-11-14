@@ -24,6 +24,11 @@ the copied title at `0x40` bytes and writes a two-byte terminator. This is a
 static reproduction of the current AP, not proof that every screen uses the
 same path.
 
+The host listbox model now applies the directory path's UTF-16 budget before
+calling its marquee model: 50 bytes minus the 2-byte BOM and 2-byte terminator
+leave 46 bytes, or 23 BMP characters. This prevents the emulator from showing
+scrolling as if it could recover text already discarded by the browser slot.
+
 - VERIFIED: SDK has the constant. `PD196/case/inc/common_ui.h:32`: `#define LIST_ITEM_BUFFER_LEN 52`
   (GBK comment: "max string size of a list item, 52 bytes"). Unit = BYTES. Users: ap/common/common_ui/ui_directory.c:39
   (`g_list_buffer[LEN*(LIST_NUM_ONE_PAGE_MAX+1)]`), ui_directory_sub2.c:122-127 (init_directory_env), browser_scene_menu.c:397.
