@@ -397,3 +397,83 @@ not the already-understood resident driver installation path. We should map
 the low-offset stub area for the A19/B2/B16-qualified entries and connect each
 stub to the corresponding `drv_ui` bank or shared UI module. Until then, the
 host emulator and Ghidra p-code probes remain the safe test surface.
+
+## Additional public sources checked
+
+The following sources were checked after the initial `actions_flash` review.
+They are useful as compatibility and recovery references, but none is treated
+as proof of an M30-specific address or ABI.
+
+### Public ATJ2127 SDK: update flow and filename handling
+
+The public `Suber/PD196_ATJ2127` SDK contains source for its automatic-upgrade
+menu. It defines the firmware filename as `UPGRADE.HEX`, also accepts the
+display spelling `UPGRADE HEX`, opens the file from the root of the selected
+storage volume, and asks for confirmation only after the file is found. The
+same source formats the confirmation label from the filename rather than
+requiring a runtime `%s` placeholder in the visible string.
+
+This is useful for explaining the M30 upgrade-screen wording and for testing
+the earlier spacing change, but the repository targets a different product
+build. It must not be used as a drop-in source replacement for M30 UI code:
+
+<https://github.com/Suber/PD196_ATJ2127/blob/maint/case/ap/ap_tools/menu_callback_autoupgrade_tools.c>
+
+### Independent package parsers
+
+Two independent tools provide cross-checks for the offline firmware boundary:
+
+* Rockbox's `atjboottool` contains a maintained C implementation for unpacking
+  Actions firmware containers. It is a good second parser for checking the
+  outer update package before any modification is attempted:
+  <https://github.com/Rockbox/rockbox/tree/master/utils/atj2137/atjboottool>
+* `nfd/atj2127decrypt` provides an independent ATJ2127 `UPGRADE.HEX`
+  decryptor/unpacker and documents a MIPS/QEMU debugging path for its own
+  implementation. Its README explicitly notes that the generated decompiled
+  code is ugly and that MBREC decoding is incomplete, so it is a validation
+  oracle rather than a source of trusted boot code:
+  <https://github.com/nfd/atj2127decrypt>
+
+Neither parser should be allowed to rewrite the archived M30 tree silently.
+The safe integration point is a compare-only check: package file names,
+lengths, hashes, and YQHX metadata must agree before we use a result in the
+emulator.
+
+### Recovery and read-only extraction boundary
+
+The SanDisk Clip Sport recovery notes are for another ATJ2127 product, but
+they provide a useful independent description of the boot chain: Boot ROM,
+MBREC, BREC, then the firmware image, with ADFU recovery exposed as
+`10d6:10d6`. They also describe raw-NAND readback as a separate operation
+from flashing. This supports keeping our recovery model and our firmware
+modification model separate:
+
+<https://gist.github.com/roman-yepishev/737dfda3a0a853fe730286d3ce49fccd>
+
+The same notes include a destructive hardware workaround for a failed device;
+that procedure is explicitly out of scope here.
+
+### USB/ADFU caution from a separate investigation
+
+The recent Crystal701 investigation records that an ADFU identification
+response can recover after a full power cycle, while a successful USB
+identification does not guarantee that arbitrary memory reads are accepted.
+This matches our practical rule: a future USB experiment must begin with a
+read-only probe, record VID/PID and the exact response, and stop before any
+`write_mem`, `write_flash`, or payload execution. It is a field report rather
+than an M30 or ATJ2127 specification:
+
+<https://gist.github.com/GOROman/934e9c522632b303065777bb154a4ef6>
+
+### Sources deliberately not reused
+
+The newer `sonigeez/actions-adfu` tool is documented for ATS30xx firmware and
+its tested chip is ATS3085S4. Its dry-run and read-only ideas are useful, but
+its loader and flash protocol are not evidence for this ATJ2127 M30 and are
+not imported into the project:
+
+<https://github.com/sonigeez/actions-adfu>
+
+The practical outcome is a stronger offline/recovery boundary, not a claim
+that we are ready to flash a custom image. We still need an M30-specific
+provider/bank-window proof before modifying executable UI code with confidence.
