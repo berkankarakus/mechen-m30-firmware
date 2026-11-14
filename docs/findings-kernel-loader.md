@@ -211,6 +211,27 @@ This rules out the simplest explanation that A19/B16 are provided by a second
 extracted driver; the remaining search boundary is the resident dispatcher or
 unavailable fixed ROM code.
 
+### External ATJ2127 overlay cross-check
+
+The public `actions_flash` reverse-engineering notes for a different ATJ2127
+device/firmware describe a YQHX overlay window and tagged MIPS16 pointers of
+the form `0x73...5a00...`. This is useful architecture evidence, but it is not
+automatically an M30 ABI: the target notes identify an Actions US212D image at
+V1.101.25, not the M30 image analyzed here. See the
+[`actions_flash` RE notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#12-binary-executable-format--overlay-system-yqhx).
+
+As a local compatibility check, the M30 extracted `.ap`, `.drv`, and `.bin`
+members were scanned for the exact masked signature
+`(word & 0xff00ff00) == 0x73005a00`; the result was zero occurrences. The
+observed M30 pointers (`0x164c...` and `0x2608...`) therefore must not be
+rewritten using that external tag formula without a new M30-specific proof.
+The scan is reproducible with:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/scan_pointer_signature.py \
+  --require-zero analysis/community/fw
+```
+
 The Ghidra-side occurrence probe adds the next boundary check:
 
 ```sh
