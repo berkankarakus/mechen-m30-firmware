@@ -58,6 +58,11 @@ colours, and the upgrade prompt. It does not change the browser's text
 rectangle or marquee logic, so long-folder-name clipping and its red rectangle
 still need a physical check before they can be called fixed.
 
+Folder-list next/previous acceleration is also not included in this image. The
+separate research candidate in `tools/scroll/accel.c` has a host model and a
+historical 30,000-event QEMU harness result, but its fastest 100-item gear has
+not been physically tested on this device.
+
 ## Install naming
 
 Copy the candidate to a separate staging folder, rename only that copy to
