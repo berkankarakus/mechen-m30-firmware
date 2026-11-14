@@ -21,7 +21,7 @@ topluluk firmware'inde fiziksel cihazda kabul edilmiş olması anlamına gelir.
 
 ## Orta riskli ama değerli iyileştirmeler
 
-### Dosya adına göre sıralama
+### Dosya adına göre sıralama — düşük öncelik
 
 İstenen davranış için önerilen politika:
 
@@ -31,10 +31,13 @@ topluluk firmware'inde fiziksel cihazda kabul edilmiş olması anlamına gelir.
 4. Eşitlikte tam pathname ve ardından mevcut copy-order fallback'i kullanılmalı.
 5. Metadata görünümleri (Artist/Album/Genre) metadata tabanlı kalmalı.
 
-Bu, mevcut topluluk düzeltmelerinin doğrudan bir parçası değildir. Önce bir PC
-modeli ve sentetik dosya listesiyle doğrulanmalı; sonra yalnızca browser/list
-karşılaştırma fonksiyonlarına patch yapılmalıdır. Dosya adları değiştiğinde
-manuel **Update Playlist** gerekeceği UI'da açıkça gösterilmelidir.
+Kullanıcının cihaz üzerinde çalıştırdığı yardımcı script bu ihtiyacı pratikte
+karşılıyor; bu nedenle firmware içindeki browser sıralama patch'i artık düşük
+öncelikli. Bu, mevcut topluluk düzeltmelerinin doğrudan bir parçası değildir.
+İleride firmware tarafına dönülürse önce PC modeli ve sentetik dosya listesiyle
+doğrulanmalı, sonra yalnızca browser/list karşılaştırma fonksiyonlarına patch
+yapılmalıdır. Dosya adları değiştiğinde manuel **Update Playlist** gerekeceği
+UI'da açıkça gösterilmelidir.
 
 ### Daha fazla EQ preset'i
 
