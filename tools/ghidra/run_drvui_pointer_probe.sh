@@ -16,6 +16,9 @@ WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-pointers.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/project"
 
+# Omit FlatLoad's optional size so it maps the complete driver.  The literals
+# are in the B/C bank area, not in the header's first 0x200 bytes.
+
 set +e
 JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
 GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
@@ -25,12 +28,15 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -processor 'MIPS:LE:32:default' \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
-  -postScript FlatLoad.java "$DRIVER" 0x30000000 0x200 \
+  -postScript FlatLoad.java "$DRIVER" 0x30000000 0 \
   -postScript FindPointerRefs.java "$POINTERS" 2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
-grep -q 'POINTER_TOTAL value=0x164c9001' "$WORK/ghidra.log"
-grep -q 'POINTER_TOTAL value=0x26409401' "$WORK/ghidra.log"
+grep -q 'POINTER_TOTAL value=0x164c9001 count=4' "$WORK/ghidra.log"
+grep -q 'POINTER_TOTAL value=0x164c90ed count=5' "$WORK/ghidra.log"
+grep -q 'POINTER_TOTAL value=0x26089471 count=3' "$WORK/ghidra.log"
+grep -q 'POINTER_TOTAL value=0x260894e9 count=2' "$WORK/ghidra.log"
+grep -q 'POINTER_TOTAL value=0x26409401 count=2' "$WORK/ghidra.log"
 echo "DRV_UI POINTER PASS pointers=$POINTERS"

@@ -190,7 +190,15 @@ flat `drv_ui.drv` corpus. In that mapping Ghidra assigns no occurrence to a
 recognized function body, which is consistent with literal pools or embedded
 data. Because the flat loader's function discovery is heuristic, this is
 supporting evidence only; the runtime B3 remap remains the stronger function
-boundary for the `0x9924` pool.
+boundary for the `0x9924` pool. The full-file probe reports these file offsets:
+
+```text
+0x164c9001: 0x891c, 0x9964, 0xceec, 0x112d8
+0x164c90ed: 0x8308, 0x8914, 0x9038, 0x992c, 0xced4
+0x26089471: 0x8b58, 0x995c, 0xcee8
+0x260894e9: 0x8b5c, 0x9960
+0x26409401: 0x8938, 0x996c
+```
 
 ## Consequence for the marquee investigation
 
