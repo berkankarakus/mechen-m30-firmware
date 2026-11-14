@@ -179,6 +179,19 @@ This rules out the simplest explanation that A19/B16 are provided by a second
 extracted driver; the remaining search boundary is the resident dispatcher or
 unavailable fixed ROM code.
 
+The Ghidra-side occurrence probe adds the next boundary check:
+
+```sh
+bash tools/ghidra/run_drvui_pointer_probe.sh analysis/community/fw/drv_ui.drv
+```
+
+It finds 16 little-endian occurrences across the five values, all inside the
+flat `drv_ui.drv` corpus. In that mapping Ghidra assigns no occurrence to a
+recognized function body, which is consistent with literal pools or embedded
+data. Because the flat loader's function discovery is heuristic, this is
+supporting evidence only; the runtime B3 remap remains the stronger function
+boundary for the `0x9924` pool.
+
 ## Consequence for the marquee investigation
 
 The fourth B window begins at file offset `0x9680`; the static marquee routine

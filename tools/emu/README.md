@@ -36,7 +36,10 @@ deterministic:
 12. `provider_scan.py` reproduces the negative A19/B16 provider scan across
    extracted `.drv` members. It reports byte occurrences only and does not
    infer executable ownership from a match.
-13. `bank_runtime.py` models lazy bank selection and load events. It only
+13. `tools/ghidra/run_drvui_pointer_probe.sh` maps the complete UI driver as
+   a static MIPS16 corpus and reports each observed far-pointer literal with
+   its containing Ghidra function when one is known.
+14. `bank_runtime.py` models lazy bank selection and load events. It only
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called.
 
