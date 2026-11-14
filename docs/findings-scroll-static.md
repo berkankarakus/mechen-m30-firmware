@@ -49,9 +49,12 @@ being widened here.
 
 The new Ghidra flat-map decompile adds three useful constraints:
 
-- the first clear helper is called with a literal width/operation value of
-  `0x7c`, so the marquee is clearing a bounded text strip rather than the
-  whole row or screen;
+- the initial resident system-operation call receives `(buffer, 0, 0x7c, 1)`;
+  this is an operation envelope, not by itself proof of a solid-color LCD
+  fill;
+- the `0x7c` value is also stored in the temporary region descriptor passed to
+  the two later text/background helpers, so it is the bounded region width
+  used by the marquee path rather than a palette value;
 - the routine consumes two 8-byte string records per pass (`param_3` selects
   the first record and the next record is selected from the state byte),
   measures each record, and then draws it through separate indirect helpers;
@@ -68,9 +71,15 @@ function-pointer table still has to be matched to that API before patching.
 
 The helper addresses are runtime-initialized resident pointers, not file
 literals, so their exact LCD/resource semantics are still unresolved. The
-flat loader used for this result is `tools/ghidra/FlatLoad.java`; the complete
-temporary decompile was generated from the stock/community-identical
-`analysis/community/fw/drv_ui.drv` without modifying it.
+resident helper at `0xbfc09e34` is now also decompiled: it conditionally
+forwards a three-argument call to the raw target stored at `0xbfc09e70`
+(`0x164490a1`) only for the relevant display-mode range and state. That
+forwarder is not itself the clear implementation. The B3 runtime probe now
+asserts the complete call envelope, and the resident probe asserts the
+forwarder shape. The flat loader used for this result is
+`tools/ghidra/FlatLoad.java`; the complete temporary decompile was generated
+from the stock/community-identical `analysis/community/fw/drv_ui.drv`
+without modifying it.
 
 ### Text alignment: `FUN_30008600`
 
@@ -112,8 +121,10 @@ bash tools/ghidra/run_browser_name_probe.sh analysis/community/fw/browser.ap
 
 The remaining high-value work is:
 
-1. Identify whether the `0x7c` clear helper is a solid-color clear or an
-   image-backed restore, then compare it with the public `SDIMAGE` path.
+1. Resolve the provider behind the conditional resident forwarder
+   (`0x164490a1`) and the B2/B16 far-call candidates used by the descriptor
+   envelope; only that mapping can distinguish a solid-color clear from an
+   image-backed restore.
 2. Trace the directory-mode callback separately from the library-mode callback
    at runtime, including the filesystem name format returned by kernel op 2.
 3. Resolve ownership of the list buffer and adjacent `path_info`; only then

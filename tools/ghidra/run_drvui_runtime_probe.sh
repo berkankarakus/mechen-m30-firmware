@@ -38,6 +38,8 @@ set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 grep -q 'DumpAt: 260e4ff4 -> FUN_260e4ff4' "$WORK/ghidra.log"
-grep -q '0x7c' "$WORK/decomp.c"
-grep -q '260e52e8' "$WORK/decomp.c"
-echo 'DRV_UI B3 RUNTIME PASS entry=0x260e4ff4 bank=0x260e5000'
+grep -Fq '(*_UNK_260e52bc)(_UNK_260e52b8,0,0x7c,1);' "$WORK/decomp.c"
+grep -Fq 'uStack_40 = 0x7c;' "$WORK/decomp.c"
+grep -Fq '(*_UNK_260e52e8)(&uStack_48,0,uVar7);' "$WORK/decomp.c"
+grep -Fq '(*_UNK_260e52ec)(&uStack_48,&sStack_28,0);' "$WORK/decomp.c"
+echo 'DRV_UI B3 RUNTIME PASS entry=0x260e4ff4 bank=0x260e5000 clear-width=0x7c sdimage-call-envelope=verified'
