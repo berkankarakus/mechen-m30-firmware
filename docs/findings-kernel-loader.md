@@ -482,8 +482,9 @@ provider/bank-window proof before modifying executable UI code with confidence.
 
 The B3 bank has a repeatable indirect-call pattern in which a `jalr` is
 immediately followed by a MIPS16 delay-slot instruction `li a3,<selector>`.
-The mapped B3 disassembly contains one selector-15 call immediately paired
-with one selector-17 call in a second UI function. Other indirect calls in the
+The mapped B3 disassembly contains one selector-15 call at `0x260e5794`
+immediately paired with one selector-17 call at `0x260e579e` in a second UI
+function. Other indirect calls in the
 same bank use different selectors, so this is evidence for a reusable import
 ABI rather than proof that selectors 15/17 are the marquee operation. It is
 stronger than a byte-pattern match because the values are attached to decoded

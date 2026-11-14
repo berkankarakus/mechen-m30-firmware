@@ -6,15 +6,15 @@ from scan_mips16_imports import find_import_calls, parse_disassembly
 class Mips16ImportTests(unittest.TestCase):
     def test_finds_delay_slot_selectors(self) -> None:
         text = """
-260e530a: e840       jalr s0
-260e530c: 6f0f       li a3,15
-260e5316: e840       jalr s0
-260e5318: 6f11       li a3,17
+260e5794: e840       jalr s0
+260e5796: 6f0f       li a3,15
+260e579e: e840       jalr s0
+260e57a0: 6f11       li a3,17
 """
         calls = find_import_calls(parse_disassembly(text))
         self.assertEqual([(call.call_address, call.selector) for call in calls], [
-            (0x260E530A, 15),
-            (0x260E5316, 17),
+            (0x260E5794, 15),
+            (0x260E579E, 17),
         ])
 
     def test_ignores_non_adjacent_immediate(self) -> None:
