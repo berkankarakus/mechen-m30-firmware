@@ -292,6 +292,17 @@ Actions address encoding, but their low-offset entry/stub area is not the
 entries first; treating them as ordinary direct calls would skip the bank
 manager behavior that QEMU still lacks.
 
+The resident remap is reproducible with:
+
+```sh
+bash tools/ghidra/run_drvui_resident_probe.sh analysis/community/fw/drv_ui.drv
+```
+
+It confirms that `0xbfc09ce0` is a no-op return, `0xbfc09c00` is a trap/syscall
+wrapper, and `0xbfc0a8bc`/`0xbfc0a8c8` write the two resident state slots used by
+the B3 path. These are extracted resident helpers, not the missing A19/B16
+providers or proof of the ROM bank translator.
+
 The B3 call shapes narrow down the semantic roles without pretending that the
 M30 bank table is complete:
 

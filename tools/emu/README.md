@@ -51,6 +51,9 @@ deterministic:
 16. `tools/ghidra/run_drvui_pointer_cluster_probe.sh` groups the 16 observed
     far-pointer literals by nearby file offsets; the B3 literal pool is the
     verified five-hit cluster at `0x992c..0x996c`.
+17. `tools/ghidra/run_drvui_resident_probe.sh` maps that B3 region together
+    with the two resident `drv_ui` segments and verifies the extracted
+    `bfc09c00` syscall wrapper plus the `bfc0a8bc`/`bfc0a8c8` state setters.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
