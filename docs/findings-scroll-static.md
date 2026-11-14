@@ -73,10 +73,12 @@ The helper addresses are runtime-initialized resident pointers, not file
 literals, so their exact LCD/resource semantics are still unresolved. The
 resident helper at `0xbfc09e34` is now also decompiled: it conditionally
 forwards a three-argument call to the raw target stored at `0xbfc09e70`
-(`0x164490a1`) only for the relevant display-mode range and state. That
-forwarder is not itself the clear implementation. The B3 runtime probe now
-asserts the complete call envelope, and the resident probe asserts the
-forwarder shape. The flat loader used for this result is
+(`0x164490a1`, candidate A17 + `0xa1`) only for the relevant display-mode
+range and state. A17 is absent from the extracted M30 driver, so this target
+must remain an unresolved external/provider entry; the forwarder is not the
+clear implementation. The host test now explicitly records that absence. The
+B3 runtime probe asserts the complete call envelope, and the resident probe
+asserts the forwarder shape. The flat loader used for this result is
 `tools/ghidra/FlatLoad.java`; the complete temporary decompile was generated
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.

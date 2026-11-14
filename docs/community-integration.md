@@ -25,14 +25,31 @@ The community release is based on the same official V1.101.10 payload. Its
 release notes describe hardware acceptance on a Mechen M30, but the testing
 scope is limited to the tested device and cases described by that project.
 
+### Automatic-indexing claim scope
+
+The community V1.292 members `config.ap` and `udisk.ap` both contain the same
+one-byte change as the manual-index guard used in this repository:
+`0x22 -> 0x10` at offsets `0x1e0d` and `0x1909`, respectively. This is strong
+evidence that the community image includes an automatic file-list bypass, but
+it is not proof that every trigger path is disabled. In particular, the
+powered card-insertion and cold-boot paths still require a device test.
+
+The locally tested `build/MECHEN_M30-index-off-space-preview.HEX` must not be
+used as evidence against the community baseline: it was built from the stock
+payload with the two guard bytes and an upgrade-prompt resource change, and
+did not include the community V1.292 members. Therefore the observation that
+this image indexed after card insertion does not establish that V1.292 behaves
+the same way.
+
 ## Community fixes included
 
 The historical combined candidate took the community payload wholesale, so the
 following are included:
 
-- Automatic file-list regeneration is disabled after USB use, card changes,
-  firmware updates, and the dirty-settings path. Manual `Settings -> Update
-  Playlist` remains available.
+- The community's documented/manual-index change targets automatic file-list
+  regeneration after USB use, card changes, firmware updates, and the
+  dirty-settings path. Manual `Settings -> Update Playlist` remains available;
+  the exact coverage of every trigger is still a physical-test item here.
 - End-of-track ASRC drain, which is the community fix most relevant to the
   Audacity fade-out clipping report.
 - Bounded metadata and artwork parsing with UTF-8/UTF-16 and ID3 fixes.

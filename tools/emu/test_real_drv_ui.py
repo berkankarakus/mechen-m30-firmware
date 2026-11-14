@@ -38,13 +38,26 @@ class RealDriverUiTests(unittest.TestCase):
 
     def test_real_missing_providers_are_not_created(self) -> None:
         image = DriverBankImage.load(DRIVER)
-        for pointer, bank in ((0x164C9001, ("A", 19)), (0x26409401, ("B", 16))):
+        for pointer, bank in (
+            (0x164490A1, ("A", 17)),
+            (0x164C9001, ("A", 19)),
+            (0x26409401, ("B", 16)),
+        ):
             candidate = image.resolve_far_candidate(pointer)
             self.assertIsNotNone(candidate)
             assert candidate is not None
             self.assertEqual((candidate.group, candidate.index), bank)
             self.assertFalse(candidate.bank_present)
             self.assertIsNone(candidate.file_offset)
+
+    def test_real_clear_forwarder_points_to_missing_a17_provider(self) -> None:
+        data = DRIVER.read_bytes()
+        self.assertEqual(struct.unpack_from("<I", data, 0x1470)[0], 0x164490A1)
+        candidate = DriverBankImage.load(DRIVER).resolve_far_candidate(0x164490A1)
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual((candidate.group, candidate.index, candidate.payload_offset), ("A", 17, 0xA1))
+        self.assertFalse(candidate.bank_present)
 
     def test_real_runtime_exposes_safe_policies(self) -> None:
         runtime = LazyBankRuntime.from_path(
