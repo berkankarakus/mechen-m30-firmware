@@ -12,6 +12,7 @@ public class DumpAt extends GhidraScript {
     public void run() throws Exception {
         String[] addresses = getScriptArgs()[0].split(",");
         String output = getScriptArgs().length > 1 ? getScriptArgs()[1] : null;
+        boolean exact = getScriptArgs().length > 2 && "exact".equals(getScriptArgs()[2]);
         DecompInterface decompiler = new DecompInterface();
         decompiler.openProgram(currentProgram);
         PrintWriter writer = output == null ? null : new PrintWriter(output);
@@ -21,7 +22,7 @@ public class DumpAt extends GhidraScript {
                     .getAddress(Long.decode(text));
                 Function function = getFunctionAt(address);
                 boolean contained = false;
-                if (function == null) {
+                if (function == null && !exact) {
                     function = getFunctionContaining(address);
                     contained = function != null;
                 }
