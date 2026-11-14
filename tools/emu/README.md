@@ -48,6 +48,9 @@ deterministic:
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called. Load events preserve
     both the raw pointer offset and the aligned MIPS16 entry offset.
+16. `tools/ghidra/run_drvui_pointer_cluster_probe.sh` groups the 16 observed
+    far-pointer literals by nearby file offsets; the B3 literal pool is the
+    verified five-hit cluster at `0x992c..0x996c`.
 
 The kernel-side constant boundary can be reproduced without a device with:
 

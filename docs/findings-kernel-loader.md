@@ -232,6 +232,20 @@ boundary for the `0x9924` pool. The full-file probe reports these file offsets:
 0x26409401: 0x8938, 0x996c
 ```
 
+Grouping those hits with a `0x40`-byte gap threshold produces seven clusters.
+The B3 literal pool is the five-hit cluster at `0x992c..0x996c`; the other
+clusters are nearby code/data regions or isolated copies. This is reproduced
+by:
+
+```sh
+bash tools/ghidra/run_drvui_pointer_cluster_probe.sh \
+  analysis/community/fw/drv_ui.drv
+```
+
+The cluster report is provenance evidence, not a claim that every nearby word
+is executable code. The runtime B3 remap and the separate B02 probe remain the
+authority for code-entry classification.
+
 ## Consequence for the marquee investigation
 
 The fourth B window begins at file offset `0x9680`; the static marquee routine
