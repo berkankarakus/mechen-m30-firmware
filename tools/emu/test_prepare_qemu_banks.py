@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -16,6 +17,7 @@ class QemuBankPreparationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             manifest = prepare(AP, out)
+            self.assertEqual(manifest["source_sha256"], hashlib.sha256(AP.read_bytes()).hexdigest())
             self.assertEqual(manifest["bank_count"], 87)
             self.assertEqual(manifest["audited_scroll_call"]["bank"], 0x40D54C00)
             info = json.loads((out / "manifest.json").read_text())

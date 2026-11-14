@@ -125,6 +125,8 @@ are kept as semantic labels until their internal ownership is proven.
 assembly include, a linker fragment, and a manifest. Each bank remains at the
 exact load address recorded in the AP table, including the bank containing
 `FUN_40d54f2c`. This is the input boundary for the next user-mode harness:
+the manifest also records the source AP SHA-256, and probe preparation checks
+that the source hash is unchanged before and after copying.
 
 ```sh
 PYTHONPATH=tools/emu python3 tools/emu/prepare_qemu_banks.py \

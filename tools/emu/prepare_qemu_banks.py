@@ -10,6 +10,7 @@ the Ghidra addresses it is meant to exercise.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import struct
 from dataclasses import asdict, dataclass
@@ -82,6 +83,7 @@ def prepare(ap: Path, out: Path) -> dict[str, object]:
     (out / "banks.ld").write_text("\n".join(ld_lines) + "\n")
     manifest = {
         "source": str(ap),
+        "source_sha256": hashlib.sha256(data).hexdigest(),
         "bank_count": len(banks),
         "banks": [asdict(bank) for bank in banks],
         "audited_scroll_call": {

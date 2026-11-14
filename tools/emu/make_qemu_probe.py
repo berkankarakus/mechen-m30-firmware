@@ -10,6 +10,7 @@ FUN_40d54f2c with a synthetic descriptor.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import struct
 from pathlib import Path
 
@@ -39,7 +40,10 @@ def bank_for(banks, address):
 
 
 def make_probe(ap: Path, out: Path) -> None:
+    source_sha256 = hashlib.sha256(ap.read_bytes()).digest()
     prepare(ap, out)
+    if hashlib.sha256(ap.read_bytes()).digest() != source_sha256:
+        raise RuntimeError(f"source AP changed while preparing probe: {ap}")
     data, banks = parse_banks(ap)
     by_index = {bank.index: bank for bank in banks}
     patched = []
