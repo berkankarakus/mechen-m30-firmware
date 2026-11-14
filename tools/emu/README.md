@@ -60,6 +60,11 @@ deterministic:
     indirect-call delay slots that select an import number. The current M30
     bank proves selector 15/17 pairs, but the tool intentionally does not
     assign semantics to those selectors.
+20. `tools/ghidra/run_drvui_b3_table_probe.sh` maps the B3 tail and the
+    following data area, then dumps the pointer words consumed by the second
+    B3 UI function. It verifies the two resident entries and three
+    bank-qualified candidates without treating any candidate as a directly
+    executable address.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

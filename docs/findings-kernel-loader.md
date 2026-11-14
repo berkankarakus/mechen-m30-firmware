@@ -500,3 +500,31 @@ bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv
 The probe deliberately reports selector numbers only. It does not model them
 as rendering, storage, or bank-loading operations until an M30-specific
 dispatcher path is recovered.
+
+## B3 trailing pointer table
+
+The second B3 UI function at runtime `0x260e5780` ends at the B3 bank boundary.
+The next mapped data area begins at file offset `0x9e80`, runtime
+`0x260e5800`. Its first pointer words used by the function are at runtime
+`0x260e59e8` (file `0xa068`):
+
+| Runtime address | Value | Current classification |
+|---|---:|---|
+| `0x260e59e8` | `0xbfc09c05` | resident UI/system entry candidate |
+| `0x260e59ec` | `0xbfc09c01` | resident system-operation entry |
+| `0x260e59f0` | `0x26209401` | B08-qualified lazy-bank candidate, payload `+0x401` |
+| `0x260e59f4` | `0x261c9694` | B07-qualified lazy-bank candidate, payload `+0x694` |
+| `0x260e5a10` | `0x26109751` | B04-qualified lazy-bank candidate, payload `+0x751` |
+
+The first two values match the resident call convention already seen in the
+B3 literal pool. The other three use the same `0x9000` low-offset encoding as
+the earlier A19/B2/B16 candidates, but their payload offsets do not by
+themselves prove an entry point or a direct call target. In particular, the
+table is evidence for a shared/lazy dispatch data structure, not evidence that
+the missing provider banks are present in this M30 `drv_ui.drv`.
+
+The read-only mapping and word dump are reproducible with:
+
+```sh
+bash tools/ghidra/run_drvui_b3_table_probe.sh analysis/community/fw/drv_ui.drv
+```
