@@ -24,6 +24,12 @@ cc -O2 -Wall -Wextra -std=c99 -pedantic -Wno-unused -DUSE_LIBUSB=1 \
   -o /private/tmp/actions_dump actions_dump.c -lusb-1.0
 ```
 
+The same build is reproducible from this repository and does not access USB:
+
+```sh
+bash tools/rom/build_actions_dump.sh /private/tmp/actions_dump
+```
+
 The MIPS `adfus.bin` payload is still needed. The source is present in
 `actions_flash/payload`; this Mac currently has the MIPS binutils but not a
 MIPS C compiler, so the payload has not been rebuilt here.
