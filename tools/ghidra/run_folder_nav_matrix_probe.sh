@@ -43,7 +43,8 @@ for app in browser music; do
       cat "$log" >&2
       exit 1
     fi
-    printf 'FOLDER NAV MATRIX PASS app=%s %s\n' "$app" "$expected"
+    printf 'FOLDER NAV MATRIX PASS app=%s mode=%s total=%s cursor=%s %s\n' \
+      "$app" "$mode" "$total" "$cursor" "$expected"
   done
 done
 

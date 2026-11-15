@@ -223,6 +223,12 @@ The same JSON includes a one-based `navigation` snapshot (`total`, `start`,
 `end`, and `active`) so host UI tests can assert list state independently of
 the framebuffer pixels.
 
+`PYTHONPATH=tools/emu python3 tools/emu/compare_folder_nav_host.py` executes
+the 28-case real browser/music p-code matrix and feeds its active-item and
+edge-wrap results into the host `FolderList`. It deliberately does not equate
+the handler's raw `start/end/status/update` bytes with host viewport fields;
+that mapping is still an open firmware-specific boundary.
+
 ## Preparing the real banks for QEMU
 
 `prepare_qemu_banks.py` extracts every bank from `music.ap` and emits an
