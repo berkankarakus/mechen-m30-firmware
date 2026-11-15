@@ -99,6 +99,7 @@ bash "$ROOT/tools/ghidra/run_uhost_probe.sh" "$FW/uhost.drv"
 bash "$ROOT/tools/ghidra/run_cards_probe.sh" "$FW/cards.drv"
 bash "$ROOT/tools/ghidra/run_card_probe.sh" "$FW/card.drv"
 bash "$ROOT/tools/ghidra/run_filesystem_probe.sh"
+bash "$ROOT/tools/ghidra/run_mmm_dsp_loader_probe.sh" "$ROOT/analysis/community/fw/mmm_mp.al"
 
 echo "[3/3] real MIPS16 scroll probes"
 for mode in next previous redraw; do
