@@ -64,6 +64,7 @@ has been recovered.
 | Shuffle-all / play-all | real patched engine units | PASS |
 | Scroll acceleration | real `browser.ap` bank, stock vs patched | PASS; 30,000 events, 0 failures |
 | Folder-list acceleration contract | host model mirroring the real blob | PASS; 57 emulator tests total, physical event timing unmeasured |
+| Folder-list handler contract | Ghidra decompile of browser/music next/previous | PASS; stock one-step and redraw calls present |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |

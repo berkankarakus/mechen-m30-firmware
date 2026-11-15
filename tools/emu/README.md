@@ -70,6 +70,9 @@ deterministic:
     aligned candidate offsets decompile as coherent MIPS16 functions, which is
     stronger evidence than a numeric bank-offset match but still not a proof
     of the hardware dispatcher ABI.
+22. `tools/ghidra/run_folder_nav_probe.sh` decompiles the real browser/music
+    `next` and `previous` handlers and checks their shared one-step and redraw
+    contract before the acceleration candidate is considered applicable.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
