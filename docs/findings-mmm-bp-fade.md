@@ -78,7 +78,11 @@ the step counter at `+0x8a`; `FUN_bfc21590` later changes mode `2` to `3` when
 the recovered phase condition is reached. The mapped control routine
 `FUN_680a1ed4` explicitly clears `+0x81` during its reset path. The first
 external writer that sets `+0x81` is still unresolved, so this is not yet a
-safe patch site.
+safe patch site. A full `LoadAP` + `DumpC` pass over all 30 recovered
+functions finds exactly four `+0x81` references: one reset-path clear in
+`FUN_680a1ed4`, and the read plus two clears in `FUN_bfc21530`. There is no
+mapped assignment that arms the byte, which narrows the missing writer to an
+external/indirect boundary rather than another hidden `mmm_bp` function.
 
 This proves a firmware fade state machine and its buffer-facing boundary, but
 not yet whether a particular Audacity-rendered tail is lost before this state

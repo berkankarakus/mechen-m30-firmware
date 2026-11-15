@@ -29,6 +29,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -postScript DumpWords.java 0xbfc21698 0xbfc2169c \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
+  -postScript DumpC.java "$WORK/all.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -75,5 +76,16 @@ grep -q 'WORD address=bfc2769c value=0x9fc21b00' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc276a0 value=0xbfc21a3d' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc2772c value=0xbfc274c9' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc27730 value=0xbfc2748d' "$WORK/ghidra.log"
+
+# DumpC covers every recovered function in this image.  The fade-control byte
+# is only read/cleared in the mapped set; no mapped function writes the value
+# that arms the fade transition, so that setter remains outside this image's
+# recovered call graph.
+grep -q 'DumpC: functions=30' "$WORK/ghidra.log"
+grep -q '^// ===== FUN_680a1ed4 ' "$WORK/all.c"
+grep -q '^// ===== FUN_bfc21530 ' "$WORK/all.c"
+[ "$(grep -c '+ 0x81' "$WORK/all.c")" -eq 4 ]
+grep -Fq '((int)param_1 + 0x81) = 0' "$WORK/all.c"
+grep -Fq 'param_1 + 0x81) = 0' "$WORK/all.c"
 
 echo 'MMM BP FADE PASS diagnostic=fade-out/in buffer-state=verified attenuation=unresolved'
