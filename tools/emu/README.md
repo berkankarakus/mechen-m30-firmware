@@ -88,6 +88,10 @@ deterministic:
     `move_event()` method consumes the same burst gears as `scroll_accel.py`,
     so accelerated up/down events and viewport movement can be tested together
     without implying a hardware input-rate measurement.
+26. `FolderList.marquee_offset_at()` and `render_at()` advance the host frame
+    on the reference listbox's measured 80 ms refresh tick. They use integer
+    timestamps for reproducible screenshots/traces and leave the firmware's
+    0x32-byte name-slot truncation unchanged.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

@@ -30,6 +30,11 @@ clamped viewport move. This still does not claim that the proprietary
 LCD/font/input-timing path is emulated or that physical repeat rates have been
 measured.
 
+`FolderList.render_at()` can render successive host frames at the reference
+listbox's 80 ms active-scroll tick. The timestamped model is deterministic
+and useful for visual regression traces, but it is not evidence that the
+M30's LCD timer or font rasterizer has been recovered.
+
 `tools/emu/prepare_qemu_banks.py` is the next bridge toward real bank
 execution. It extracts all 87 `music.ap` banks and emits exact-address
 assembly/linker inputs plus a manifest. The eventual user-mode harness will

@@ -84,6 +84,30 @@ class FolderUiTests(unittest.TestCase):
         result = view.move_event(PREVIOUS, 701)
         self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 1))
 
+    def test_marquee_offset_uses_the_eighty_millisecond_refresh_tick(self):
+        view = FolderList((FolderRow("A long folder name"),), scroll_offset_px=3)
+        self.assertEqual(view.marquee_offset_at(0), 3)
+        self.assertEqual(view.marquee_offset_at(79), 3)
+        self.assertEqual(view.marquee_offset_at(80), 4)
+        self.assertEqual(view.marquee_offset_at(240, start_ms=80), 5)
+        self.assertEqual(view.scroll_offset_px, 3)
+
+    def test_render_at_does_not_mutate_the_model_offset(self):
+        view = FolderList(
+            (FolderRow("A long folder name that is truncated"),),
+            scroll_offset_px=2,
+        )
+        _, trace = view.render_at(160)
+        self.assertEqual(trace[0]["offset_px"], 4)
+        self.assertEqual(view.scroll_offset_px, 2)
+
+    def test_marquee_time_must_be_monotonic_and_non_negative(self):
+        view = FolderList((FolderRow("Music"),))
+        with self.assertRaises(ValueError):
+            view.marquee_offset_at(-1)
+        with self.assertRaises(ValueError):
+            view.marquee_offset_at(10, start_ms=11)
+
     def test_render_is_a_ppm(self):
         view = FolderList((FolderRow("Music"),))
         with tempfile.TemporaryDirectory() as tmp:

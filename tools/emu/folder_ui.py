@@ -182,6 +182,36 @@ class FolderList:
             "update": 2 if page_reload else None,
         }
 
+    def marquee_offset_at(self, now_ms: int, *, start_ms: int = 0) -> int:
+        """Return the pixel offset at a measured directory refresh tick.
+
+        The reference listbox advances an active marquee once per
+        ``DIRECTORY_SCROLL_PERIOD_MS``. Keep the host model deterministic by
+        using integer ticks; ``scroll_offset_px`` is the offset at
+        ``start_ms``.
+        """
+        if now_ms < 0 or start_ms < 0:
+            raise ValueError("marquee times must be non-negative")
+        if now_ms < start_ms:
+            raise ValueError("now_ms must not precede start_ms")
+        ticks = (now_ms - start_ms) // DIRECTORY_SCROLL_PERIOD_MS
+        return self.scroll_offset_px + ticks
+
+    def render_at(
+        self,
+        now_ms: int,
+        *,
+        start_ms: int = 0,
+    ) -> tuple[Framebuffer, list[dict[str, object]]]:
+        """Render a deterministic frame at a directory marquee timestamp."""
+        offset_px = self.marquee_offset_at(now_ms, start_ms=start_ms)
+        original_offset = self.scroll_offset_px
+        self.scroll_offset_px = offset_px
+        try:
+            return self.render()
+        finally:
+            self.scroll_offset_px = original_offset
+
     def render(self) -> tuple[Framebuffer, list[dict[str, object]]]:
         fb = Framebuffer()
         fb.fill(BACKGROUND)
