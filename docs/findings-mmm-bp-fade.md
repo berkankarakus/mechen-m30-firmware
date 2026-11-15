@@ -61,6 +61,14 @@ The actual fade-step path is stronger than the string evidence alone:
   scaling uses the current sample/level fields, so this is the first concrete
   bridge between the fade state machine and the buffered output path.
 
+The ownership boundary is also clearer now: `FUN_bfc21530` consumes the
+control flag at `param + 0x81`, clears it, and initializes fade mode `2` plus
+the step counter at `+0x8a`; `FUN_bfc21590` later changes mode `2` to `3` when
+the recovered phase condition is reached. The mapped control routine
+`FUN_680a1ed4` explicitly clears `+0x81` during its reset path. The first
+external writer that sets `+0x81` is still unresolved, so this is not yet a
+safe patch site.
+
 This proves a firmware fade state machine and its buffer-facing boundary, but
 not yet whether a particular Audacity-rendered tail is lost before this state
 machine, during buffer exhaustion, or in the downstream DSP. The next trace is

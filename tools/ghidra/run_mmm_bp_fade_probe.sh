@@ -25,13 +25,14 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
-  -postScript DumpAt.java 0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0xbfc274c8,0xbfc27520,0xbfc276ac,0x680a1ed4 "$WORK/decomp.c" \
+  -postScript DumpAt.java 0xbfc21530,0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0xbfc274c8,0xbfc27520,0xbfc276ac,0x680a1ed4 "$WORK/decomp.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 grep -q 'LoadAP: blocks=5 ' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc21530 -> FUN_bfc21530' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc21590 -> FUN_bfc21590' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc216a8 -> FUN_bfc216a8' "$WORK/ghidra.log"
 grep -q 'DumpAt: 68021c8c -> FUN_68021c8c' "$WORK/ghidra.log"
@@ -51,6 +52,7 @@ grep -Fq '&UNK_bfc21864' "$WORK/decomp.c"
 grep -Fq '&UNK_bfc21880' "$WORK/decomp.c"
 grep -q 'param_1 + 0xba' "$WORK/decomp.c"
 grep -q 'param_1 + 0x8a' "$WORK/decomp.c"
+grep -q 'param_1 + 0x81' "$WORK/decomp.c"
 grep -q 'param_1 + 0xc0' "$WORK/decomp.c"
 grep -q 'param_1 + 0xcc' "$WORK/decomp.c"
 grep -q 'param_1 + 0x81' "$WORK/decomp.c"
