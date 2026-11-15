@@ -335,3 +335,8 @@ without assuming that the control is a wheel.
 music `next`/`previous` handlers in Ghidra's MIPS16 p-code emulator. It
 intercepts only the redraw helpers and asserts the recovered seven-row window
 transition (`7 -> 8` and `7 -> 6`); it is not an LCD or full-boot emulator.
+`tools/ghidra/run_folder_nav_matrix_probe.sh` extends this with real p-code
+boundary cases for 8, 9, and 10-item lists: page-end redraw, top/bottom wrap,
+and an interior previous step. It runs the same cases against both browser and
+music banks and checks the complete state tuple, including redraw/update
+status. The matrix is still a handler-level proof, not a complete device boot.

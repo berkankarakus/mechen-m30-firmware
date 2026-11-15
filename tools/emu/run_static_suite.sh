@@ -124,5 +124,6 @@ for app in browser music; do
     bash "$ROOT/tools/ghidra/run_folder_nav_pcode_probe.sh" "$app" "$mode"
   done
 done
+bash "$ROOT/tools/ghidra/run_folder_nav_matrix_probe.sh"
 
 echo 'STATIC SUITE PASS full'

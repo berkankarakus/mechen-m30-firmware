@@ -68,6 +68,12 @@ page redraw and `previous: active 7 -> 6` without a redraw. This is stronger
 than the earlier decompile-only contract, but it still does not emulate the
 LCD, storage, input timing, or a complete M30 boot.
 
+`tools/ghidra/run_folder_nav_matrix_probe.sh` adds eight boundary cases per
+bank. The real handler was verified for 8-, 9-, and 10-item lists, including
+page-end redraw, next-at-bottom wrap to the first item, and previous-at-top
+wrap to the last page. Browser and music produced identical state tuples. The
+matrix does not establish LCD rendering or physical key-repeat behavior.
+
 The decompiled function signature and first shim boundary are now confirmed:
 `FUN_40d54f2c(ushort event_or_style, int *scroll_state) -> short`. Its
 literal-pool targets include the UI dispatcher `0xbfc16405`, backlight/status
