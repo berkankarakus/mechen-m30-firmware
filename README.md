@@ -200,6 +200,7 @@ The repository contains these files and folders:
 | `tools/library/` | Whole-card library: the file-backed index passes (`index.c`), their loader (`loader.c`), the app patcher (`patch_library.py`), the QEMU harness that runs the stock or the new passes (`harness.c`, `testbanks.py`, `test.sh`), a Python model of the new passes (`libmodel.py`), a synthetic library generator (`mklib.py`), and library comparison tools (`libdiff.py`, `libgroups.py`). See `docs/library-builder.md`. |
 | `tools/emu/` | Ghidra-guided host framebuffer and UI-dispatch trace for the real `music.ap`/`music.sty` now-playing path. It is the first layer of the hybrid emulator; it is not a full ATJ2127 boot. |
 | `tools/sim/` | Host-side contracts and the register-level ATJ2127 peripheral model used by emulator harnesses. |
+| `docs/codegraph-workflow.md` | CodeGraph's scope and the repeatable impact checks used around the emulator and analysis tools. |
 | `tools/patch_mengine.py` | Applies the shuffle fix and shuffle-all code to `mengine.ap`. |
 | `tools/bps.py` | Creates and applies the BPS patches that releases use. |
 | `tools/repack_fw.py`, `tools/fwu_repack.py` | Rebuild the FWU, AFI, and FWIMAGE.FW layers with new checksums and encryption. |
