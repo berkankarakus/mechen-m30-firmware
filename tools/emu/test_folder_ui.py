@@ -11,6 +11,7 @@ from folder_ui import (
     directory_marquee_positions,
 )
 from m30_ui import Framebuffer
+from scroll_accel import NEXT, PREVIOUS
 
 
 class FolderUiTests(unittest.TestCase):
@@ -61,6 +62,27 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(view.move_selection(-1), 0)
         self.assertEqual(view.move_selection(100), 9)
         self.assertEqual(view.first_visible_index, 2)
+
+    def test_accelerated_events_move_and_scroll_the_folder_view(self):
+        view = FolderList(tuple(FolderRow(str(index)) for index in range(100)))
+        for now in range(0, 1600, 100):
+            view.accelerator.steps_for(NEXT, now)
+        result = view.move_event(NEXT, 1600)
+        self.assertEqual(result["requested_steps"], 20)
+        self.assertEqual(result["consumed_steps"], 20)
+        self.assertEqual(result["selected_index"], 20)
+        self.assertEqual(result["first_visible_index"], 13)
+        self.assertTrue(result["page_reload"])
+        self.assertEqual((result["mode"], result["update"]), (4, 2))
+
+    def test_accelerated_folder_events_reset_on_direction_change_and_clamp(self):
+        view = FolderList(tuple(FolderRow(str(index)) for index in range(4)), selected_index=3)
+        result = view.move_event(NEXT, 0)
+        self.assertEqual((result["selected_index"], result["consumed_steps"]), (3, 0))
+        result = view.move_event(PREVIOUS, 1)
+        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 2))
+        result = view.move_event(PREVIOUS, 701)
+        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 1))
 
     def test_render_is_a_ppm(self):
         view = FolderList((FolderRow("Music"),))

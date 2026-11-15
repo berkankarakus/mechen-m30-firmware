@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from m30_ui import Framebuffer, draw_text
+from scroll_accel import NEXT, PREVIOUS, ScrollAccelerator
 from tools.sim.listbox import (
     DIRECTORY_ROW_HEIGHT,
     DIRECTORY_SCROLL_PERIOD_MS,
@@ -126,6 +127,7 @@ class FolderList:
     selected_index: int = 0
     scroll_offset_px: int = 0
     top_y: int = LIST_TOP_Y
+    accelerator: ScrollAccelerator = field(default_factory=ScrollAccelerator, repr=False)
 
     def __post_init__(self) -> None:
         if not self.rows:
@@ -151,6 +153,34 @@ class FolderList:
             len(self.rows) - 1,
         )
         return self.selected_index
+
+    def move_event(self, direction: int, now_ms: int) -> dict[str, int | bool | None]:
+        """Apply one accelerated folder-navigation event to the host model.
+
+        The folder browser keeps its selection at the list edges.  This is
+        intentionally separate from ``ScrollAccelerator.move()``, whose
+        one-step helper mirrors the stock wrapping callback; the UI model is
+        modeling the patched folder viewport contract, not that raw callback.
+        """
+        if direction not in (NEXT, PREVIOUS):
+            raise ValueError("direction must be NEXT or PREVIOUS")
+        requested = self.accelerator.steps_for(direction, now_ms)
+        before = self.selected_index
+        signed_steps = requested if direction == NEXT else -requested
+        after = self.move_selection(signed_steps)
+        consumed = abs(after - before)
+        page_reload = consumed > 1
+        return {
+            "direction": direction,
+            "now_ms": now_ms,
+            "requested_steps": requested,
+            "consumed_steps": consumed,
+            "selected_index": after,
+            "first_visible_index": self.first_visible_index,
+            "page_reload": page_reload,
+            "mode": 4 if page_reload else None,
+            "update": 2 if page_reload else None,
+        }
 
     def render(self) -> tuple[Framebuffer, list[dict[str, object]]]:
         fb = Framebuffer()

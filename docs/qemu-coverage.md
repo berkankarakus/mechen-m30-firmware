@@ -24,8 +24,11 @@ JSON trace records the pre-scroll slot text, truncation, pixel offset, source
 row index, and selected-row background restore. Selection movement keeps the
 active row inside the eight-row viewport and clamps at the list edges. This
 makes the observed "scrolls but is cut off" behavior and the folder
-up/down-navigation contract testable without claiming that the proprietary
-LCD/font/input-timing path is emulated.
+up/down-navigation contract testable. `FolderList.move_event()` consumes the
+same burst gears as the existing acceleration model and then applies the
+clamped viewport move. This still does not claim that the proprietary
+LCD/font/input-timing path is emulated or that physical repeat rates have been
+measured.
 
 `tools/emu/prepare_qemu_banks.py` is the next bridge toward real bank
 execution. It extracts all 87 `music.ap` banks and emits exact-address

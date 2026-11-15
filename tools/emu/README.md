@@ -84,7 +84,10 @@ deterministic:
 25. `folder_ui.py` keeps the selected directory item visible while the host
     model moves through lists longer than the eight-row viewport. It clamps at
     both list edges and records the source row index in the trace; it models
-    folder navigation state, not the proprietary LCD or input timing.
+    folder navigation state, not the proprietary LCD or input timing. Its
+    `move_event()` method consumes the same burst gears as `scroll_accel.py`,
+    so accelerated up/down events and viewport movement can be tested together
+    without implying a hardware input-rate measurement.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
