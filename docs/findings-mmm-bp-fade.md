@@ -52,12 +52,21 @@ The actual fade-step path is stronger than the string evidence alone:
   branches, and then feeds the buffer loop through `FUN_bfc276ac`.
 - `FUN_bfc27400` records the explicit fade-in/fade-out control event and
   updates the shared state pointers used by the step path.
+- `FUN_bfc276ac` requests a `0x200`-byte decoder block and advances a ring of
+  `0x20`-byte slots while decrementing the available-count state.
+  `FUN_bfc274c8` is the corresponding wrap-around reader: it refuses a read
+  larger than the available count and splits a read at the ring end.
+- `FUN_bfc27520` consumes the ring state and calls the shared callback with
+  fade/control modes when the frame/buffer boundary changes. Its final output
+  scaling uses the current sample/level fields, so this is the first concrete
+  bridge between the fade state machine and the buffered output path.
 
 This proves a firmware fade state machine and its buffer-facing boundary, but
 not yet whether a particular Audacity-rendered tail is lost before this state
 machine, during buffer exhaustion, or in the downstream DSP. The next trace is
 the external callback behind the step calls and the caller that supplies
-`param + 0x81`/`+0xba`.
+`param + 0x81`/`+0xba`; then compare a short-tail file against the
+`available-count` and `0x200`-byte refill conditions.
 
 Because all six corpora agree byte-for-byte at these locations, the community
 firmware did not change this module. The next step is to trace callers and
