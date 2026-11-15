@@ -18,11 +18,13 @@ JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temur
 
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-reference-uirom.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$WORK/project" "$WORK/home"
+mkdir -p "$WORK/project" "$WORK/home" "$WORK/cache" "$WORK/tmp"
+GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}"
+GHIDRA_JAVA_OPTIONS="$GHIDRA_JAVA_OPTIONS -Dapplication.cachedir=$WORK/cache -Dapplication.tempdir=$WORK/tmp"
 
 set +e
 JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
-GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+GHIDRA_JAVA_OPTIONS="$GHIDRA_JAVA_OPTIONS" \
   "$GHIDRA" "$WORK/project" referenceuirom \
   -import "$ROM" \
   -loader BinaryLoader \

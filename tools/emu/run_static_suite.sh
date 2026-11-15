@@ -8,6 +8,16 @@ FW="$ROOT/analysis/community/fw"
 AP="$ROOT/build/qemu-minimal-safe/work/verify/fw/music.ap"
 HOST_ONLY=0
 
+# Keep all sequential Ghidra invocations inside one disposable cache/temp
+# root.  Without these properties Ghidra falls back to /var/tmp, which is
+# commonly read-only in the sandbox and produces noisy non-fatal cache errors.
+GHIDRA_WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-suite.XXXXXX")
+trap 'rm -rf "$GHIDRA_WORK"' EXIT
+mkdir -p "$GHIDRA_WORK/home" "$GHIDRA_WORK/cache" "$GHIDRA_WORK/tmp"
+GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$GHIDRA_WORK/home}"
+GHIDRA_JAVA_OPTIONS="$GHIDRA_JAVA_OPTIONS -Dapplication.cachedir=$GHIDRA_WORK/cache -Dapplication.tempdir=$GHIDRA_WORK/tmp"
+export GHIDRA_JAVA_OPTIONS
+
 if [ "${1:-}" = "--host-only" ]; then
   HOST_ONLY=1
 elif [ "$#" -gt 0 ]; then
