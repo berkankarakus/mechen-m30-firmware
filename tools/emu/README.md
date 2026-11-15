@@ -222,3 +222,8 @@ the shared folder-list next/previous callback, so it applies to up/down key
 events as well as any other control routed through those callbacks. It is a
 model only: it does not patch an AP or claim that the device's physical key
 repeat/event rate has been measured.
+
+The burst boundary is explicit in the model: events separated by 700 ms or
+less remain in the same burst, while a 701 ms gap resets to one item. Thus a
+physical up/down key repeat rate can be checked directly against this contract
+without assuming that the control is a wheel.

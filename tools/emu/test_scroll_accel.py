@@ -32,6 +32,14 @@ class ScrollAccelerationTests(unittest.TestCase):
         self.assertEqual(accelerator.steps_for(NEXT, 600 + GAP_MS + 1), 1)
         self.assertEqual(accelerator.steps_for(PREVIOUS, 600 + GAP_MS + 2), 1)
 
+    def test_up_down_repeat_rate_boundary_is_explicit(self):
+        at_boundary = ScrollAccelerator()
+        over_boundary = ScrollAccelerator()
+        boundary_steps = [at_boundary.steps_for(NEXT, index * GAP_MS) for index in range(10)]
+        over_steps = [over_boundary.steps_for(NEXT, index * (GAP_MS + 1)) for index in range(10)]
+        self.assertEqual(boundary_steps, [1, 1, 5, 5, 20, 20, 50, 50, 50, 100])
+        self.assertEqual(set(over_steps), {1})
+
     def test_multi_step_move_sets_the_stock_page_reload_contract(self):
         accelerator = ScrollAccelerator()
         for now in range(0, 1600, 100):
