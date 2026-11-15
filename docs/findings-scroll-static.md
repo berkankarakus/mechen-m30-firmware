@@ -77,8 +77,12 @@ forwards a three-argument call to the raw target stored at `0xbfc09e70`
 range and state. A17 is absent from the extracted M30 driver, so this target
 must remain an unresolved external/provider entry; the forwarder is not the
 clear implementation. The host test now explicitly records that absence. The
-B3 runtime probe asserts the complete call envelope, and the resident probe
-asserts the forwarder shape. The flat loader used for this result is
+B3 runtime probe now also binds the literal envelope: the initial system
+operation is the resident wrapper `0xbfc09c01`, the three-argument background
+operation goes through the conditional resident forwarder `0xbfc09e35`, and
+the text-side SD-image renderer is the B16-qualified pointer `0x26409401`.
+These are exact pointer values, not yet names for the underlying LCD/resource
+operation. The resident probe asserts the forwarder shape. The flat loader used for this result is
 `tools/ghidra/FlatLoad.java`; the complete temporary decompile was generated
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.

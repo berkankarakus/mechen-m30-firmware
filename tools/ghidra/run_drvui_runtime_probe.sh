@@ -32,7 +32,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript FlatLoad.java "$DRIVER" "$RUNTIME_BASE" "$FILE_OFFSET" "$SIZE" \
-  -postScript DumpAt.java "$RUNTIME_ENTRY" "$WORK/decomp.c" 2>&1 | tee "$WORK/ghidra.log"
+  -postScript DumpAt.java "$RUNTIME_ENTRY" "$WORK/decomp.c" \
+  -postScript DumpWords.java 0x260e52bc 0x260e52f0 2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
@@ -42,4 +43,7 @@ grep -Fq '(*_UNK_260e52bc)(_UNK_260e52b8,0,0x7c,1);' "$WORK/decomp.c"
 grep -Fq 'uStack_40 = 0x7c;' "$WORK/decomp.c"
 grep -Fq '(*_UNK_260e52e8)(&uStack_48,0,uVar7);' "$WORK/decomp.c"
 grep -Fq '(*_UNK_260e52ec)(&uStack_48,&sStack_28,0);' "$WORK/decomp.c"
-echo 'DRV_UI B3 RUNTIME PASS entry=0x260e4ff4 bank=0x260e5000 clear-width=0x7c sdimage-call-envelope=verified'
+grep -q 'WORD address=260e52bc value=0xbfc09c01' "$WORK/ghidra.log"
+grep -q 'WORD address=260e52e8 value=0xbfc09e35' "$WORK/ghidra.log"
+grep -q 'WORD address=260e52ec value=0x26409401' "$WORK/ghidra.log"
+echo 'DRV_UI B3 RUNTIME PASS entry=0x260e4ff4 bank=0x260e5000 clear-width=0x7c resident-forwarder=0xbfc09e35 sdimage=0x26409401'
