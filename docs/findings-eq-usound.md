@@ -87,4 +87,11 @@
   ownership are not proven;
   the host emulator therefore models the ring only as an explicitly generic
   boundary, not as the firmware's PCM/DMA implementation.
+- A second driver boundary is also verified: `FUN_bfc318cc` transfers whole
+  words through MMIO data port `0xc0080084` (mode 2 read, mode 1 write) or
+  alternate port `0xc0080088` (mode 4 read), gated by `0x9fc33e12`. Its caller
+  `FUN_bfc30dc4` prepares the 0x1000-byte scratch area before this transfer and
+  then feeds a separate 0x6e40-byte software-ring path. The host model exposes
+  only the observed word-port modes; it does not assign USB or PCM semantics to
+  these registers.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
