@@ -26,6 +26,22 @@ The extracted `kernel.drv` SHA-256 is also identical for all twelve:
 58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6
 ```
 
+The fixed AFI-side support members are identical as well. Their common
+SHA-256 values in the same corpus are:
+
+```text
+CARDMBRC.BIN  f63a2ccd5fcf14e8329cc1c52faac75145733f331c8aede5872499ffe5f3c1b6
+CARDPRDU.BIN  27f50ff41cbe45334334dd171bae30d5a566c70f2c59b932e5c3df39d539b1b5
+NORBREC.BIN   8b11f25209e6a79474559b4b48d3a9d7f29d5f07633d234fe0eada9b8cd4e93d
+NORFWSC.BIN   5b72dee96b608139baea2a8d187e8c8bc4644600c0c085382093f9f2a95fb920
+NORHWSC.BIN   249df3875d5d25b070feba2941cbf8cfb8dde67e19c4a22d7a0735be1de49ecb
+NORMBREC.BIN  dacb549733c6af1727ed2dd8efe091ff6386ef3a111329f5407475ee620c5ace
+NOR_ID.BIN    5d70d9c4e90de212a542c416adddeba811ca439c83f9e4883103330035fa635d
+```
+
+This does not dump the mask ROM; it only shows that the update images do not
+carry a version-specific NOR-side implementation of the missing UI provider.
+
 The application overlays do change between release lines, as expected; this
 comparison therefore does not use an application hash as evidence about the
 resident UI provider.
@@ -59,8 +75,9 @@ PYTHONPATH=tools/emu python3 tools/emu/compare_firmware_versions.py \
 ## Consequence
 
 Searching another archived M30 release is unlikely to reveal the missing A17,
-A19, B2, or B16 implementation: the resident driver and UI driver are stable
-across the available corpus, and no extracted member provides a second copy.
-The remaining evidence must come from the fixed ROM/resident dispatch boundary
-or from a runtime observation. This keeps the unknown provider out of the
-flashable patch and out of the host emulator's executable dispatch path.
+A19, B2, or B16 implementation: the resident driver, UI driver, and fixed
+AFI-side support members are stable across the available corpus, and no
+extracted member provides a second copy. The remaining evidence must come from
+the mask-ROM/resident dispatch boundary or from a runtime observation. This
+keeps the unknown provider out of the flashable patch and out of the host
+emulator's executable dispatch path.
