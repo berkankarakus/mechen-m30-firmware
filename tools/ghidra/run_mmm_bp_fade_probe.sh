@@ -26,6 +26,9 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
   -postScript DumpAt.java 0xbfc21530,0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0xbfc274c8,0xbfc27520,0xbfc276ac,0x680a1ed4 "$WORK/decomp.c" \
+  -postScript DumpWords.java 0xbfc21698 0xbfc2169c \
+  -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
+  -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -60,5 +63,17 @@ grep -q 'param_1\[2\] = 0x400' "$WORK/decomp.c"
 grep -q 'param_3\[3\]' "$WORK/decomp.c"
 grep -q 'param_1 + 0x70' "$WORK/decomp.c"
 grep -q '0x200' "$WORK/decomp.c"
+
+# These literal-pool values are the actual callback/control boundaries used
+# by the decompiled routines.  The odd MIPS16 values are recorded as values,
+# not treated as new patch targets: the callback body is outside this module's
+# safely recovered function set.
+grep -q 'WORD address=bfc21698 value=0xbfc21a3d' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc27488 value=0xbfc21a3d' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc274c4 value=0xbfc21a3d' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc2769c value=0x9fc21b00' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc276a0 value=0xbfc21a3d' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc2772c value=0xbfc274c9' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc27730 value=0xbfc2748d' "$WORK/ghidra.log"
 
 echo 'MMM BP FADE PASS diagnostic=fade-out/in buffer-state=verified attenuation=unresolved'

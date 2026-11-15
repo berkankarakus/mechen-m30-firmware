@@ -61,6 +61,17 @@ The actual fade-step path is stronger than the string evidence alone:
   scaling uses the current sample/level fields, so this is the first concrete
   bridge between the fade state machine and the buffered output path.
 
+The callback boundary is now anchored to the literal pool rather than only to
+Ghidra's `_UNK_` names: `0xbfc21698`, `0xbfc27488`, `0xbfc274c4`, and
+`0xbfc276a0` contain the odd MIPS16 value `0xbfc21a3d`; the buffer state at
+`0xbfc2769c` contains `0x9fc21b00`; and the ring helpers use the odd entries
+`0xbfc274c9` and `0xbfc2748d` from `0xbfc2772c` and `0xbfc27730`. The latter
+two normalize to the already recovered even-entry routines `FUN_bfc274c8` and
+`FUN_bfc2748c`. The `0xbfc21a3d` target itself does not decompile as a valid
+function in this module (the aligned probe encounters bad instruction data),
+so it remains an external/unsupported callback boundary and is not a safe patch
+site.
+
 The ownership boundary is also clearer now: `FUN_bfc21530` consumes the
 control flag at `param + 0x81`, clears it, and initializes fade mode `2` plus
 the step counter at `+0x8a`; `FUN_bfc21590` later changes mode `2` to `3` when
@@ -71,10 +82,10 @@ safe patch site.
 
 This proves a firmware fade state machine and its buffer-facing boundary, but
 not yet whether a particular Audacity-rendered tail is lost before this state
-machine, during buffer exhaustion, or in the downstream DSP. The next trace is
-the external callback behind the step calls and the caller that supplies
-`param + 0x81`/`+0xba`; then compare a short-tail file against the
-`available-count` and `0x200`-byte refill conditions.
+machine, during buffer exhaustion, or in the downstream DSP. The remaining
+static trace target is the external callback behind the step calls and the
+caller that supplies `param + 0x81`/`+0xba`; then compare a short-tail file
+against the `available-count` and `0x200`-byte refill conditions.
 
 ## Emulator boundary
 
