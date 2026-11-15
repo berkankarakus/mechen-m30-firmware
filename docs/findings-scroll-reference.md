@@ -9,6 +9,16 @@ The public reference snapshot used for comparison is
 `b964feb76a7890a0ee32db188689da3254b724f9`. It is used only as a source/API
 reference; its generated resources and coordinates are not copied into M30.
 
+The accompanying public US212A design manual also separates the relevant UI
+operations: string scrolling, string measurement, line splitting, picture
+display, and reading a picture region back into a buffer are distinct driver
+interfaces. Its graphics section likewise distinguishes solid-color fills from
+image-backed fills. This supports the existing interpretation of the M30 B3
+indirect calls: a `put_string_line_sdimage`-shaped call can be the text draw
+side of the restore path, but it is not by itself proof that the background
+provider is a solid fill. The manual is a generic API reference, not a M30
+binary mapping: [US212A UI-driver design manual](https://tchumim.com/assets/uploads/files/1622479367338-%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%9C%D7%AA%D7%9B%D7%A0%D7%95%D7%9F-%D7%90%D7%A4%D7%9C%D7%99%D7%A7%D7%A6%D7%99%D7%95%D7%AA-us212a.pdf).
+
 ## What the reference source explains
 
 The active directory item in the M30 `common.sty` listbox is not a plain
