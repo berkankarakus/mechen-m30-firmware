@@ -63,3 +63,14 @@ python3 -m unittest discover -s tools/rom -p 'test_*.py'
 
 This test path uses synthetic bytes only; it does not imply that a ROM dump is
 available or that the handler has been identified.
+
+When a verified 256 KiB dump is available, map it into Ghidra and inspect the
+two candidate handlers with:
+
+```sh
+bash tools/ghidra/run_bootrom_probe.sh /private/tmp/m30-rom.bin
+```
+
+The probe maps the dump at its `0x9fc00000` alias and decompiles the two
+candidate offsets. It intentionally does not add the dump to the firmware
+tree or execute it.
