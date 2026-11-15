@@ -124,6 +124,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer boundary | Ghidra `usound.drv` + generic host model | PASS; 0x1000-byte wrap and 100-short-read reset; producer/PCM ownership unmodeled |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
+| usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
 | Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |

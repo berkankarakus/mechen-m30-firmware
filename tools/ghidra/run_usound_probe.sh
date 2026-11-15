@@ -48,4 +48,8 @@ grep -Fq 'if (99 < *_UNK_bfc3172c)' "$WORK/usound.c"
 grep -q 'void FUN_bfc30cac' "$WORK/usound.c"
 grep -q 'void FUN_bfc30ce8' "$WORK/usound.c"
 grep -Fq 'iStackX_8 = iStackX_8 + -3' "$WORK/usound.c"
-echo 'USB AUDIO DRIVER PASS functions=46 control-requests=0x22/0x21 hid-endpoint=0x82 iso-packet=200 ring-boundary=0x1000 format=3-to-4'
+grep -Fq '0x6e40' "$WORK/usound.c"
+grep -Fq 'iStack_3c = 0x1b90' "$WORK/usound.c"
+grep -Fq 'iStack_3c = 0x3720' "$WORK/usound.c"
+grep -q 'void FUN_bfc30dc4' "$WORK/usound.c"
+echo 'USB AUDIO DRIVER PASS functions=46 control-requests=0x22/0x21 hid-endpoint=0x82 iso-packet=200 ring-boundary=0x1000 software-ring=0x6e40 format=3-to-4'

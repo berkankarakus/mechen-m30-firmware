@@ -100,4 +100,11 @@
   arithmetic is `byte_count * 4 / 3`; other formats use the direct byte count.
   This is an evidence-backed format boundary, not yet a claim about sample
   encoding or USB endpoint ownership.
+- The producer-side software ring is now modeled separately at capacity
+  `0x6e40`: write position `0x9fc33de8`, available count `0x9fc33df0`, direct
+  ready threshold `0x3720`, expanded-format threshold `0x1b90`, and the
+  observed overrun rule `available > capacity -> available = wrapped write
+  position`. The host model covers direct and wrapped writes plus the
+  format-specific ready edge; hardware FIFO timing and the downstream reader
+  remain outside the model.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
