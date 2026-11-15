@@ -28,6 +28,9 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
   --pointer 0xbfc0a408 --pointer 0xbfc0a578 --pointer 0xbfc0a6a0 \
   --pointer 0xbfc0a808 --pointer 0xbfc0a944 --pointer 0xbfc0ac98 \
   --pointer 0xbfc06d6c >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/eq_menu_probe.py" \
+  "$ROOT/analysis/community/fw/music.ap" \
+  "$ROOT/analysis/community/fw/music.mcg" >/dev/null
 
 if [ "$HOST_ONLY" -eq 1 ]; then
   echo 'STATIC SUITE PASS host-only'
