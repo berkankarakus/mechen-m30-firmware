@@ -2,7 +2,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from folder_ui import DIRECTORY_TEXT_WIDTH, FolderList, FolderRow, directory_marquee_positions
+from folder_ui import (
+    DIRECTORY_TEXT_WIDTH,
+    SELECTION_BACKGROUND,
+    FolderList,
+    FolderRow,
+    draw_directory_text,
+    directory_marquee_positions,
+)
+from m30_ui import Framebuffer
 
 
 class FolderUiTests(unittest.TestCase):
@@ -46,6 +54,24 @@ class FolderUiTests(unittest.TestCase):
             view.render()[0].ppm(out)
             self.assertEqual(out.read_bytes()[:15], b"P6\n320 240\n255\n")
             self.assertEqual(len(out.read_bytes()), 15 + 320 * 240 * 3)
+
+    def test_marquee_cannot_paint_outside_text_viewport(self):
+        frame = Framebuffer()
+        frame.fill(SELECTION_BACKGROUND)
+        draw_directory_text(
+            frame,
+            "A" * 48,
+            35,
+            20,
+            DIRECTORY_TEXT_WIDTH,
+            (235, 235, 235),
+            offset_px=17,
+        )
+        expected = bytes(SELECTION_BACKGROUND)
+        for x in (30, 34, 240, 319):
+            for y in range(20, 36):
+                start = (y * frame.width + x) * 3
+                self.assertEqual(frame.pixels[start:start + 3], expected)
 
 
 if __name__ == "__main__":
