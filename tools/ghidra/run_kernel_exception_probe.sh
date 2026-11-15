@@ -32,4 +32,8 @@ set -e
 
 grep -q '0xbfc06d6c' "$WORK/decomp.c"
 grep -q '0x3ffff' "$WORK/decomp.c"
+grep -Fq 'uRam00013dd8 = EPC;' "$WORK/decomp.c"
+grep -Fq 'uRam00013ddc = unaff_retaddr;' "$WORK/decomp.c"
+grep -Fq '(*(code *)0xbfc06d6c)();' "$WORK/decomp.c"
+grep -Fq '((uint)auStackX_0 & 0x3ffff)' "$WORK/decomp.c"
 echo 'KERNEL EXCEPTION PASS epc_handler=0xbfc06d6c mask=0x3ffff'
