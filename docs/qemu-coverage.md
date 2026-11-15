@@ -22,11 +22,12 @@ slots using the observed 50-byte UTF-16 name slot, the `common.sty` 205x16
 text viewport at x=35, 30-pixel rows, and the 80 ms active scroll period. Its
 JSON trace records the pre-scroll slot text, truncation, pixel offset, source
 row index, and selected-row background restore. Selection movement keeps the
-active row inside the eight-row viewport and clamps at the list edges. This
-makes the observed "scrolls but is cut off" behavior and the folder
-up/down-navigation contract testable. `FolderList.move_event()` consumes the
-same burst gears as the existing acceleration model and then applies the
-clamped viewport move. This still does not claim that the proprietary
+active row inside the eight-row viewport and wraps at the list edges, matching
+the real browser/music handler boundary matrix. This makes the observed
+"scrolls but is cut off" behavior and the folder up/down-navigation contract
+testable. `FolderList.move_event()` consumes the same burst gears as the
+existing acceleration model and applies the recovered wrapping callback. This
+still does not claim that the proprietary
 LCD/font/input-timing path is emulated or that physical repeat rates have been
 measured.
 

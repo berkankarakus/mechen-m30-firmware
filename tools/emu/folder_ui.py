@@ -145,30 +145,35 @@ class FolderList:
         return min(selected_start, max_start)
 
     def move_selection(self, delta: int) -> int:
-        """Move the folder selection without wrapping past either list edge."""
+        """Move the folder selection with the stock list-edge wrap behavior."""
         if not isinstance(delta, int):
             raise TypeError("selection delta must be an integer")
-        self.selected_index = min(
-            max(self.selected_index + delta, 0),
-            len(self.rows) - 1,
-        )
+        self.selected_index = (self.selected_index + delta) % len(self.rows)
         return self.selected_index
 
     def move_event(self, direction: int, now_ms: int) -> dict[str, int | bool | None]:
         """Apply one accelerated folder-navigation event to the host model.
 
-        The folder browser keeps its selection at the list edges.  This is
-        intentionally separate from ``ScrollAccelerator.move()``, whose
-        one-step helper mirrors the stock wrapping callback; the UI model is
-        modeling the patched folder viewport contract, not that raw callback.
+        The folder browser wraps at the list edges, matching the real
+        browser/music handler executed by the p-code boundary matrix. Reuse
+        the accelerator's one-step loop so a multi-step burst stops at the
+        first wrap just as the recovered callback does.
         """
         if direction not in (NEXT, PREVIOUS):
             raise ValueError("direction must be NEXT or PREVIOUS")
         requested = self.accelerator.steps_for(direction, now_ms)
         before = self.selected_index
-        signed_steps = requested if direction == NEXT else -requested
-        after = self.move_selection(signed_steps)
-        consumed = abs(after - before)
+        after_one_based, consumed = ScrollAccelerator.move_selection(
+            before + 1,
+            len(self.rows),
+            direction,
+            requested,
+        )
+        after = after_one_based - 1
+        self.selected_index = after
+        wrapped = (direction == NEXT and after < before) or (
+            direction == PREVIOUS and after > before
+        )
         page_reload = consumed > 1
         return {
             "direction": direction,
@@ -177,6 +182,7 @@ class FolderList:
             "consumed_steps": consumed,
             "selected_index": after,
             "first_visible_index": self.first_visible_index,
+            "wrapped": wrapped,
             "page_reload": page_reload,
             "mode": 4 if page_reload else None,
             "update": 2 if page_reload else None,

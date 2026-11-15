@@ -88,12 +88,13 @@ deterministic:
     keeps the 8x50-byte layout boundary executable as a regression rather than
     leaving the 64-byte overlap warning as prose only.
 25. `folder_ui.py` keeps the selected directory item visible while the host
-    model moves through lists longer than the eight-row viewport. It clamps at
-    both list edges and records the source row index in the trace; it models
-    folder navigation state, not the proprietary LCD or input timing. Its
-    `move_event()` method consumes the same burst gears as `scroll_accel.py`,
-    so accelerated up/down events and viewport movement can be tested together
-    without implying a hardware input-rate measurement.
+    model moves through lists longer than the eight-row viewport. It wraps at
+    both list edges, matching the real handler boundary matrix, and records the
+    source row index in the trace; it models folder navigation state, not the
+    proprietary LCD or input timing. Its `move_event()` method consumes the
+    same burst gears as `scroll_accel.py`, so accelerated up/down events and
+    viewport movement can be tested together without implying a hardware
+    input-rate measurement.
 26. `FolderList.marquee_offset_at()` and `render_at()` advance the host frame
     on the reference listbox's measured 80 ms refresh tick. They use integer
     timestamps for reproducible screenshots/traces and leave the firmware's

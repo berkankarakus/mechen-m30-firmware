@@ -62,11 +62,24 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(trace[-1]["index"], 11)
         self.assertTrue(trace[-1]["selected"])
 
-    def test_selection_movement_clamps_at_list_edges(self):
+    def test_selection_movement_wraps_at_list_edges(self):
         view = FolderList(tuple(FolderRow(str(index)) for index in range(10)))
-        self.assertEqual(view.move_selection(-1), 0)
-        self.assertEqual(view.move_selection(100), 9)
-        self.assertEqual(view.first_visible_index, 2)
+        self.assertEqual(view.move_selection(-1), 9)
+        self.assertEqual(view.move_selection(1), 0)
+        self.assertEqual(view.first_visible_index, 0)
+
+    def test_single_step_wrap_matches_real_folder_handler(self):
+        view = FolderList(tuple(FolderRow(str(index)) for index in range(7)), selected_index=6)
+        result = view.move_event(NEXT, 0)
+        self.assertEqual(
+            (result["selected_index"], result["consumed_steps"], result["wrapped"]),
+            (0, 1, True),
+        )
+        result = view.move_event(PREVIOUS, 1)
+        self.assertEqual(
+            (result["selected_index"], result["consumed_steps"], result["wrapped"]),
+            (6, 1, True),
+        )
 
     def test_accelerated_events_move_and_scroll_the_folder_view(self):
         view = FolderList(tuple(FolderRow(str(index)) for index in range(100)))
@@ -80,14 +93,14 @@ class FolderUiTests(unittest.TestCase):
         self.assertTrue(result["page_reload"])
         self.assertEqual((result["mode"], result["update"]), (4, 2))
 
-    def test_accelerated_folder_events_reset_on_direction_change_and_clamp(self):
+    def test_accelerated_folder_events_reset_on_direction_change_and_wrap(self):
         view = FolderList(tuple(FolderRow(str(index)) for index in range(4)), selected_index=3)
         result = view.move_event(NEXT, 0)
-        self.assertEqual((result["selected_index"], result["consumed_steps"]), (3, 0))
+        self.assertEqual((result["selected_index"], result["consumed_steps"]), (0, 1))
         result = view.move_event(PREVIOUS, 1)
-        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 2))
+        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 3))
         result = view.move_event(PREVIOUS, 701)
-        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 1))
+        self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 2))
 
     def test_marquee_offset_uses_the_eighty_millisecond_refresh_tick(self):
         view = FolderList((FolderRow("A long folder name"),), scroll_offset_px=3)
