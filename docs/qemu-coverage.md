@@ -71,7 +71,8 @@ than the earlier decompile-only contract, but it still does not emulate the
 LCD, storage, input timing, or a complete M30 boot.
 
 `tools/ghidra/run_folder_nav_matrix_probe.sh` adds fourteen boundary cases per
-bank. The real handler was verified for 1-, 2-, 7-, 8-, 9-, and 10-item lists,
+bank in one Ghidra import per bank. The real handler was verified for 1-, 2-,
+7-, 8-, 9-, and 10-item lists,
 including the single-item no-op, small-list wrapping, page-end redraw,
 next-at-bottom wrap to the first item, and previous-at-top wrap to the last
 page. Browser and music produced identical state tuples. The matrix does not

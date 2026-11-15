@@ -4,48 +4,40 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
+JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+[ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-folder-matrix.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
+GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}"
+GHIDRA_JAVA_OPTIONS="$GHIDRA_JAVA_OPTIONS -Dapplication.cachedir=$WORK/cache -Dapplication.tempdir=$WORK/tmp"
+export GHIDRA_JAVA_OPTIONS
+mkdir -p "$WORK/home" "$WORK/cache" "$WORK/tmp"
 
-# mode total page start end cursor expected-state-substring
-CASES=(
-  "next 1 1 1 1 1 mode=next start=1 end=1 active=1 previous=1 status=0 update=0 redraw=0 reset=0"
-  "previous 1 1 1 1 1 mode=previous start=1 end=1 active=1 previous=1 status=0 update=0 redraw=0 reset=0"
-  "next 2 7 1 2 2 mode=next start=1 end=2 active=1 previous=2 status=0 update=1 redraw=0 reset=0"
-  "previous 2 7 1 2 1 mode=previous start=1 end=2 active=2 previous=1 status=0 update=1 redraw=0 reset=0"
-  "next 7 7 1 7 7 mode=next start=1 end=7 active=1 previous=7 status=0 update=1 redraw=0 reset=0"
-  "previous 7 7 1 7 1 mode=previous start=1 end=7 active=7 previous=1 status=0 update=1 redraw=0 reset=0"
-  "next 8 7 1 7 7 mode=next start=2 end=8 active=8 previous=7 status=1 update=2 redraw=1 reset=0"
-  "previous 8 7 1 8 1 mode=previous start=2 end=8 active=8 previous=7 status=5 update=2 redraw=0 reset=0"
-  "next 9 7 2 8 8 mode=next start=3 end=9 active=9 previous=7 status=1 update=2 redraw=1 reset=0"
-  "next 10 7 4 10 10 mode=next start=1 end=7 active=1 previous=1 status=4 update=2 redraw=0 reset=0"
-  "previous 10 7 1 7 1 mode=previous start=4 end=10 active=10 previous=7 status=5 update=2 redraw=0 reset=0"
-  "previous 10 7 4 10 4 mode=previous start=4 end=10 active=3 previous=4 status=0 update=1 redraw=0 reset=0"
-  "next 10 7 1 7 7 mode=next start=2 end=8 active=8 previous=7 status=1 update=2 redraw=1 reset=0"
-  "previous 10 7 1 7 7 mode=previous start=1 end=7 active=6 previous=7 status=0 update=1 redraw=0 reset=0"
-)
-
-case_no=0
 for app in browser music; do
-  for spec in "${CASES[@]}"; do
-    read -r mode total page start end cursor expected <<< "$spec"
-    case_no=$((case_no + 1))
-    log="$WORK/${case_no}-${app}-${mode}.log"
-    if ! bash "$ROOT/tools/ghidra/run_folder_nav_pcode_probe.sh" \
-      "$app" "$mode" "$total" "$page" "$start" "$end" "$cursor" >"$log" 2>&1; then
-      cat "$log" >&2
-      exit 1
-    fi
-    actual=$(sed -n 's/.*FOLDER NAV PASS //p' "$log" | tail -n 1)
-    actual=$(printf '%s\n' "$actual" | sed -E 's/^([^ ]+) steps=[0-9]+ /\1 /')
-    if [[ "$actual" != *"$expected"* ]]; then
-      echo "folder navigation matrix mismatch: app=$app case=$spec" >&2
-      cat "$log" >&2
-      exit 1
-    fi
-    printf 'FOLDER NAV MATRIX PASS app=%s mode=%s total=%s cursor=%s %s\n' \
-      "$app" "$mode" "$total" "$cursor" "$expected"
-  done
+  AP="$ROOT/analysis/community/fw/$app.ap"
+  [ -f "$AP" ] || { echo "missing AP: $AP" >&2; exit 1; }
+  mkdir -p "$WORK/$app/project"
+  set +e
+  JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
+    "$GHIDRA" "$WORK/$app/project" "m30foldermatrix-$app" \
+    -import "$AP" \
+    -loader BinaryLoader \
+    -processor 'MIPS:LE:32:default' \
+    -noanalysis \
+    -scriptPath "$ROOT/tools/ghidra" \
+    -postScript LoadAP.java "$AP" \
+    -postScript RunFolderNavMatrix.java "$app" >"$WORK/$app/ghidra.log" 2>&1
+  STATUS=$?
+  set -e
+  if [ "$STATUS" -ne 0 ]; then
+    cat "$WORK/$app/ghidra.log" >&2
+    exit "$STATUS"
+  fi
+  grep -q "FOLDER NAV MATRIX PASS app=$app cases=14" "$WORK/$app/ghidra.log"
+  grep 'FOLDER NAV MATRIX PASS app=.* mode=' "$WORK/$app/ghidra.log" \
+    | sed -E 's/^.*(FOLDER NAV MATRIX PASS app=.*)$/\1/'
 done
 
-echo "FOLDER NAV MATRIX PASS cases=$case_no"
+echo "FOLDER NAV MATRIX PASS cases=28"

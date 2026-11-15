@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Compare host folder navigation against the real p-code boundary matrix.
-
-The p-code probe is the authority for firmware state.  This comparator checks
-only fields with an unambiguous shared meaning at the current boundary:
-one-based active item and whether a single event wrapped at a list edge.  The
-raw handler's start/end/status/update bytes remain in the matrix output until
-their firmware-local meanings are resolved independently.
-"""
+"""Compare host folder navigation against the real p-code boundary matrix."""
 
 from __future__ import annotations
 
@@ -21,12 +14,18 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools" / "emu"))
 
 from folder_ui import FolderList, FolderRow
+from folder_nav_state import FolderNavigationState
 from scroll_accel import NEXT, PREVIOUS
 
 
 PASS_RE = re.compile(
     r"^FOLDER NAV MATRIX PASS app=(?P<app>\w+) mode=(?P<mode>next|previous) "
-    r"total=(?P<total>\d+) cursor=(?P<cursor>\d+) .*active=(?P<active>\d+)"
+    r"total=(?P<total>\d+) page=(?P<page>\d+) "
+    r"initial_start=(?P<initial_start>\d+) initial_end=(?P<initial_end>\d+) "
+    r"cursor=(?P<cursor>\d+) "
+    r"start=(?P<start>\d+) end=(?P<end>\d+) active=(?P<active>\d+) "
+    r"previous=(?P<previous>\d+) status=(?P<status>\d+) "
+    r"update=(?P<update>\d+) redraw=(?P<redraw>\d+) reset=(?P<reset>\d+)"
 )
 
 
@@ -50,14 +49,40 @@ def main() -> int:
 
     active_matches = 0
     wrap_matches = 0
+    state_matches = 0
     for record in records:
         assert record is not None
         app = record.group("app")
         mode = record.group("mode")
         total = int(record.group("total"))
+        page = int(record.group("page"))
+        initial_start = int(record.group("initial_start"))
+        initial_end = int(record.group("initial_end"))
         cursor = int(record.group("cursor"))
         expected_active = int(record.group("active"))
         direction = NEXT if mode == "next" else PREVIOUS
+
+        state = FolderNavigationState(
+            page_size=page,
+            start=initial_start,
+            end=initial_end,
+            total=total,
+            active=cursor,
+            anchor=cursor,
+            previous=cursor,
+        )
+        expected_state = {
+            name: int(record.group(name))
+            for name in ("start", "end", "active", "previous", "status", "update", "redraw", "reset")
+        }
+        actual_state = state.apply(mode)
+        if actual_state != expected_state:
+            raise SystemExit(
+                f"state mismatch app={app} mode={mode} total={total} cursor={cursor}: "
+                f"host={actual_state} pcode={expected_state}"
+            )
+        state_matches += 1
+
         view = FolderList(
             tuple(FolderRow(f"row-{index}") for index in range(total)),
             selected_index=cursor - 1,
@@ -84,7 +109,7 @@ def main() -> int:
 
     print(
         "FOLDER NAV HOST COMPARE PASS "
-        f"cases={len(records)} active={active_matches} wrap={wrap_matches}"
+        f"cases={len(records)} state={state_matches} active={active_matches} wrap={wrap_matches}"
     )
     return 0
 
