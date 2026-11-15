@@ -5,6 +5,135 @@ kullanacağı bulguları toplar. Burada yazan hiçbir şey cihazda test edilmiş
 sayılmaz; "doğrulandı" yalnızca offline (hash, unpack, byte karşılaştırma)
 doğrulaması demektir.
 
+## Devralma checkpoint'i — 2026-11-16
+
+Bu bölüm, çalışmaya başka bir modelin ara vermeden devam edebilmesi için
+güncel durumun kısa ve eyleme dönük özetidir. Aşağıdaki sonuçlar yalnızca
+yerel dosya, Ghidra ve host-side model doğrulamasıdır; cihazda yeni bir yazma
+işlemi yapılmamıştır.
+
+### Çalışma durumu
+
+- Repo: `/Users/berkankarakus/Projects/mechen-m30-firmware`
+- Dal: `main`
+- Bu checkpoint öncesi son teknik commit: `36674c6 emu: model usound software ring producer`
+- Handoff belgesi için bundan sonra ayrı bir docs commit'i oluşturulmalıdır.
+- Push yapılmadı. Cihaza firmware, ROM payload veya başka veri yazılmadı.
+- Kullanıcının açık güvenlik sınırı: cihazı yazma/flashlama yok; yalnızca offline
+  analiz ve host-side test.
+- Son doğrulama komutu:
+
+  ```sh
+  bash tools/emu/run_static_suite.sh
+  ```
+
+  Sonuç: `STATIC SUITE PASS full`; host testleri `77 sim`, `107 emu`, `6 ROM`
+  olarak geçti. Ghidra klasör/navigasyon matrisi, driver/kernel probe'ları,
+  USB-audio probe'ları ve MIPS16 smoke probe'ları da bu çalışmada tamamlandı.
+
+### Bu aşamada kanıtlanan USB/usound sınırı
+
+Son commit zinciri `usound` için aşağıdaki parçaları kanıt düzeyinde ayırır:
+
+1. USB cihaz sözleşmesi: USB 1.1, VID/PID `0x10D6:0xDD00`, iki kanal,
+   16-bit, 48 kHz; isochronous OUT endpoint `0x01`; tam paket 200 bayt
+   (50 stereo frame); HID IN endpoint `0x82`. `0x21` ve `0x22` istek kodları
+   gözlendi, fakat semantik isimleri varsayılmadı.
+2. `FUN_bfc31654`: 4 KiB dairesel tüketici buffer'ı, mevcut-bayt sayacı,
+   okuma pointer'ı, wrap/split kopyası ve kısa-okuma sayacı. 100 kısa okumada
+   reset sinyalinin temizlendiği de modellenmiştir.
+3. Runtime literal havuzu, bu tüketici için şu adresleri çözüyor:
+   `0x9fc33df0`, `0x9fc33df4`, `0x9fc33dec`, `0x9fc34000`, callback adayı
+   `0xbfc326a9`, reset sinyali `0x9fc33e13`.
+4. `FUN_bfc318cc`: `0xc0080084` ve `0xc0080088` word-port'ları, modlar
+   `1/2/4` ve `0x9fc33e12` transfer gate'i modellenmiştir. Bu, genel MMIO
+   word-port sınırıdır; doğrudan PCM donanımı olduğu iddia edilmez.
+5. `FUN_bfc30cac` ve `FUN_bfc30ce8`: doğrudan byte kopyası ile her üç byte'ı
+   dört byte'a `[0,b0,b1,b2]` genişleten format sınırı kanıtlanmıştır.
+6. `0x6e40` yazılım halkası: doğrudan ve 3→4 genişletilmiş yazma yolları,
+   wrap, gözlenen overrun davranışı ve eşikler (`0x1b90`, `0x3720`) host
+   modelinde vardır. Bu hâlâ host-side producer modelidir; donanım FIFO'su ve
+   aşağı akış reader'ı çözülmüş değildir.
+7. `usound.drv` byte-identical çıktı: community, first-pass-verify, stock,
+   v1.101.11, v1.101.12 ve v5 corpus'larında SHA-256
+   `e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc`.
+   `udisk.drv` de bu yerel corpus'larda byte-identical'dır.
+
+### Çözülmemiş ve özellikle varsayılmaması gerekenler
+
+- Odd MIPS16 callback `0xbfc326a9`'un semantiği çözülmedi. Yakındaki
+  `0xbfc32680` ve `0xbfc32694` stub'ları sıfır döndürüyor; `0xbfc326a8`
+  civarındaki `break 0` benzeri kod syscall olabilir, ancak anlam atanmadı.
+- 4 KiB tüketici halkası ile `0x6e40` yazılım producer halkasının birbirine
+  nasıl bağlandığı; `FUN_bfc30dc4` sonrası aşağı-akış reader/DMA yolu henüz
+  bulunmadı.
+- USB host üzerinden gerçek PCM aktarım ABI'si, gerçek cihaz/OTG/VBUS
+  davranışı ve ATJ2127'nin tam firmware boot'u kanıtlanmadı.
+- Otomatik indekslemeyi kapatan güvenli patch bulunmadı. Community firmware'i
+  kart çıkar/tak sonrası indeksledi; bu konu çözülmüş kabul edilmemeli.
+- Klasör/şarkı sıralamasını firmware içinde değiştirmenin güvenli yolu
+  bulunmadı. Browser görünümü FAT/directory order kullanıyor; playlist/MUSIC.LIB
+  tarafında ayrı sıralama davranışı var.
+- Uzun klasör adı marquee artefaktının (kırmızı/siyah dikdörtgen ve kesilme)
+  runtime pointer/LCD düzeyi doğrulanmadı; cihazda yeni UI davranışı test
+  edilmedi.
+- EQ, sayaç, playback UI ve artwork için önceki statik bulgular belgelerde
+  mevcut; bu checkpoint'teki USB modelleri bunları flashlanabilir hâle
+  getirmez.
+- Bu değişiklik serisinin ürettiği flashlanabilir HEX yoktur.
+
+### Devam edecek model için sıralı iş listesi
+
+1. Önce çalışma alanını doğrula ve suite'i host-only çalıştır:
+
+   ```sh
+   cd /Users/berkankarakus/Projects/mechen-m30-firmware
+   git status --short
+   git log --oneline -8
+   bash tools/emu/run_static_suite.sh --host-only
+   ```
+
+2. Yeni Ghidra import'u baştan tekrarlama. Mevcut kanıtı kullanarak
+   `FUN_bfc30dc4` sonrasındaki çağrı zincirini ve olası downstream reader/DMA
+   tüketicisini ara. Amaç 4 KiB ring ile `0x6e40` ring arasındaki ilişkiyi
+   kanıtlamak; ilişki bulunamazsa iki modeli ayrı sözleşme olarak bırak.
+
+3. `0xbfc326a9` callback'ini MIPS16 çağrı konvansiyonu, çağrı noktaları ve
+   referans SDK syscall tabloları ile çözmeye çalış. Yalnızca aynı byte/code
+   ve çağrı davranışı kanıtlanırsa isim ver; aksi hâlde `unresolved` bırak.
+
+4. Downstream reader kanıtı bulunursa `tools/sim/` altında ayrı ve küçük bir
+   reader modeli ile test ekle. Producer modelini geriye dönük bozma; her
+   anlamlı adımı ayrı commit et ve tam suite'i tekrar çalıştır.
+
+5. Ancak statik sözleşme tamamlandıktan sonra izole QEMU entegrasyonunu düşün.
+   ATJ2127 tam boot'u, USB VBUS/OTG ve gerçek DAC/LCD davranışı şu anda
+   emülatörde kanıtlanmış değildir; bunları emülatör ekranı varmış gibi
+   raporlama.
+
+6. Firmware patch/HEX üretimi ancak ayrı bir kanıt zinciri ve kullanıcıdan
+   açık onay alındıktan sonra ele alınmalı. Şimdilik `adfu_reboot`,
+   `simple_switch`, `actions_dump`, upgrade veya başka cihaz-yazma komutu
+   çalıştırma.
+
+### Önemli dosya haritası
+
+| Dosya | Rol | Sınır |
+|---|---|---|
+| `tools/sim/usb_audio.py` | USB descriptor/packet sözleşmesi | Host model, cihaz testi değil |
+| `tools/sim/usb_ring.py` | 4 KiB genel ring consumer | PCM sahipliği kanıtlanmadı |
+| `tools/sim/usound_fifo.py` | MMIO word-port/gate modeli | Donanım semantiği genel |
+| `tools/sim/usound_format.py` | byte kopya ve 3→4 sınırı | Sample anlamı atanmadı |
+| `tools/sim/usound_software_ring.py` | `0x6e40` producer modeli | Downstream reader yok |
+| `tools/emu/usound_*_binary_probe.py` | Adres/literal corpus probe'ları | Offline binary kanıtı |
+| `tools/ghidra/run_usound_probe.sh` | Ghidra usound probe'ları | MIPS16 decompile çıktısı |
+| `docs/findings-eq-usound.md` | EQ ve usound başlangıç yolu | Flash patch değil |
+| `docs/qemu-coverage.md` | Emülatör kapsamı ve sınırları | Full ATJ2127 boot değil |
+| `docs/codex-handoff.md` | Bu devralma kaydı ve eski bulgular | Güncel kaynak |
+
+Bu bölümdeki “kanıtlandı” ifadeleri offline statik/host test kapsamındadır;
+donanım davranışı için ayrıca cihaz testi gerekir.
+
 ## Ortam
 
 | Ne | Yol |
