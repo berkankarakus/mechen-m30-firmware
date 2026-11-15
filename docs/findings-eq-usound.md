@@ -94,4 +94,10 @@
   then feeds a separate 0x6e40-byte software-ring path. The host model exposes
   only the observed word-port modes; it does not assign USB or PCM semantics to
   these registers.
+- The two software-ring copy helpers are now distinguished: `FUN_bfc30cac`
+  copies bytes directly, while `FUN_bfc30ce8` consumes complete 3-byte groups
+  and emits `[0, b0, b1, b2]` 4-byte groups. The caller's format-1 size
+  arithmetic is `byte_count * 4 / 3`; other formats use the direct byte count.
+  This is an evidence-backed format boundary, not yet a claim about sample
+  encoding or USB endpoint ownership.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
