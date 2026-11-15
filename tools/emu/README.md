@@ -90,6 +90,10 @@ providers are absent from the extracted M30 driver.
 `LazyBankRuntime.dispatch()` exposes the same policy in every
 `DispatchResult`, so callers do not have to infer safety from the status
 string or execute an unresolved candidate accidentally.
+`LazyBankRuntime.boundary_trace()` additionally models the evidence-based
+`overlay-exception -> bank-load -> retry-entry` envelope. The fixed exception
+handler that joins those steps is not present in the extracted image, so the
+trace is deliberately a host boundary and stops at an unvalidated entry.
 
 `test_real_drv_ui.py` repeats the critical B02/A19/B16 assertions against the
 archived community `drv_ui.drv`, in addition to the synthetic unit fixtures.

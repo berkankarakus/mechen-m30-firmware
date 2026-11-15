@@ -104,3 +104,64 @@ class LazyBankRuntime:
             candidate,
             loaded,
         )
+
+    def boundary_trace(self, pointer: int) -> tuple[dict[str, object], ...]:
+        """Return the conservative exception/load/retry boundary trace.
+
+        The extracted ``ker_xsys`` image proves an exception handoff, while
+        the resident loader proves the YQHX copy contract; the fixed handler
+        that joins those pieces is not in the extracted files.  This method
+        therefore models the observable sequence without executing any raw
+        pointer.  An unvalidated entry stops after the load, which is the
+        important fail-closed behavior for the emulator.
+        """
+        result = self.dispatch(pointer)
+        if result.candidate is None:
+            return ({"kind": "resident-or-unresolved", "pointer": result.pointer},)
+        candidate = result.candidate
+        if not candidate.bank_present:
+            return (
+                {
+                    "kind": "provider-missing",
+                    "pointer": candidate.pointer,
+                    "group": candidate.group,
+                    "index": candidate.index,
+                },
+            )
+
+        events: list[dict[str, object]] = []
+        if result.loaded:
+            events.extend(
+                (
+                    {
+                        "kind": "overlay-exception",
+                        "pointer": candidate.pointer,
+                        "reason": "bank-not-resident",
+                    },
+                    {
+                        "kind": "bank-load",
+                        "group": candidate.group,
+                        "index": candidate.index,
+                        "payload_offset": candidate.payload_offset,
+                    },
+                )
+            )
+        if result.status == "validated-entry":
+            events.append(
+                {
+                    "kind": "retry-entry" if result.loaded else "resident-entry",
+                    "group": candidate.group,
+                    "index": candidate.index,
+                    "entry_offset": candidate.entry_offset,
+                }
+            )
+        else:
+            events.append(
+                {
+                    "kind": "stop-unresolved-entry",
+                    "group": candidate.group,
+                    "index": candidate.index,
+                    "entry_offset": candidate.entry_offset,
+                }
+            )
+        return tuple(events)

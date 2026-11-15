@@ -410,6 +410,14 @@ the low-offset stub area for the A19/B2/B16-qualified entries and connect each
 stub to the corresponding `drv_ui` bank or shared UI module. Until then, the
 host emulator and Ghidra p-code probes remain the safe test surface.
 
+The host-side `LazyBankRuntime.boundary_trace()` now records the conservative
+sequence supported by the available evidence: an unloaded overlay produces an
+exception boundary, the resident loader copies the selected bank, and a
+validated entry is retried. Missing providers and unvalidated entry offsets
+stop in the trace; no raw far pointer is executed. This is an emulator
+contract, not a claim that the unavailable fixed exception handler has been
+recovered.
+
 ## Additional public sources checked
 
 The following sources were checked after the initial `actions_flash` review.
