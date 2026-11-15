@@ -87,8 +87,8 @@ deterministic:
     table for the exact list-buffer and adjacent `path_info` addresses. This
     keeps the 8x50-byte layout boundary executable as a regression rather than
     leaving the 64-byte overlap warning as prose only.
-25. `folder_ui.py` keeps the selected directory item visible while the host
-    model moves through lists longer than the eight-row viewport. It wraps at
+25. `folder_ui.py` keeps the selected directory item visible in the seven-row
+    directory viewport (the eighth allocated slot is the title). It wraps at
     both list edges, matching the real handler boundary matrix, and records the
     source row index in the trace; it models folder navigation state, not the
     proprietary LCD or input timing. Its `move_event()` method consumes the

@@ -5,6 +5,7 @@ from pathlib import Path
 from folder_ui import (
     DIRECTORY_TEXT_WIDTH,
     SELECTION_BACKGROUND,
+    VISIBLE_DIRECTORY_ROWS,
     FolderList,
     FolderRow,
     draw_directory_text,
@@ -57,8 +58,9 @@ class FolderUiTests(unittest.TestCase):
         rows = tuple(FolderRow(f"Folder {index}") for index in range(12))
         view = FolderList(rows, selected_index=11)
         _, trace = view.render()
-        self.assertEqual(view.first_visible_index, 4)
-        self.assertEqual(trace[0]["index"], 4)
+        self.assertEqual(VISIBLE_DIRECTORY_ROWS, 7)
+        self.assertEqual(view.first_visible_index, 5)
+        self.assertEqual(trace[0]["index"], 5)
         self.assertEqual(trace[-1]["index"], 11)
         self.assertTrue(trace[-1]["selected"])
 
@@ -89,7 +91,7 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(result["requested_steps"], 20)
         self.assertEqual(result["consumed_steps"], 20)
         self.assertEqual(result["selected_index"], 20)
-        self.assertEqual(result["first_visible_index"], 13)
+        self.assertEqual(result["first_visible_index"], 14)
         self.assertTrue(result["page_reload"])
         self.assertEqual((result["mode"], result["update"]), (4, 2))
 

@@ -35,6 +35,7 @@ FOLDER_ICON_X = 5
 FOLDER_ICON_SIZE = 22
 FOLDER_GLYPH_WIDTH_PX = M30_DIRECTORY_STYLE.glyph_width_px
 SCROLL_GAP_CHARS = 2
+VISIBLE_DIRECTORY_ROWS = LIST_SLOT_COUNT - 1  # one allocated slot is the title
 
 BACKGROUND = (18, 19, 22)
 HEADER_BACKGROUND = (12, 13, 15)
@@ -140,8 +141,8 @@ class FolderList:
     @property
     def first_visible_index(self) -> int:
         """Return the first row in the viewport while keeping selection visible."""
-        max_start = max(0, len(self.rows) - LIST_SLOT_COUNT)
-        selected_start = max(0, self.selected_index - (LIST_SLOT_COUNT - 1))
+        max_start = max(0, len(self.rows) - VISIBLE_DIRECTORY_ROWS)
+        selected_start = max(0, self.selected_index - (VISIBLE_DIRECTORY_ROWS - 1))
         return min(selected_start, max_start)
 
     def move_selection(self, delta: int) -> int:
@@ -226,7 +227,7 @@ class FolderList:
 
         trace: list[dict[str, object]] = []
         first_visible = self.first_visible_index
-        visible_rows = self.rows[first_visible:first_visible + LIST_SLOT_COUNT]
+        visible_rows = self.rows[first_visible:first_visible + VISIBLE_DIRECTORY_ROWS]
         for slot, row in enumerate(visible_rows):
             row_y = self.top_y + slot * DIRECTORY_ROW_HEIGHT
             if row_y >= HEIGHT:
@@ -284,6 +285,7 @@ class FolderList:
                 "text_height": DIRECTORY_TEXT_HEIGHT,
                 "row_height": DIRECTORY_ROW_HEIGHT,
                 "slot_count": LIST_SLOT_COUNT,
+                "visible_directory_rows": VISIBLE_DIRECTORY_ROWS,
                 "name_slot_bytes": 50,
                 "name_payload_bytes": firmware_name_payload_bytes(),
             },
@@ -307,7 +309,7 @@ def main() -> int:
     frame.ppm(args.out)
     if args.trace:
         args.trace.write_text(json.dumps(view.json(), indent=2) + "\n")
-    print(f"rendered {args.out}; {len(view.rows[:LIST_SLOT_COUNT])} rows; name payload {firmware_name_payload_bytes()} bytes")
+    print(f"rendered {args.out}; {len(view.rows[:VISIBLE_DIRECTORY_ROWS])} rows; name payload {firmware_name_payload_bytes()} bytes")
     return 0
 
 
