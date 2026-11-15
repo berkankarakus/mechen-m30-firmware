@@ -369,8 +369,11 @@ sınırlarıdır.
   bloklayıcı döngüyle yapılıyor (referans SDK). Model, hedeflenen tasarımı
   doğruluyor; mevcut davranışı veya `mengine` tarafındaki etiket taramasını
   ölçmüyor, bu nedenle testin geçmesi gecikme düzeltmesi anlamına gelmiyor.
-- Upgrade metni, dialog hizalaması, önceki tuş (0 ms eşik), dinleme
-  sayacı ve USB modları için hiç model/test yok.
+- Upgrade metni, dialog hizalaması, önceki tuş (0 ms eşik) ve dinleme
+  sayacı için hâlâ model/test yok. USB tarafında ise
+  `tools/sim/usb_audio.py` yalnızca kanıtlanan UAC1 descriptor ve 200-byte
+  isochronous OUT paket sözleşmesini modelliyor; firmware USB controller,
+  PCM ring/DMA veya gerçek cihaz bağlantısını modellemiyor.
 
 ### Önerilen test boşlukları (öncelik sırasıyla)
 
