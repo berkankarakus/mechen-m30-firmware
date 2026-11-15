@@ -4,6 +4,9 @@
 	.ifndef PROBE_MODE
 	.equ	PROBE_MODE, 0
 	.endif
+	.ifndef SEQUENCE_MODE
+	.equ	SEQUENCE_MODE, 0
+	.endif
 	.text
 	.globl	_start
 	.ent	_start
@@ -79,7 +82,26 @@ mips32_trampoline:
 	sw	$ra, 0($t0)
 	/* Match the isolated Ghidra harness: the bank receives a null t9. */
 	addu	$t9, $zero, $zero
-	.if PROBE_MODE
+	.if SEQUENCE_MODE
+	/* Keep the same event entry alive for four calls in one process. */
+	seq_loop:
+	lui	$t1, 0x1000
+	ori	$t1, $t1, 0x33b8
+	lbu	$t2, 0($t1)
+	sltiu	$t3, $t2, 4
+	beqz	$t3, seq_done
+	nop
+	/* The MIPS16 event path clobbers a0/a1 before returning. */
+	lui	$a0, 0x1000
+	ori	$a0, $a0, 0x2200
+	lui	$a1, 0x1000
+	ori	$a1, $a1, 0x2300
+	jalx	0x40d54d80
+	nop
+	b	seq_loop
+	nop
+	seq_done:
+	.elseif PROBE_MODE
 	jalx	0x40d54d80
 	.else
 	jalx	0x40d54f2c
@@ -109,6 +131,19 @@ mips32_trampoline:
 	.half	10
 	.half	40
 	.space	0x12
+	/* Sequence mode uses the same geometry for all three selectable slots. */
+	.half	0x2005
+	.space	2
+	.half	190
+	.half	10
+	.half	40
+	.space	0x12
+	.half	0x2005
+	.space	2
+	.half	190
+	.half	10
+	.half	40
+	.space	0x12
 	/* context at 0x10002200: state pointer, status byte */
 	.org	0x200
 	.word	0x10002000
@@ -127,9 +162,22 @@ mips32_trampoline:
 	 * map guest address zero, so seed the equivalent nullable chain in the
 	 * deterministic stack instead; the renderer still observes zero data.
 	 */
-	.space	0x7b0
+	.space	0x7a0
+	.word	0
+	.half	0x2901
+	.half	0x2901
+	.half	0x2902
+	.half	0x2903
+	.space	4
 	.word	0x10002088
-	.space	0x1000 - 0x7b4
+	.space	0xbb8 - 0x7b4
+	.byte	0
+	.space	3
+	.half	0x2901
+	.half	0x2901
+	.half	0x2902
+	.half	0x2903
+	.space	0x1000 - 0xbc4
 
 	.section .probe_zero_shim,"aw"
 	.word	0

@@ -26,6 +26,8 @@ class QemuProbeTests(unittest.TestCase):
             self.assertIn("jalx\t0x40d54f2c", start)
             self.assertIn("jalx\t0x40d54d80", start)
             self.assertIn("PROBE_MODE", start)
+            self.assertIn("SEQUENCE_MODE", start)
+            self.assertIn("seq_loop:", start)
             self.assertIn("0x10003fdc", start)
             self.assertIn(".probe_result", start)
 

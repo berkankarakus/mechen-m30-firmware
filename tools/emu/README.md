@@ -304,6 +304,18 @@ bash tools/ghidra/run_scroll_probe.sh \
 
 The probe asserts the active/previous slot bytes and status after each event.
 
+For a single-process persistence check, use the sequence probe:
+
+```sh
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+  bash tools/emu/run_qemu_sequence_probe.sh \
+  build/qemu-minimal-safe/work/verify/fw/music.ap \
+  /private/tmp/m30-qemu-sequence
+```
+
+It executes `next, next, previous, redraw` against the same recovered state
+and requires the final tuple `active=1, previous=2, status=1, y=50`.
+
 ## Folder-list acceleration model
 
 `scroll_accel.py` mirrors the existing `tools/scroll/accel.c` candidate in
