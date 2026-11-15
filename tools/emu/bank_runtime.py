@@ -9,6 +9,12 @@ from pathlib import Path
 from driver_banks import DriverBankImage, FarEntryCandidate
 
 
+# ``ker_xsys`` proves the exception-vector handoff, but the fixed handler is
+# outside the extracted image. Keep the address as trace metadata only; never
+# use it as a callable host function pointer.
+EXCEPTION_HANDLER_TARGET = 0xBFC06D6C
+
+
 @dataclass(frozen=True)
 class BankLoad:
     pointer: int
@@ -137,6 +143,7 @@ class LazyBankRuntime:
                         "kind": "overlay-exception",
                         "pointer": candidate.pointer,
                         "reason": "bank-not-resident",
+                        "handler_target": EXCEPTION_HANDLER_TARGET,
                     },
                     {
                         "kind": "bank-load",

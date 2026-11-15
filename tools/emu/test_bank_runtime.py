@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from bank_runtime import LazyBankRuntime
+from bank_runtime import EXCEPTION_HANDLER_TARGET
 
 
 def synthetic_driver() -> bytes:
@@ -75,6 +76,8 @@ class LazyBankRuntimeTests(unittest.TestCase):
             [event["kind"] for event in first],
             ["overlay-exception", "bank-load", "retry-entry"],
         )
+        self.assertEqual(first[0]["handler_target"], EXCEPTION_HANDLER_TARGET)
+        self.assertEqual(EXCEPTION_HANDLER_TARGET, 0xBFC06D6C)
         self.assertEqual(second[-1]["kind"], "resident-entry")
         self.assertEqual(first[1]["payload_offset"], 0x471)
 
