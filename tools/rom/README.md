@@ -34,6 +34,28 @@ The MIPS `adfus.bin` payload is still needed. The source is present in
 `actions_flash/payload`; this Mac currently has the MIPS binutils but not a
 MIPS C compiler, so the payload has not been rebuilt here.
 
+## Where the missing payload may come from
+
+The public `actions_flash` notes for another ATJ2127 player document the same
+read-only sequence: upload `adfus.bin` to `0xbfc18000`, then read the ROM
+window at `0x9fc00000`. They are useful for understanding the transport, but
+they do **not** establish that that device's payload is compatible with the
+M30. Keep the payload provenance alongside any dump and verify the returned
+ADFU identity before loading it.
+
+Some public ATJ2127 SDK packages store `ADFUS.BIN` as a file inside an
+embedded SQLite firmware database. If such a package is obtained, extract
+only that file and inspect its size and hash before using it; do not flash the
+package or run its write-capable utilities. A reference extraction example is
+described in [the ATJ21XX research note](https://infosec.press/tildavaan/more-atj21xx-stuff),
+while the read-only address sequence is documented in the
+[`actions_flash` payload notes](https://github.com/ilyakurdyukov/actions_flash/blob/main/payload/README.md).
+
+No verified M30-specific `adfus.bin` or 256 KiB Boot ROM dump is included in
+this repository. Until one is obtained, the emulator intentionally leaves the
+fixed `0xbfc06d6c` handler unresolved. A dump from a different ATJ2127
+product must not be substituted merely because the chip family matches.
+
 ## Dry run
 
 ```sh
