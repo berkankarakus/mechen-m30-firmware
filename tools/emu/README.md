@@ -53,7 +53,8 @@ deterministic:
     verified five-hit cluster at `0x992c..0x996c`.
 17. `tools/ghidra/run_drvui_resident_probe.sh` maps that B3 region together
     with the two resident `drv_ui` segments and verifies the extracted
-    `bfc09c00` syscall wrapper plus the `bfc0a8bc`/`bfc0a8c8` state setters.
+    `bfc09c00` syscall wrapper, its second trap entry at `bfc09c04`, plus the
+    `bfc0a8bc`/`bfc0a8c8` state setters.
 18. `resident_ui.py` carries those verified resident effects into the host
     model while aligning odd MIPS16 pointers and refusing unknown targets.
 19. `scan_mips16_imports.py` parses the real B3 MIPS16 disassembly and reports

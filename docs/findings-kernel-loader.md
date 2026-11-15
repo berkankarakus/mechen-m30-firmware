@@ -333,8 +333,11 @@ bash tools/ghidra/run_drvui_resident_probe.sh analysis/community/fw/drv_ui.drv
 
 It confirms that `0xbfc09ce0` is a no-op return, `0xbfc09c00` is a trap/syscall
 wrapper, and `0xbfc0a8bc`/`0xbfc0a8c8` write the two resident state slots used by
-the B3 path. These are extracted resident helpers, not the missing A19/B16
-providers or proof of the ROM bank translator.
+the B3 path. The instruction dump also shows a second trap entry at
+`0xbfc09c04`; therefore the B3 odd pointer `0xbfc09c05` must be modeled as a
+MIPS16 pointer to that second entry, not as a simple alias of `0xbfc09c00`.
+These are extracted resident helpers, not the missing A19/B16 providers or proof
+of the ROM bank translator.
 
 The B3 call shapes narrow down the semantic roles without pretending that the
 M30 bank table is complete:

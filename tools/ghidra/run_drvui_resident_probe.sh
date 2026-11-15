@@ -34,6 +34,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     "$DRIVER" 0xbfc0a600 0x200 0x1000 1 \
   -postScript DumpAt.java \
     0xbfc09ce0,0xbfc09c00,0xbfc09e34,0xbfc0a8bc,0xbfc0a8c8 "$WORK/decomp.c" \
+  -postScript DumpInstructions.java 0xbfc09c00 4 \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -49,4 +50,6 @@ grep -Fq '(*_UNK_bfc09e70)(param_1,param_2 & 0xffff,param_3);' "$WORK/decomp.c"
 grep -Fq '(*_UNK_bfc09e6c == '\''\x02'\'')' "$WORK/decomp.c"
 grep -q '_UNK_bfc0a8c4 + 0x10' "$WORK/decomp.c"
 grep -q '_UNK_bfc0a8d0 + 0x14' "$WORK/decomp.c"
+grep -q 'INSN address=bfc09c04' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc09c06.*break' "$WORK/ghidra.log"
 echo 'DRV_UI RESIDENT PASS syscall=bfc09c00 mode_forwarder=bfc09e34 state_setters=bfc0a8bc,bfc0a8c8'
