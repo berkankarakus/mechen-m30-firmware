@@ -459,6 +459,18 @@ The safe integration point is a compare-only check: package file names,
 lengths, hashes, and YQHX metadata must agree before we use a result in the
 emulator.
 
+### Public ATJ2127 overlay ABI cross-check
+
+The public `kilicdev/actions_flash` investigation log independently describes
+the same broad execution model: YQHX overlay banks are copied into a fixed
+execution window on demand, and MIPS16 system calls use a `break 0` path with
+selector values in a register. Its example is an ATJ2127 reference/Bluetooth
+build, not the M30 image, and its tagged-pointer constants do not match the
+M30 A/B/C values. It is therefore useful as ABI corroboration only; it does
+not identify the missing M30 `0xbfc06d6c` handler or authorize direct calls.
+
+<https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md>
+
 ### Recovery and read-only extraction boundary
 
 The SanDisk Clip Sport recovery notes are for another ATJ2127 product, but
