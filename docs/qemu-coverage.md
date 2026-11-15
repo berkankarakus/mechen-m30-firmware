@@ -37,6 +37,12 @@ code and runs the cancel-event path. On this macOS host the probe ELF links
 successfully, but user-mode QEMU is not installed; `qemu-system-mipsel` cannot
 substitute for it because it has no Linux user-mode runner or ATJ2127 machine.
 
+The build-only path was rechecked with Homebrew's available
+`mipsel-linux-gnu-` binutils. It emits `qemu_probe.elf` and patches only the 13
+audited literal-pool pointers; the command then stops with the expected
+"QEMU user-mode not found" result. This confirms the real-bank ELF boundary
+without presenting an unexecuted ELF as a QEMU runtime pass.
+
 As a working executable fallback, `bash tools/ghidra/run_scroll_probe.sh`
 executes the same real MIPS16 bank path in Ghidra 12.2's p-code emulator. The
 scroll probe passed at the isolated boundary (359 steps); this raises
