@@ -421,7 +421,7 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 
 - `build.sh --test` (Docker, stock HEX ile): Docker/QEMU ortamı erişilebilir
   olmadığından çalıştırılamadı; host tarafında `tools/sim` 36 ve `tools/emu`
-  70 test geçti. Tam statik suite ayrıca browser layout boundary, tüm Ghidra
+  73 test geçti. Tam statik suite ayrıca browser layout boundary, tüm Ghidra
   driver/kernel probe'ları ve üç gerçek MIPS16 event probe'ını PASS etti.
   `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
   lead-in ve lazy bank-stub olarak ayırıyor; `tools/sim/ui_calls.py` B3'teki
@@ -429,6 +429,11 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
   `drv_ui.drv` içindeki far-entry adaylarını payload konumuna çözüyor ama
   doğrulanmamış adrese doğrudan kod gibi atlamıyor; `tools/emu/bank_runtime.py`
   yükleme olayını ve doğrulanmış giriş filtresini host üzerinde izliyor.
+  `LazyBankRuntime.boundary_trace()` artık kanıtlanan sınırı da açıkça
+  kaydediyor: `overlay-exception -> bank-load -> retry-entry`; doğrulanmamış
+  girişte iz güvenli biçimde `stop-unresolved-entry` ile sonlanıyor. Bu,
+  eksik sabit exception handler'ı uydurmadan emülatöre taşınmış bir host
+  sözleşmesidir.
   indirekt UI çağrılarını SDK imzalarına göre yalnızca kanıt düzeyinde
   etiketliyor.
 - Dinleme sayacı için güvenli yazma yolu ve yazma sınırı: incelenmedi.
