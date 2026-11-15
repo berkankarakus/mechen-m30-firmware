@@ -240,7 +240,7 @@ Bulgular `community` ve `cand` imajında aynı (`usound.drv`, `udisk.drv`,
 | Sürücü | Bulgu |
 |---|---|
 | `udisk.drv` | USB 2.0 aygıt tanımlayıcısı (bcdUSB `0x0200`), VID `0x10d6`, PID `0x1101`. Arayüz: Mass Storage (class `08`, subclass `05`, protokol `50` BOT), bulk IN `0x81`, bulk OUT `0x02`, paket 512 (HS) / 64 (FS). Dize: `USB Udisk`, `Actions`. |
-| `usound.drv` | USB 1.1 (bcdUSB `0x0100`) aygıt tanımlayıcısı, VID `0x10d6`, PID `0xdd00`. Config toplam 0x8a bayt. Audio Class 1.0: giriş terminali (USB streaming, 2 kanal) → feature unit (mute/volume) → çıkış terminali (hoparlör `0x0301`). Streaming arayüzü: PCM, 2 kanal, 16 bit, tek ayrık örnekleme hızı **48000 Hz**, isochronous OUT `0x01` (adaptive, paket 200 bayt). Ayrıca HID arayüzü: tüketici kontrol raporu (ses +/-, sessiz, oynat/duraklat, sonraki, önceki, dur), interrupt IN `0x82`. Dize: `USB Audio`, `Actions`. |
+| `usound.drv` | USB 1.1 (bcdUSB `0x0100`) aygıt tanımlayıcısı, VID `0x10d6`, PID `0xdd00`. Config toplam 0x8a bayt. Audio Class 1.0: giriş terminali (USB streaming, 2 kanal) → feature unit (mute/volume) → çıkış terminali (hoparlör `0x0301`). Streaming arayüzü: PCM, 2 kanal, 16 bit, tek ayrık örnekleme hızı **48000 Hz**, isochronous OUT `0x01` (adaptive, paket 200 bayt). Ayrıca HID arayüzü: tüketici kontrol raporu (ses +/-, sessiz, oynat/duraklat, sonraki, önceki, dur), interrupt IN `0x82`. Dize: `USB Audio`, `Actions`. Sürücüde dışa aktarılan `FUN_bfc31654` girişinin 0x1000-byte circular-copy davranışı ayrıca doğrulandı; producer/PCM sahipliği hâlâ açık değil. |
 | `uhost.drv` | 9 KB USB host sürücüsü. `config.ap`, `mainmenu.ap`, `setting.ap` bu adı yüklüyor; `playlist.sty` içinde "Uhost disk/space error" iletileri var. Altı `USBC` (CBW imzası `0x43425355`) literali (`0xa08, 0xd44, 0xed0, 0x18bc, 0x1984, 0x1ad0`) var: Bulk-Only Mass Storage host'u. HID/ses sınıfı desteği bilinmiyor (ajan bulgusu, disassemble edilmedi). |
 | Uygulama | `manager.ap` uygulama tablosunda `usound.ap` var (22 KB). `usound.sty` kaynakları: `s_usound_USB`, `s_usound_linking`, `s_usound_charging`, `s_usound_full_charged`. |
 
@@ -370,10 +370,11 @@ sınırlarıdır.
   doğruluyor; mevcut davranışı veya `mengine` tarafındaki etiket taramasını
   ölçmüyor, bu nedenle testin geçmesi gecikme düzeltmesi anlamına gelmiyor.
 - Upgrade metni, dialog hizalaması, önceki tuş (0 ms eşik) ve dinleme
-  sayacı için hâlâ model/test yok. USB tarafında ise
-  `tools/sim/usb_audio.py` yalnızca kanıtlanan UAC1 descriptor ve 200-byte
-  isochronous OUT paket sözleşmesini modelliyor; firmware USB controller,
-  PCM ring/DMA veya gerçek cihaz bağlantısını modellemiyor.
+  sayacı için hâlâ model/test yok. USB tarafında
+  `tools/sim/usb_audio.py` kanıtlanan UAC1 descriptor ve 200-byte
+  isochronous OUT paket sözleşmesini modelliyor; driver-side 0x1000-byte ring
+  sınırı ise henüz host modele eklenmedi. Firmware USB controller, producer
+  veya gerçek cihaz bağlantısı hâlâ modellenmiyor.
 
 ### Önerilen test boşlukları (öncelik sırasıyla)
 
