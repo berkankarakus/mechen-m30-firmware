@@ -1,6 +1,9 @@
 /* MIPS32 entry and synthetic scroll state for the real MIPS16 bank probe. */
 	.set	mips32
 	.set	noreorder
+	.ifndef PROBE_MODE
+	.equ	PROBE_MODE, 0
+	.endif
 	.text
 	.globl	_start
 	.ent	_start
@@ -8,24 +11,47 @@ _start:
 	/* Match RunScrollProbe.java's deterministic stack origin. */
 	lui	$sp, 0x1000
 	ori	$sp, $sp, 0x3000
-	/* a0 = event/style word, a1 = two-word scroll context */
+	.if PROBE_MODE
+	/* Event path: a0=context, a1=the recovered event-loop scratch area. */
+	lui	$a0, 0x1000
+	ori	$a0, $a0, 0x2200
+	lui	$a1, 0x1000
+	ori	$a1, $a1, 0x2300
+	.else
+	/* Renderer path: a0=event/style word, a1=two-word scroll context. */
 	ori	$a0, $zero, 0
 	lui	$a1, 0x1000
 	ori	$a1, $a1, 0x2200
+	.endif
 	/* Enter the MIPS32 trampoline; it performs the ISA-changing JALX. */
 	lui	$t9, 0x40d5
 	ori	$t9, $t9, 0x0000
 	jalr	$t9
 	nop
-	/* Preserve the complete firmware short status for the host-side check. */
+	/* Preserve the complete firmware result and event-mutated state. */
 	lui	$t0, 0x1000
 	ori	$t0, $t0, 0x3ff4
 	sw	$v0, 0($t0)
+	lui	$t1, 0x1000
+	ori	$t1, $t1, 0x2007
+	lbu	$t2, 0($t1)
+	sw	$t2, 4($t0)
+	addiu	$t1, $t1, 1
+	lbu	$t2, 0($t1)
+	sw	$t2, 8($t0)
+	lui	$t1, 0x1000
+	ori	$t1, $t1, 0x2204
+	lbu	$t2, 0($t1)
+	sw	$t2, 12($t0)
+	lui	$t1, 0x1000
+	ori	$t1, $t1, 0x2108
+	lhu	$t2, 0($t1)
+	sw	$t2, 16($t0)
 	/* Write the little-endian status word, then exit successfully. */
 	ori	$a0, $zero, 1
 	lui	$a1, 0x1000
 	ori	$a1, $a1, 0x3ff4
-	ori	$a2, $zero, 4
+	ori	$a2, $zero, 20
 	ori	$v0, $zero, 4004
 	syscall
 	nop
@@ -53,7 +79,11 @@ mips32_trampoline:
 	sw	$ra, 0($t0)
 	/* Match the isolated Ghidra harness: the bank receives a null t9. */
 	addu	$t9, $zero, $zero
+	.if PROBE_MODE
+	jalx	0x40d54d80
+	.else
 	jalx	0x40d54f2c
+	.endif
 	nop
 	lw	$t0, 0($t0)
 	jr	$t0
@@ -64,7 +94,7 @@ mips32_trampoline:
 	.org	0x0000
 	/* state at 0x10002000; entries pointer is at +0x0c */
 	.space	6
-	.byte	3, 0, 0, 0
+	.byte	3, 0, 0
 	.space	3
 	.word	0x10002100
 	.space	0x10
@@ -72,11 +102,11 @@ mips32_trampoline:
 	.org	0x94
 	.word	0x10003fdc
 	.org	0x100
-	/* first 0x18-byte entry: style 0x2005, x=190, y=40 */
+	/* first 0x18-byte entry: style 0x2005, x=190, step=10, y=40 */
 	.half	0x2005
 	.space	2
 	.half	190
-	.space	2
+	.half	10
 	.half	40
 	.space	0x12
 	/* context at 0x10002200: state pointer, status byte */
@@ -89,7 +119,7 @@ mips32_trampoline:
 	.word	0
 
 	.section .probe_result,"aw"
-	.word	0
+	.space	20
 
 	.section .probe_stack,"aw"
 	/*

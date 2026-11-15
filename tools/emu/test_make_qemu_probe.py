@@ -24,6 +24,8 @@ class QemuProbeTests(unittest.TestCase):
             self.assertTrue((out / "qemu_probe_start.S").exists())
             start = (out / "qemu_probe_start.S").read_text()
             self.assertIn("jalx\t0x40d54f2c", start)
+            self.assertIn("jalx\t0x40d54d80", start)
+            self.assertIn("PROBE_MODE", start)
             self.assertIn("0x10003fdc", start)
             self.assertIn(".probe_result", start)
 

@@ -1,6 +1,9 @@
 /* MIPS16 host stubs for the isolated FUN_40d54f2c smoke probe. */
 	.set	mips16
 	.set	noreorder
+	.ifndef EVENT_CODE
+	.equ	EVENT_CODE, 0x2906
+	.endif
 	.section .stubs,"ax"
 
 	.org	0x00
@@ -44,7 +47,7 @@ key_read_begin_stub:
 	.org	0xa0
 	.globl	key_read_event_stub
 key_read_event_stub:
-	li	$2, 0x2906
+	li	$2, EVENT_CODE
 	sh	$2, 0($5)
 	li	$2, 1
 	jr	$31

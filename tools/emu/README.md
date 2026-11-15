@@ -253,10 +253,22 @@ CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
   build/qemu-minimal-safe/work/verify/fw/music.ap /private/tmp/m30-qemu-probe
 ```
 
-When user-mode QEMU is available, the script captures the complete 32-bit
-renderer return value and requires `QEMU SCROLL PROBE PASS status=0x8014`.
-Otherwise it still produces `qemu_probe.elf` and exits with a clear
-not-executed status.
+When user-mode QEMU is available, the script captures the complete renderer
+return value and the event-mutated descriptor. The optional third argument
+selects the real bank path:
+
+```sh
+for mode in cancel next previous redraw; do
+  CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+    bash tools/emu/run_qemu_probe.sh \
+    build/qemu-minimal-safe/work/verify/fw/music.ap \
+    "/private/tmp/m30-qemu-$mode" "$mode"
+done
+```
+
+`cancel` requires renderer status `0x8014`; the event modes require the same
+active/previous/status/y tuples as the Ghidra probe. The script still produces
+the ELF and exits with a clear not-executed status when QEMU is unavailable.
 
 The B3 import-selector cross-check is read-only and compares MIPS binutils with
 Ghidra's mapped instruction list:
