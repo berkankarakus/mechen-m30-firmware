@@ -102,6 +102,29 @@ outside the extracted firmware.
   0x18e6a/0x18ef0 `04`->`08` = single constants in bank 0x48714400 (purpose not identified). None touch sorting.
 - Repo docs agree: docs/library-builder.md "Sort, compare, and refinement" (same function list).
 
+### Reference-SDK cross-check (not M30 proof)
+
+The public [`Suber/PD196_ATJ2127`](https://github.com/Suber/PD196_ATJ2127/tree/maint)
+`maint` source was inspected as a contract cross-check, not as a replacement
+for M30 evidence:
+
+- `case/ap/ap_browser/browser_comfunc.c` initializes the generic browser with
+  `FSEL_TYPE_COMMONDIR`, `FSEL_MODE_BROWSER`, `FSEL_BROW_ALL`, and
+  `ALLFILE_BITMAP`.
+- `case/ap/ap_playlist/plist_fsel.c` calls `vfs_get_name()` with capacities
+  `30`, `16`, and `32` in different paths. Its `filtrate_dir()` branch handles
+  both an 11-byte non-BOM 8.3 result and an 8-byte BOM-prefixed Unicode result.
+- `case/ap/ap_picture/pic_option_menu.c` and the video equivalents pass
+  `LIST_ITEM_BUFFER_LEN / 2`, while the header defines that constant as 52
+  bytes. This is consistent with a caller-supplied UTF-16-unit capacity, but
+  does not specify the M30 ROM implementation.
+
+This narrows the ABI possibilities without changing the M30 conclusion:
+`FUN_40cd4e00` reaches the browser/fsel layer through indirect pointers, and
+the extracted M30 files do not contain the ROM provider behind filesystem
+operation 2. Therefore LFN-versus-8.3 behavior on the M30 remains
+**UNVERIFIED**; the SDK behavior must not be copied into a firmware patch.
+
 ## 3. What a filename-natural sort would need (no patch written)
 
 Two separate behaviours exist, so first decide the target:
