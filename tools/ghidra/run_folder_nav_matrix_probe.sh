@@ -9,6 +9,12 @@ trap 'rm -rf "$WORK"' EXIT
 
 # mode total page start end cursor expected-state-substring
 CASES=(
+  "next 1 1 1 1 1 mode=next start=1 end=1 active=1 previous=1 status=0 update=0 redraw=0 reset=0"
+  "previous 1 1 1 1 1 mode=previous start=1 end=1 active=1 previous=1 status=0 update=0 redraw=0 reset=0"
+  "next 2 7 1 2 2 mode=next start=1 end=2 active=1 previous=2 status=0 update=1 redraw=0 reset=0"
+  "previous 2 7 1 2 1 mode=previous start=1 end=2 active=2 previous=1 status=0 update=1 redraw=0 reset=0"
+  "next 7 7 1 7 7 mode=next start=1 end=7 active=1 previous=7 status=0 update=1 redraw=0 reset=0"
+  "previous 7 7 1 7 1 mode=previous start=1 end=7 active=7 previous=1 status=0 update=1 redraw=0 reset=0"
   "next 8 7 1 7 7 mode=next start=2 end=8 active=8 previous=7 status=1 update=2 redraw=1 reset=0"
   "previous 8 7 1 8 1 mode=previous start=2 end=8 active=8 previous=7 status=5 update=2 redraw=0 reset=0"
   "next 9 7 2 8 8 mode=next start=3 end=9 active=9 previous=7 status=1 update=2 redraw=1 reset=0"
