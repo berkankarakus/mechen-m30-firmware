@@ -120,6 +120,8 @@ suite therefore no longer re-imports the same driver eight times.
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |
 | Manual-index policy | host state model + static automatic-index guards | PASS |
 | Artwork audio-first contract | host state model | PASS |
+| USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
+| USB Audio ring-consumer boundary | Ghidra `usound.drv` + generic host model | PASS; 0x1000-byte wrap and 100-short-read reset; producer/PCM ownership unmodeled |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
 | Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |
