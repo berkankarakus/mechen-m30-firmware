@@ -268,10 +268,32 @@ for _char, _rows in {
     _FONT[_char] = tuple(int(row, 2) for row in _rows)
 
 
-def draw_text(fb: Framebuffer, text: str, x: int, y: int, color: tuple[int, int, int], scale: int = 2, clip: tuple[int, int, int, int] | None = None) -> None:
+def draw_text(
+    fb: Framebuffer,
+    text: str,
+    x: int,
+    y: int,
+    color: tuple[int, int, int],
+    scale: int = 2,
+    clip: tuple[int, int, int, int] | None = None,
+    cell_width: int | None = None,
+) -> None:
+    """Draw host glyphs with an optional fixed cell width.
+
+    Now-playing uses the six-pixel host cell. Directory rows are measured by
+    a separate Ghidra-guided model at eight pixels per glyph, so the folder
+    renderer can reuse the same clipped rasterizer without implying that the
+    proprietary font has been recovered.
+    """
+    if scale <= 0:
+        raise ValueError("scale must be positive")
+    if cell_width is None:
+        cell_width = 6 * scale
+    if cell_width < 5 * scale:
+        raise ValueError("cell_width must fit the scaled glyph")
     for index, char in enumerate(text.upper()):
         glyph = _FONT.get(char, _FONT[" "])
-        gx = x + index * 6 * scale
+        gx = x + index * cell_width
         for row, bits in enumerate(glyph):
             for col in range(5):
                 if bits & (1 << (4 - col)):

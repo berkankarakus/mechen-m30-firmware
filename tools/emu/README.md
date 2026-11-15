@@ -162,6 +162,30 @@ trace target for the next QEMU step. A complete ATJ2127 boot still needs the
 real bank loader, UI dispatcher, LCD, key, SD and decoder devices; those are
 not silently replaced by this renderer.
 
+## Folder/list visualizer
+
+`folder_ui.py` renders the evidence-based browser/list layer separately from
+the now-playing screen. It uses the observed `common.sty` geometry (`x=35`,
+205 px by 16 px text viewport, 30 px rows) and applies the browser's 50-byte
+UTF-16 name slot before drawing. This is important for the original symptom:
+the marquee can move a name that was already truncated by the list buffer, but
+it cannot restore discarded characters. The selected row is redrawn as a
+solid selection background on every host frame, so a later QEMU shim can be
+checked for the red-tail artefact independently of the proprietary font.
+
+Example:
+
+```sh
+PYTHONPATH=. python3 tools/emu/folder_ui.py \
+  --out /tmp/m30-folder.ppm \
+  --trace /tmp/m30-folder.json \
+  --selected 1 --offset 7 \
+  Music "A very long folder name that is truncated"
+```
+
+The output is still a host visualization; it is not evidence that the M30
+firmware boots under generic `qemu-system-mipsel`.
+
 When `--trace` is supplied, the JSON also contains `observed_dispatch`: the
 verified nine-call envelope from the Ghidra real-bank probe. Pointer payloads
 are kept as semantic labels until their internal ownership is proven.
