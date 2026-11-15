@@ -29,6 +29,13 @@ class UiCall:
 # 0x9924.  A19 contains more than one function, hence the two separate
 # pointers in that bank.
 OBSERVED_CALLS: dict[int, tuple[tuple[str, ...], str, str, str, str]] = {
+    0x164490A1: (
+        ("a17_text_provider",),
+        "low",
+        "three-argument resident-forwarder target; public A17 source is putstring/text-provider code",
+        "external-provider-or-missing-bank",
+        "lazy-only",
+    ),
     0x164C90ED: (
         ("fix_switch_fontlib",),
         "high",

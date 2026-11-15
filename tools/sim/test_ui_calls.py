@@ -4,6 +4,18 @@ from ui_calls import classify
 
 
 class UiCallTests(unittest.TestCase):
+    def test_a17_forwarder_is_a_conservative_text_provider_candidate(self):
+        target = classify(0x164490A1)
+        self.assertIsNotNone(target)
+        assert target is not None
+        self.assertEqual(target.candidates, ("a17_text_provider",))
+        self.assertEqual(target.bank.bank_type, "A")
+        self.assertEqual(target.bank.bank_index, 17)
+        self.assertEqual(target.bank.payload_offset, 0xA1)
+        self.assertEqual(target.confidence, "low")
+        self.assertEqual(target.entry_evidence, "external-provider-or-missing-bank")
+        self.assertEqual(target.dispatch_policy, "lazy-only")
+
     def test_font_switch_and_measurement_share_a19(self):
         switch = classify(0x164C90ED)
         measure = classify(0x164C9001)
