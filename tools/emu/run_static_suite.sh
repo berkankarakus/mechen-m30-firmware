@@ -55,6 +55,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/filesystem_binary_probe.py
   "$ROOT/analysis/community/fw/fat_32n.drv" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/dsp_binary_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/ui_resource_probe.py" \
+  --analysis-root "$ROOT/analysis" >/dev/null
 
 if [ "$HOST_ONLY" -eq 1 ]; then
   echo 'STATIC SUITE PASS host-only'
