@@ -102,6 +102,7 @@ bash "$ROOT/tools/ghidra/run_cards_probe.sh" "$FW/cards.drv"
 bash "$ROOT/tools/ghidra/run_card_probe.sh" "$FW/card.drv"
 bash "$ROOT/tools/ghidra/run_filesystem_probe.sh"
 bash "$ROOT/tools/ghidra/run_mmm_dsp_loader_probe.sh" "$ROOT/analysis/community/fw/mmm_mp.al"
+bash "$ROOT/tools/ghidra/run_decoder_callback_probe.sh"
 bash "$ROOT/tools/ghidra/run_mmm_bp_fade_probe.sh" "$ROOT/analysis/community/fw/mmm_bp.al"
 
 echo "[3/3] real MIPS16 scroll probes"
