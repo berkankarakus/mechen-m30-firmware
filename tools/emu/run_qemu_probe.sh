@@ -9,7 +9,7 @@ OUT=${2:-/private/tmp/m30-qemu-probe}
 mkdir -p "$OUT"
 OUT=$(cd "$OUT" && pwd)
 PY=${PYTHON:-python3}
-CROSS=${CROSS:-mips64-linux-gnu-}
+CROSS=${CROSS:-mipsel-linux-gnu-}
 QEMU=${QEMU:-qemu-mipsel-static}
 
 command -v "$PY" >/dev/null || { echo "missing Python: $PY" >&2; exit 1; }
@@ -27,8 +27,18 @@ PYTHONPATH="$ROOT/tools/emu" "$PY" "$ROOT/tools/emu/make_qemu_probe.py" "$AP" "$
 )
 echo "probe ELF: $OUT/qemu_probe.elf"
 if command -v "$QEMU" >/dev/null; then
-  "$QEMU" -cpu 24Kc "$OUT/qemu_probe.elf"
-  echo "probe exit status: $?"
+  STATUS="$OUT/qemu-status.bin"
+  "$QEMU" -cpu 24Kc "$OUT/qemu_probe.elf" >"$STATUS"
+  ACTUAL=$(
+    "$PY" -c 'import struct, sys; data = open(sys.argv[1], "rb").read();
+if len(data) != 4: raise SystemExit(f"expected 4 status bytes, got {len(data)}")
+print("0x%04x" % struct.unpack("<I", data)[0])' "$STATUS"
+  )
+  if [ "$ACTUAL" != "0x8014" ]; then
+    echo "QEMU scroll probe mismatch: expected 0x8014, got $ACTUAL" >&2
+    exit 1
+  fi
+  echo "QEMU SCROLL PROBE PASS status=$ACTUAL"
 else
   echo "QEMU user-mode not found: $QEMU; ELF was built but not executed" >&2
   exit 3

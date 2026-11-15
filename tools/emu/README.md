@@ -15,11 +15,14 @@ deterministic:
    dispatcher target `0xbfc16405`.
 6. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
    MIPS16 renderer with only the audited literal pointers redirected to test
-   stubs.
+   stubs. Its MIPS32-to-MIPS16 entry uses an architectural `JALX` trampoline,
+   and its Linux-user stack/null shims reproduce the Ghidra harness without
+   mapping guest address zero.
 7. `tools/ghidra/run_scroll_probe.sh` executes that same real-bank renderer in
-   Ghidra's MIPS p-code emulator, which is currently the executable path on
-   macOS because upstream QEMU has no ATJ2127 machine and user-mode QEMU is
-   unavailable here.
+   Ghidra's MIPS p-code emulator. `run_qemu_probe.sh` executes the equivalent
+   user-mode ELF when a MIPS QEMU binary is available (the current macOS setup
+   uses the Fedora container for that step); neither path models an ATJ2127
+   SoC boot.
 8. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
    far-pointer payload candidates without treating every candidate as code.
    It preserves the raw B2 `0x471` provenance while exposing its aligned
@@ -250,8 +253,10 @@ CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
   build/qemu-minimal-safe/work/verify/fw/music.ap /private/tmp/m30-qemu-probe
 ```
 
-If user-mode QEMU is unavailable, the script still produces `qemu_probe.elf`
-and exits with a clear not-executed status.
+When user-mode QEMU is available, the script captures the complete 32-bit
+renderer return value and requires `QEMU SCROLL PROBE PASS status=0x8014`.
+Otherwise it still produces `qemu_probe.elf` and exits with a clear
+not-executed status.
 
 The B3 import-selector cross-check is read-only and compares MIPS binutils with
 Ghidra's mapped instruction list:
