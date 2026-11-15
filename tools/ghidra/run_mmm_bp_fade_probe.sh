@@ -25,13 +25,15 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
-  -postScript DumpAt.java 0x68021c8c,0xbfc27400,0x680a1ed4 "$WORK/decomp.c" \
+  -postScript DumpAt.java 0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0x680a1ed4 "$WORK/decomp.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 grep -q 'LoadAP: blocks=5 ' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc21590 -> FUN_bfc21590' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc216a8 -> FUN_bfc216a8' "$WORK/ghidra.log"
 grep -q 'DumpAt: 68021c8c -> FUN_68021c8c' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc27400 -> FUN_bfc27400' "$WORK/ghidra.log"
 grep -q 'DumpAt: 680a1ed4 -> FUN_680a1ed4' "$WORK/ghidra.log"
@@ -40,6 +42,12 @@ grep -q 'DumpAt: 680a1ed4 -> FUN_680a1ed4' "$WORK/ghidra.log"
 # second and third checks identify the adjacent decoder state/buffer paths;
 # neither is interpreted as proof of the exact audio attenuation algorithm.
 grep -Fq '&UNK_bfc27470' "$WORK/decomp.c"
+grep -Fq '&UNK_bfc21674' "$WORK/decomp.c"
+grep -Fq '&UNK_bfc21684' "$WORK/decomp.c"
+grep -Fq '&UNK_bfc21864' "$WORK/decomp.c"
+grep -Fq '&UNK_bfc21880' "$WORK/decomp.c"
+grep -q 'param_1 + 0xba' "$WORK/decomp.c"
+grep -q 'param_1 + 0x8a' "$WORK/decomp.c"
 grep -q 'param_1 + 0xc0' "$WORK/decomp.c"
 grep -q 'param_1 + 0xcc' "$WORK/decomp.c"
 grep -q 'param_1 + 0x81' "$WORK/decomp.c"

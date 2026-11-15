@@ -38,8 +38,26 @@ strings to an external logging/diagnostic call with mode `0x41`, while updating
 state pointers around `param + 0xbc`, `+0xc0`, `+0xc4`, `+0xc8`, and `+0xcc`.
 `FUN_68021c8c` initializes decoder state and selects DSP-related strings;
 `FUN_680a1ed4` handles buffer/control state, including `0x80` and `0x400`
-buffer-size cases. These are strong navigation anchors for the fade and
-buffer path, but the log calls alone do not prove sample attenuation.
+buffer-size cases.
+
+The actual fade-step path is stronger than the string evidence alone:
+
+- `FUN_bfc21590` branches on state byte `param + 0xba`: state `2` emits the
+  `set_slow step:` diagnostic, while state `3` emits `set_fast step:`. Both
+  paths advance the step counter at `param + 0x8a` and update a shared
+  time/level value using a 100-step phase.
+- `FUN_bfc216a8` is the surrounding decoder/buffer state machine. It calls
+  `FUN_bfc21530` when the end-state transition is reached, emits
+  `not enough data fade out!` and `buffer remain:` at its failure/progress
+  branches, and then feeds the buffer loop through `FUN_bfc276ac`.
+- `FUN_bfc27400` records the explicit fade-in/fade-out control event and
+  updates the shared state pointers used by the step path.
+
+This proves a firmware fade state machine and its buffer-facing boundary, but
+not yet whether a particular Audacity-rendered tail is lost before this state
+machine, during buffer exhaustion, or in the downstream DSP. The next trace is
+the external callback behind the step calls and the caller that supplies
+`param + 0x81`/`+0xba`.
 
 Because all six corpora agree byte-for-byte at these locations, the community
 firmware did not change this module. The next step is to trace callers and
