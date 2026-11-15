@@ -219,6 +219,9 @@ firmware boots under generic `qemu-system-mipsel`.
 When `--trace` is supplied, the JSON also contains `observed_dispatch`: the
 verified nine-call envelope from the Ghidra real-bank probe. Pointer payloads
 are kept as semantic labels until their internal ownership is proven.
+The same JSON includes a one-based `navigation` snapshot (`total`, `start`,
+`end`, and `active`) so host UI tests can assert list state independently of
+the framebuffer pixels.
 
 ## Preparing the real banks for QEMU
 

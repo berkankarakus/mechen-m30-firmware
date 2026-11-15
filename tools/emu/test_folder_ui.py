@@ -63,6 +63,10 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(trace[0]["index"], 5)
         self.assertEqual(trace[-1]["index"], 11)
         self.assertTrue(trace[-1]["selected"])
+        self.assertEqual(
+            view.navigation_snapshot(),
+            {"total": 12, "start": 6, "end": 12, "active": 12, "visible_rows": 7},
+        )
 
     def test_selection_movement_wraps_at_list_edges(self):
         view = FolderList(tuple(FolderRow(str(index)) for index in range(10)))

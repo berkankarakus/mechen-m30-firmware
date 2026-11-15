@@ -145,6 +145,18 @@ class FolderList:
         selected_start = max(0, self.selected_index - (VISIBLE_DIRECTORY_ROWS - 1))
         return min(selected_start, max_start)
 
+    def navigation_snapshot(self) -> dict[str, int]:
+        """Return the host list state using the firmware's one-based indices."""
+        start = self.first_visible_index
+        end = min(start + VISIBLE_DIRECTORY_ROWS, len(self.rows))
+        return {
+            "total": len(self.rows),
+            "start": start + 1,
+            "end": end,
+            "active": self.selected_index + 1,
+            "visible_rows": end - start,
+        }
+
     def move_selection(self, delta: int) -> int:
         """Move the folder selection with the stock list-edge wrap behavior."""
         if not isinstance(delta, int):
@@ -183,6 +195,7 @@ class FolderList:
             "consumed_steps": consumed,
             "selected_index": after,
             "first_visible_index": self.first_visible_index,
+            "navigation": self.navigation_snapshot(),
             "wrapped": wrapped,
             "page_reload": page_reload,
             "mode": 4 if page_reload else None,
@@ -291,6 +304,7 @@ class FolderList:
             },
             "selected_index": self.selected_index,
             "first_visible_index": self.first_visible_index,
+            "navigation": self.navigation_snapshot(),
             "scroll_offset_px": self.scroll_offset_px,
             "rows": rows,
         }
