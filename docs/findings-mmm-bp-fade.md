@@ -68,6 +68,15 @@ the external callback behind the step calls and the caller that supplies
 `param + 0x81`/`+0xba`; then compare a short-tail file against the
 `available-count` and `0x200`-byte refill conditions.
 
+## Emulator boundary
+
+`tools/sim/mmm_bp_model.py` now exposes the safe part of this contract:
+`plan_ring_read()` rejects reads larger than the available count and returns
+the same two-segment wrap plan as the recovered reader; `REFILL_BLOCK_BYTES`
+records the observed `0x200` decoder refill; and `fade_mode_name()` preserves
+only the proven slow/fast mode labels. No DSP bytes or guessed attenuation
+coefficients are executed.
+
 Because all six corpora agree byte-for-byte at these locations, the community
 firmware did not change this module. The next step is to trace callers and
 the external callbacks that consume the state; only then can we distinguish a
