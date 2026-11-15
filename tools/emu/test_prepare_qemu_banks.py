@@ -37,6 +37,15 @@ class QemuBankPreparationTests(unittest.TestCase):
                 self.assertEqual(assembly.count(section), 1)
                 self.assertEqual(linker.count(section), 2)
 
+    def test_user_mode_filter_omits_only_high_address_tail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            manifest = prepare(AP, out, max_virtual_address=0x7FFFFFFF)
+            self.assertEqual(manifest["max_virtual_address"], "0x7fffffff")
+            self.assertEqual(manifest["bank_count"], 86)
+            self.assertNotIn(0x9FC1D600, {bank["virtual_address"] for bank in manifest["banks"]})
+            self.assertIn(0x40D54C00, {bank["virtual_address"] for bank in manifest["banks"]})
+
 
 if __name__ == "__main__":
     unittest.main()

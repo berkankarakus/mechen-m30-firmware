@@ -48,8 +48,13 @@ def parse_banks(ap: Path) -> tuple[bytes, list[Bank]]:
     return data, banks
 
 
-def prepare(ap: Path, out: Path) -> dict[str, object]:
+def prepare(ap: Path, out: Path, *, max_virtual_address: int | None = None) -> dict[str, object]:
     data, original_banks = parse_banks(ap)
+    if max_virtual_address is not None:
+        original_banks = [
+            bank for bank in original_banks
+            if bank.virtual_address <= max_virtual_address
+        ]
     out.mkdir(parents=True, exist_ok=True)
     payload_dir = out / "banks"
     payload_dir.mkdir(exist_ok=True)
@@ -84,6 +89,9 @@ def prepare(ap: Path, out: Path) -> dict[str, object]:
     manifest = {
         "source": str(ap),
         "source_sha256": hashlib.sha256(data).hexdigest(),
+        "max_virtual_address": (
+            f"0x{max_virtual_address:08x}" if max_virtual_address is not None else None
+        ),
         "bank_count": len(banks),
         "banks": [asdict(bank) for bank in banks],
         "audited_scroll_call": {

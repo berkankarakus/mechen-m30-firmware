@@ -41,7 +41,12 @@ def bank_for(banks, address):
 
 def make_probe(ap: Path, out: Path) -> None:
     source_sha256 = hashlib.sha256(ap.read_bytes()).digest()
-    prepare(ap, out)
+    # Linux-user QEMU reserves a 31-bit guest address space for this MIPS32
+    # target.  The AP contains one ten-byte, zero-filled resident placeholder
+    # at 0x9fc1d600; it is outside that space and is not referenced by this
+    # probe.  Keep the exact AP layout in prepare_qemu_banks.py, but omit only
+    # this non-executable high-address tail from the user-mode harness.
+    prepare(ap, out, max_virtual_address=0x7FFFFFFF)
     if hashlib.sha256(ap.read_bytes()).digest() != source_sha256:
         raise RuntimeError(f"source AP changed while preparing probe: {ap}")
     data, banks = parse_banks(ap)
