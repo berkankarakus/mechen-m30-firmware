@@ -216,6 +216,13 @@ yok.
 | 7 | Harici DAP/USB DAC | Bkz. "USB keşfi". **Doğrulandı (statik, ajan bulgusu + bayt kontrolü):** `config.ap` `FUN_40054c00` (`config_community.c:55-98`, mesaj `0x90`): RAM `0x9fc155d4` baytı 1 ise `usound` (uygulama kimliği `0x12`) başlatılıyor; değilse `online_device == 0` ise `udisk` (`0xc`), değilse MTP (`0x10`). Bayrak `FUN_40054ccc` içinde config öğesi `0x116`'dan (`config.bin` `0xe4a`, u16 `0,0,1,1`, stock ile aynı) bir kez ayarlanıyor. **Hipotez:** ilk u16 varsayılan, yani bayrak 0 ve `usound` dalı varsayılan olarak ölü. Öğe 278 varsayılanını 1 yapmak USB takılınca `usound` açar; denenmedi, yalnızca `config.bin` değişikliği olur. `manager.ap` ad tablosunda (`0x2634`, 12 baytlık girişler) `usound.ap` `0x270c`, indeks 18 (kimlik=indeks hipotez). Başka hiçbir `.ap` içinde \"usound\" dizgisi yok; arayüzde yol yok. `uhost.drv` yalnızca Bulk-Only Mass Storage host'u (6 `USBC` CBW imzası: `0xa08, 0xd44, 0xed0, 0x18bc, 0x1984, 0x1ad0`); HID/ses sınıfları desteği bilinmiyor | Hipotezi (öğe 278 → usound) yalnızca analiz için not et: cihazda denemeden yama yazma; USB bağlantısı bozulursa depolama erişimi kaybolur. Ayrıntı: `docs/findings-eq-usound.md` |
 | 8 | QEMU kapsamı | Upstream'de ATJ2127 makinesi yok; yalnızca user-mode harness'leri çalışıyor | `build.sh --test` ile mevcut harness'lerin Docker'da geçtiğini doğrula |
 
+USB keşfi güncellemesi: `usound.drv` için yeni ham-byte ve Ghidra kontrolleri
+USB 1.1/UAC1 cihaz descriptor'ını, 2 kanal/16 bit/48 kHz izokron OUT yolunu
+ve HID `0x82` kontrol endpoint'ini doğruluyor. Önceki satırdaki “HID/ses
+sınıfları bilinmiyor” ifadesi yalnızca ayrı `uhost.drv` host üyesi için
+geçerlidir; `usound.drv` artık statik olarak sınıflandırılmıştır. Donanım
+OTG/VBUS ve gerçek USB bağlantısı hâlâ test edilmedi.
+
 ## USB keşfi (statik, bu oturumda; cihazda test edilmedi)
 
 Bulgular `community` ve `cand` imajında aynı (`usound.drv`, `udisk.drv`,

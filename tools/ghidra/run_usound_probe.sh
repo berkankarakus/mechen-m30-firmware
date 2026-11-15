@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Decompile the extracted USB Audio device boundary. Static analysis only.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+DRIVER=${1:-$ROOT/analysis/community/fw/usound.drv}
+GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
+JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+
+[ -f "$DRIVER" ] || { echo "missing USB Audio driver: $DRIVER" >&2; exit 1; }
+[ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_binary_probe.py" "$DRIVER"
+
+WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-usound.XXXXXX")
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/project"
+
+# file 0x200 is loaded at 0xbfc30000, so file byte zero is bfc2fe00.
+set +e
+JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
+GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+  "$GHIDRA" "$WORK/project" m30usound \
+  -import "$DRIVER" \
+  -loader BinaryLoader \
+  -processor 'MIPS:LE:32:default' \
+  -noanalysis \
+  -scriptPath "$ROOT/tools/ghidra" \
+  -postScript FlatLoad.java "$DRIVER" 0xbfc2fe00 0x200 0x26b0 \
+  -postScript DumpC.java "$WORK/usound.c" 2>&1 | tee "$WORK/ghidra.log"
+STATUS=${PIPESTATUS[0]}
+set -e
+[ "$STATUS" -eq 0 ] || exit "$STATUS"
+
+grep -q 'FlatLoad: bytes=9904 functions=46' "$WORK/ghidra.log"
+for address in bfc302f8 bfc3036c bfc303c4; do
+  grep -q "FUN_$address" "$WORK/usound.c"
+done
+grep -Fq '*_UNK_bfc30354 = 200;' "$WORK/usound.c"
+grep -Fq '*_UNK_bfc3035c = 0x84;' "$WORK/usound.c"
+grep -Fq 'if (uStack_c == 0x22)' "$WORK/usound.c"
+grep -Fq 'if (uStack_c == 0x81)' "$WORK/usound.c"
+grep -Fq '_UNK_bfc30c38[1] == 0x82' "$WORK/usound.c"
+echo 'USB AUDIO DRIVER PASS functions=46 control-requests=0x22/0x21 hid-endpoint=0x82 iso-packet=200'
