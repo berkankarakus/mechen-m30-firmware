@@ -488,6 +488,7 @@ denemesi yapılmadı.
 | `docs/findings-eq-usound.md` | EQ tabloları ve `usound` başlatma yolu |
 | `docs/findings-key-driver.md` | `key.drv` MIPS16 tarama, debounce/repeat ve ADC eşikleri |
 | `docs/findings-dac-driver.md` | `drv_dac.drv` codec/DAC seri bus bit işlemleri |
+| `docs/findings-lcd-driver.md` | `drv_lcd.drv` LCD pencere, yön ve piksel aktarımı |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
 | `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
 | `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
