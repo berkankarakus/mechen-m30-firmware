@@ -73,6 +73,10 @@ deterministic:
 22. `tools/ghidra/run_folder_nav_probe.sh` decompiles the real browser/music
     `next` and `previous` handlers and checks their shared one-step and redraw
     contract before the acceleration candidate is considered applicable.
+23. `compare_firmware_versions.py` compares hashes and provider-pointer counts
+    across a directory of extracted M30 release images. It excludes the known
+    `drv_ui.drv` consumer by default, so repeated pointer literals in the
+    container or consumer are not misclassified as provider modules.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
@@ -129,6 +133,18 @@ PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
 That check currently finds zero copies in the other extracted members. The
 separate `--require-zero` call in the static suite checks the six resident
 loader addresses and `0xbfc06d6c` across the complete tree.
+
+For a corpus of extracted release directories, use the version comparison
+tool. Each child directory must contain a `fw/` directory:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/compare_firmware_versions.py \
+  /private/tmp/m30-version-compare --require-zero
+```
+
+The tool reports module SHA-256 values and provider-only pointer counts for
+each version. See [`docs/findings-version-corpus.md`](../../docs/findings-version-corpus.md)
+for the twelve-image result currently archived locally.
 
 Run it with extracted firmware resources:
 
