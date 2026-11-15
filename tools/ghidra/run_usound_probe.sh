@@ -41,4 +41,8 @@ grep -Fq '*_UNK_bfc3035c = 0x84;' "$WORK/usound.c"
 grep -Fq 'if (uStack_c == 0x22)' "$WORK/usound.c"
 grep -Fq 'if (uStack_c == 0x81)' "$WORK/usound.c"
 grep -Fq '_UNK_bfc30c38[1] == 0x82' "$WORK/usound.c"
-echo 'USB AUDIO DRIVER PASS functions=46 control-requests=0x22/0x21 hid-endpoint=0x82 iso-packet=200'
+grep -q 'uint FUN_bfc31654' "$WORK/usound.c"
+grep -Fq '0x1000 - *_UNK_bfc31730' "$WORK/usound.c"
+grep -Fq 'if (0xfff < *_UNK_bfc31730)' "$WORK/usound.c"
+grep -Fq 'if (99 < *_UNK_bfc3172c)' "$WORK/usound.c"
+echo 'USB AUDIO DRIVER PASS functions=46 control-requests=0x22/0x21 hid-endpoint=0x82 iso-packet=200 ring-boundary=0x1000'
