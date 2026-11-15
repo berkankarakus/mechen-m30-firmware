@@ -42,6 +42,10 @@
   PCM at the single advertised rate 48000 Hz. The streaming endpoint is
   isochronous OUT `0x01` with 200-byte packets; the HID endpoint is interrupt
   IN `0x82`. The raw strings are `USB Audio` and `Actions`.
+- V The extracted `usound.drv` is byte-identical across the six local
+  corpora (`community`, `first-pass-verify`, `stock`, `v1.101.11`,
+  `v1.101.12`, and `v5`; SHA-256
+  `e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc`).
 - V Ghidra maps 9,904 payload bytes into 46 functions. The decompiled
   initialization writes the 200-byte streaming packet size and `0x84` control
   value; the request handler has standard/interface control branches and
