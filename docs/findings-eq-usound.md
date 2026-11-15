@@ -3,12 +3,16 @@
 # EQ + usound findings (read-only; V=VERIFIED, H=HYPOTHESIS)
 
 ## A. EQ
+- Reproducible check: `bash tools/ghidra/run_eq_probe.sh` decompiles the
+  community `mengine.ap` EQ loader and checks its pointer pool, seven-band
+  frequency table, gain rows, and the `setting.ap` Custom row. It is a static
+  AP/raw-byte check and does not validate audible output.
 - V SDK: ap/ap_setting/menu_callback_sound_setting.c: eq_param[8][MAX_EQ_SEG] int8 (none,rock,funk,hiphop,jazz,classic,techno,custom); _set_real_eq() builds mmm_mp_eq_info_t{eq_type, eq_para[12]} and sends MSG_MENGINE_SET_EQ_SYNC (music_set_eq, line 81-88). Engine: mengine_event_volume.c mengine_set_real_eq() -> mmm_mp_cmd(MMM_MP_SET_EQ,&eq_info). Custom = g_setting_vars.music_comval.eq_parameter[12] (int8, setting_common.h:167), edited in music_setmenu_soundset_param.c. EQ_TOTAL=8 (ap_setting.h:27) incl. Off. config.txt SETTING_AP_ID_EQ_SETTING = 0[0..7].
 - V Table A (setting.ap, community==stock): file 0x5a94..0x5b13, 8 rows x 16 B (12 int8 used + 4 pad; rock row 0x5aa4, funk 0x5ab4, hiphop 0x5ac4, jazz 0x5ad4, classic 0x5ae4, techno 0x5af4, custom 0x5b04 = {-9,0,0,0,0,0,6}). Zeros 0x5b14..0x5bff (236 B) then next sector at 0x5c00.
 - V Table B (mengine.ap, same in stock): presets at 0x440c.. 7 B/row (7 int8 gains, row index = preset): none 0x440c, rock 0x4413, funk 0x441a, hiphop 0x4421, jazz 0x4428, classic 0x442f, techno 0x4436 (=7 rows, idx 0..6). Row values = first 7 bytes of SDK rows. Band centre freqs u16 at 0x43ec (80,200,480,980,4000,8000,16000 Hz), per-band u16 at 0x43fc (10,6,4,6,10,5,8; likely Q x10, H). Pointer pool file 0x41f4 = {0x601d10ec, 0x601d10fc, 0x9fc1a19c(RAM custom), 0x601d110c}; file = addr - 0x601ccd00.
 - V Code: mengine.ap FUN_601d0d58 (mengine_community.c:1717-1790): idx=*(byte*)(g+0x41); loop 7 bands: freq,Q, gain = (idx==7 ? custom[b] : table[idx*7+b]) * 10 (0.1 dB units), flag 1; bands 7..15 zeroed; struct 0xf0 B (16 bands x 8 B) sent to DSP. So 7-band parametric EQ, int8 dB gains, custom = idx 7 read from RAM 0x9fc1a19c (not in table).
 - V Free space: mengine.ap zeros 0x443d..0x47ff (0x443d-0x4443 would be a would-be 8th row; 956 B to 0x4800 sector end, but 0x4600 is also a sector edge -> 0x4600..0x47ff may be bank padding). setting.ap 236 B after table.
-- H Extra presets: data room exists w/o changing member size, but idx 7 is hard-wired to custom in FUN_601d0d58 (no bounds check seen), UI count EQ_TOTAL=8, setting.ap table and music/setting menu strings/.mcg trees are separate. Adding presets needs code patch (index->custom sentinel) plus menu tree/sty edits. Not checked: music.mcg/setting.mcg node count, which AP writes g+0x41 (H: copy of eq_type from SET_EQ msg).
+- V/H Extra presets: `run_eq_probe.sh` confirms `FUN_601d0d58` has a seven-iteration loop, uses `idx * 7` for non-Custom rows, and branches only on `idx == 7` to the Custom RAM pointer. No index clamp or default case is visible in this function. The UI count remains `EQ_TOTAL=8`; setting.ap table and music/setting menu strings/.mcg trees are separate. Adding presets therefore needs a code patch (new index mapping and bounds behavior) plus menu tree/sty edits. Not checked: music.mcg/setting.mcg node count, which AP writes `g+0x41` (H: copy of eq_type from SET_EQ msg).
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound
