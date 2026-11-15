@@ -77,6 +77,10 @@ deterministic:
     across a directory of extracted M30 release images. It excludes the known
     `drv_ui.drv` consumer by default, so repeated pointer literals in the
     container or consumer are not misclassified as provider modules.
+24. `tools/ghidra/run_browser_layout_probe.sh` checks the browser's literal
+    table for the exact list-buffer and adjacent `path_info` addresses. This
+    keeps the 8x50-byte layout boundary executable as a regression rather than
+    leaving the 64-byte overlap warning as prose only.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

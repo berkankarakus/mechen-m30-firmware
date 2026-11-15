@@ -40,6 +40,15 @@ scrolling as if it could recover text already discarded by the browser slot.
   (dir_control=0x9fc15604, list_buffer=0x40cd4c00, path_info). Arg order matches SDK. Pointer to the function at file 0x12128.
 - HYPOTHESIS: list buffer 0x40cd4c00 is a banked data page (512 bytes: 0x40cd4c00..0x40cd4e00, just below the code bank 0x40cd4e00).
   400 bytes of it are the buffer; listbox_data likely shares it, so growth beyond 512/8=64 per slot is impossible without moving it.
+
+The adjacent-address part is now reproducible with
+`tools/ghidra/run_browser_layout_probe.sh`. The browser literal table contains
+`0x40cd4c00` at `0x40cd5024` and `0x40cd4d90` at `0x40cd5040`; the latter is
+the `path_info` argument used by the same directory initializer call. The
+addresses are 0x190 bytes apart, exactly `8 * 0x32`, which makes the current
+50-byte layout boundary a checked binary fact. This does not prove that the
+whole 0x200-byte page is free for a larger layout, but it rules out treating
+the 64-byte experiment as an in-place safe change.
 - Truncation, directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883): per item it calls kernel fs op 2 with
   length `name_len >> 1` (= 25 UTF-16 units), then `FUN_71352ab0` (B:12004, 8.3 name -> "NAME.EXT" when no FF FE BOM).
   Max visible name: 25 units incl. BOM and terminator, so about 23-24 chars (HYPOTHESIS for exact count; kernel op 2 not in any dump).
