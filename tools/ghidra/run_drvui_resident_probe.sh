@@ -45,6 +45,8 @@ done
 grep -q 'trap(0)' "$WORK/decomp.c"
 grep -q 'void FUN_bfc09e34' "$WORK/decomp.c"
 grep -q '_UNK_bfc09e70' "$WORK/decomp.c"
+grep -Fq '(*_UNK_bfc09e70)(param_1,param_2 & 0xffff,param_3);' "$WORK/decomp.c"
+grep -Fq '(*_UNK_bfc09e6c == '\''\x02'\'')' "$WORK/decomp.c"
 grep -q '_UNK_bfc0a8c4 + 0x10' "$WORK/decomp.c"
 grep -q '_UNK_bfc0a8d0 + 0x14' "$WORK/decomp.c"
 echo 'DRV_UI RESIDENT PASS syscall=bfc09c00 mode_forwarder=bfc09e34 state_setters=bfc0a8bc,bfc0a8c8'
