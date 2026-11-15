@@ -59,6 +59,15 @@ scroll probe passed at the isolated boundary (359 steps); this raises
 confidence in the call/return and state layout, but does not emulate the
 ATJ2127 peripherals.
 
+The folder-navigation bridge now has an equivalent p-code probe:
+`tools/ghidra/run_folder_nav_pcode_probe.sh`. It executes the real
+`browser.ap` and `music.ap` handlers at `0x487144a8` and `0x487146cc`, while
+intercepting only their redraw/page-reset helpers. With a seven-row window and
+ten-item list, the verified transitions are `next: active 7 -> 8` with a
+page redraw and `previous: active 7 -> 6` without a redraw. This is stronger
+than the earlier decompile-only contract, but it still does not emulate the
+LCD, storage, input timing, or a complete M30 boot.
+
 The decompiled function signature and first shim boundary are now confirmed:
 `FUN_40d54f2c(ushort event_or_style, int *scroll_state) -> short`. Its
 literal-pool targets include the UI dispatcher `0xbfc16405`, backlight/status
@@ -89,6 +98,7 @@ has been recovered.
 | Scroll acceleration | real `browser.ap` bank, stock vs patched | PASS; 30,000 events, 0 failures |
 | Folder-list acceleration contract | host model mirroring the real blob | PASS; 58 emulator tests total, 700 ms boundary modeled; physical event timing unmeasured |
 | Folder-list handler contract | Ghidra decompile of browser/music next/previous | PASS; stock one-step and redraw calls present |
+| Folder-list handler p-code execution | real browser/music MIPS16 handlers with helper intercepts | PASS; next/previous state assertions in both apps |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |

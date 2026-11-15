@@ -330,3 +330,8 @@ The burst boundary is explicit in the model: events separated by 700 ms or
 less remain in the same burst, while a 701 ms gap resets to one item. Thus a
 physical up/down key repeat rate can be checked directly against this contract
 without assuming that the control is a wheel.
+
+`tools/ghidra/run_folder_nav_pcode_probe.sh` executes the real browser and
+music `next`/`previous` handlers in Ghidra's MIPS16 p-code emulator. It
+intercepts only the redraw helpers and asserts the recovered seven-row window
+transition (`7 -> 8` and `7 -> 6`); it is not an LCD or full-boot emulator.
