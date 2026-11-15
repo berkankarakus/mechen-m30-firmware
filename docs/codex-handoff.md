@@ -498,6 +498,7 @@ denemesi yapılmadı.
 | `docs/findings-card-driver.md` | `card.drv` iki segmentli SD adapter yolu; kısmi seeded decompile |
 | `docs/findings-norud-driver.md` | `nor_ud.drv` harici NOR user-data dispatch tablosu |
 | `docs/findings-filesystem-drivers.md` | FAT32/exFAT dizin traversal, uzantı filtresi ve blok/cluster sınırı |
+| `docs/findings-dsp-members.md` | DSP üyelerinin offset-0 marker'ı, descriptor fingerprint'i ve corpus eşitliği |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
 | `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
 | `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
