@@ -222,6 +222,10 @@ ve HID `0x82` kontrol endpoint'ini doğruluyor. Önceki satırdaki “HID/ses
 sınıfları bilinmiyor” ifadesi yalnızca ayrı `uhost.drv` host üyesi için
 geçerlidir; `usound.drv` artık statik olarak sınıflandırılmıştır. Donanım
 OTG/VBUS ve gerçek USB bağlantısı hâlâ test edilmedi.
+`config.bin` için aynı zinciri doğrulayan probe, item `0x116` indeksini
+`0x8c0`'da ve payload'ını `0xe4a`/8 baytta buluyor; payload'ın ilk u16 değeri
+0. Böylece varsayılan-usound-flag çıkarımı artık yanlış ofset varsayımına
+dayanmıyor.
 
 ## USB keşfi (statik, bu oturumda; cihazda test edilmedi)
 

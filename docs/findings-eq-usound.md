@@ -29,6 +29,12 @@
   analysis/community/fw/usound.drv` decompiles the resident code path. Both
   checks pass for the local community, stock, V1.101.11, V1.101.12, and V5
   copies because those members have the same SHA-256.
+- `config.bin` is separately checked by
+  `PYTHONPATH=tools/emu python3 tools/emu/config_usb_mode_probe.py
+  analysis/community/fw/config.bin`; it resolves item `0x116` through the
+  index at `0x8c0` to payload offset `0xe4a`, length 8, whose first u16 is
+  zero (`00 00 00 00 01 00 01 00`). The earlier `0xe4a` wording refers to
+  the payload, not the index record.
 - V The embedded device descriptor is USB 1.1, VID `0x10d6`, PID `0xdd00`.
   The configuration advertises three distinct interfaces: audio control
   interface 0, audio streaming interface 1 (alternate settings 0 and 1),
