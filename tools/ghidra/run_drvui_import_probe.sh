@@ -32,6 +32,9 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript FlatLoad.java "$DRIVER" 0x260db980 0x9674 0x80c \
+  -postScript MapSegmentsKeep.java 1 \
+    "$DRIVER" 0xbfc08a00 0x1200 0x2fc 1 \
+  -postScript DumpAt.java 0x260e5780,0xbfc09c00 "$WORK/decomp.c" \
   -postScript FindMips16Imports.java 0x260e4ff4 0x260e5800 15,17 \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
@@ -40,5 +43,10 @@ set -e
 grep -q 'MIPS16_IMPORT_SUMMARY calls=5' "$WORK/ghidra.log"
 grep -q 'MIPS16_IMPORT_TOTAL selector=0xf count=1' "$WORK/ghidra.log"
 grep -q 'MIPS16_IMPORT_TOTAL selector=0x11 count=1' "$WORK/ghidra.log"
+grep -q 'DumpAt: 260e5780 -> FUN_260e5780' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc09c00 -> FUN_bfc09c00' "$WORK/ghidra.log"
+grep -q 'trap(0)' "$WORK/decomp.c"
+grep -Fq '(*pcRam260e59e8)(*param_4,0,param_1,0xf);' "$WORK/decomp.c"
+grep -Fq '(*pcVar1)(*param_4,auStack_90,0x1c,0x11);' "$WORK/decomp.c"
 
 echo 'DRV_UI IMPORT PASS selectors=15,17'

@@ -57,9 +57,11 @@ deterministic:
 18. `resident_ui.py` carries those verified resident effects into the host
     model while aligning odd MIPS16 pointers and refusing unknown targets.
 19. `scan_mips16_imports.py` parses the real B3 MIPS16 disassembly and reports
-    indirect-call delay slots that select an import number. The current M30
-    bank proves selector 15/17 pairs, but the tool intentionally does not
-    assign semantics to those selectors.
+    indirect-call delay slots that select an import number. The Ghidra import
+    probe also maps the resident `0xbfc09c05` wrapper and verifies the
+    four-argument selector-15/17 call shape. The selector semantics remain
+    unresolved on M30; public ordinal names live in the reference-only
+    `ui_imports.py` module.
 20. `tools/ghidra/run_drvui_b3_table_probe.sh` maps the B3 tail and the
     following data area, then dumps the pointer words consumed by the second
     B3 UI function. It verifies the two resident entries and three

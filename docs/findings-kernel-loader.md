@@ -549,8 +549,12 @@ The read-only cross-check is reproducible with:
 bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv
 ```
 
-The probe deliberately reports selector numbers only. It does not model them
-as rendering, storage, or bank-loading operations until an M30-specific
+The probe now maps the B3 function together with the extracted resident
+wrapper. It verifies that the selector-15 and selector-17 calls use the same
+four-argument resident target at `0xbfc09c05`, while the target decompiles to
+the trap/status-byte wrapper at `0xbfc09c00`. It still reports selector
+numbers only at the M30 execution boundary; it does not model them as
+rendering, storage, or bank-loading operations until an M30-specific
 dispatcher path is recovered.
 
 ### Public UI-operation ordinal cross-check
@@ -560,8 +564,9 @@ The public SDK gives a useful, but deliberately separate, comparison. Its
 `UI_SCROLLSTRING_EXT` at ordinal `15` and `UI_GET_DC_STATUS` at ordinal `17`.
 Those are exactly the two selector values observed in the M30 B3 delay slots.
 The public header also shows that the application-facing `ui_op_entry()` call
-passes the command as its fourth argument, matching the M30 call shape around
-`0xbfc09c05` in the second B3 function.
+passes the command as its fourth argument. That matches the M30 call shape
+around `0xbfc09c05` in the second B3 function, where the same target is called
+with selectors `0xf` and `0x11` and three payload arguments.
 
 This raises confidence that the values are UI-operation selectors rather than
 arbitrary rendering constants, but it is not an M30 dispatcher proof: the
