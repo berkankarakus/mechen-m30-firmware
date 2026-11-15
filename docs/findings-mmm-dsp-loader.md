@@ -18,8 +18,11 @@ loader (`mmm_mp.al` resident segment: file `0x400`, size `0x454`, destination
 
 ## Proven selector and table
 
-`FUN_68312d00` reads a format-dependent field at `param_1 + 0x80`, multiplies
-the value by `0x10`, and uses that stride against a literal table at
+`FUN_6815327c` calls the stream parser `FUN_68152d70` with its sub-structure
+at `param_1 + 0x80`. The parser writes the format code into the first word of
+that sub-structure; the recovered raw/PCM branch explicitly writes `6` to the
+same field. Later, `FUN_68312d00` reads the field at `param_1 + 0x80`,
+multiplies the value by `0x10`, and uses that stride against a literal table at
 `0x68312f60`. The table contains fixed-width 16-byte names. The first entries
 are:
 
@@ -63,5 +66,7 @@ the local corpus (the table includes entries such as `adSBC.dsp` that are not
 among the extracted members), the model returns an unavailable selection. It
 never substitutes another codec and never executes an opaque DSP payload.
 
-The next high-value trace is the message/parameter path that fills the state
-at `+0x80` and the call that supplies the DSP EQ/playback block.
+This closes the immediate “where does the index come from?” gap: it is a
+parser-produced format code, not a UI filename index. The remaining high-value
+trace is the message/parameter path that supplies the DSP EQ/playback block
+after this codec selection.

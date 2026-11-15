@@ -26,6 +26,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
   -postScript DumpAt.java 0x68312d00,0x68312de4 "$WORK/decomp.c" \
+  -postScript DumpC.java "$WORK/all.c" \
   -postScript DumpWords.java 0x68312f60 0x68313060 \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
@@ -44,5 +45,15 @@ grep -q 'WORD address=68313050 value=0x70706461' "$WORK/ghidra.log"
 # the table address are the contract we use in the emulator notes.
 grep -Eq '\* 0x10.*68312e1c|68312e1c.*\* 0x10' "$WORK/decomp.c"
 grep -q 'param_1 + 0x80' "$WORK/decomp.c"
+
+# The selector is a sub-structure populated by the parser, not a host-side
+# guess: the parser is called with the +0x80 address and writes its format
+# code through the sub-structure's first word.  Keep one concrete PCM branch
+# as an anchor while allowing Ghidra's temporary variable names to vary.
+grep -Eq 'DumpC: functions=6[89] ' "$WORK/ghidra.log"
+grep -q 'FUN_68152d70' "$WORK/all.c"
+grep -q 'FUN_6815327c' "$WORK/all.c"
+grep -Fq 'FUN_68152d70((int *)(param_1 + 0x80))' "$WORK/all.c"
+grep -q 'param_1 + 0x80) = 6' "$WORK/all.c"
 
 echo 'MMM DSP LOADER PASS format-index=param+0x80 stride=0x10 table=0x68312f60'
