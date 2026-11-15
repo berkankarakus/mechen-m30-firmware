@@ -256,9 +256,10 @@ Bulgular `community` ve `cand` imajında aynı (`usound.drv`, `udisk.drv`,
 - Elektriksel olarak USB portunun host/OTG kimliği (ID pini, VBUS çıkışı)
   firmware'den anlaşılamaz; donanım şeması gerekir.
 
-Sonraki adımlar (Codex için): `manager.ap` uygulama tablosundaki `usound.ap`
-indeksini ve onu çağıran yeri (`config.ap`/`udisk.ap`/`mainmenu.ap`) bul;
-çağrı koşulunu (USB takıldığında hangi ayar/mod) belgele. Cihazda deneme
+Sonraki adımlar (Codex için): `usound.ap` içindeki `FUN_40094e88` yolu artık
+`usound.drv` adını koşullu driver-install yardımcısına verdiği noktaya kadar
+kanıtlandı. Kalan dar boşluk, bu yardımcının ABI'sini ve PCM örneklerinin
+hangi çağrı/ring-buffer üzerinden aktarıldığını çözmek. Cihazda deneme
 yapmadan firmware yaması yazma: yanlış mod, USB bağlantısını kullanılamaz
 hale getirip depolama erişimini engelleyebilir.
 

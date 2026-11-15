@@ -58,6 +58,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_binary_probe.py" \
   "$ROOT/analysis/community/fw/usound.drv" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/config_usb_mode_probe.py" \
   "$ROOT/analysis/community/fw/config.bin" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_ap_binary_probe.py" \
+  "$ROOT/analysis/community/fw/usound.ap" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/cards_binary_probe.py" \
   "$ROOT/analysis/community/fw/cards.drv" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/card_binary_probe.py" \
@@ -107,6 +109,7 @@ bash "$ROOT/tools/ghidra/run_auddev_probe.sh" "$FW/aud_dev.drv"
 bash "$ROOT/tools/ghidra/run_uhost_probe.sh" "$FW/uhost.drv"
 bash "$ROOT/tools/ghidra/run_usound_probe.sh" "$FW/usound.drv"
 bash "$ROOT/tools/ghidra/run_config_usound_probe.sh" "$FW"
+bash "$ROOT/tools/ghidra/run_usound_ap_probe.sh" "$FW/usound.ap"
 bash "$ROOT/tools/ghidra/run_cards_probe.sh" "$FW/cards.drv"
 bash "$ROOT/tools/ghidra/run_card_probe.sh" "$FW/card.drv"
 bash "$ROOT/tools/ghidra/run_filesystem_probe.sh"
