@@ -5,6 +5,7 @@ from m30_model import (
     ArtworkSession,
     EQ_PRESETS,
     FIRMWARE_EQ_BAND_HZ,
+    FIRMWARE_EQ_CUSTOM_DEFAULT,
     FIRMWARE_EQ_PRESETS,
     FIRMWARE_EQ_Q_X10,
     IndexState,
@@ -84,7 +85,7 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(firmware_eq_gains(6), (5, 2, 0, 0, 0, 0, 6))
 
     def test_custom_requires_exactly_seven_signed_int8_values(self):
-        custom = (-9, 0, 0, 0, 0, 0, 6)
+        custom = FIRMWARE_EQ_CUSTOM_DEFAULT
         self.assertEqual(firmware_eq_gains(7, custom), custom)
         with self.assertRaises(ValueError):
             firmware_eq_gains(7, (0, 0, 0))

@@ -141,6 +141,9 @@ EQ_PRESETS: tuple[EqPreset, ...] = (
 # while this table describes what the shipped binary actually consumes.
 FIRMWARE_EQ_BAND_HZ: tuple[int, ...] = (80, 200, 480, 980, 4000, 8000, 16000)
 FIRMWARE_EQ_Q_X10: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
+# Default Custom row recovered from setting.ap (file offset 0x5b04). Runtime
+# edits replace this row through the RAM-backed Custom path.
+FIRMWARE_EQ_CUSTOM_DEFAULT: tuple[int, ...] = (-9, 0, 0, 0, 0, 0, 6)
 
 
 @dataclass(frozen=True)
