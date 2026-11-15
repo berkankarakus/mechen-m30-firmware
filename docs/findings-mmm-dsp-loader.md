@@ -55,8 +55,13 @@ assigning meanings to the indirect calls.
 
 ## Emulator consequence
 
-The emulator can now model a safe format-selection step: map a verified format
-index to one of these 16-byte names, check that the corresponding `.dsp`
-member's hash/header matches the corpus, and stop before executing its opaque
-payload. The next high-value trace is the message/parameter path that fills
-the state at `+0x80` and the call that supplies the DSP EQ/playback block.
+The emulator now models a safe format-selection step in
+`tools/sim/dsp_model.py`: map a verified format index to one of these names,
+normalize the extracted lower-case member name, and check the offset-zero
+`yqhx` descriptor plus a SHA-256 fingerprint. If the selected member is not in
+the local corpus (the table includes entries such as `adSBC.dsp` that are not
+among the extracted members), the model returns an unavailable selection. It
+never substitutes another codec and never executes an opaque DSP payload.
+
+The next high-value trace is the message/parameter path that fills the state
+at `+0x80` and the call that supplies the DSP EQ/playback block.
