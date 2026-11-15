@@ -38,4 +38,10 @@ for address in bfc17420 bfc1752c bfc17640 bfc1777c bfc17a08 bfc17afc bfc17b1c bf
 done
 grep -q '0x200' "$WORK/uhost.c"
 grep -q '0x1f' "$WORK/uhost.c"
-echo 'USB HOST DRIVER PASS functions=10 mass-storage-block-io=present audio-class=unproven'
+grep -Fq '*(undefined1 *)(_UNK_bfc17634 + 0xc) = 0x80;' "$WORK/uhost.c"
+grep -Fq '*(undefined1 *)(iVar1 + 0xf) = 0x28;' "$WORK/uhost.c"
+grep -Fq '*(undefined1 *)(iVar1 + 0xf) = 0x2a;' "$WORK/uhost.c"
+grep -Fq '*(uint *)(iVar4 + 8) = param_2 << 9;' "$WORK/uhost.c"
+grep -q 'iVar10 = 0x83' "$WORK/uhost.c"
+grep -q 'iVar10 = 0x84' "$WORK/uhost.c"
+echo 'USB HOST DRIVER PASS functions=10 mass-storage-cbw=0x28/0x2a transfer=512-byte-units audio-class=not-present-in-member'

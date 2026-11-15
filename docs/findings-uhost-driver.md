@@ -32,15 +32,25 @@ cd2e3c32fa57551c71c2e90a20d50f090fb7acb33e2e408fe91e90c964ed532b
 
 The decompiler exposes a block transfer path (`FUN_bfc17420`), command/data
 packet setup (`FUN_bfc1752c`, `FUN_bfc17640`, `FUN_bfc1777c`), and controller
-start/wait helpers (`FUN_bfc17a08`, `FUN_bfc17afc`, `FUN_bfc17b1c`). The code
-uses 512-byte sectors and a `0x1f` command/control operation. The payload has
-six `USBC` literals at file offsets `0xa08`, `0xd44`, `0xed0`, `0x18bc`,
-`0x1984`, and `0x1ad0`; `USBC` is the USB Mass Storage Bulk-Only Transport
-CBW signature. No `USBS` CSW literal occurs in the member.
+start/wait helpers (`FUN_bfc17a08`, `FUN_bfc17afc`, `FUN_bfc17b1c`). The
+command builder writes the Mass-Storage direction byte `0x80`, the SCSI
+READ(10)/WRITE(10) opcodes `0x28`/`0x2a`, a block address, and a transfer
+length in `512`-byte units. The transport path also emits the observed status
+codes `0x80`–`0x88` and uses a `0x1f` command/control operation.
+
+The payload has six `USBC` literals at file offsets `0xa08`, `0xd44`, `0xed0`,
+`0x18bc`, `0x1984`, and `0x1ad0`; `USBC` is the USB Mass Storage Bulk-Only
+Transport CBW signature. No `USBS` CSW literal, USB Audio class descriptor,
+or audio streaming control path is present in this member. The probe checks
+the CBW opcode/direction/512-byte fields directly in the decompiler output;
+it does not claim that other firmware members or a ROM USB stack cannot add a
+separate class.
 
 ## Consequence
 
-This closes the remaining static gap around the external USB storage host,
-but it does not make the M30 a USB DAC. `usound.ap` is a separate application
-path and its activation/default configuration remains a separate, untested
-question. No flashable patch is proposed from this driver analysis.
+This closes the remaining static gap around the external USB storage host and
+strongly narrows the external-DAP hypothesis: the extracted `uhost.drv` is a
+mass-storage transport, not a proven USB-audio transport. `usound.ap` is a
+separate application path and its activation/default configuration remains a
+separate, untested question. No flashable patch is proposed from this driver
+analysis.
