@@ -52,3 +52,14 @@ identity check. The verifier requires exactly 256 KiB, prints a SHA-256, and sho
 at dump offsets `0x5f90` and `0x6d6c`. These are candidates for the
 `0xbfc05f90` and `0xbfc06d6c` targets observed in `ker_xsys.bin`; the alias
 mapping must be confirmed from the dump, not assumed.
+
+The offline verifier is also covered by the host suite. It rejects partial or
+oversized reads before interpreting candidate offsets, and records every
+little-endian `0x0003ffff` guard occurrence:
+
+```sh
+python3 -m unittest discover -s tools/rom -p 'test_*.py'
+```
+
+This test path uses synthetic bytes only; it does not imply that a ROM dump is
+available or that the handler has been identified.

@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 ROM_SIZE = 0x40000
+GUARD_BYTES = bytes.fromhex("ff ff 03 00")
 HANDLERS = {
     0x5F90: "exception dispatch alternate target (candidate)",
     0x6D6C: "EPC exception handler target (candidate)",
@@ -20,6 +21,21 @@ def hexdump(data: bytes, start: int, radius: int = 16) -> str:
     return " ".join(f"{b:02x}" for b in data[lo:hi])
 
 
+def guard_matches(data: bytes) -> list[int]:
+    """Return offsets containing the observed little-endian 0x0003ffff guard."""
+    return [
+        offset
+        for offset in range(len(data) - len(GUARD_BYTES) + 1)
+        if data[offset : offset + len(GUARD_BYTES)] == GUARD_BYTES
+    ]
+
+
+def validate_dump(data: bytes) -> None:
+    """Reject a partial or oversized read before interpreting ROM offsets."""
+    if len(data) != ROM_SIZE:
+        raise ValueError(f"expected exactly 0x{ROM_SIZE:x} bytes, got 0x{len(data):x}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("dump", type=Path)
@@ -29,8 +45,10 @@ def main() -> int:
     print(f"file:   {args.dump}")
     print(f"size:   0x{len(data):x} ({len(data)} bytes)")
     print(f"sha256: {digest}")
-    if len(data) != ROM_SIZE:
-        print(f"ERROR: expected exactly 0x{ROM_SIZE:x} bytes")
+    try:
+        validate_dump(data)
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
         return 1
 
     print("candidate ROM offsets (bfc0xxxx uncached alias -> 9fc0xxxx):")
@@ -38,8 +56,7 @@ def main() -> int:
         print(f"  0x{offset:04x}: {label}")
         print(f"    {hexdump(data, offset)}")
 
-    guard = bytes.fromhex("ff ff 03 00")
-    matches = [i for i in range(len(data) - len(guard) + 1) if data[i : i + len(guard)] == guard]
+    matches = guard_matches(data)
     print(f"0x0003ffff little-endian matches: {len(matches)}")
     if matches:
         print("  " + ", ".join(f"0x{x:x}" for x in matches[:32]))

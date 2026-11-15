@@ -18,6 +18,7 @@ fi
 echo "[1/3] host unit tests"
 python3 -m unittest discover -s "$ROOT/tools/sim" -p 'test_*.py'
 python3 -m unittest discover -s "$ROOT/tools/emu" -p 'test_*.py'
+python3 -m unittest discover -s "$ROOT/tools/rom" -p 'test_*.py'
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
   --all-files "$FW" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
