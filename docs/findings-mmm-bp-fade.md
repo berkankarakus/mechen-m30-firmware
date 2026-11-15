@@ -68,9 +68,11 @@ Ghidra's `_UNK_` names: `0xbfc21698`, `0xbfc27488`, `0xbfc274c4`, and
 `0xbfc274c9` and `0xbfc2748d` from `0xbfc2772c` and `0xbfc27730`. The latter
 two normalize to the already recovered even-entry routines `FUN_bfc274c8` and
 `FUN_bfc2748c`. The `0xbfc21a3d` target itself does not decompile as a valid
-function in this module (the aligned probe encounters bad instruction data),
-so it remains an external/unsupported callback boundary and is not a safe patch
-site.
+function in this module: the aligned instruction probe sees `li` followed by
+`break 0` and zero padding at `0xbfc21a3c`. Therefore the static value is not
+treated as a callback body. It is consistent with a runtime-relocated/filled
+slot, but that part is an inference; the slot remains unsupported and is not a
+safe patch site.
 
 The ownership boundary is also clearer now: `FUN_bfc21530` consumes the
 control flag at `param + 0x81`, clears it, and initializes fade mode `2` plus

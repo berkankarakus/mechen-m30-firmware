@@ -29,6 +29,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -postScript DumpWords.java 0xbfc21698 0xbfc2169c \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
+  -postScript DumpInstructions.java 0xbfc21a3c 8 \
   -postScript DumpC.java "$WORK/all.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
@@ -76,6 +77,12 @@ grep -q 'WORD address=bfc2769c value=0x9fc21b00' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc276a0 value=0xbfc21a3d' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc2772c value=0xbfc274c9' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc27730 value=0xbfc2748d' "$WORK/ghidra.log"
+
+# The unresolved callback target is recorded at instruction level.  A missing
+#/bad decode here is evidence to keep it outside the patch model, not a reason
+# to invent a function prototype.
+grep -q 'INSN address=bfc21a3c' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc21a3e bytes=05 e8 break' "$WORK/ghidra.log"
 
 # DumpC covers every recovered function in this image.  The fade-control byte
 # is only read/cleared in the mapped set; no mapped function writes the value
