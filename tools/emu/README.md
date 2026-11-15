@@ -92,6 +92,10 @@ deterministic:
     on the reference listbox's measured 80 ms refresh tick. They use integer
     timestamps for reproducible screenshots/traces and leave the firmware's
     0x32-byte name-slot truncation unchanged.
+27. `tools/sim/ui_imports.py` records a reference-only ordinal cross-check from
+     the public UI operation table: selector 15 is `UI_SCROLLSTRING_EXT` and
+     selector 17 is `UI_GET_DC_STATUS`. It does not assign those names to the
+     M30 dispatcher or execute either unresolved import.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

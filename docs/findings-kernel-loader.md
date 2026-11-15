@@ -553,6 +553,23 @@ The probe deliberately reports selector numbers only. It does not model them
 as rendering, storage, or bank-loading operations until an M30-specific
 dispatcher path is recovered.
 
+### Public UI-operation ordinal cross-check
+
+The public SDK gives a useful, but deliberately separate, comparison. Its
+`ui_cmd_e` enum and `ui_driver_operations` table place
+`UI_SCROLLSTRING_EXT` at ordinal `15` and `UI_GET_DC_STATUS` at ordinal `17`.
+Those are exactly the two selector values observed in the M30 B3 delay slots.
+The public header also shows that the application-facing `ui_op_entry()` call
+passes the command as its fourth argument, matching the M30 call shape around
+`0xbfc09c05` in the second B3 function.
+
+This raises confidence that the values are UI-operation selectors rather than
+arbitrary rendering constants, but it is not an M30 dispatcher proof: the
+public SDK targets a reference product and the M30 resident table is still
+unavailable. The host layer therefore exposes these names only through the
+reference-only `tools/sim/ui_imports.py` module and keeps the selectors
+unresolved for execution.
+
 ## B3 trailing pointer table
 
 The second B3 UI function at runtime `0x260e5780` ends at the B3 bank boundary.
