@@ -385,8 +385,11 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
   gerçekten var; önerilen 15 adlı listenin çoğu (`Flat`, `Dance`, `Vocal`,
   `Acoustic`, `Bass Boost`, `Treble Boost`) firmware'de yok, EQ 5 değil 7
   bantlı. Yeni preset kod yaması ister.
-- `docs/feature-roadmap.md`, "Line-out": henüz incelenmedi; bu oturumda
-  `drv_dac.drv`/`aud_dev.drv` açılmadı.
+- `docs/feature-roadmap.md`, "Line-out": `drv_dac.drv`, `drv_lcd.drv`,
+  `aud_dev.drv` ve `uhost.drv` artık statik olarak sınıflandırıldı; bunlar
+  donanım/USB alt katmanı. `aud_dev.drv` yalnızca sekiz baytlık COP2 stub,
+  `uhost.drv` yalnızca USB yığın-depolama host yolu gösteriyor. Line-out'un
+  kulaklık çıkışıyla aynı ses davranışı hâlâ kanıtlanmış değil.
 - `docs/qemu-coverage.md`, tablo: "Filename natural-order contract: PASS" ve
   "Artwork audio-first contract: PASS" yalnızca host modellerinin kendi
   beklentilerini sınar; firmware sıralaması (bayt bayt ASCII katlama, sayısal
@@ -490,6 +493,7 @@ denemesi yapılmadı.
 | `docs/findings-dac-driver.md` | `drv_dac.drv` codec/DAC seri bus bit işlemleri |
 | `docs/findings-lcd-driver.md` | `drv_lcd.drv` LCD pencere, yön ve piksel aktarımı |
 | `docs/findings-auddev-driver.md` | `aud_dev.drv` sekiz baytlık COP2 stub/fragment sınırı |
+| `docs/findings-uhost-driver.md` | `uhost.drv` USB yığın-depolama host sınırı |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
 | `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
 | `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
