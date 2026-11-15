@@ -31,6 +31,18 @@ RESIDENT_UI_TARGETS: dict[int, ResidentUiTarget] = {
         "resident-segment-decompile",
         ("trap", "write-status-byte-2"),
     ),
+    # The B3 literal pool uses the odd pointer 0xbfc09c05.  MIPS16 clears
+    # only bit 0 for the instruction address, so that call lands at the
+    # second trap entry (0xbfc09c04), not at 0xbfc09c00.  The instruction
+    # scan shows the same trap/status-wrapper family at both entries; keep
+    # it explicit instead of pretending that ``pointer & ~1`` aliases the
+    # first entry.
+    0xBFC09C04: ResidentUiTarget(
+        0xBFC09C04,
+        "ui_syscall_wrapper_alt_entry",
+        "resident-segment-instruction-scan",
+        ("trap", "write-status-byte-2"),
+    ),
     0xBFC0A8BC: ResidentUiTarget(
         0xBFC0A8BC,
         "ui_state_setter_10",

@@ -21,6 +21,14 @@ class ResidentUiTests(unittest.TestCase):
         self.assertEqual(target.name, "ui_syscall_wrapper")
         self.assertEqual(target.effects, ("trap", "write-status-byte-2"))
 
+    def test_b3_odd_pointer_resolves_to_second_wrapper_entry(self) -> None:
+        target = classify(0xBFC09C05)
+        self.assertIsNotNone(target)
+        assert target is not None
+        self.assertEqual(target.pointer, 0xBFC09C04)
+        self.assertEqual(target.name, "ui_syscall_wrapper_alt_entry")
+        self.assertEqual(target.effects, ("trap", "write-status-byte-2"))
+
     def test_unobserved_resident_pointer_is_not_guessed(self) -> None:
         self.assertIsNone(classify(0xBFC0A900))
 
