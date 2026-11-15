@@ -34,7 +34,7 @@ deterministic:
 11. `driver_loader.py` models the two decompiled resident loader contracts:
    `FUN_bfc0a408` has the mode 6/7 compact-slot branch and entry callback,
    while `FUN_bfc0a578` always uses twelve-byte slots and has no callback.
-12. `provider_scan.py` reproduces the negative A19/B16 provider scan across
+12. `provider_scan.py` reproduces the negative A17/A19/B16 provider scan across
    extracted `.drv` members. It reports byte occurrences only and does not
    infer executable ownership from a match.
 13. `tools/ghidra/run_drvui_pointer_probe.sh` maps the complete UI driver as
@@ -117,10 +117,18 @@ PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
 ```
 
 Repeatable `--pointer 0x...` arguments allow the same tool to scan a custom
-provenance set. Scanning the six resident loader addresses plus
-`0xbfc06d6c` currently finds zero raw little-endian occurrences anywhere in
-the extracted tree. `--require-zero` turns that negative result into a failing
-guard if a future extracted image contains any of those pointers.
+provenance set. The known consumer `drv_ui.drv` contains the A17/A19/B16
+literal references by design, so a provider-only negative check excludes that
+file:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
+  --all-files analysis/community/fw --exclude-name drv_ui.drv --require-zero
+```
+
+That check currently finds zero copies in the other extracted members. The
+separate `--require-zero` call in the static suite checks the six resident
+loader addresses and `0xbfc06d6c` across the complete tree.
 
 Run it with extracted firmware resources:
 

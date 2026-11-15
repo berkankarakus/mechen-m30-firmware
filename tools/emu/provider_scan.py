@@ -18,6 +18,7 @@ from pathlib import Path
 
 
 OBSERVED_POINTERS = {
+    0x164490A1: "A17 + 0x0a1 (resident forwarder target)",
     0x164C9001: "A19 + 0x001",
     0x164C90ED: "A19 + 0x0ed",
     0x26089471: "B02 + 0x471",
@@ -51,22 +52,30 @@ def scan_file(path: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)) 
 
 
 def scan_driver_directory(
-    root: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)
+    root: Path,
+    pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS),
+    exclude_names: tuple[str, ...] = (),
 ) -> dict[int, tuple[Occurrence, ...]]:
     merged: dict[int, list[Occurrence]] = {}
     for path in sorted(root.glob("*.drv")):
+        if path.name in exclude_names:
+            continue
         for pointer, occurrences in scan_file(path, pointers).items():
             merged.setdefault(pointer, []).extend(occurrences)
     return {pointer: tuple(items) for pointer, items in merged.items()}
 
 
 def scan_tree(
-    root: Path, pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS)
+    root: Path,
+    pointers: tuple[int, ...] = tuple(OBSERVED_POINTERS),
+    exclude_names: tuple[str, ...] = (),
 ) -> dict[int, tuple[Occurrence, ...]]:
     """Scan every regular extracted firmware member below ``root``."""
 
     merged: dict[int, list[Occurrence]] = {}
     for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        if path.name in exclude_names:
+            continue
         for pointer, occurrences in scan_file(path, pointers).items():
             merged.setdefault(pointer, []).extend(occurrences)
     return {pointer: tuple(items) for pointer, items in merged.items()}
@@ -89,6 +98,12 @@ def main() -> int:
         help="additional custom 32-bit pointer to scan; repeat for multiple values",
     )
     parser.add_argument(
+        "--exclude-name",
+        action="append",
+        default=[],
+        help="exclude files with this basename from the provider scan; repeatable",
+    )
+    parser.add_argument(
         "--require-zero",
         action="store_true",
         help="fail if any requested pointer occurs in the scanned files",
@@ -96,9 +111,9 @@ def main() -> int:
     args = parser.parse_args()
     pointers = tuple(args.pointers) if args.pointers else tuple(OBSERVED_POINTERS)
     result = (
-        scan_tree(args.root, pointers)
+        scan_tree(args.root, pointers, tuple(args.exclude_name))
         if args.all_files
-        else scan_driver_directory(args.root, pointers)
+        else scan_driver_directory(args.root, pointers, tuple(args.exclude_name))
     )
     if args.as_json:
         payload = {

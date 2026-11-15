@@ -186,6 +186,18 @@ PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
   --all-files analysis/community/fw
 ```
 
+For the provider-only negative check, exclude the known consumer that owns the
+literal pool:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py \
+  --all-files analysis/community/fw --exclude-name drv_ui.drv --require-zero
+```
+
+This currently finds zero copies of the A17/A19/B16 values in the other
+extracted members. The unfiltered scan is still useful because it records the
+consumer-side occurrences and their offsets.
+
 The raw-byte scan was also rerun for the six resident loader/mask addresses
 and the `0xbfc06d6c` exception target across every extracted member. All seven
 values have zero little-endian occurrences in the local tree. This agrees
