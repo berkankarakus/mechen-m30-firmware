@@ -191,6 +191,12 @@ Riskler ve doğrulanmamış varsayımlar:
   `FUN_48654884` başlık metni biçimleyicisinin (`%d`/`%x`) 52 baytlık
   buffer'ı. Çizim bölgesi `0x140 - x` genişliğinde; yani ekran genişliği 320
   piksel görünüyor (240 değil). Liste öğesi ad buffer'ı: bkz. Açık işler tablosu satır 1 (`FUN_48754574`, 50 bayt).
+- `tools/ghidra/run_browser_layout_probe.sh` ile browser literal tablosu ve
+  `FUN_40cd4e00` çağrı bağlamı da doğrulandı: `0x40cd4c00` liste buffer'ı,
+  `0x40cd4d90` canlı `path_info` yapısıdır; değerler `8 * 0x32 = 0x190`
+  byte aralığıyla ayrılır. Probe, buffer'ın directory initializer'a ve
+  `path_info`'nin sonraki path/UI çağrılarına geçtiğini de decompile çıktısında
+  kontrol eder. 64-byte yerinde büyütme bu nedenle güvenli aday değildir.
 
 ## Açık işler ve keşif durumu
 
@@ -247,7 +253,7 @@ hale getirip depolama erişimini engelleyebilir.
 
 ## Emülatör / harness: eksik ve tutarsız noktalar
 
-Kaynak: `tools/sim/*.py` (20 birim test, bu oturumda `python3 -I -m unittest
+Kaynak: `tools/sim/*.py` (36 birim test, bu oturumda `python3 -I -m unittest
 discover -s tools/sim` ile çalıştırıldı, hepsi geçti), `build.sh --test` ve
 `tools/*/harness.c`. QEMU harness'leri bu oturumda çalıştırılmadı; yalnızca
 okundu. Aşağıdakiler cihaz davranışına dair kanıt değil, test altyapısının
@@ -414,8 +420,10 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 ## Bekleyen işler (bu belge yazılırken)
 
 - `build.sh --test` (Docker, stock HEX ile): Docker/QEMU ortamı erişilebilir
-  olmadığından çalıştırılamadı; host tarafında `tools/sim` 32 ve `tools/emu`
-  22 test geçti. `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
+  olmadığından çalıştırılamadı; host tarafında `tools/sim` 36 ve `tools/emu`
+  70 test geçti. Tam statik suite ayrıca browser layout boundary, tüm Ghidra
+  driver/kernel probe'ları ve üç gerçek MIPS16 event probe'ını PASS etti.
+  `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
   lead-in ve lazy bank-stub olarak ayırıyor; `tools/sim/ui_calls.py` B3'teki
   çağrıları temkinli biçimde etiketliyor; `tools/emu/driver_banks.py` ise
   `drv_ui.drv` içindeki far-entry adaylarını payload konumuna çözüyor ama
