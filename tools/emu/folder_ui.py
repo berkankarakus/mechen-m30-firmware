@@ -135,6 +135,23 @@ class FolderList:
         if not 0 <= self.top_y < HEIGHT:
             raise ValueError("top_y must be inside the framebuffer")
 
+    @property
+    def first_visible_index(self) -> int:
+        """Return the first row in the viewport while keeping selection visible."""
+        max_start = max(0, len(self.rows) - LIST_SLOT_COUNT)
+        selected_start = max(0, self.selected_index - (LIST_SLOT_COUNT - 1))
+        return min(selected_start, max_start)
+
+    def move_selection(self, delta: int) -> int:
+        """Move the folder selection without wrapping past either list edge."""
+        if not isinstance(delta, int):
+            raise TypeError("selection delta must be an integer")
+        self.selected_index = min(
+            max(self.selected_index + delta, 0),
+            len(self.rows) - 1,
+        )
+        return self.selected_index
+
     def render(self) -> tuple[Framebuffer, list[dict[str, object]]]:
         fb = Framebuffer()
         fb.fill(BACKGROUND)
@@ -142,12 +159,14 @@ class FolderList:
         draw_text(fb, "BROWSE", DIRECTORY_TEXT_X, 2, DIM, scale=1, cell_width=8)
 
         trace: list[dict[str, object]] = []
-        visible_rows = self.rows[:LIST_SLOT_COUNT]
+        first_visible = self.first_visible_index
+        visible_rows = self.rows[first_visible:first_visible + LIST_SLOT_COUNT]
         for slot, row in enumerate(visible_rows):
             row_y = self.top_y + slot * DIRECTORY_ROW_HEIGHT
             if row_y >= HEIGHT:
                 break
-            selected = slot == self.selected_index
+            row_index = first_visible + slot
+            selected = row_index == self.selected_index
             if selected:
                 fb.rect(0, row_y, WIDTH, DIRECTORY_ROW_HEIGHT, SELECTION_BACKGROUND)
             draw_folder_icon(fb, FOLDER_ICON_X, row_y + 4, RED if selected else DIM)
@@ -163,6 +182,7 @@ class FolderList:
             )
             trace.append({
                 "slot": slot,
+                "index": row_index,
                 "name": row.name,
                 "slot_text": slot_text,
                 "truncated": row.truncated,
@@ -194,6 +214,7 @@ class FolderList:
                 "name_payload_bytes": firmware_name_payload_bytes(),
             },
             "selected_index": self.selected_index,
+            "first_visible_index": self.first_visible_index,
             "scroll_offset_px": self.scroll_offset_px,
             "rows": rows,
         }

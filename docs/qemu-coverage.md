@@ -20,10 +20,12 @@ dispatcher.
 The same host layer contains `tools/emu/folder_ui.py`. It renders browser/list
 slots using the observed 50-byte UTF-16 name slot, the `common.sty` 205x16
 text viewport at x=35, 30-pixel rows, and the 80 ms active scroll period. Its
-JSON trace records the pre-scroll slot text, truncation, pixel offset, and
-selected-row background restore. This makes the observed "scrolls but is cut
-off" behavior testable without claiming that the proprietary LCD/font path is
-emulated.
+JSON trace records the pre-scroll slot text, truncation, pixel offset, source
+row index, and selected-row background restore. Selection movement keeps the
+active row inside the eight-row viewport and clamps at the list edges. This
+makes the observed "scrolls but is cut off" behavior and the folder
+up/down-navigation contract testable without claiming that the proprietary
+LCD/font/input-timing path is emulated.
 
 `tools/emu/prepare_qemu_banks.py` is the next bridge toward real bank
 execution. It extracts all 87 `music.ap` banks and emits exact-address
