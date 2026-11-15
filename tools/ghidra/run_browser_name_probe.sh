@@ -25,6 +25,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AP" \
+  -postScript DumpWords.java 0x487546b8 0x487546d4 \
+  -postScript DumpWords.java 0x71352a68 0x71352a74 \
   -postScript DumpAt.java \
     0x40cd4e00,0x48754574,0x71352820,0x714d2658,0x780db22c \
     "$WORK/decomp.c" 2>&1 | tee "$WORK/ghidra.log"
@@ -42,6 +44,19 @@ for marker in \
   grep -q "$marker" "$WORK/ghidra.log"
 done
 
+# The directory callback's name read goes through the resident filesystem
+# helper, with the destination/length pair taken from each 0x32-byte slot.
+# Keep the literal-pointer chain checked separately from decompiler variable
+# names, which can change between Ghidra releases.
+for marker in \
+  'WORD address=487546b8 value=0x9fc15598' \
+  'WORD address=487546bc value=0x9fc155a4' \
+  'WORD address=487546c0 value=0x780db201' \
+  'WORD address=71352a68 value=0xbfc16a2d' \
+  'WORD address=71352a70 value=0xbfc16a21'; do
+  grep -q "$marker" "$WORK/ghidra.log"
+done
+
 # Directory mode uses 0x32-byte records.  Library mode copies at most 0x40
 # bytes from a title field, then appends a two-byte terminator.  Keep the
 # checks against decompiler output so changes in the loader or AP layout fail
@@ -52,4 +67,4 @@ grep -q 'uVar15 = \*(byte \*)(param_2 + 1) - 2' "$WORK/decomp.c"
 grep -q '\*(undefined1 \*)(param_2\[2\] + uVar15) = 0' "$WORK/decomp.c"
 grep -q '\*(undefined1 \*)(param_2\[2\] + uVar15 + 1) = 0' "$WORK/decomp.c"
 
-echo 'BROWSER NAME PROBE PASS directory-slot=0x32 library-cap=0x40'
+echo 'BROWSER NAME PROBE PASS directory-slot=0x32 fs-helper=0xbfc16a2d library-cap=0x40'

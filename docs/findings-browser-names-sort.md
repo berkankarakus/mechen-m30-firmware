@@ -55,6 +55,17 @@ passes the list buffer literal to the directory initializer, then passes the
 `path_info` literal to the directory/path callback and a subsequent UI
 operation. The overlap warning is therefore about a live adjacent structure,
 not merely unused address space inferred from a page boundary.
+
+The pointer chain below the initializer is now checked by the same probe. Its
+literal pool identifies the directory descriptor at `0x9fc15598`, the
+per-entry table at `0x9fc155a4`, and the directory operation wrapper at
+`0x780db201`. In the directory callback `FUN_71352820`, the resident helper
+`0xbfc16a2d` receives each slot's destination and `slot_length >> 1`; with the
+verified `0x32`-byte length this is 25 UTF-16 code units. The adjacent helper
+`0xbfc16a21` updates the entry metadata. This confirms that the truncation is
+already enforced in the filesystem/name-copy boundary, before `drv_ui`'s
+marquee code, while leaving the implementation of the fixed ROM helper
+outside the extracted firmware.
 - Truncation, directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883): per item it calls kernel fs op 2 with
   length `name_len >> 1` (= 25 UTF-16 units), then `FUN_71352ab0` (B:12004, 8.3 name -> "NAME.EXT" when no FF FE BOM).
   Max visible name: 25 units incl. BOM and terminator, so about 23-24 chars (HYPOTHESIS for exact count; kernel op 2 not in any dump).
