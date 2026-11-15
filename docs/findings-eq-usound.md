@@ -81,7 +81,10 @@
   stream-buffer-shaped ABI. Its literal pool resolves the state to ring base
   `0x9fc34000`, read pointer `0x9fc33dec`, available-byte counter `0x9fc33df0`,
   short-read counter `0x9fc33df4`, reset signal `0x9fc33e13`, and callback entry
-  `0xbfc326a9`. Its producer and PCM ownership are not proven;
+  `0xbfc326a9` (odd MIPS16 pointer). The adjacent aligned stubs at
+  `0xbfc32680` and `0xbfc32694` decompile to zero-return functions, while the
+  odd target's callback semantics remain unresolved. Its producer and PCM
+  ownership are not proven;
   the host emulator therefore models the ring only as an explicitly generic
   boundary, not as the firmware's PCM/DMA implementation.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
