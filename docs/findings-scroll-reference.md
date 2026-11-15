@@ -9,6 +9,21 @@ The public reference snapshot used for comparison is
 `b964feb76a7890a0ee32db188689da3254b724f9`. It is used only as a source/API
 reference; its generated resources and coordinates are not copied into M30.
 
+The source-to-bank relationship is now checked by
+`tools/emu/reference_ui_contract.py`. With the local reference tree extracted
+at `/private/tmp/PD196_ATJ2127`, run:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/reference_ui_contract.py
+```
+
+The probe verifies the linker-level mapping `B05 ->
+bank_b_ui_scroll_string.o` and `B16 -> bank_b_ui_string_sdimage.o`, then
+checks that `clear_remain_pixel_sdimage()` reads the saved background, sets a
+scroll LCD region, and submits it through DMA. This is a public-SDK source
+contract cross-check; it does not claim that those source objects are present
+as payload banks in the M30 `drv_ui.drv`.
+
 The accompanying public US212A design manual also separates the relevant UI
 operations: string scrolling, string measurement, line splitting, picture
 display, and reading a picture region back into a buffer are distinct driver
