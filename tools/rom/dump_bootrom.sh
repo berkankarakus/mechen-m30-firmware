@@ -110,7 +110,20 @@ if [ "$ack_ram_only" -ne 1 ]; then
 fi
 
 printf '%s\n' 'Preflight: querying ADFU identity (read-only; no payload loaded yet).'
-"$actions_dump" --id "$usb_id" --wait "$wait_seconds" chip 2127 adfu_info
+INFO_LOG=$(mktemp "${TMPDIR:-/private/tmp}/m30-adfu-info.XXXXXX")
+trap 'rm -f "$INFO_LOG"' EXIT
+if ! "$actions_dump" --id "$usb_id" --wait "$wait_seconds" chip 2127 adfu_info >"$INFO_LOG" 2>&1; then
+  cat "$INFO_LOG" >&2
+  echo "ADFU identity query failed; refusing to upload the payload" >&2
+  exit 1
+fi
+cat "$INFO_LOG"
+if ! grep -Fq 'guess: chip = ATJ2127' "$INFO_LOG"; then
+  echo "ADFU identity is not confirmed as ATJ2127; refusing to upload the payload" >&2
+  echo "Expected the actions_dump line: guess: chip = ATJ2127" >&2
+  exit 1
+fi
+printf '%s\n' 'ADFU identity PASS: ATJ2127'
 
 "${cmd[@]}"
 python3 "$(dirname "$0")/inspect_bootrom.py" "$out"

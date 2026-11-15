@@ -76,7 +76,8 @@ bash tools/rom/dump_bootrom.sh \
 ```
 
 Before loading the payload, the wrapper calls `adfu_info` as a read-only
-identity check. The verifier requires exactly 256 KiB, prints a SHA-256, and shows the bytes
+identity check and refuses to upload unless the client reports
+`guess: chip = ATJ2127`. The verifier requires exactly 256 KiB, prints a SHA-256, and shows the bytes
 at dump offsets `0x5f90` and `0x6d6c`. These are candidates for the
 `0xbfc05f90` and `0xbfc06d6c` targets observed in `ker_xsys.bin`; the alias
 mapping must be confirmed from the dump, not assumed.
