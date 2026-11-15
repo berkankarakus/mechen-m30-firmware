@@ -55,6 +55,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/filesystem_binary_probe.py
   "$ROOT/analysis/community/fw/fat_32n.drv" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/dsp_binary_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/mmm_bp_binary_probe.py" \
+  --analysis-root "$ROOT/analysis" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/ui_resource_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
 
@@ -100,6 +102,7 @@ bash "$ROOT/tools/ghidra/run_cards_probe.sh" "$FW/cards.drv"
 bash "$ROOT/tools/ghidra/run_card_probe.sh" "$FW/card.drv"
 bash "$ROOT/tools/ghidra/run_filesystem_probe.sh"
 bash "$ROOT/tools/ghidra/run_mmm_dsp_loader_probe.sh" "$ROOT/analysis/community/fw/mmm_mp.al"
+bash "$ROOT/tools/ghidra/run_mmm_bp_fade_probe.sh" "$ROOT/analysis/community/fw/mmm_bp.al"
 
 echo "[3/3] real MIPS16 scroll probes"
 for mode in next previous redraw; do

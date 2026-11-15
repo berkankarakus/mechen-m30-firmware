@@ -501,6 +501,7 @@ denemesi yapılmadı.
 | `docs/findings-dsp-members.md` | DSP üyelerinin offset-0 marker'ı, descriptor fingerprint'i ve corpus eşitliği |
 | `docs/findings-ui-resources.md` | MCG node ağaçları ve seçili RU3 STY grup sınırları |
 | `docs/findings-mmm-dsp-loader.md` | `mmm_mp.al` format indeksi → 16 baytlık DSP dosya adı tablosu |
+| `docs/findings-mmm-bp-fade.md` | `mmm_bp.al` fade/buffer dizgileri, segment eşlemesi ve statik sınır |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
 | `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
 | `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
