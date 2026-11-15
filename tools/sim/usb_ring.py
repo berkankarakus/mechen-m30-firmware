@@ -14,6 +14,16 @@ from typing import Callable
 RING_CAPACITY = 0x1000
 SHORT_READ_RESET_THRESHOLD = 100
 
+# Literal-pool targets recovered from usound.drv around bfc31728.  These are
+# addresses in the device image, not host pointers; they document the proven
+# state layout without pretending the host model has the target RAM map.
+RING_ADDRESS = 0x9FC34000
+READ_POINTER_ADDRESS = 0x9FC33DEC
+AVAILABLE_BYTES_ADDRESS = 0x9FC33DF0
+SHORT_READ_COUNTER_ADDRESS = 0x9FC33DF4
+RESET_SIGNAL_ADDRESS = 0x9FC33E13
+COPY_CALLBACK_ADDRESS = 0xBFC326A9
+
 
 @dataclass
 class RingConsumer:
