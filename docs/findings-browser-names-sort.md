@@ -49,6 +49,12 @@ addresses are 0x190 bytes apart, exactly `8 * 0x32`, which makes the current
 50-byte layout boundary a checked binary fact. This does not prove that the
 whole 0x200-byte page is free for a larger layout, but it rules out treating
 the 64-byte experiment as an in-place safe change.
+
+The same probe also checks the decompiled call context: `FUN_40cd4e00`
+passes the list buffer literal to the directory initializer, then passes the
+`path_info` literal to the directory/path callback and a subsequent UI
+operation. The overlap warning is therefore about a live adjacent structure,
+not merely unused address space inferred from a page boundary.
 - Truncation, directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883): per item it calls kernel fs op 2 with
   length `name_len >> 1` (= 25 UTF-16 units), then `FUN_71352ab0` (B:12004, 8.3 name -> "NAME.EXT" when no FF FE BOM).
   Max visible name: 25 units incl. BOM and terminator, so about 23-24 chars (HYPOTHESIS for exact count; kernel op 2 not in any dump).

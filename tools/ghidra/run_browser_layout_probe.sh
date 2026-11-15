@@ -25,12 +25,14 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AP" \
-  -postScript DumpWords.java 0x40cd500c 0x40cd5050 2>&1 | tee "$WORK/ghidra.log"
+  -postScript DumpWords.java 0x40cd500c 0x40cd5050 \
+  -postScript DumpAt.java 0x40cd4e00 "$WORK/decomp.c" 2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 grep -q 'LoadAP: blocks=75 ' "$WORK/ghidra.log"
+grep -q 'DumpAt: 40cd4e00 -> FUN_40cd4e00' "$WORK/ghidra.log"
 for marker in \
   'WORD address=40cd5024 value=0x40cd4c00' \
   'WORD address=40cd5040 value=0x40cd4d90' \
@@ -38,6 +40,9 @@ for marker in \
   'WORD address=40cd5044 value=0x487546d9'; do
   grep -q "$marker" "$WORK/ghidra.log"
 done
+grep -q 'UNK_40cd5028)(_UNK_40cd5020,_UNK_40cd5024,param_2)' "$WORK/decomp.c"
+grep -q 'UNK_40cd5044)(_UNK_40cd5020,_UNK_40cd5040)' "$WORK/decomp.c"
+grep -q 'UNK_40cd501c)(&uStack_20,_UNK_40cd5040' "$WORK/decomp.c"
 
 python3 - <<'PY' "$WORK/ghidra.log"
 import re
