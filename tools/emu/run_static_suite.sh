@@ -44,6 +44,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/auddev_binary_probe.py" \
   "$ROOT/analysis/community/fw/aud_dev.drv" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/uhost_binary_probe.py" \
   "$ROOT/analysis/community/fw/uhost.drv" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/cards_binary_probe.py" \
+  "$ROOT/analysis/community/fw/cards.drv" >/dev/null
 
 if [ "$HOST_ONLY" -eq 1 ]; then
   echo 'STATIC SUITE PASS host-only'
@@ -83,6 +85,7 @@ bash "$ROOT/tools/ghidra/run_dac_probe.sh" "$FW/drv_dac.drv"
 bash "$ROOT/tools/ghidra/run_lcd_probe.sh" "$FW/drv_lcd.drv"
 bash "$ROOT/tools/ghidra/run_auddev_probe.sh" "$FW/aud_dev.drv"
 bash "$ROOT/tools/ghidra/run_uhost_probe.sh" "$FW/uhost.drv"
+bash "$ROOT/tools/ghidra/run_cards_probe.sh" "$FW/cards.drv"
 
 echo "[3/3] real MIPS16 scroll probes"
 for mode in next previous redraw; do
