@@ -226,6 +226,11 @@ OTG/VBUS ve gerçek USB bağlantısı hâlâ test edilmedi.
 `0x8c0`'da ve payload'ını `0xe4a`/8 baytta buluyor; payload'ın ilk u16 değeri
 0. Böylece varsayılan-usound-flag çıkarımı artık yanlış ofset varsayımına
 dayanmıyor.
+PCM akışı için yapılan dar audit (`FUN_400950c0`, `FUN_40095088`,
+`FUN_40095228`) doğrudan PCM/DMA/ring sınırı bulmadı; `0x40095246` ve
+`0x4009524c` çevresinde çözülemeyen talimatlar var. Bu yüzden QEMU/host
+modeli descriptor ve 200-bayt paket çerçevesiyle sınırlı kalmalı, gerçek
+firmware PCM buffer’ı varsaymamalı.
 
 ## USB keşfi (statik, bu oturumda; cihazda test edilmedi)
 

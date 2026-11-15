@@ -66,4 +66,12 @@
 - V Flag 0x9fc155d4 written once in FUN_40054ccc init (config_community.c:134-137): *flag = get_config(0x116). Only config.ap references that RAM address (0x14bc,0x16bc). config.bin id 278 entry (offset 0xe4a) = u16 (0,0,1,1) (community==stock); H: first u16 = default 0, so flag=0 -> usound branch dead by default; H: setting config id 278 default to 1 would make USB cable plug launch usound.ap (and skip udisk) - untested, and it is a config.bin change, no UI.
 - V No string "usound" in config/mainmenu/setting/music/udisk .ap; only manager.ap (0x270c). usound.ap loads usound.sty/common.sty/usound.drv (usound.ap 0x1114..). MAINMENU_AP_ID_ARRAY (config.bin id 1) = (1,5,0,1,2,3,4) -> no usound entry.
 - The AP probe maps the packaged names more precisely: file `0x1114/0x1120/0x112c` maps to runtime `0x40095014/0x40095020/0x4009502c` in the `0x40094c00` bank. The setup branch is conditional; its condition and the subsequent PCM transfer ABI remain unresolved.
+- Negative PCM boundary audit: `FUN_400950c0` is an event/message loop, while
+  `FUN_40095088` and `FUN_40095228` do not expose a direct reference or a
+  recognizable PCM address, sample count, DMA buffer, or producer/consumer
+  ring. `FUN_40095228` also crosses unresolved instructions around
+  `0x40095246`/`0x4009524c`; the raw branch table at `0x40095258`–`0x40095260`
+  is not enough to assign it an audio meaning. Therefore the host emulator
+  must not claim a firmware PCM ring yet; only descriptor/packet framing is
+  evidence-backed at this point.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
