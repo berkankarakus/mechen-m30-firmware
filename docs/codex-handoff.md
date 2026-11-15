@@ -496,6 +496,7 @@ denemesi yapılmadı.
 | `docs/findings-uhost-driver.md` | `uhost.drv` USB yığın-depolama host sınırı |
 | `docs/findings-cards-driver.md` | `cards.drv` SD denetleyici, blok I/O ve kart algılama sınırı |
 | `docs/findings-card-driver.md` | `card.drv` iki segmentli SD adapter yolu; kısmi seeded decompile |
+| `docs/findings-norud-driver.md` | `nor_ud.drv` harici NOR user-data dispatch tablosu |
 | `docs/findings-artwork-start.md` | Artwork gecikmesi, community JPEG fallback'i ve önceki tuş |
 | `docs/findings-scroll-static.md` | `drv_ui.drv` kayan yazı ve isim hazırlama bulguları |
 | `docs/build-inventory.md` | Yerel HEX adaylarının decrypt/member karşılaştırması |
