@@ -99,6 +99,12 @@ They are marked `lazy-load-then-call` only after that static validation; the
 host never jumps to the raw far pointer or claims that the hardware dispatcher
 has been recovered.
 
+The `drv_ui.drv` static checks are grouped by input as well. Pointer, B2/B3,
+resident-forwarder, bank-table, and MIPS16-import assertions now run through
+`tools/ghidra/run_drvui_matrix_probe.sh` in one Ghidra import, while the former
+single-purpose scripts remain available for focused investigation. The full
+suite therefore no longer re-imports the same driver eight times.
+
 ## Latest results
 
 | Area | Runner | Result |
