@@ -560,6 +560,12 @@ numbers only at the M30 execution boundary; it does not model them as
 rendering, storage, or bank-loading operations until an M30-specific
 dispatcher path is recovered.
 
+The probe also dumps the B3 literal table entries at `0x260e59e8` and
+`0x260e59ec`, confirming that the symbolic call target used by both selector
+sites is the actual `0xbfc09c05` pointer, while the neighboring system-call
+entry is `0xbfc09c01`. This closes the pointer-value gap without assigning
+meaning to either selector.
+
 ### Public UI-operation ordinal cross-check
 
 The public SDK gives a useful, but deliberately separate, comparison. Its
