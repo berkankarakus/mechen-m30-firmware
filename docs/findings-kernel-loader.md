@@ -355,6 +355,26 @@ driver file. The public headers establish the signatures and the B3 call sites
 establish the argument shapes, but the resident/provider that services these
 far pointers remains to be mapped.
 
+### Public A17 source-role cross-check
+
+The public ATJ2127 UI linker script assigns `BANK_A_17` to
+`bank_a_ui_putstring_sub_2.o`, not to a generic LCD-fill module. The matching
+source file contains `bankaf_put_string_line_arabic_hook()`, `char_out_rect()`,
+and `load_bgpic_sd()`: it prepares text for Arabic/RTL rendering, chooses
+left-to-right or right-to-left character output, and records the background
+image used by the SD-image text path. The source and linker script are
+available in the public [PD196_ATJ2127 UI driver](https://github.com/Suber/PD196_ATJ2127/tree/maint/case/drv/ui)
+reference tree.
+
+This is useful role evidence for the unresolved M30 resident target
+`0x164490a1` (`A17 + 0x0a1`). M30's `0xbfc09e34` forwarder passes three
+arguments to that target only for a restricted display-mode/state range, which
+is compatible with a text/provider hook. It does **not** prove that the M30
+target has the public source's exact offset or implementation, and it does not
+identify the marquee's solid-color or background-restore helper. The public
+source therefore narrows the next search to the text/provider dispatch
+boundary while leaving the host emulator fail-closed.
+
 There is one additional loader clue. All five observed far entries use the
 same `0x9000` logical prefix in their low offset. Subtracting that prefix gives
 the following candidate offset in the corresponding overlay window:
