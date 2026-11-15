@@ -135,6 +135,75 @@ EQ_PRESETS: tuple[EqPreset, ...] = (
 )
 
 
+# Evidence-backed firmware contract, recovered from the M30 `music.ap` and
+# `mengine.ap` selector/coefficient paths.  Keep this separate from the
+# five-band UI catalogue above: the latter is a proposed host-side design,
+# while this table describes what the shipped binary actually consumes.
+FIRMWARE_EQ_BAND_HZ: tuple[int, ...] = (80, 200, 480, 980, 4000, 8000, 16000)
+FIRMWARE_EQ_Q_X10: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
+
+
+@dataclass(frozen=True)
+class FirmwareEqPreset:
+    """One selector entry in the recovered M30 EQ message contract."""
+
+    name: str
+    eq_type: int
+    selector: int
+    gains_db: tuple[int, ...] | None
+
+
+FIRMWARE_EQ_PRESETS: tuple[FirmwareEqPreset, ...] = (
+    FirmwareEqPreset("Off", 0, 0, (0, 0, 0, 0, 0, 0, 0)),
+    FirmwareEqPreset("Rock", 7, 1, (5, 3, 0, -1, 0, 4, 5)),
+    FirmwareEqPreset("Funk", 7, 2, (3, 0, 0, 0, 0, -1, -2)),
+    FirmwareEqPreset("Hip hop", 7, 3, (0, 0, 1, 2, 0, 1, 1)),
+    FirmwareEqPreset("Jazz", 7, 4, (3, 0, 0, -1, 0, 2, 4)),
+    FirmwareEqPreset("Classical", 7, 5, (0, 0, 0, -1, -1, -2, -4)),
+    FirmwareEqPreset("Techno", 7, 6, (5, 2, 0, 0, 0, 0, 6)),
+    # Custom gains are copied from RAM by music.ap before this payload is sent.
+    FirmwareEqPreset("Custom", 7, 7, None),
+)
+
+
+def firmware_eq_names() -> tuple[str, ...]:
+    """Return the names in the recovered selector order."""
+    return tuple(p.name for p in FIRMWARE_EQ_PRESETS)
+
+
+def find_firmware_eq(name: str) -> FirmwareEqPreset:
+    """Look up a recovered firmware selector by name."""
+    for preset in FIRMWARE_EQ_PRESETS:
+        if preset.name.casefold() == name.casefold():
+            return preset
+    raise KeyError(name)
+
+
+def firmware_eq_payload(name: str) -> tuple[int, int]:
+    """Return the `{eq_type, selector}` bytes sent in message ``0x303``."""
+    preset = find_firmware_eq(name)
+    return preset.eq_type, preset.selector
+
+
+def firmware_eq_gains(selector: int, custom: Sequence[int] | None = None) -> tuple[int, ...]:
+    """Resolve the seven gain values used by the recovered engine path.
+
+    Selector 7 is the RAM-backed Custom path.  It intentionally requires an
+    explicit seven-value curve instead of silently inventing coefficients.
+    """
+    if not 0 <= selector < len(FIRMWARE_EQ_PRESETS):
+        raise ValueError("firmware EQ selector must be in the range 0..7")
+    preset = FIRMWARE_EQ_PRESETS[selector]
+    if selector == 7:
+        if custom is None or len(custom) != len(FIRMWARE_EQ_BAND_HZ):
+            raise ValueError("Custom firmware EQ requires seven gain values")
+        if any(not -128 <= value <= 127 for value in custom):
+            raise ValueError("Custom firmware EQ gains must fit signed int8")
+        return tuple(custom)
+    assert preset.gains_db is not None
+    return preset.gains_db
+
+
 def eq_names() -> tuple[str, ...]:
     return tuple(p.name for p in EQ_PRESETS)
 

@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 import unittest
 
-from m30_model import ArtworkSession, EQ_PRESETS, IndexState, IndexStatus, eq_names, find_eq, sort_filenames
+from m30_model import (
+    ArtworkSession,
+    EQ_PRESETS,
+    FIRMWARE_EQ_BAND_HZ,
+    FIRMWARE_EQ_PRESETS,
+    FIRMWARE_EQ_Q_X10,
+    IndexState,
+    IndexStatus,
+    eq_names,
+    find_eq,
+    firmware_eq_gains,
+    firmware_eq_payload,
+    sort_filenames,
+)
 
 
 class FilenameOrderTests(unittest.TestCase):
@@ -51,6 +64,34 @@ class EqCatalogTests(unittest.TestCase):
 
     def test_lookup_is_case_insensitive(self):
         self.assertEqual(find_eq("rOcK").bands_db, (3, 2, -1, 2, 3))
+
+
+class FirmwareEqContractTests(unittest.TestCase):
+    def test_recovered_geometry_is_seven_band(self):
+        self.assertEqual(FIRMWARE_EQ_BAND_HZ, (80, 200, 480, 980, 4000, 8000, 16000))
+        self.assertEqual(FIRMWARE_EQ_Q_X10, (10, 6, 4, 6, 10, 5, 8))
+        self.assertEqual(len(FIRMWARE_EQ_PRESETS), 8)
+
+    def test_payload_matches_music_ap_selector_protocol(self):
+        self.assertEqual(firmware_eq_payload("Off"), (0, 0))
+        self.assertEqual(firmware_eq_payload("Rock"), (7, 1))
+        self.assertEqual(firmware_eq_payload("Techno"), (7, 6))
+        self.assertEqual(firmware_eq_payload("Custom"), (7, 7))
+
+    def test_recovered_gain_rows_match_mengine(self):
+        self.assertEqual(firmware_eq_gains(0), (0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(firmware_eq_gains(1), (5, 3, 0, -1, 0, 4, 5))
+        self.assertEqual(firmware_eq_gains(6), (5, 2, 0, 0, 0, 0, 6))
+
+    def test_custom_requires_exactly_seven_signed_int8_values(self):
+        custom = (-9, 0, 0, 0, 0, 0, 6)
+        self.assertEqual(firmware_eq_gains(7, custom), custom)
+        with self.assertRaises(ValueError):
+            firmware_eq_gains(7, (0, 0, 0))
+        with self.assertRaises(ValueError):
+            firmware_eq_gains(7, (0, 0, 0, 0, 0, 0, 128))
+        with self.assertRaises(ValueError):
+            firmware_eq_gains(8)
 
 
 class ArtworkLatencyTests(unittest.TestCase):
