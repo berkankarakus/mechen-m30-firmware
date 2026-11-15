@@ -73,7 +73,9 @@ flashable fix.
 The host contract in `tools/sim/listbox.py` now models this distinction: the
 initial empty row may clear the full viewport, while an active marquee frame
 records a one-pixel `sdimage-tail` restore. This is a rendering model update,
-not a firmware patch.
+not a firmware patch. The folder emulator now exposes the same distinction in
+its trace: a selected row with an active pixel offset reports `sdimage-tail`,
+while a short/initial selection reports `solid-selection-red`.
 
 ## M30-specific truncation point
 

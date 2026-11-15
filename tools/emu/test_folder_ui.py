@@ -45,8 +45,13 @@ class FolderUiTests(unittest.TestCase):
         self.assertTrue(trace[1]["selected"])
         self.assertTrue(trace[1]["truncated"])
         self.assertEqual(trace[1]["background"], "selection-red")
-        self.assertEqual(trace[1]["restore_mode"], "solid-selection-red")
+        self.assertEqual(trace[1]["restore_mode"], "sdimage-tail")
         self.assertEqual(trace[1]["offset_px"], 7)
+
+    def test_short_selected_name_keeps_solid_selection_restore(self):
+        view = FolderList((FolderRow("Music"),), selected_index=0)
+        _, trace = view.render()
+        self.assertEqual(trace[0]["restore_mode"], "solid-selection-red")
 
     def test_selection_scrolls_the_viewport_for_long_folder_lists(self):
         rows = tuple(FolderRow(f"Folder {index}") for index in range(12))

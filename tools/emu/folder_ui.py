@@ -240,6 +240,10 @@ class FolderList:
                 WHITE if selected else DIM,
                 offset_px=self.scroll_offset_px if selected else 0,
             )
+            marquee_active = selected and (
+                self.scroll_offset_px > 0
+                or directory_text_width(slot_text) > DIRECTORY_TEXT_WIDTH
+            )
             trace.append({
                 "slot": slot,
                 "index": row_index,
@@ -255,7 +259,11 @@ class FolderList:
                 "positions": list(positions),
                 "refresh_period_ms": DIRECTORY_SCROLL_PERIOD_MS,
                 "background": "selection-red" if selected else "list-background",
-                "restore_mode": "solid-selection-red" if selected else "solid-list-background",
+                "restore_mode": (
+                    "sdimage-tail"
+                    if marquee_active
+                    else "solid-selection-red" if selected else "solid-list-background"
+                ),
             })
         return fb, trace
 
