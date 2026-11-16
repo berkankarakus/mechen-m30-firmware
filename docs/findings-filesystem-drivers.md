@@ -60,6 +60,12 @@ in `playlist.ap` to a table index is not claimed here: the caller-side mask
 convention is outside these two driver members and needs a separate caller
 probe before a patch is considered.
 
+The host emulator exposes this boundary in
+`tools/sim/filesystem_extension.py`. It resolves the shared slot vocabulary
+case-insensitively and applies only an explicit set of accepted slot numbers.
+It does not infer the caller's bitmask, walk directories, or assign meanings
+to the wildcard-looking `**` and `*f` slots.
+
 ## Directory enumeration
 
 The dispatch functions are:
