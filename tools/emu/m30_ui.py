@@ -16,6 +16,7 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from m30_font import M30Font
 from music_bitmap import MusicBitmap, load_music_bitmap
 
 
@@ -419,6 +420,7 @@ class NowPlaying:
     elapsed: str = "00:18"
     track_position: str = "03/18"
     progress_fraction: float = 0.40
+    font: M30Font | None = None
 
     def dispatch_trace(self) -> list[dict[str, object]]:
         # This is the exact Ghidra-audited boundary that a future QEMU host
@@ -569,17 +571,18 @@ class NowPlaying:
         red = rgb565(0xF800)
         for box, label, value in zip(boxes, labels, values):
             color = self.style.color(box)
-            draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, 42, box.height))
-            draw_marquee(
-                fb,
-                value,
-                box.x + 42,
-                box.y + 9,
-                box.width - 42,
-                box.height,
-                color,
-                offset=self.scroll_offset,
-            )
+            if self.font:
+                self.font.draw_text(fb, label, box.x, box.y + 2, red, (box.x, box.y, 42, box.height), pixel_scale=2)
+                self.font.draw_marquee(
+                    fb, value, box.x + 42, box.y + 2, box.width - 42,
+                    box.height, color, offset=self.scroll_offset, pixel_scale=2,
+                )
+            else:
+                draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, 42, box.height))
+                draw_marquee(
+                    fb, value, box.x + 42, box.y + 9, box.width - 42,
+                    box.height, color, offset=self.scroll_offset,
+                )
         self._draw_time_and_progress(fb)
         return fb
 
@@ -601,8 +604,11 @@ def main() -> int:
     parser.add_argument("--elapsed", default="00:18")
     parser.add_argument("--track-position", default="03/18")
     parser.add_argument("--progress", dest="progress_fraction", type=float, default=0.40)
+    parser.add_argument("--font", type=Path, help="M30 new_m.fnt; defaults to the style directory")
     args = parser.parse_args()
     trace = FirmwareTrace.load(args.music_ap)
+    font_path = args.font or args.music_sty.with_name("new_m.fnt")
+    font = M30Font.load(font_path) if font_path.exists() else None
     ui = NowPlaying(
         MusicStyle.load(args.music_sty), trace, args.title, args.artist,
         args.album, args.filename, args.offset,
@@ -612,6 +618,7 @@ def main() -> int:
         elapsed=args.elapsed,
         track_position=args.track_position,
         progress_fraction=args.progress_fraction,
+        font=font,
     )
     ui.render().ppm(args.out)
     if args.trace:

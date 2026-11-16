@@ -9,10 +9,13 @@ deterministic:
 2. `MusicStyle` parses the real M30 `music.sty` RU3 control records.
 3. `music_bitmap.py` validates the 32-entry `music.sty` resource table and
    decodes its direct format-`0x0002` RGB565 bitmap words.
-4. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
+4. `m30_font.py` reads the sparse-index `new_m.fnt` font without modifying it;
+   the now-playing preview uses its scaled ASCII glyphs when the member is
+   available and falls back to the host test font otherwise.
+5. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
    framebuffer using the real textbox geometry, the real album-art bitmap,
    and RGB565 colors.
-5. `lcd_preview.py` sends that rendered frame through the recovered
+6. `lcd_preview.py` sends that rendered frame through the recovered
    `0x36/0x2a/0x2b/0x2c` LCD sink and writes a visible 320x240 PPM plus a
    command/pixel trace. This is the hybrid screen preview; it is not a full
    ATJ2127 boot or physical LCD emulation.

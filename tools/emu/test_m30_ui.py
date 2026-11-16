@@ -11,12 +11,14 @@ from m30_ui import (
     rgb565,
     text_pixel_width,
 )
+from m30_font import M30Font
 from music_bitmap import load_music_bitmap
 
 
 ROOT = Path(__file__).parents[2]
 AP = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.ap"
 STY = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.sty"
+FONT = ROOT / "build/qemu-minimal-safe/work/verify/fw/new_m.fnt"
 
 
 @unittest.skipUnless(AP.exists() and STY.exists(), "extracted firmware resources are not present")
@@ -97,6 +99,14 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(frame.pixels[bar_offset:bar_offset + 3], bytes(rgb565(style.bitmap(31).pixels[0])))
         background_offset = (220 * frame.width + 70 + round(bar.width * 0.4)) * 3
         self.assertEqual(frame.pixels[background_offset:background_offset + 3], bytes(rgb565(bar.pixels[round(bar.width * 0.4)])))
+
+    @unittest.skipUnless(FONT.exists(), "extracted M30 font is not present")
+    def test_real_font_sparse_index_resolves_ascii_glyphs(self):
+        font = M30Font.load(FONT)
+        self.assertEqual(font.glyph("0").advance, 11)
+        self.assertEqual(font.glyph("A").advance, 13)
+        self.assertGreater(sum(font.glyph("A").rows), 0)
+        self.assertEqual(font.text_width("A0", pixel_scale=2), 13)
 
     def test_marquee_uses_pixel_positions_and_gap(self):
         self.assertEqual(text_pixel_width("AB", 1), 12)

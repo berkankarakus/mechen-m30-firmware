@@ -60,6 +60,14 @@ small glyphs without inventing a font or placing the controls from the HTML
 prototype.  The values and optional PicBox frame choices still come from an
 explicit host state until the AP playback state machine is connected.
 
+The extracted `new_m.fnt` is also an Actions sparse-index font: 1024 ten-byte
+presence entries begin at `0x10`, glyph records begin at `0x2810`, and this
+M30 member uses 61-byte records with a final advance-width byte.  ASCII glyph
+lookup is now implemented read-only in `tools/emu/m30_font.py`; the preview
+renders the metadata at a 2:1 downsample so the recovered glyph shapes fit the
+129-pixel TextBox viewports.  This removes the old 5x7 host-font overlap from
+the UI preview without changing `new_m.fnt` or proposing a flash patch.
+
 ## SDK-versus-M30 warning
 
 The public SDK also contains `case/resource/music/music.ui`, which is useful

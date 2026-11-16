@@ -8,15 +8,15 @@
     :root {
       color-scheme: dark;
       --page: #0c0e11;
-      --screen: #17191d;
-      --panel: #202329;
-      --panel-soft: #1b1d21;
-      --line: #343840;
-      --muted: #858b96;
-      --text: #f1f2f4;
-      --accent: #de2831;
-      --accent-soft: #7f2027;
-      --track: #3a3d44;
+      --screen: #181818;
+      --panel: #181818;
+      --panel-soft: #181818;
+      --line: #3a3c3a;
+      --muted: #8d928f;
+      --text: #ffffff;
+      --accent: #ff0000;
+      --accent-soft: #8f0000;
+      --track: #848784;
     }
 
     * { box-sizing: border-box; }
@@ -40,18 +40,17 @@
       height: 240px;
       overflow: hidden;
       background: var(--screen);
-      box-shadow: 0 0 0 1px #292c32, 0 18px 50px #000a;
+      box-shadow: 0 0 0 1px #252525, 0 18px 50px #000a;
       image-rendering: pixelated;
     }
 
     .status {
-      height: 29px;
-      display: flex;
-      align-items: center;
-      padding: 0 9px;
-      color: var(--muted);
+      height: 28px;
+      display: block;
+      padding: 0;
+      color: transparent;
       background: #131519;
-      font-size: 12px;
+      font-size: 0;
     }
     .status .speaker { width: 16px; margin-right: 5px; color: var(--accent); }
     .status .battery { margin-left: auto; width: 25px; height: 12px; border: 1px solid var(--muted); border-radius: 2px; padding: 2px; }
@@ -59,19 +58,19 @@
 
     .artwork {
       position: absolute;
-      left: 10px;
-      top: 42px;
+      left: 0;
+      top: 28px;
       width: 150px;
       height: 150px;
       display: grid;
       place-items: center;
-      background: #191b1f;
+      background: #8d928f;
     }
     .artwork::before {
       content: "";
       position: absolute;
-      inset: 21px;
-      border: 2px solid var(--accent-soft);
+      inset: 25px;
+      border: 1px solid var(--accent-soft);
       border-radius: 50%;
     }
     .wave { position: relative; z-index: 1; display: flex; gap: 6px; align-items: center; height: 54px; }
@@ -87,50 +86,44 @@
     .metadata {
       position: absolute;
       left: 160px;
-      top: 42px;
+      top: 28px;
       width: 160px;
       height: 150px;
-      padding: 8px 0 7px 30px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      background: linear-gradient(145deg, var(--panel), var(--panel-soft));
-      border-left: 1px solid var(--accent-soft);
+      padding: 0;
+      background: transparent;
+      border-left: 0;
     }
-    .field { width: 129px; min-width: 0; }
+    .field { position: absolute; left: 30px; width: 129px; height: 20px; min-width: 0; border-bottom: 1px solid var(--accent-soft); }
+    .field.title { top: 12px; }
+    .field.artist { top: 47px; }
+    .field.album { top: 83px; }
+    .field.track { top: 119px; }
     .field-label {
-      color: var(--muted);
+      display: inline-block;
+      width: 42px;
+      color: var(--accent);
       font-size: 8px;
-      line-height: 1;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      margin-bottom: 2px;
+      line-height: 20px;
+      letter-spacing: 0;
     }
     .field-value {
+      display: inline-block;
+      width: 87px;
       overflow: hidden;
       white-space: nowrap;
-      text-overflow: ellipsis;
-      color: var(--muted);
-      font-size: 10px;
-      line-height: 1.1;
-    }
-    .field.title { padding-bottom: 4px; border-bottom: 1px solid var(--line); }
-    .field.title .field-value {
       color: var(--text);
-      font-size: 12px;
-      font-weight: 650;
+      font-size: 8px;
+      line-height: 20px;
     }
-    .meta-rule { height: 1px; background: var(--line); margin: 1px 0; }
-    .badges { display: flex; gap: 5px; margin-top: auto; }
-    .badge { padding: 2px 5px; border: 1px solid var(--line); color: var(--muted); font-size: 8px; letter-spacing: .06em; }
-    .badge.active { border-color: var(--accent-soft); color: #f08a8e; }
+    .field.title .field-value { color: var(--text); }
+    .meta-rule, .badges { display: none; }
 
-    .track-number { position: absolute; left: 12px; top: 199px; color: var(--muted); font-size: 11px; }
-    .transport { position: absolute; left: 45px; top: 201px; color: var(--accent); font-size: 14px; line-height: 1; }
+    .track-number { position: absolute; left: 235px; top: 202px; width: 64px; color: var(--text); font-size: 10px; text-align: center; }
+    .transport { position: absolute; left: 15px; top: 197px; width: 40px; height: 40px; border: 1px solid var(--text); border-radius: 50%; color: var(--accent); font-size: 14px; line-height: 38px; text-align: center; }
     .transport span { display: inline-block; margin-right: 4px; }
-    .progress { position: absolute; left: 78px; right: 10px; top: 207px; height: 5px; border-radius: 3px; background: var(--track); }
+    .progress { position: absolute; left: 70px; width: 231px; top: 220px; height: 6px; background: var(--track); }
     .progress::before { content: ""; display: block; width: 38%; height: 100%; border-radius: inherit; background: var(--accent); }
-    .time { position: absolute; left: 78px; right: 10px; top: 218px; display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+    .time { position: absolute; left: 70px; top: 202px; width: 64px; color: var(--text); font-size: 12px; }
 
     .notes { max-width: 560px; color: var(--muted); font-size: 13px; text-align: center; }
     .notes code { color: #f0a0a4; }
@@ -140,9 +133,7 @@
   <main class="workbench">
     <div class="caption">MECHEN M30 · 320×240 now-playing prototype</div>
     <section class="player" aria-label="Şarkı çalıyor ekranı">
-      <div class="status">
-        <span class="speaker">◖))</span><span>15</span><span class="battery" aria-label="Pil yüzde 72"></span>
-      </div>
+      <div class="status" aria-hidden="true"></div>
       <div class="artwork" aria-label="Artwork yoksa varsayılan görsel">
         <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
@@ -151,25 +142,25 @@
           <div class="field-label">TITLE</div>
           <div class="field-value">Spacegrass — Live Session</div>
         </div>
-        <div class="field">
+        <div class="field artist">
           <div class="field-label">ARTIST</div>
           <div class="field-value">Clutch</div>
         </div>
-        <div class="field">
+        <div class="field album">
           <div class="field-label">ALBUM</div>
           <div class="field-value">Clutch</div>
         </div>
         <div class="meta-rule"></div>
-        <div class="field">
-          <div class="field-label">FILE</div>
-          <div class="field-value">FLAC · 44.1 kHz · 16 bit</div>
+        <div class="field track">
+          <div class="field-label">TRACK</div>
+          <div class="field-value">TRACK-01.MP3</div>
         </div>
         <div class="badges"><span class="badge active">EQ OFF</span><span class="badge">SHUFFLE</span></div>
       </div>
       <div class="track-number">03/18</div>
-      <div class="transport" aria-label="Oynatma durumu"><span>◀</span><span>▶</span></div>
+      <div class="transport" aria-label="Oynatma durumu">Ⅱ</div>
       <div class="progress" aria-label="İlerleme yüzde 38"></div>
-      <div class="time"><span>1:52</span><span>5:10</span></div>
+      <div class="time"><span>00:18</span></div>
     </section>
     <p class="notes">Sağ panelde başlık öne çıkarılıyor; sanatçı, albüm ve format daha sakin tutuluyor. Uzun başlık panel dışına taşmıyor; firmware tarafında bunu mevcut scroll alanına bağlayacağız.</p>
   </main>
