@@ -19,6 +19,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   50-byte UTF-16 slot, marquee zamanlaması, navigation ve key-filter akışı.
 - `tools/sim/key_filter.py`: ekran kapalı stock wake davranışı ve community
   keypass'in beş medya tuşu.
+- `tools/sim/key_driver.py`: resident key driver ADC için 7-bit maske, yedi
+  eşik, `0xff` unmapped sonucu ve dışarıdan gelen normalize değer tablosu.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
   USB Audio descriptor, 200-byte packet ve ring sınırları.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için

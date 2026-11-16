@@ -83,6 +83,13 @@ is off: key sampling and event generation are in a resident driver path, not
 in the now-playing UI overlay. It also gives us a safe boundary for a host
 model of debounce/repeat behavior.
 
+The host emulator also exposes the proven ADC classifier in
+`tools/sim/key_driver.py`: it masks samples to seven bits, applies the seven
+resident thresholds, returns `0xff` when no threshold matches, and keeps the
+RAM-supplied normalized values explicit. The override path likewise requires
+its external table value. No physical button names or MMIO register meanings
+are assigned.
+
 It does **not** yet prove:
 
 - which physical button corresponds to each normalized value;
