@@ -48,6 +48,13 @@ yet the location slices never enter either path. Any location interpretation
 must therefore come from a different firmware consumer or from controlled
 M30-generated card images, not from the index builder itself.
 
+The repository's `tools/library/mklib.py` fixture writes
+`previous_index=i-1` and `next_index=i+1` while constructing synthetic records.
+That makes the linked-record hypothesis useful for test data and explains why
+the host codec exposes these two words, but it is local fixture convention,
+not independent firmware evidence. In particular, the fixture's terminal
+`next_index` behavior must not be promoted to a device sentinel rule.
+
 ## Why the public comparison file is not enough
 
 The public `MUSIC.LIB` comparison file matches the broad header, section, and
