@@ -48,6 +48,32 @@ yet the location slices never enter either path. Any location interpretation
 must therefore come from a different firmware consumer or from controlled
 M30-generated card images, not from the index builder itself.
 
+## Reader-side consumer evidence
+
+Ghidra 12.2 was also run against the extracted 2025-06-26 `music.ap` with
+`tools/ghidra/run_library_record_consumer_probe.sh`. The relevant consumers
+show the following behavior:
+
+- `FUN_712d27f4` walks active records (`record + 0xa8 == 1`) and compares an
+  incoming eight-byte file key with `record + 0xf4..0xfb`; a match returns the
+  library record index.
+- `FUN_71092500` performs the same lookup while loading the current record,
+  then copies `+0xf4..0xfb`, `+0xa9..0xf1`, and `+0xa4..0xa7` into its output
+  structure.
+- `FUN_712d2a9c`, `FUN_71352810`, `FUN_713528ec`, `FUN_717d282c`, and the
+  playback-side helper at `FUN_7181291c` use the same eight-byte locator
+  boundary; they do not expose a byte order or filesystem structure for the
+  primary blob.
+
+An exhaustive 2025-06-26 `music.ap` decompile also found no direct
+`record + 0xfc` or `record + 0xfe` access in these record consumers. This is
+useful negative evidence, not proof that an indirect ROM helper never reads
+the fields. The preserved decompile hash is
+`bf393413491046318d5a985445dcf5eb8a3aeaccb952816143ffcc65d25f9af0`.
+The eight-byte secondary locator can now be modeled as a file-identity key at
+the boundary, while `+0xa9..+0xf1` and `+0xfc..+0xff` remain lossless opaque
+fields until an actual M30 card image and its directory contents are paired.
+
 The repository's `tools/library/mklib.py` fixture writes
 `previous_index=i-1` and `next_index=i+1` while constructing synthetic records.
 That makes the linked-record hypothesis useful for test data and explains why

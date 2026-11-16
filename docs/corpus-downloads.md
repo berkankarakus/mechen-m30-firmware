@@ -96,6 +96,24 @@ PYTHONPATH=tools/sim:tools/emu \
   <persistent-evidence-root>/MUSIC.LIB
 ```
 
+For a newly supplied device image, pass its expected hash as the second
+argument, or use `-` only when the hash is being established for the first
+time:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/musiclib_evidence_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
+```
+
+The same supplied SD card also contained `M3U.LIB` (1,550,848 bytes,
+SHA-256 `ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01`)
+and `ALBUM.PIC` (128,000 bytes, SHA-256
+`65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671`). Their
+read-only findings are recorded in
+[`findings-device-sd-library.md`](findings-device-sd-library.md).
+
 ## Interpretation boundary
 
 The HEX is an Actions FWU v3 container. The analysis flow is:

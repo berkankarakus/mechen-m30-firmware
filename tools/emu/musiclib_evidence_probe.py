@@ -67,8 +67,11 @@ def inspect_music_library(
     }
 
 
-def main(path: Path) -> None:
-    summary = inspect_music_library(path.read_bytes())
+def main(path: Path, expected_sha256: str | None) -> None:
+    summary = inspect_music_library(
+        path.read_bytes(),
+        expected_sha256=expected_sha256,
+    )
     print(
         "MUSIC.LIB EVIDENCE PASS "
         f"bytes={summary['bytes']} "
@@ -86,7 +89,17 @@ def main(path: Path) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: musiclib_evidence_probe.py MUSIC.LIB")
+    if len(sys.argv) not in (2, 3):
+        raise SystemExit(
+            "usage: musiclib_evidence_probe.py MUSIC.LIB [EXPECTED_SHA256|-]"
+        )
 
-    main(Path(sys.argv[1]))
+    expected_sha256 = (
+        EXPECTED_PUBLIC_SAMPLE_SHA256
+        if len(sys.argv) == 2 or sys.argv[2] != "-"
+        else None
+    )
+    if len(sys.argv) == 3 and sys.argv[2] != "-":
+        expected_sha256 = sys.argv[2]
+
+    main(Path(sys.argv[1]), expected_sha256)

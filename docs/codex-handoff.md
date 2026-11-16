@@ -96,14 +96,16 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   SD sektör yolunu ve section span coverage'ını tek komutta doğrular.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
-  açar; public örneğin grouping/sort çıktısı local modelden farklı olduğu için
-  M30-specific node link/location/sort semantics hâlâ doğrulanmamıştır.
+  açar; gerçek cihaz `MUSIC.LIB` görüntüsünde tüm section node/table coverage'ı
+  doğrulanmıştır. Cihazın duplicate-key tie-break sırası ve location semantics
+  hâlâ doğrulanmamıştır. Ayrıntı: [`findings-device-sd-library.md`](findings-device-sd-library.md).
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
-- MUSIC.LIB açık TODO'ları `docs/findings-music-lib-node-format.md` içindedir:
-  `0xa9..0xf1`, `0xf4..0xfb` ve `0xfc..0xff` alanları opaque kalır; section
-  reference `5` deepest-level mapping'i ve nested run modelinin M30
-  görüntüsüyle doğrulanması beklenir.
+- MUSIC.LIB açık TODO'ları `docs/findings-music-lib-node-format.md` ve
+  `docs/findings-device-sd-library.md` içindedir: `0xa9..0xf1`,
+  `0xf4..0xfb` ve `0xfc..0xff` alanları opaque kalır; section reference `5`
+  deepest-level mapping'i gerçek M30 görüntüsünde doğrulanmıştır, fakat
+  duplicate-key tie-break ve location semantics açık kalır.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`
