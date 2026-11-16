@@ -33,6 +33,8 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$OUTPUT_DIR/home}" \
   -postScript DumpAt.java \
     0x40154ecc,0x40154cd8,0x40154dc0,0x480145dc,0x48014694 \
     "$OUTPUT_DIR/m3u-writer.c" containing \
+  -postScript DumpWords.java 0x4801455c 0x480145dc \
+  -postScript DumpWords.java 0x48014690 0x480146d4 \
     >"$OUTPUT_DIR/run.log" 2>&1
 
 for address in \
@@ -59,5 +61,13 @@ grep -q '0x100' "$OUTPUT_DIR/m3u-writer.c"
 grep -q 'FUN_480145dc' "$OUTPUT_DIR/m3u-writer.c"
 grep -q '\-0x101' "$OUTPUT_DIR/m3u-writer.c"
 grep -q '\-0x11' "$OUTPUT_DIR/m3u-writer.c"
+
+# Resolve the indirect slots instead of calling them an unknown transform:
+# module 6 handles text conversion and module 0x10 supplies memcpy/memset.
+grep -q 'address=4801455c value=0xbfc16bb5' "$OUTPUT_DIR/run.log"
+grep -q 'address=480145d4 value=0xbfc16bb5' "$OUTPUT_DIR/run.log"
+grep -q 'address=480145d8 value=0xbfc16409' "$OUTPUT_DIR/run.log"
+grep -q 'address=48014690 value=0xbfc16409' "$OUTPUT_DIR/run.log"
+grep -q 'address=480146d0 value=0xbfc16409' "$OUTPUT_DIR/run.log"
 
 echo "M3U WRITER GHIDRA PASS output=$OUTPUT_DIR"

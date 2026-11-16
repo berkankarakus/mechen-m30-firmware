@@ -168,16 +168,16 @@ firmware-side writer rather than guessing from the payload. It confirms that
 the M3U scan performs a counting pass and a writing pass, builds the file
 location fields at `+0xa9` and `+0xf4`, writes predecessor/successor fields at
 `+0xfc` and `+0xfe`, and emits 0x100-byte blocks. Before the block write, the
-shared text path handles UTF-16LE and UTF-8 BOM cases and calls an unresolved
-runtime/import callback.
+shared text path handles UTF-16LE and UTF-8 BOM cases. The indirect slots
+resolve statically to module 6's text-conversion dispatcher and module 0x10's
+copy/fill dispatcher; they are not evidence of an unknown encryption callback.
 
 The probe passed for every available dated `playlist.ap` corpus member from
 2022-09-14 through 2025-06-26. This makes the writer boundary a stable
-cross-version finding. It does not identify the runtime callback's transform,
-so the random-looking M3U payload must not be treated as proof of a specific
-compression or encryption format. The next useful test is to recover that
-callback's provider or obtain a matching plaintext/encoded playlist pair;
-blindly decoding the payload is low-value.
+cross-version finding. The probe deliberately does not assign an encoding to
+the M3U payload. The next useful test is therefore a matching plaintext/encoded
+playlist pair or a traced M3U reader, not further speculation about the
+resolved copy dispatcher.
 
 Reproduce the static check with:
 
