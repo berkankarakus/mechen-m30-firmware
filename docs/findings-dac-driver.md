@@ -10,6 +10,7 @@ comes from Ghidra 12.2 and raw `yqhx` bytes; no hardware bus trace was taken.
 PYTHONPATH=tools/emu python3 tools/emu/dac_binary_probe.py \
   analysis/community/fw/drv_dac.drv
 bash tools/ghidra/run_dac_probe.sh analysis/community/fw/drv_dac.drv
+bash tools/emu/run_qemu_dac_probe.sh analysis/community/fw/drv_dac.drv
 ```
 
 The driver SHA-256 is identical in the local community, stock, first-pass,
@@ -77,3 +78,26 @@ helpers: complete byte sequences can be queued, sent, and received, and the
 eight-bits-per-byte transfer count is available for traces. It deliberately
 does not assign a bit order, bus-ready timeout, GPIO line meaning, codec
 register address, volume/mute behavior, or PCM/audio timing.
+
+## Real-code QEMU boundary
+
+`tools/emu/run_qemu_dac_probe.sh` executes the exact resident `0x800`-byte
+payload in QEMU/Malta. The probe uses two copies of the unchanged payload: the
+normal copy is the direct entry target, while a second copy at the translated
+`0x8fc18d00` region preserves the original MIPS16 helper-call jump region.
+This is a probe linker arrangement, not a firmware rewrite.
+
+The probe passed the six local `drv_dac.drv` members (`community`, `stock`,
+`first-pass-verify`, `V1.101.11`, `V1.101.12`, and `V5`) and verifies:
+
+- `FUN_bfc191d4` completes an eight-bit transmit for `0xa5`;
+- `FUN_bfc19060` completes a command plus two-byte transfer when the synthetic
+  GPIO context has a zero ready mask;
+- `FUN_bfc19240` returns `0xff` for an all-high sampled mask and `0x00` for an
+  all-low mask.
+
+The zero ready mask is deliberate: the public helper drives the same synthetic
+RAM word that it later polls, so a nonzero mask would invent an electrical
+feedback model. The result proves byte-level control flow and context access,
+not codec register meanings, GPIO timing, PCM/DAC output, or hardware
+compatibility.

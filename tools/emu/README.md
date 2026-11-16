@@ -19,7 +19,11 @@ deterministic:
 6. `run_lcd_preview.sh` runs the real LCD QEMU probe first and only then
    writes that hybrid preview, keeping the visible artifact tied to a passing
    real-code LCD boundary.
-7. `scroll_descriptor.py` models the verified state/event offsets used by
+7. `run_qemu_dac_probe.sh` executes the exact resident `drv_dac.drv` payload
+   with a translated MIPS16 helper-call alias and a synthetic GPIO context. It
+   verifies the byte-transfer boundary across all six local DAC driver
+   corpora; it does not emulate codec registers or audio output.
+8. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
 8. `ui_dispatcher.py` provides the conservative host shim for the verified
    dispatcher target `0xbfc16405`.
@@ -28,12 +32,12 @@ deterministic:
    stubs. Its MIPS32-to-MIPS16 entry uses an architectural `JALX` trampoline,
    and its Linux-user stack/null shims reproduce the Ghidra harness without
    mapping guest address zero.
-8. `tools/ghidra/run_scroll_probe.sh` executes that same real-bank renderer in
+9. `tools/ghidra/run_scroll_probe.sh` executes that same real-bank renderer in
    Ghidra's MIPS p-code emulator. `run_qemu_probe.sh` executes the equivalent
    user-mode ELF when a MIPS QEMU binary is available (the current macOS setup
    uses the Fedora container for that step); neither path models an ATJ2127
    SoC boot.
-9. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
+10. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
    far-pointer payload candidates without treating every candidate as code.
    It preserves the raw B2 `0x471` provenance while exposing its aligned
    MIPS16 entry offset `0x470`; the unresolved B2 `0x4e9` entry remains
