@@ -21,6 +21,24 @@ class UsbRingTests(unittest.TestCase):
         self.assertEqual(chunks, [(RING_CAPACITY - 16, 16), (0, 24)])
         self.assertEqual(ring.read_offset, 24)
 
+    def test_consume_bytes_reads_wrapped_payload(self) -> None:
+        source = bytearray(RING_CAPACITY)
+        source[RING_CAPACITY - 2 :] = b"AB"
+        source[:3] = b"CDE"
+        ring = RingConsumer(available=5, read_offset=RING_CAPACITY - 2)
+
+        payload = ring.consume_bytes(source, 5)
+
+        self.assertEqual(payload, b"ABCDE")
+        self.assertEqual(ring.available, 0)
+        self.assertEqual(ring.read_offset, 3)
+
+    def test_consume_bytes_rejects_wrong_ring_size(self) -> None:
+        ring = RingConsumer(available=0, read_offset=0)
+
+        with self.assertRaises(ValueError):
+            ring.consume_bytes(bytes(RING_CAPACITY - 1), 0)
+
     def test_insufficient_data_does_not_advance(self) -> None:
         chunks = []
         ring = RingConsumer(available=8, read_offset=4)

@@ -73,3 +73,16 @@ class RingConsumer:
         self.available -= requested
         self.read_offset = (self.read_offset + requested) % RING_CAPACITY
         return requested
+
+    def consume_bytes(self, ring: bytes | bytearray, requested: int) -> bytes:
+        """Read bytes from the verified ring layout and advance its state."""
+        if len(ring) != RING_CAPACITY:
+            raise ValueError("ring source must be exactly 0x1000 bytes")
+
+        output = bytearray()
+
+        def copy(offset: int, length: int) -> None:
+            output.extend(ring[offset : offset + length])
+
+        self.consume(requested, copy)
+        return bytes(output)

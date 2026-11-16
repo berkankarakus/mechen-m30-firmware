@@ -23,7 +23,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   eşik, `0xff` unmapped sonucu, dışarıdan gelen normalize değer tablosu ve
   doğrulanmış repeat/special event sınırı.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
-  USB Audio descriptor, 200-byte packet ve ring sınırları.
+  USB Audio descriptor, 200-byte packet ve ring sınırları; `RingConsumer`
+  gerçek 0x1000-byte kaynak üzerinden wrap-aware bytes okuyabilir.
 - `tools/sim/usb_mass_storage.py`: `uhost.drv` içindeki `USBC`, READ(10)/WRITE(10),
   block address ve 512-byte transfer birimi; request bytes'ları
   `SdCardBlockDevice` sektörlerine taşınabilir. CBW/CSW framing ve controller
