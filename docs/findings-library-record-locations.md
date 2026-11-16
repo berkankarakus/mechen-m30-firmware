@@ -71,6 +71,13 @@ show the following behavior:
   boundary; they do not expose a byte order or filesystem structure for the
   primary blob.
 
+The same consumer probe passed against every available dated `music.ap`
+member from 2022-09-14 through 2025-06-26. The eight-byte locator boundary and
+the negative result for direct `+0xfc`/`+0xfe` reads therefore survive the
+available version changes. This is stronger evidence for keeping the record
+links lossless-but-opaque in the host emulator; it is not proof that an
+indirect ROM helper never reads them.
+
 ## US212A SDK correspondence
 
 A publicly mirrored US212A application-design manual documents the same
