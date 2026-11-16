@@ -68,12 +68,15 @@ proposed from this analysis.
 ## Host emulator boundary
 
 `tools/emu/lcd_transfer.py` now models this exact safe slice. It records the
-column-window (`0x2a`), row-window (`0x2b`), and memory-write (`0x2c`) command
-sequence, then applies a bounded row-major stream of RGB565 words to the host
-framebuffer. Partial writes are supported because the driver exposes a
-transfer boundary rather than a complete panel transaction. A stream that
-exceeds the active window, starts without both windows, or contains a value
-outside one 16-bit word fails closed.
+raw orientation command (`0x36`) only for the six values recovered from the
+driver, then records the column-window (`0x2a`), row-window (`0x2b`), and
+memory-write (`0x2c`) command sequence before applying a bounded row-major
+stream of RGB565 words to the host framebuffer. It intentionally does not
+assign names or transform pixels for those orientation values. Partial writes
+are supported because the driver exposes a transfer boundary rather than a
+complete panel transaction. A stream that exceeds the active window, starts
+without both windows, or contains a value outside one 16-bit word fails
+closed.
 
 The model intentionally does not assign meanings to the controller registers,
 orientation values, status polling, IRQ timing, or the 15-bit higher-level

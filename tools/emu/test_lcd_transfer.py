@@ -2,14 +2,37 @@ import unittest
 
 from lcd_transfer import (
     COLUMN_ADDRESS_SET,
+    MEMORY_ACCESS_CONTROL,
     MEMORY_WRITE,
+    RECOVERED_ORIENTATION_VALUES,
     ROW_ADDRESS_SET,
+    LcdCommand,
     LcdTransferBoundary,
 )
 from m30_ui import Framebuffer, rgb565
 
 
 class LcdTransferBoundaryTests(unittest.TestCase):
+    def test_orientation_command_preserves_recovered_raw_values(self):
+        transfer = LcdTransferBoundary(Framebuffer(1, 1))
+
+        for value in RECOVERED_ORIENTATION_VALUES:
+            transfer.set_orientation_value(value)
+
+        self.assertEqual(
+            transfer.commands,
+            [
+                LcdCommand(MEMORY_ACCESS_CONTROL, (value,))
+                for value in RECOVERED_ORIENTATION_VALUES
+            ],
+        )
+
+    def test_unobserved_orientation_value_is_rejected(self):
+        transfer = LcdTransferBoundary(Framebuffer(1, 1))
+
+        with self.assertRaises(ValueError):
+            transfer.set_orientation_value(0x00)
+
     def test_window_commands_and_row_major_rgb565_write(self):
         transfer = LcdTransferBoundary(Framebuffer(4, 3))
         transfer.set_column_window(1, 2)

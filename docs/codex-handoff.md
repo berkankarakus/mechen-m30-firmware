@@ -41,6 +41,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/mmm_bp_model.py`: `mmm_bp` ring read sınırı ve Ghidra ile doğrulanan
   60-step fade phase / ±1000 level arithmetic; wrap-aware source-byte read
   mevcut, callback ve attenuation opaque.
+- `tools/emu/lcd_transfer.py`: LCD `0x36` orientation komutunun Ghidra’da
+  görülen ham değerlerini ve `0x2a/0x2b/0x2c` window/pixel sınırını kaydeder;
+  fiziksel yön semantiği ve panel davranışı modellenmez.
 - `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3
   advance yolu ve community/V1.101.11 için eklenen mode-4 yolu; ASRC/DAC
   örnek kuyruğu ve audible tail modellenmez.

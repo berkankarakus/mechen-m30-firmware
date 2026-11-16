@@ -1,10 +1,10 @@
 """Evidence-backed host boundary for the recovered M30 LCD transfer path.
 
-The recovered driver programs column and row windows with commands 0x2a and
-0x2b, then starts a memory write with command 0x2c.  This module models only
-that address-window and RGB565 pixel boundary.  Controller registers,
-orientation timing, interrupts, and panel electrical behavior remain outside
-the host contract.
+The recovered driver programs controller orientation with command 0x36,
+column and row windows with commands 0x2a and 0x2b, then starts a memory write
+with command 0x2c.  This module models those raw command boundaries and the
+RGB565 pixel transfer.  Controller registers, orientation semantics,
+interrupts, and panel electrical behavior remain outside the host contract.
 """
 
 from __future__ import annotations
@@ -17,6 +17,11 @@ from m30_ui import Framebuffer, rgb565
 COLUMN_ADDRESS_SET = 0x2A
 ROW_ADDRESS_SET = 0x2B
 MEMORY_WRITE = 0x2C
+MEMORY_ACCESS_CONTROL = 0x36
+
+# FUN_bfc0a438 selects these raw controller values.  Their physical
+# orientation names are not established by the recovered driver.
+RECOVERED_ORIENTATION_VALUES = (0xC8, 0xA8, 0x48, 0xE8, 0xE8, 0x88)
 
 
 @dataclass(frozen=True)
@@ -84,6 +89,13 @@ class LcdTransferBoundary:
         self._write_started = False
         self._cursor = 0
         self.commands.append(LcdCommand(COLUMN_ADDRESS_SET, (start, end)))
+
+    def set_orientation_value(self, value: int) -> None:
+        """Record one raw orientation value observed in the LCD driver."""
+        if value not in RECOVERED_ORIENTATION_VALUES:
+            raise ValueError("orientation value is not present in recovered LCD code")
+
+        self.commands.append(LcdCommand(MEMORY_ACCESS_CONTROL, (value,)))
 
     def set_row_window(self, start: int, end: int) -> None:
         self._validate_coordinate_pair(start, end, "row")
