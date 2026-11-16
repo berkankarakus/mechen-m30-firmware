@@ -449,6 +449,7 @@ class NowPlaying:
     duration: str = "0:04:08"
     progress_fraction: float = 0.40
     font: M30Font | None = None
+    common_style: MusicStyle | None = None
     show_header: bool = True
     eq_label: str = "EQ: Jazz"
     volume_level: int = 6
@@ -549,50 +550,20 @@ class NowPlaying:
         ]
 
     @staticmethod
-    def _outline(fb: Framebuffer, x: int, y: int, width: int, height: int, color: tuple[int, int, int]) -> None:
-        for xx in range(x, x + width):
-            fb.pixel(xx, y, color)
-            fb.pixel(xx, y + height - 1, color)
-        for yy in range(y, y + height):
-            fb.pixel(x, yy, color)
-            fb.pixel(x + width - 1, yy, color)
-
-    @staticmethod
-    def _speaker(fb: Framebuffer, x: int, y: int, color: tuple[int, int, int]) -> None:
-        # Compact speaker body + cone + two open wave strokes.  This is a
-        # host-only silhouette because the source bitmap is outside music.sty.
-        fb.rect(x, y + 5, 4, 7, color)
-        for row in range(9):
-            width = 2 + min(row, 8 - row)
-            for xx in range(width):
-                fb.pixel(x + 4 + xx, y + row + 4, color)
-        for delta in range(4):
-            fb.pixel(x + 13 + delta, y + 3 + delta, color)
-            fb.pixel(x + 13 + delta, y + 15 - delta, color)
-
-    @staticmethod
-    def _play_triangle(fb: Framebuffer, x: int, y: int, color: tuple[int, int, int]) -> None:
-        for row in range(12):
-            width = min(row + 1, 12 - row)
-            for xx in range(width):
-                fb.pixel(x + xx, y + row, color)
+    def _draw_external_bitmap(fb: Framebuffer, style: MusicStyle, resource: int, x: int, y: int) -> None:
+        bitmap = style.bitmap(resource)
+        for row in range(bitmap.height):
+            for column in range(bitmap.width):
+                fb.pixel(x + column, y + row, rgb565(bitmap.pixels[row * bitmap.width + column]))
 
     def _draw_host_status_icons(self, fb: Framebuffer) -> None:
-        """Draw the non-music.sty status glyphs as an explicit host overlay."""
-        color = (220, 225, 230)
-        self._speaker(fb, 6, 7, color)
+        """Draw status icons from the shared common.sty resource member."""
+        if self.common_style:
+            self._draw_external_bitmap(fb, self.common_style, 3, 3, 2)   # speaker
+            self._draw_external_bitmap(fb, self.common_style, 18, 247, 2)  # storage
+            self._draw_external_bitmap(fb, self.common_style, 2, 274, 2)   # play state
+            self._draw_external_bitmap(fb, self.common_style, 27, 291, 2)  # battery
         self._draw_device_numeric(fb, str(max(0, min(99, self.volume_level))), 27, 6, (25, 2, 28, 20))
-        # The photo shows storage, play-state, and battery at the right edge;
-        # their exact source member/state is unresolved, so these remain
-        # deliberately simple host-only silhouettes.
-        self._outline(fb, 248, 7, 16, 13, color)
-        fb.rect(250, 6, 8, 2, color)
-        self._play_triangle(fb, 273, 8, color)
-        self._outline(fb, 295, 7, 19, 12, color)
-        fb.rect(314, 10, 3, 6, color)
-        fill = max(0, min(17, round(17 * self.battery_percent / 100)))
-        if fill:
-            fb.rect(297, 9, fill, 8, color)
 
     def _draw_header_overlay(self, fb: Framebuffer) -> None:
         if not self.show_header:
@@ -752,6 +723,8 @@ def main() -> int:
     trace = FirmwareTrace.load(args.music_ap)
     font_path = args.font or args.music_sty.with_name("new_m.fnt")
     font = M30Font.load(font_path) if font_path.exists() else None
+    common_path = args.music_sty.with_name("common.sty")
+    common_style = MusicStyle.load(common_path) if common_path.exists() else None
     ui = NowPlaying(
         MusicStyle.load(args.music_sty), trace, args.title, args.artist,
         args.album, args.filename, args.offset,
@@ -764,6 +737,7 @@ def main() -> int:
         duration=args.duration,
         progress_fraction=args.progress_fraction,
         font=font,
+        common_style=common_style,
     )
     ui.render().ppm(args.out)
     if args.trace:

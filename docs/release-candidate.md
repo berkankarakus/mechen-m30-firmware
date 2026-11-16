@@ -34,6 +34,22 @@ repack a HEX. A repack step may be documented only after the source HEX,
 decrypted AFI, container offsets, checksums, and full round-trip extraction
 are all available and tested.
 
+## Now-playing-only member candidate
+
+For the narrower now-playing resource boundary, use:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/build_now_playing_member.py \
+  analysis/community/fw /private/tmp/m30-now-playing-member/fw
+```
+
+This candidate changes exactly one extracted member: `music.sty`. It contains
+only the verified default-artwork and transport-icon resource edits. The host
+metadata rasterizer, EQ spacing, status silhouettes, and footer preview are
+not firmware patches and are intentionally excluded. The output is therefore
+safe to inspect and compare, but it is still not a flashable HEX until the
+complete FWU source and round-trip repacker are available.
+
 ## Not claimed
 
 This recipe does not fix folder-name clipping, the red marquee artefact,

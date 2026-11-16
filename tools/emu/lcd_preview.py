@@ -40,6 +40,8 @@ def render_preview(
     trace = FirmwareTrace.load(music_ap)
     font_path = music_sty.with_name("new_m.fnt")
     font = M30Font.load(font_path) if font_path.exists() else None
+    common_path = music_sty.with_name("common.sty")
+    common_style = MusicStyle.load(common_path) if common_path.exists() else None
     ui = NowPlaying(
         MusicStyle.load(music_sty),
         trace,
@@ -49,6 +51,7 @@ def render_preview(
         filename=filename,
         scroll_offset=scroll_offset,
         font=font,
+        common_style=common_style,
     )
     source = ui.render()
     sink = LcdTransferBoundary()

@@ -19,6 +19,7 @@ ROOT = Path(__file__).parents[2]
 AP = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.ap"
 STY = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.sty"
 FONT = ROOT / "build/qemu-minimal-safe/work/verify/fw/new_m.fnt"
+COMMON = ROOT / "build/qemu-minimal-safe/work/verify/fw/common.sty"
 
 
 @unittest.skipUnless(AP.exists() and STY.exists(), "extracted firmware resources are not present")
@@ -146,11 +147,25 @@ class M30UiTests(unittest.TestCase):
         ))
 
     def test_header_trace_matches_observed_resource_frames(self):
-        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        ui = NowPlaying(
+            MusicStyle.load(STY),
+            FirmwareTrace.load(AP),
+            common_style=MusicStyle.load(COMMON),
+        )
         selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
         self.assertEqual(selected[0]["frame"], 2)
         self.assertEqual(selected[1]["frame"], 1)
         self.assertTrue(selected[0]["painted_in_preview"])
+
+    @unittest.skipUnless(COMMON.exists(), "extracted common style is not present")
+    def test_header_status_icons_use_common_style_bitmaps(self):
+        music = MusicStyle.load(STY)
+        common = MusicStyle.load(COMMON)
+        frame = NowPlaying(music, FirmwareTrace.load(AP), common_style=common).render()
+        for resource, x, y in ((3, 3, 2), (18, 247, 2), (2, 274, 2), (27, 291, 2)):
+            bitmap = common.bitmap(resource)
+            offset = (y * frame.width + x) * 3
+            self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(bitmap.pixels[0])))
 
     @unittest.skipUnless(FONT.exists(), "extracted M30 font is not present")
     def test_real_font_sparse_index_resolves_ascii_glyphs(self):

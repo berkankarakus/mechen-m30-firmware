@@ -64,7 +64,10 @@ Bitmap inspection also assigns the four transport frames without changing the
 resource member: PicBox 4 frames 0..3 are play, pause, next, and previous;
 PicBox 1 frames 0..1 are shuffle-off and shuffle-on. The preview defaults to
 the pause frame because its default state represents a currently playing
-track. The five PicBox 0 top-row frames remain intentionally unresolved.
+track. The supplied device photo identifies the global header state as PicBox
+1 frame 1 (shuffle) and PicBox 0 frame 2 (repeat). The host preview draws
+those from the real `music.sty` bitmaps, while leaving other PicBox 0 states
+as explicit unresolved inputs.
 
 The same inspection separates the embedded EQ indicator from the playback
 progress bar: PicBox 3 frame 0 is the blank 124x24 bitmap and frame 1 is the
@@ -121,9 +124,11 @@ The paint branch's control sequence is also useful for the host preview:
 `0x1002` (artwork), `0x1003` (EQ), `0x1004` (transport), and `0x1005` through
 `0x1008` (the four metadata glyphs) are emitted by `FUN_40154ddc`.  The
 resource still contains PicBoxes 0 and 1, but this refresh function does not
-select their controls; the now-playing preview therefore leaves that header
-band empty, matching the supplied device screenshot instead of drawing the
-icons merely because their bitmaps exist in `music.sty`.
+select their controls. The host preview models the observed global header
+overlay separately, using those two real `music.sty` frames and TextBox 5 for
+the EQ label. The speaker, storage, play, and battery icons are also real
+RGB565 resources from `common.sty` (resources 3, 18, 2, and 27); they are not
+hand-drawn and their exact AP status-selection path remains unresolved.
 
 The metadata glyphs are part of the stable row layout in the host model and
 replace the literal label text at a common x alignment; the value viewports

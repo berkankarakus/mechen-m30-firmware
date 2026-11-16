@@ -289,15 +289,17 @@ Unresolved AP state still controls which optional icon/frame is selected.
 
 The transport frame mapping is explicit from the bitmap atlas: `music.sty`
 PicBox 4 uses play/pause/next/previous at frames 0..3, while PicBox 1 uses
-shuffle-off/shuffle-on at frames 0..1. Other top-row status frames remain
-labeled `unresolved` until an AP state branch selects them.
+shuffle-off/shuffle-on at frames 0..1. The observed header overlay uses
+PicBox 1 frame 1 and PicBox 0 frame 2. Its speaker/storage/play/battery
+silhouettes come from `common.sty` resources 3/18/2/27; the host does not
+invent replacement artwork when `common.sty` is available.
 PicBox 3 is a separate EQ indicator: frame 0 is blank and frame 1 contains
 the shipped `EQ:` bitmap. It is not the bottom progress bar; that bar is the
 independent `progressbar[0]` record. PicBoxes 5..8 are fixed album, artist,
 title, and track glyphs, and their roles are included in the JSON trace.
 The now-playing refresh path selects controls `0x1002..0x1008`; PicBoxes 0 and
 1 are retained in the style atlas but are marked inactive in the now-playing
-trace and are not painted by the host screen preview. PicBoxes 5..8 are
+paint trace because the header is a separate overlay. PicBoxes 5..8 are
 painted as the aligned row icons, with values starting at the real `x=190`
 TextBox viewports. Only the transport control is transient; pass
 `--show-controls` to render its `0x1004` branch explicitly.
