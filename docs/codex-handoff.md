@@ -126,6 +126,13 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   mapping'i gerçek M30 görüntüsünde doğrulanmıştır, fakat duplicate-key
   tie-break ve primary location semantics açık kalır; reader lookup'ın
   doğrulanmış key boundary'si host'ta modellenmiştir.
+- Son güvenli araç değişikliği `f09a4d5` (`feat: preserve library ordering on
+  safe edits`): `tools/library/edit_library.py` değişikliksiz düzenlemeyi
+  gerçek girdiyi byte-byte kopyalayarak sonlandırır; gerçek metadata
+  değişikliklerinde mevcut section order tablolarını eşit anahtarlar için
+  korur. `/Volumes` doğrudan çıktı yolu olarak reddedilir. Metadata değiştiren
+  çıktı hâlâ yalnızca adaydır; `tools/library/libdiff.py` farkları görülmeden
+  cihaza yazılmamalıdır.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
