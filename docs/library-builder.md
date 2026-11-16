@@ -164,9 +164,15 @@ The host emulator records only the selector boundary in
 `tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
 or claim that type 8's fallback record is hardware-equivalent.
 The fixed fallback fields are represented separately by
-`tools/sim/library_record.py`; track-number extraction remains unresolved.
+`tools/sim/library_record.py`. The track-number selector is modeled in
+`tools/sim/library_record_codec.py`: it reads at most four leading digits,
+stops at `/` or another non-digit, preserves an existing non-zero value, and
+uses `0xffff` when the parsed result is zero. `tag_ok=false` remains the
+separate zero-writing path.
 
-The byte layout itself is decoded by `tools/sim/library_record_codec.py`.
+The byte layout itself is decoded by `tools/sim/library_record_codec.py`, and
+`tools/ghidra/run_library_record_probe.sh` verifies the corresponding
+`FUN_40094c8c`/`FUN_40094d60` boundary.
 Location fields remain opaque byte slices; this codec does not parse filesystem
 clusters or reader metadata.
 

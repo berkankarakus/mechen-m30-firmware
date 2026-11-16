@@ -1,7 +1,13 @@
 import struct
 import unittest
 
-from library_record_codec import RECORD_SIZE, decode_record
+from library_record_codec import (
+    RECORD_SIZE,
+    TRACK_SENTINEL,
+    TRACK_UNSPECIFIED,
+    decode_record,
+    parse_track_number,
+)
 
 
 class LibraryRecordCodecTests(unittest.TestCase):
@@ -35,6 +41,30 @@ class LibraryRecordCodecTests(unittest.TestCase):
     def test_requires_one_complete_record(self):
         with self.assertRaises(ValueError):
             decode_record(bytes(RECORD_SIZE - 1))
+
+    def test_track_parser_reads_at_most_four_digits(self):
+        self.assertEqual(
+            parse_track_number("0012/Title", tag_ok=True, existing_track_number=0),
+            12,
+        )
+        self.assertEqual(
+            parse_track_number("12345", tag_ok=True, existing_track_number=0),
+            1234,
+        )
+
+    def test_track_parser_preserves_or_marks_unspecified_values(self):
+        self.assertEqual(
+            parse_track_number("99", tag_ok=True, existing_track_number=7),
+            7,
+        )
+        self.assertEqual(
+            parse_track_number("Title", tag_ok=True, existing_track_number=TRACK_SENTINEL),
+            TRACK_UNSPECIFIED,
+        )
+        self.assertEqual(
+            parse_track_number("12", tag_ok=False, existing_track_number=7),
+            0,
+        )
 
 
 if __name__ == "__main__":

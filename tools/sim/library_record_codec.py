@@ -7,6 +7,8 @@ import struct
 
 
 RECORD_SIZE = 0x100
+TRACK_UNSPECIFIED = 0xFFFF
+TRACK_SENTINEL = 0xFEFF
 
 
 def _text(data: bytes) -> str:
@@ -14,6 +16,38 @@ def _text(data: bytes) -> str:
         return data[2:].decode("utf-16-le", "replace").split("\0", 1)[0]
 
     return data.split(b"\0", 1)[0].decode("latin-1")
+
+
+def parse_track_number(
+    track_text: str,
+    *,
+    tag_ok: bool,
+    existing_track_number: int,
+) -> int:
+    """Apply the recovered four-character track-number selection path."""
+    if not tag_ok:
+        return 0
+
+    if existing_track_number == TRACK_SENTINEL:
+        existing_track_number = 0
+
+    if existing_track_number == 0 and track_text:
+        digit_count = 0
+        while digit_count < 4:
+            character = track_text[digit_count : digit_count + 1]
+            if not character or character == "/" or not "0" <= character <= "9":
+                break
+            digit_count += 1
+
+        parsed = 0
+        for character in track_text[:digit_count]:
+            parsed = parsed * 10 + (ord(character) - ord("0"))
+        existing_track_number = parsed
+
+    if existing_track_number == 0:
+        return TRACK_UNSPECIFIED
+
+    return existing_track_number
 
 
 @dataclass(frozen=True)

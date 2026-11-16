@@ -80,12 +80,15 @@ fallback. Reader ABI and metadata parsing remain outside the model.
 The proven fallback record shape is modeled in
 `tools/sim/library_record.py`: the 8.3 short name becomes the title,
 `No Artist`/`No Album`/`No Genre` are used for the other text fields, and the
-tag-success flag remains false. Track-number parsing is intentionally omitted.
+tag-success flag remains false. The associated track selector is limited to a
+four-digit prefix and uses `0xffff` for a zero result; `tag_ok=false` writes
+zero instead.
 
 The 256-byte record layout is exposed by
 `tools/sim/library_record_codec.py`, including BOM/ASCII text, track fields,
 extension, link indexes, and opaque location slices. It is a byte codec, not a
-filesystem or metadata-reader implementation.
+filesystem or metadata-reader implementation. The Ghidra evidence is
+reproducible with `tools/ghidra/run_library_record_probe.sh`.
 
 ## Directory enumeration
 
