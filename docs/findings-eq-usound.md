@@ -48,6 +48,12 @@
   PCM at the single advertised rate 48000 Hz. The streaming endpoint is
   isochronous OUT `0x01` with 200-byte packets; the HID endpoint is interrupt
   IN `0x82`. The raw strings are `USB Audio` and `Actions`.
+- The configuration topology is now checked by `tools/emu/usound_binary_probe.py`:
+  the USB streaming input terminal (`0x0101`) feeds a feature unit and a
+  `0x0301` speaker output terminal. This upgrades the USB-DAC conclusion from
+  “an Audio Class endpoint exists” to “the device descriptor advertises a USB
+  speaker/sink.” It still does not prove that the M30 connector is wired for
+  device mode or that the unresolved callback reaches the physical codec.
 - V The extracted `usound.drv` is byte-identical across the six local
   corpora (`community`, `first-pass-verify`, `stock`, `v1.101.11`,
   `v1.101.12`, and `v5`; SHA-256

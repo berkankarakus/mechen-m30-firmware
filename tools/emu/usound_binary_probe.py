@@ -27,6 +27,13 @@ USB_AUDIO_FORMAT = bytes(
 AUDIO_OUT_ENDPOINT = bytes((0x09, 0x05, 0x01, 0x09, 0xC8, 0x00, 0x01, 0x00, 0x00))
 HID_ENDPOINT = bytes((0x07, 0x05, 0x82, 0x03, 0x04, 0x00, 0x20))
 HID_REPORT_PREFIX = bytes((0x05, 0x0C, 0x09, 0x01, 0xA1, 0x01))
+AUDIO_INPUT_TERMINAL_ID = 1
+AUDIO_INPUT_TERMINAL_TYPE = 0x0101  # USB streaming
+AUDIO_OUTPUT_TERMINAL_ID = 6
+AUDIO_OUTPUT_TERMINAL_TYPE = 0x0301  # speaker
+AUDIO_OUTPUT_SOURCE_ID = 9
+AUDIO_FEATURE_UNIT_ID = 9
+AUDIO_FEATURE_SOURCE_ID = 1
 
 
 def _descriptor_stream(data: bytes, offset: int) -> tuple[bytes, ...]:
@@ -86,6 +93,44 @@ def verify(path: Path) -> None:
     if interfaces != (0, 1, 1, 3):
         raise AssertionError(f"unexpected USB interface sequence: {interfaces!r}")
 
+    audio_control = tuple(
+        descriptor for descriptor in descriptors if descriptor[1] == 0x24
+    )
+    input_terminals = tuple(
+        descriptor
+        for descriptor in audio_control
+        if len(descriptor) >= 8 and descriptor[2] == 0x02
+    )
+    output_terminals = tuple(
+        descriptor
+        for descriptor in audio_control
+        if len(descriptor) >= 9 and descriptor[2] == 0x03
+    )
+    feature_units = tuple(
+        descriptor
+        for descriptor in audio_control
+        if len(descriptor) >= 5 and descriptor[2] == 0x06
+    )
+    if not any(
+        descriptor[3] == AUDIO_INPUT_TERMINAL_ID
+        and struct.unpack_from("<H", descriptor, 4)[0] == AUDIO_INPUT_TERMINAL_TYPE
+        and descriptor[7] == 2
+        for descriptor in input_terminals
+    ):
+        raise AssertionError("USB streaming input terminal topology is missing")
+    if not any(
+        descriptor[3] == AUDIO_OUTPUT_TERMINAL_ID
+        and struct.unpack_from("<H", descriptor, 4)[0] == AUDIO_OUTPUT_TERMINAL_TYPE
+        and descriptor[7] == AUDIO_OUTPUT_SOURCE_ID
+        for descriptor in output_terminals
+    ):
+        raise AssertionError("speaker output terminal topology is missing")
+    if not any(
+        descriptor[3] == AUDIO_FEATURE_UNIT_ID and descriptor[4] == AUDIO_FEATURE_SOURCE_ID
+        for descriptor in feature_units
+    ):
+        raise AssertionError("USB Audio feature-unit link is missing")
+
     required = {
         "audio-format": USB_AUDIO_FORMAT,
         "audio-out": AUDIO_OUT_ENDPOINT,
@@ -109,7 +154,8 @@ def main() -> int:
     print(
         "USB AUDIO BINARY PROBE PASS "
         "usb=1.1 vid=10d6 pid=dd00 interfaces=0,1,1,3 "
-        "pcm=2ch/16bit/48000Hz iso-out=0x01/200 hid-in=0x82"
+        "pcm=2ch/16bit/48000Hz iso-out=0x01/200 "
+        "speaker-terminal=0x0301 hid-in=0x82"
     )
     return 0
 
