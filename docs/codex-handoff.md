@@ -25,7 +25,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
   USB Audio descriptor, 200-byte packet ve ring sınırları.
 - `tools/sim/usb_mass_storage.py`: `uhost.drv` içindeki `USBC`, READ(10)/WRITE(10),
-  block address ve 512-byte transfer birimi; CBW/CSW framing ve controller
+  block address ve 512-byte transfer birimi; request bytes'ları
+  `SdCardBlockDevice` sektörlerine taşınabilir. CBW/CSW framing ve controller
   davranışı modellenmez.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için
   fail-closed `-1`; bilinmeyen callback çalıştırılmaz.
@@ -34,6 +35,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   çalıştırılmaz.
 - `tools/sim/sd_block_device.py`: kanıtlanmış 512-byte SD sektör sınırı,
   card presence, bounds ve `sector_count * 512` capacity davranışı.
+- `tools/emu/driver_loader.py`: doğrulanmış `yqhx` segment bytes'larını sparse
+  resident memory'ye kopyalama ve BSS sıfırlama; entry/fixed-ROM çağrısı yok.
 - `tools/sim/mmm_bp_model.py`: `mmm_bp` ring read sınırı ve Ghidra ile doğrulanan
   60-step fade phase / ±1000 level arithmetic; callback ve attenuation opaque.
 - `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3

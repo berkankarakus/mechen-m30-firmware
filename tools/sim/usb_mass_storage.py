@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sd_block_device import SdCardBlockDevice
 
 CBW_SIGNATURE = b"USBC"
 READ10_OPCODE = 0x28
@@ -70,3 +71,30 @@ class UsbMassStorageBlockRequest:
     def transfer_bytes(self) -> int:
         """Return the observed block-count-to-byte-count conversion."""
         return self.block_count * BLOCK_SIZE
+
+    def read_from(self, device: SdCardBlockDevice) -> bytes:
+        """Read the requested sectors without adding USB transport framing."""
+        if self.opcode != READ10_OPCODE:
+            raise ValueError("read_from requires a READ(10) request")
+
+        return b"".join(
+            device.read_sector(self.block_address + offset)
+            for offset in range(self.block_count)
+        )
+
+    def write_to(self, device: SdCardBlockDevice, payload: bytes) -> None:
+        """Write the requested sectors without assigning a WRITE direction byte."""
+        if self.opcode != WRITE10_OPCODE:
+            raise ValueError("write_to requires a WRITE(10) request")
+
+        if len(payload) != self.transfer_bytes:
+            raise ValueError(
+                f"WRITE(10) payload must be exactly {self.transfer_bytes} bytes"
+            )
+
+        for offset in range(self.block_count):
+            start = offset * BLOCK_SIZE
+            device.write_sector(
+                self.block_address + offset,
+                payload[start : start + BLOCK_SIZE],
+            )

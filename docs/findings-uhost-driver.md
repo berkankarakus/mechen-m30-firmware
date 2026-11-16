@@ -58,5 +58,8 @@ analysis.
 The host emulator now represents only the verified request boundary in
 `tools/sim/usb_mass_storage.py`: the `USBC` marker, READ(10)/WRITE(10), block
 address, and 512-byte transfer-unit conversion. WRITE(10)'s direction remains
-unset, and the model intentionally does not serialize a complete CBW, invent a
-CSW, interpret status codes, or emulate controller timing.
+unset. The request can now move exact sector bytes through the existing
+`SdCardBlockDevice`, which keeps the storage boundary useful without claiming
+that the USB transport framing is complete. The model still does not serialize
+a complete CBW, invent a CSW, interpret status codes, or emulate controller
+timing.

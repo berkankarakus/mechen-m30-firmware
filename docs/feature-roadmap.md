@@ -12,7 +12,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | MUSIC.LIB layout | 0x200 header, 256-byte records, four section directories and 512-byte sectors | header/section/record-area parser modeled; node and filesystem location semantics remain opaque |
 | SD controller | 512-byte transfer, card detect/capacity yolları | sektör cihazı ve `sector_count * 512` capacity view mevcut; register polling/IRQ beklemede |
 | MCG/RU3 UI | altı corpus'ta byte-identical node/group metadata | katalog mevcut; localized name ve node→app eşlemesi beklemede |
-| USB host | altı `USBC` marker'ı, READ(10)/WRITE(10), 512-byte transfer birimi, CSW yok | block-request alanları modelleniyor; tam CBW/CSW framing, status ve controller davranışı beklemede |
+| USB host | altı `USBC` marker'ı, READ(10)/WRITE(10), 512-byte transfer birimi, CSW yok | block-request alanları ve SD byte aktarımı modelleniyor; tam CBW/CSW framing, status ve controller davranışı beklemede |
 | Key driver | ADC threshold tablosu, normalized event/repeat sınırı | 7-bit threshold classifier, repeat event state ve uygulama key-filter mevcut; fiziksel ADC→key mapping ve timing beklemede |
 | ASRC/EOF | `music.ap` mode-3 advance branch'i, community/V1.101.11 mode-4 delta'sı | mode-3/mode-4 control-flow boundary modeli mevcut; gerçek ASRC/DAC drain ve audible tail ölçümü beklemede |
 | Metadata reader | community/V1.101.11 0x200 buffer boundary loop'u ve bounded caller'lar | boundary-split read planı ve trailing-skip aritmetiği mevcut; source/skip callback ABI'si ve metadata parser beklemede |

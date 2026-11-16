@@ -1,5 +1,6 @@
 import unittest
 
+from sd_block_device import SdCardBlockDevice
 from usb_mass_storage import (
     BLOCK_SIZE,
     READ10_OPCODE,
@@ -42,6 +43,39 @@ class UsbMassStorageBlockRequestTests(unittest.TestCase):
                 block_count=1,
                 direction=0,
             )
+
+    def test_read10_moves_sector_bytes_from_sd_device(self):
+        card = SdCardBlockDevice(sector_count=3)
+        first = bytes([0x11]) * BLOCK_SIZE
+        second = bytes([0x22]) * BLOCK_SIZE
+        card.write_sector(1, first)
+        card.write_sector(2, second)
+
+        payload = UsbMassStorageBlockRequest.read10(1, 2).read_from(card)
+
+        self.assertEqual(payload, first + second)
+
+    def test_write10_moves_exact_sector_payload_to_sd_device(self):
+        card = SdCardBlockDevice(sector_count=2)
+        payload = bytes([0x33]) * (2 * BLOCK_SIZE)
+        request = UsbMassStorageBlockRequest.write10(0, 2)
+
+        request.write_to(card, payload)
+
+        self.assertEqual(card.read_sector(0), bytes([0x33]) * BLOCK_SIZE)
+        self.assertEqual(card.read_sector(1), bytes([0x33]) * BLOCK_SIZE)
+
+    def test_request_direction_and_payload_size_are_checked(self):
+        card = SdCardBlockDevice(sector_count=1)
+        read_request = UsbMassStorageBlockRequest.read10(0, 1)
+        write_request = UsbMassStorageBlockRequest.write10(0, 1)
+
+        with self.assertRaises(ValueError):
+            read_request.write_to(card, bytes(BLOCK_SIZE))
+        with self.assertRaises(ValueError):
+            write_request.read_from(card)
+        with self.assertRaises(ValueError):
+            write_request.write_to(card, bytes(BLOCK_SIZE - 1))
 
 
 if __name__ == "__main__":
