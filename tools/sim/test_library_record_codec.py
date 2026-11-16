@@ -23,7 +23,7 @@ class LibraryRecordCodecTests(unittest.TestCase):
         data[0xA8] = 1
         data[0xA9:0xF2] = bytes(range(0x49))
         struct.pack_into("<H", data, 0xF2, 7)
-        data[0xF4:0xFC] = b"LOCATION"
+        struct.pack_into("<II", data, 0xF4, 0x00134D9F, 0x80)
         struct.pack_into("<HH", data, 0xFC, 3, 5)
 
         record = decode_record(bytes(data))
@@ -38,7 +38,9 @@ class LibraryRecordCodecTests(unittest.TestCase):
         self.assertEqual(record.location_primary, bytes(range(0x49)))
         self.assertEqual(record.previous_index, 3)
         self.assertEqual(record.next_index, 5)
-        self.assertEqual(record.location_secondary, b"LOCATION")
+        self.assertEqual(record.location_secondary, b"\x9fM\x13\0\x80\0\0\0")
+        self.assertEqual(record.cluster_no, 0x00134D9F)
+        self.assertEqual(record.dir_entry, 0x80)
 
     def test_opaque_location_and_tail_values_are_exposed_without_validation(self):
         data = bytearray(RECORD_SIZE)
@@ -53,6 +55,8 @@ class LibraryRecordCodecTests(unittest.TestCase):
             bytes((index * 7) & 0xFF for index in range(0x49)),
         )
         self.assertEqual(record.location_secondary, b"\x00\xff\x10\xef\x80\x01\x7f\xaa")
+        self.assertEqual(record.cluster_no, 0xEF10FF00)
+        self.assertEqual(record.dir_entry, 0xAA7F0180)
         self.assertEqual(record.previous_index, 0xBEEF)
         self.assertEqual(record.next_index, 0xCAFE)
 

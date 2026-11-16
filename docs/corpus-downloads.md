@@ -14,6 +14,7 @@ date-named path, and verify the SHA-256 before decrypting or extracting it.
 | 2025-06-26 direct HEX | <https://drive.google.com/file/d/1lTyyP05toQHbcnmmiK3R9FFToj9RZfxC/view> | `MECHEN_M30.HEX`, stock V1.101.10 |
 | Independent 2023-02-20 folder | <https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW> | `MECHEN_M30.HEX` and `Modification.txt` |
 | Independent `MUSIC.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> | Public comparison library; not proven to be M30-generated |
+| US212A application-design manual | <https://tchumim.com/assets/uploads/files/1622479367338-%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%9C%D7%AA%D7%9B%D7%A0%D7%95%D7%9F-%D7%90%D7%A4%D7%9C%D7%99%D7%A7%D7%A6%D7%99%D7%95%D7%AA-us212a.pdf> | Publicly mirrored SDK reference for `plist_f_info_t`, LIB section headers, and M3U list construction |
 | Community firmware source | <https://github.com/dev-zetta/mechen-m30-community-firmware> | V1.292.00 source/release corpus |
 | Actions unpacker | <https://github.com/Rockbox/rockbox/tree/master/utils/atj2137/atjboottool> | `atjboottool` build source |
 
@@ -113,6 +114,10 @@ and `ALBUM.PIC` (128,000 bytes, SHA-256
 `65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671`). Their
 read-only findings are recorded in
 [`findings-device-sd-library.md`](findings-device-sd-library.md).
+
+The US212A manual was downloaded outside Git into the persistent evidence
+root. Its SHA-256 is
+`c6795e5aaef95af5b9bd16d469086e4f69603db87409791f039315705d7d0b05`.
 
 ## Interpretation boundary
 

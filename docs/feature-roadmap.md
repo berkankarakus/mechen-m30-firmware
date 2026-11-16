@@ -9,7 +9,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 |---|---|---|
 | FAT32/exFAT | 31 extension slotu, raw playlist maskeleri, reader-type seçimi, directory dispatch ve cluster/block sınırı | explicit-slot filtre, driver high-bit-first mask decoder, reader selector ve depth-8 walker modeli mevcut; callback ABI beklemede |
 | Library scan capacity | stock `playlist.ap` RAM arrays and 4,000-record stop | fixed 4,000-record scan boundary modeled; file format and experimental large-library path remain separate |
-| MUSIC.LIB layout | 0x200 header, 256-byte records, four section directories, 512-byte sectors, a repeated `<BBHHHHHHH` node shape, identical index-core Ghidra output across all twelve dated releases, reader-side use of `+0xf4..+0xfb` as an eight-byte file key, and a real 4,000-record multi-group M30 image | header/section/record-area parser, bounded record codec, typed section snapshots, read-only node-to-record span interpretation, fail-closed table/node-link validation, candidate order and nested run/group models; exact duplicate-key tie-break, primary location blob, and record links remain unverified |
+| MUSIC.LIB layout | 0x200 header, 256-byte records, four section directories, 512-byte sectors, a repeated `<BBHHHHHHH` node shape, identical index-core Ghidra output across all twelve dated releases, reader-side use of `+0xf4..+0xfb` as an eight-byte file key, US212A `cluster_no`/`dir_entry` correspondence, and a real 4,000-record multi-group M30 image | header/section/record-area parser, bounded record codec, typed section snapshots, decoded little-endian file-key pair, read-only node-to-record span interpretation, fail-closed table/node-link validation, candidate order and nested run/group models; primary location blob, exact duplicate-key tie-break, and record links remain unverified |
 | SD controller | 512-byte transfer, card detect/capacity yolları | sektör cihazı ve `sector_count * 512` capacity view mevcut; register polling/IRQ beklemede |
 | MCG/RU3 UI | altı corpus'ta byte-identical node/group metadata | katalog mevcut; localized name ve node→app eşlemesi beklemede |
 | USB host | altı `USBC` marker'ı, READ(10)/WRITE(10), 512-byte transfer birimi, CSW yok | block-request alanları ve SD byte aktarımı modelleniyor; testli 31-byte CBW-shaped educated guess mevcut; CSW, status anlamları ve controller davranışı beklemede |
@@ -30,7 +30,8 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 - Exact device sort/tie-break policy'yi, aynı görünen metadata anahtarlarını
   farklı firmware sürümleri veya kontrollü kart görüntüleriyle karşılaştır.
 - `0xa9..0xf1` primary location blob'unu source path/cluster değişimleriyle
-  çöz; `0xf4..0xfb` alanı için byte order veya locator varsayımı yapma.
+  çöz; decoded `cluster_no`/`dir_entry` çiftini gerçek directory dump ile
+  bağımsız doğrula.
 - `0xfc..0xff` record predecessor/successor alanlarının gerçekten hangi
   consumer tarafından okunduğunu trace et.
 - Reference `5` node/group table'ının local writer'daki deepest-level index

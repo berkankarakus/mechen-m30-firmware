@@ -11,6 +11,7 @@ from library_file import (
     SECTOR_SIZE,
     interpret_library_section_index,
     read_library_layout,
+    read_library_record,
     read_library_section_index,
 )
 from sd_block_device import SdCardBlockDevice
@@ -42,6 +43,23 @@ def inspect_music_library(
         card.write_sector(sector, data[start : start + SECTOR_SIZE])
 
     layout = read_library_layout(card, 0)
+    sample_indices = tuple(
+        dict.fromkeys(
+            index
+            for index in (0, 1, layout.record_count - 1)
+            if 0 <= index < layout.record_count
+        )
+    )
+    location_key_samples: list[dict[str, int]] = []
+    for index in sample_indices:
+        record = read_library_record(card, 0, index)
+        location_key_samples.append(
+            {
+                "index": index,
+                "cluster_no": record.cluster_no,
+                "dir_entry": record.dir_entry,
+            }
+        )
     section_summaries: dict[str, object] = {}
     for section_name in INDEXED_SECTIONS:
         section_index = read_library_section_index(card, 0, section_name)
@@ -63,6 +81,7 @@ def inspect_music_library(
         "sha256": sha256,
         "record_count": layout.record_count,
         "record_area_sectors": layout.record_area_sectors,
+        "location_key_samples": tuple(location_key_samples),
         "sections": section_summaries,
     }
 
@@ -79,6 +98,7 @@ def main(path: Path, expected_sha256: str | None) -> None:
         f"record_area_sectors={summary['record_area_sectors']} "
         f"sha256={summary['sha256']}"
     )
+    print(f"location_key_samples={summary['location_key_samples']}")
     for name, section in summary["sections"].items():
         print(
             f"section={name} "

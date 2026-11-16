@@ -33,6 +33,7 @@ Observed output:
 
 ```text
 MUSIC.LIB EVIDENCE PASS bytes=2625536 records=4000 record_area_sectors=2000 sha256=e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
+location_key_samples=({'index': 0, 'cluster_no': 1265055, 'dir_entry': 0}, {'index': 1, 'cluster_no': 1265055, 'dir_entry': 128}, {'index': 3999, 'cluster_no': 481882, 'dir_entry': 2112})
 section=ALBUM node_counts=(549, 0, 0) spans=549 records_per_level=(4000, 0, 0)
 section=ARTIST node_counts=(363, 707, 0) spans=1070 records_per_level=(4000, 4000, 0)
 section=GENRE node_counts=(30, 439, 709) spans=1178 records_per_level=(4000, 4000, 4000)
@@ -70,6 +71,22 @@ duplicate metadata groups. This proves the model's current sort is a useful
 candidate, not the device's exact tie-break policy. The emulator therefore
 keeps candidate sorting separate from the read-only byte decoder and does not
 rewrite the device indexes from this comparison alone.
+
+## Location-key corroboration
+
+The public US212A application-design manual documents the file record's
+filesystem key as two little-endian 32-bit values: `cluster_no` followed by
+`dir_entry`. That matches the firmware consumer's eight-byte compare/copy
+boundary at `+0xf4..+0xfb`. The host codec now exposes these values as
+`LibraryRecord.cluster_no` and `LibraryRecord.dir_entry` while retaining the
+original eight bytes losslessly. The primary `+0xa9..+0xf1` directory-layer
+blob remains opaque.
+
+On the supplied image, adjacent records demonstrate plausible directory
+addressing: records 0 and 1 share `cluster_no=0x00134d9f` and use directory
+entries `0` and `0x80`; the probe now records these samples automatically.
+This is corroboration of the field mapping, not a complete filesystem
+reconstruction.
 
 ## M3U and album-picture boundary
 

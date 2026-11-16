@@ -29,13 +29,14 @@ group scratch tables. The temporary key layout is documented in the source as
 none of the record-tail location bytes are copied into it. The `0xa8`
 `always_one` byte is likewise not consumed by this pass.
 
-The host codec therefore exposes, but does not decode, these regions:
+The host codec preserves the unresolved regions and decodes the supported
+secondary file key:
 
 | Range | Host field | Status |
 |---|---|---|
 | `0xa9..0xf1` | `location_primary` | opaque bytes |
 | `0xf2..0xf3` | `track_number` | little-endian numeric field; low byte participates in index sort |
-| `0xf4..0xfb` | `location_secondary` | opaque bytes |
+| `0xf4..0xfb` | `location_secondary` | little-endian `cluster_no` + `dir_entry` file key; preserved as raw bytes too |
 | `0xfc..0xff` | `previous_index`, `next_index` | decoded record-link candidates; M30 consumer semantics still need tracing |
 
 Changing an opaque location field while rebuilding the index is not currently
@@ -65,14 +66,33 @@ show the following behavior:
   boundary; they do not expose a byte order or filesystem structure for the
   primary blob.
 
+## US212A SDK correspondence
+
+A publicly mirrored US212A application-design manual documents the same
+`plist_f_info_t` family used by the Actions playlist layer. Its 256-byte file
+record describes a `cluster_no` followed by a `dir_entry`, both as 32-bit
+filesystem location fields; its LIB section header also documents `file_index`,
+`sort_index`, and `index_parent` as sector-based tables. The manual is
+preserved outside Git at the persistent evidence root with SHA-256
+`c6795e5aaef95af5b9bd16d469086e4f69603db87409791f039315705d7d0b05`:
+
+<https://tchumim.com/assets/uploads/files/1622479367338-%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%9C%D7%AA%D7%9B%D7%95%D7%A0%D7%9F-%D7%90%D7%A4%D7%9C%D7%99%D7%A7%D7%A6%D7%99%D7%95%D7%AA-us212a.pdf>
+
+Combined with the Ghidra consumer's eight-byte compare/copy boundary and the
+real card's values, this is sufficient to expose the two little-endian words
+as `cluster_no` and `dir_entry` in the host codec. The primary
+`0xa9..0xf1` directory-layer blob and the `0xfc..0xff` links stay lossless
+and unresolved.
+
 An exhaustive 2025-06-26 `music.ap` decompile also found no direct
 `record + 0xfc` or `record + 0xfe` access in these record consumers. This is
 useful negative evidence, not proof that an indirect ROM helper never reads
 the fields. The preserved decompile hash is
 `bf393413491046318d5a985445dcf5eb8a3aeaccb952816143ffcc65d25f9af0`.
-The eight-byte secondary locator can now be modeled as a file-identity key at
-the boundary, while `+0xa9..+0xf1` and `+0xfc..+0xff` remain lossless opaque
-fields until an actual M30 card image and its directory contents are paired.
+The eight-byte secondary locator is now modeled as a little-endian
+`cluster_no`/`dir_entry` file-identity key at the boundary, while
+`+0xa9..+0xf1` and `+0xfc..+0xff` remain lossless opaque fields until an
+actual M30 card image and its directory contents are paired.
 
 The repository's `tools/library/mklib.py` fixture writes
 `previous_index=i-1` and `next_index=i+1` while constructing synthetic records.
@@ -89,13 +109,14 @@ record, the visible `MP3` marker occurs at a different record offset and the
 bytes at the M30 codec's `0xf2` position are not an ASCII track field. It can
 corroborate the shared index family, not the M30 record-location layout.
 
-This is why no location decoder or record rewriter has been added to the host
-emulator. The current `decode_record()` contract is deliberately loss-aware:
-it returns the opaque slices so callers can preserve them without inventing
-semantics.
+This is why no primary-location decoder or record rewriter has been added to
+the host emulator. The current `decode_record()` contract is deliberately
+loss-aware: it returns the decoded secondary key and the unresolved slices so
+callers can preserve them without inventing semantics.
 
 ## Next evidence target
 
 Use an actual M30-created `MUSIC.LIB` together with the corresponding MP3
-directory tree. Compare the opaque slices against file names, sizes, cluster
-boundaries, and the record links before assigning any location meaning.
+directory tree. Compare `cluster_no`/`dir_entry` and the opaque primary slice
+against file names, sizes, cluster boundaries, and the record links before
+assigning further location meaning.

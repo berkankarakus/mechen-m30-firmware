@@ -78,7 +78,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   prefix selector modeli vardır.
 - `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
   alanları; `index.c`'nin gerçekten kullandığı text/track alanları ile
-  file-location byte dizileri ayrıştırılır, location alanları opaque tutulur.
+  file-location byte dizileri ayrıştırılır, `+0xf4..+0xfb` US212A
+  `cluster_no`/`dir_entry` çifti olarak okunur, primary location blob opaque
+  tutulur.
 - `tools/sim/library_index_sort.py`: `index.c` karşılaştırma sırasının raw
   record üzerinde çalışan candidate order modeli ile ALBUM→ARTIST→GENRE
   nested run/group türetimi; yazma veya M30 UI policy iddiası yoktur.
@@ -93,7 +95,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `interpret_library_section_index()` doğrulanmış node run'larını raw record
   indekslerine read-only olarak eşler; UI albüm/sanatçı anlamı atamaz.
   `tools/emu/musiclib_evidence_probe.py` harici `MUSIC.LIB` örneğinin hash'ini,
-  SD sektör yolunu ve section span coverage'ını tek komutta doğrular.
+  SD sektör yolunu, örnek `cluster_no`/`dir_entry` değerlerini ve section span
+  coverage'ını tek komutta doğrular.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; gerçek cihaz `MUSIC.LIB` görüntüsünde tüm section node/table coverage'ı
@@ -102,10 +105,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - MUSIC.LIB açık TODO'ları `docs/findings-music-lib-node-format.md` ve
-  `docs/findings-device-sd-library.md` içindedir: `0xa9..0xf1`,
-  `0xf4..0xfb` ve `0xfc..0xff` alanları opaque kalır; section reference `5`
-  deepest-level mapping'i gerçek M30 görüntüsünde doğrulanmıştır, fakat
-  duplicate-key tie-break ve location semantics açık kalır.
+  `docs/findings-device-sd-library.md` içindedir: `0xa9..0xf1` ve
+  `0xfc..0xff` alanları opaque kalır; `0xf4..0xfb`
+  `cluster_no`/`dir_entry` olarak okunur. Section reference `5` deepest-level
+  mapping'i gerçek M30 görüntüsünde doğrulanmıştır, fakat duplicate-key
+  tie-break ve primary location semantics açık kalır.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`

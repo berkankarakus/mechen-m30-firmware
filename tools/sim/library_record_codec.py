@@ -66,9 +66,19 @@ class LibraryRecord:
     previous_index: int
     next_index: int
 
+    @property
+    def cluster_no(self) -> int:
+        """Return the documented little-endian cluster component of the file key."""
+        return struct.unpack_from("<I", self.location_secondary, 0)[0]
+
+    @property
+    def dir_entry(self) -> int:
+        """Return the documented little-endian directory-entry component."""
+        return struct.unpack_from("<I", self.location_secondary, 4)[0]
+
 
 def decode_record(data: bytes) -> LibraryRecord:
-    """Decode one record without assigning semantics to opaque location bytes."""
+    """Decode one record while preserving the unresolved primary location blob."""
     if len(data) != RECORD_SIZE:
         raise ValueError("MUSIC.LIB records must be exactly 256 bytes")
 
