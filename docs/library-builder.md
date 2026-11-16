@@ -160,6 +160,10 @@ file, stops at 4,000 (`0x400952c8`, file `0x32c8`):
 Pass 2 ends by flushing the partial staging buffer. The M3U scanner `FUN_40154ecc` has the same
 shape with a per-type limit table.
 
+The host emulator records only the selector boundary in
+`tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
+or claim that type 8's fallback record is hardware-equivalent.
+
 ### Record format
 
 Records start at file offset `0x200`, 256 bytes each:

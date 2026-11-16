@@ -72,6 +72,11 @@ The caller-side raw masks are checked separately by
 Their bit positions are exposed as raw data only; the probe does not claim a
 bit-to-extension mapping.
 
+The application-level extension-to-reader selector is modeled separately in
+`tools/sim/library_tag_reader.py`: the recovered types are `AA`, `AAC`,
+`M4A/AAX`, `APE`, `FLAC`, `MP1/2/3`, `OGG`, `WMA/ASF/WMV`, and type-8
+fallback. Reader ABI and metadata parsing remain outside the model.
+
 ## Directory enumeration
 
 The dispatch functions are:

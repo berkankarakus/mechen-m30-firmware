@@ -7,7 +7,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 | Alan | Mevcut kanıt | Güvenli emulator kapsamı |
 |---|---|---|
-| FAT32/exFAT | 31 extension slotu, raw playlist maskeleri, directory dispatch ve cluster/block sınırı | explicit-slot filtre ve raw mask modeli mevcut; bit→slot sırası ve dosya walker semantiği beklemede |
+| FAT32/exFAT | 31 extension slotu, raw playlist maskeleri, reader-type seçimi, directory dispatch ve cluster/block sınırı | explicit-slot filtre, raw mask ve reader selector modeli mevcut; bit→slot sırası ve dosya walker semantiği beklemede |
 | SD controller | 512-byte transfer, card detect/capacity yolları | sektör cihazı mevcut; register polling/IRQ beklemede |
 | MCG/RU3 UI | altı corpus'ta byte-identical node/group metadata | katalog mevcut; localized name ve node→app eşlemesi beklemede |
 | USB host | altı `USBC` CBW marker'ı, CSW yok | CBW/CSW emülasyonu için kanıt yetersiz |
