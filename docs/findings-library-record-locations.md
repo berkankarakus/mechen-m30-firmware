@@ -112,6 +112,15 @@ as `cluster_no` and `dir_entry` in the host codec. The primary
 `0xa9..0xf1` directory-layer blob and the `0xfc..0xff` links stay lossless
 and unresolved.
 
+The same manual's `plist_f_info_t` declaration explicitly places
+`cluster_no`, `dir_entry`, and then `pdir_layer_t dir_layer_info` in the
+256-byte playlist record.  This is an external correspondence for the role of
+the M30 primary slice, not a byte-for-byte layout proof: the manual does not
+provide the definition of `pdir_layer_t`, and the M30 record's tail ordering
+and primary size differ.  The M30 primary therefore remains an opaque
+directory-layer blob in the codec even though its observed two-layer behavior
+now agrees with that SDK vocabulary.
+
 An exhaustive 2025-06-26 `music.ap` decompile also found no direct
 `record + 0xfc` or `record + 0xfe` access in these record consumers. This is
 useful negative evidence, not proof that an indirect ROM helper never reads
