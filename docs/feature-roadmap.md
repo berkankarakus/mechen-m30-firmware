@@ -5,6 +5,37 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 ## Sıradaki uygulanabilir alanlar
 
+## Ara verilen noktadaki TODO
+
+Bu liste bir sonraki oturumun başlangıç noktasıdır. Sıra, getirisi ve kanıt
+kapısı dikkate alınarak yazılmıştır; hiçbir madde tek başına cihazda flash
+denemesi anlamına gelmez.
+
+1. **M30 sabit-ROM exception/dispatch yolunu daralt:** `ker_xsys` içindeki
+   `0xbfc34074 -> 0xbfc06d6c` handoff'u, mevcut boot-ROM/ROM kanıtı veya yeni
+   salt-okunur cihaz gözlemi olmadan tamamlanmış kabul etme. Önce yeni bir
+   extracted üye içinde handler/provider kopyası var mı tekrar doğrula; yoksa
+   `selector=0x10` etkisini fail-closed bırak.
+2. **Upgrade akışını trace-only modelle:** doğrulanmış beş seçenekli ekran,
+   `FUN_40014c30` selector'ları, decrypt/search metinleri ve
+   `FUN_bfc37408` ilerleme normalizer'ı üzerinden `select`,
+   `confirm-request`, `decrypt-error`, `search-complete` olaylarını ekle.
+   Indirect return değerleri çözülmeden `flash`, `reboot` veya başarılı update
+   olayı üretme.
+3. **Now-playing UI adayını paketlemeden önce delta kapısını güçlendir:**
+   yalnızca `music.sty`/gerçek kaynak üyeleri üzerinde değişen byte'ları,
+   boyutları, checksum'ları ve rollback kaynağını karşılaştır; host PNG'sini
+   firmware çalışması gibi raporlama.
+4. **QEMU kapsamını gerçekçi şekilde genişlet:** sabit exception handler veya
+   ROM kanıtı gelirse CP0/stack handoff ve overlay-entry probe'u ekle; bu kanıt
+   yokken tam ATJ2127 boot/machine modeline yatırım yapma.
+5. **Ses tarafını sınırda tut:** `usound` producer/consumer ve DAC byte
+   transferi geçişlerini birlikte trace et; decoder/DSP/ASRC/DAC'ın audible
+   etkisi kanıtlanmadan USB-DAC, gapless veya fade-out sonucu çıkarma.
+6. **Düşük öncelikli işler:** MUSIC.LIB metadata yeniden kurma/tie-break,
+   sayaç kalıcılığı, yeni EQ presetleri ve filename sıralama değişikliği;
+   bunlar mevcut kanıtla cihaz eşdeğeri kabul edilemez.
+
 ## Önceliklendirilmiş QEMU/exception TODO
 
 Bu sıra, gerçek firmware kontrol akışına en çok yaklaşan ve cihazı
