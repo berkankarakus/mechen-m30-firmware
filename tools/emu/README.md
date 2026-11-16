@@ -114,6 +114,11 @@ deterministic:
     group metadata as immutable emulator inputs. It keeps node IDs and group
     indices structural until an AP/resource lookup proves their UI meaning.
 
+30. The decoder write boundary lives in `tools/sim/decoder_output.py`. Both
+    an unconfigured callback and the community's known rejecting callback
+    return `-1`; unknown callback pointers are fail-closed and no rejected
+    payload is counted as PCM.
+
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
 `never-direct-call`, and A19/B16 candidates remain `lazy-only` because their

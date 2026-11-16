@@ -46,9 +46,11 @@ to stock.
 
 ## Emulator consequence
 
-The callback is a defensive failure boundary, not a new audio feature. A host
-emulator should model an unconfigured write callback as a hard `-1` rejection
-and must not silently treat it as successful PCM delivery. The current QEMU
+The callback is a defensive failure boundary, not a new audio feature. The
+host emulator now models it in `tools/sim/decoder_output.py`: an unconfigured
+slot and the known community rejecting callback both return hard `-1`, accept
+zero bytes, and never turn the payload into PCM. Unknown callback pointers
+remain rejected rather than being executed speculatively. The current QEMU
 layer remains a static/UI boundary and does not execute this proprietary
-decoder path; the probe is consequently the authoritative regression check for
-now.
+decoder path; the probe is consequently still the authoritative binary
+regression check.
