@@ -71,6 +71,30 @@ the existing fade/volume state machine. Without that caller trace, changing
 these bit operations would risk silencing the device or leaving the codec
 bus in an invalid state.
 
+## Caller search boundary
+
+The local extracted-artifact search does not reveal a direct caller pointer for
+the DAC helper set. The `drv_dac.drv` payload is byte-identical in all six
+local images, while `config.ap` contains the driver filenames in its resource
+area and reaches them through generic configuration/service calls. A scan for
+the little-endian resident entry and helper addresses across the extracted
+`analysis` tree (excluding the container-level `dec.bin` copy) finds the
+expected driver/container occurrences but no second `.ap`, `.bin`, DSP, or
+other driver payload that directly names those helper addresses.
+
+This narrows the useful search boundary to an indirect resident loader/table or
+fixed ROM audio caller. It does **not** prove that the DAC driver is unused,
+nor does it identify codec registers. The scan is reproducible with:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/dac_caller_scan.py \
+  analysis --exclude-name dec.bin
+```
+
+The result should be treated as negative evidence only. Reconstructing a
+caller from guessed service IDs would be lower confidence than the existing
+byte-transfer probe and is not a safe firmware patch target.
+
 ## Host byte boundary
 
 `tools/sim/dac_bus.py` now exposes the narrow byte-level slice proven by these
