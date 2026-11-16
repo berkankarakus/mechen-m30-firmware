@@ -211,3 +211,10 @@ the proven `keypass.S` behavior: only play/pause, previous, next, volume up,
 and volume down use the normal delivery path while the screen is off. This is
 host-emulator behavior with deterministic tests, not a claim that physical
 button sampling or repeat timing has been recovered.
+
+`tools/sim/usb_audio_stream.py` now composes the observed USB Audio
+descriptor with the 4 KiB ring-consumer boundary. It accepts only the
+descriptor's exact 200-byte stereo packet, preserves packet bytes across the
+ring wrap, and rejects over-capacity writes. This is a host stream contract;
+it does not promote the unresolved `usound` producer callback into a codec,
+DAC, or hardware-DMA implementation.
