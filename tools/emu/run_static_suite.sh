@@ -119,6 +119,8 @@ for usb_audio_driver in "$ROOT"/analysis/*/fw/usound.drv; do
     "$usb_audio_driver" >/dev/null
   PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_fifo_binary_probe.py" \
     "$usb_audio_driver" >/dev/null
+  PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_dac_link_probe.py" \
+    "$usb_audio_driver" >/dev/null
 done
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/config_usb_mode_probe.py" \
   "$ROOT/analysis/community/fw/config.bin" >/dev/null
