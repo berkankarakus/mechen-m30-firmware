@@ -40,6 +40,7 @@ def inspect_mounted_library(data: bytes, music_root: Path) -> dict[str, int]:
 
     matched_records = 0
     unique_name_matches = 0
+    primary_parent_cluster_matches = 0
     cluster_to_parents: dict[int, set[Path]] = defaultdict(set)
     for index in range(record_count):
         record_start = HEADER_SIZE + index * RECORD_SIZE
@@ -51,7 +52,19 @@ def inspect_mounted_library(data: bytes, music_root: Path) -> dict[str, int]:
         if len(candidates) != 1:
             continue
         unique_name_matches += 1
-        cluster_to_parents[record.cluster_no].add(candidates[0].parent)
+        path = candidates[0]
+        cluster_to_parents[record.cluster_no].add(path.parent)
+
+        words = struct.unpack_from("<17I", record.location_primary, 0)
+        if words[8] == record.cluster_no:
+            other_cluster = words[6]
+        elif words[6] == record.cluster_no:
+            other_cluster = words[8]
+        else:
+            other_cluster = None
+        if other_cluster is not None and path.parent.parent.exists():
+            if other_cluster == path.parent.parent.stat().st_ino:
+                primary_parent_cluster_matches += 1
 
     single_parent_clusters = sum(
         len(parents) == 1 for parents in cluster_to_parents.values()
@@ -70,6 +83,7 @@ def inspect_mounted_library(data: bytes, music_root: Path) -> dict[str, int]:
         "record_count": record_count,
         "matched_records": matched_records,
         "unique_name_matches": unique_name_matches,
+        "primary_parent_cluster_matches": primary_parent_cluster_matches,
         "cluster_count": len(cluster_to_parents),
         "single_parent_clusters": single_parent_clusters,
         "single_parent_records": single_parent_records,
@@ -83,6 +97,7 @@ def main(library_path: Path, music_root: Path) -> None:
         f"records={summary['record_count']} "
         f"matched={summary['matched_records']} "
         f"unique={summary['unique_name_matches']} "
+        f"primary-parent={summary['primary_parent_cluster_matches']} "
         f"clusters={summary['cluster_count']} "
         f"single-parent-clusters={summary['single_parent_clusters']} "
         f"single-parent-records={summary['single_parent_records']}"
