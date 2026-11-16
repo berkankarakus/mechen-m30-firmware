@@ -9,6 +9,16 @@ ALBUM_PIC_HEADER_BYTES = 6
 ALBUM_PIC_OK = "OK"
 ALBUM_PIC_NONE = "NO"
 RGB565_BYTES_PER_PIXEL = 2
+ALBUM_PIC_CONTAINER_HEADER_BYTES = 0x200
+ALBUM_PIC_CONTAINER_SECTOR_BYTES = 512
+ALBUM_PIC_CONTAINER_SECTOR_COUNT = 250
+ALBUM_PIC_CONTAINER_BYTES = (
+    ALBUM_PIC_CONTAINER_SECTOR_BYTES * ALBUM_PIC_CONTAINER_SECTOR_COUNT
+)
+ALBUM_PIC_CONTAINER_MAGIC = b"ALBUM"
+ALBUM_PIC_CONTAINER_MARKER_OFFSET = 0x10
+ALBUM_PIC_CONTAINER_MARKER = b"NOA"
+ALBUM_PIC_CONTAINER_PAYLOAD_BYTES = 150 * 150 * RGB565_BYTES_PER_PIXEL
 
 
 @dataclass(frozen=True)
@@ -52,6 +62,44 @@ class AlbumPicRecord:
         return header + self.pixels
 
 
+@dataclass(frozen=True)
+class AlbumPicContainer:
+    """Observed fixed-size SD container holding one 150x150 RGB565 payload."""
+
+    header: bytes
+    pixels: bytes
+    padding: bytes
+
+    def __post_init__(self) -> None:
+        if len(self.header) != ALBUM_PIC_CONTAINER_HEADER_BYTES:
+            raise ValueError("ALBUM.PIC container header must be 512 bytes")
+
+        if len(self.pixels) != ALBUM_PIC_CONTAINER_PAYLOAD_BYTES:
+            raise ValueError("ALBUM.PIC container payload must be 150x150 RGB565")
+
+        if any(self.padding):
+            raise ValueError("ALBUM.PIC container padding must be zero")
+
+        if self.header[: len(ALBUM_PIC_CONTAINER_MAGIC)] != ALBUM_PIC_CONTAINER_MAGIC:
+            raise ValueError("ALBUM.PIC container has an unexpected magic")
+
+        marker_end = ALBUM_PIC_CONTAINER_MARKER_OFFSET + len(ALBUM_PIC_CONTAINER_MARKER)
+        if self.header[ALBUM_PIC_CONTAINER_MARKER_OFFSET:marker_end] != ALBUM_PIC_CONTAINER_MARKER:
+            raise ValueError("ALBUM.PIC container has an unexpected header marker")
+
+    @property
+    def width(self) -> int:
+        return 150
+
+    @property
+    def height(self) -> int:
+        return 150
+
+    def encode(self) -> bytes:
+        """Reassemble the observed container without changing any bytes."""
+        return self.header + self.pixels + self.padding
+
+
 def decode_album_pic(data: bytes) -> AlbumPicRecord:
     """Decode one exact ``ALBUM.PIC`` record without rendering it."""
     if len(data) < ALBUM_PIC_HEADER_BYTES:
@@ -73,3 +121,26 @@ def decode_album_pic(data: bytes) -> AlbumPicRecord:
     )
 
     return record
+
+
+def decode_album_pic_container(data: bytes) -> AlbumPicContainer:
+    """Decode the observed device ``ALBUM.PIC`` container boundary.
+
+    This is intentionally separate from :func:`decode_album_pic`: the device
+    file starts with an ``ALBUM`` container header, while the decompiled cache
+    writer's successful record starts with ``OK`` plus four geometry bytes.
+    """
+    if len(data) != ALBUM_PIC_CONTAINER_BYTES:
+        raise ValueError(
+            "ALBUM.PIC container must contain exactly 250 512-byte sectors"
+        )
+
+    payload_start = ALBUM_PIC_CONTAINER_HEADER_BYTES
+    payload_end = payload_start + ALBUM_PIC_CONTAINER_PAYLOAD_BYTES
+    container = AlbumPicContainer(
+        header=data[:payload_start],
+        pixels=data[payload_start:payload_end],
+        padding=data[payload_end:],
+    )
+
+    return container

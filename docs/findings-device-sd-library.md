@@ -10,7 +10,7 @@ stores only provenance, hashes, and read-only interpretation results.
 |---|---:|---|---|
 | `MUSIC.LIB` | 2,625,536 | `e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88` | A 4,000-record, 512-byte-sector library image |
 | `M3U.LIB` | 1,550,848 | `ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01` | `M3U` header, `ALLFILE` marker, zero at the observed entry-count field `0x08` |
-| `ALBUM.PIC` | 128,000 | `65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671` | `ALBUM` header and 250 sectors; payload format is not assigned here |
+| `ALBUM.PIC` | 128,000 | `65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671` | `ALBUM` container, 250 sectors, observed 150x150 RGB565-sized payload and zero padding |
 
 The source files were copied to the persistent evidence root before the SD
 card was ejected. A future session can reproduce the checks with:
@@ -101,8 +101,19 @@ exact block with the device's 6,056 blocks. This supports keeping M3U payload
 interpretation outside the current MUSIC.LIB emulator contract.
 
 `ALBUM.PIC` begins with `ALBUM`, has `NOA` at `0x10`, and is exactly 250
-sectors. Its first payload sector is non-zero binary data, but it does not
-begin with the six-byte `OK`/`NO` record contract currently modeled for the
-artwork cache. The file is therefore recorded as a separate opaque artifact;
-the existing cache model is not applied at offset zero.
+sectors. The first payload begins at `0x200`; the next 45,000 bytes are the
+size of a 150x150 two-byte-per-pixel image, and all remaining 82,488 bytes are
+zero padding. The decompiled cache writer independently uses a six-byte
+`OK`/`NO` record followed by `w*h*2` bytes, so the device file is not treated
+as an `OK` record at offset zero. The host boundary decoder in
+`tools/sim/artwork_cache.py` validates this container without assigning
+meaning to the `ALBUM`/`NOA` header fields or to RGB565 byte order.
+
+The read-only check is reproducible with:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/album_pic_evidence_probe.py \
+  <persistent-evidence-root>/device-sd/ALBUM.PIC
+```
 
