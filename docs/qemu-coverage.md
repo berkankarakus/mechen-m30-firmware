@@ -129,6 +129,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads and 100-short-read reset; decoder/PCM ownership remains separate |
+| Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
@@ -250,3 +251,12 @@ line. This is stronger than a host-only test for CPU, guest memory, and ring
 arithmetic, but it is not a M30 boot: QEMU still does not model the ATJ2127
 USB controller, VBUS/device negotiation, the `usound.drv` callback, codec/DAC
 routing, or the physical headphone/line output.
+
+`bash tools/emu/run_qemu_usound_leaf_probe.sh` goes one step closer to the
+firmware: it extracts the exact 0x26b0-byte resident segment from
+`usound.drv`, maps it at a fixed guest address, and enters the real MIPS16
+functions `FUN_bfc30cac` and `FUN_bfc30ce8` through `JALX`. The wrapper checks
+the copy and `[0,b0,b1,b2]` expansion outputs byte-for-byte. This proves real
+driver instructions and their leaf calling convention under QEMU, but it
+does not prove the driver entry, its global state, USB controller interrupts,
+the callback at `0xbfc326a9`, or DAC/codec output.
