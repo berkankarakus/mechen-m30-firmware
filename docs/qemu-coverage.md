@@ -201,3 +201,13 @@ bytes for each directory entry, so a name can be truncated before the
 205-pixel marquee ever sees it. This explains why the song/folder text can
 scroll while the full folder name is still missing; it also gives us a concrete
 next target for a safe buffer-size patch instead of guessing from screenshots.
+
+The application-level key filter is now represented by
+`tools/sim/key_filter.py`. It is intentionally below the unresolved physical
+key-driver/MMIO boundary: normalized events are delivered while the screen is
+on, stock screen-off events become wake message `0x106`, and the remembered
+wake key's long-press/release sequence is discarded. The model also exposes
+the proven `keypass.S` behavior: only play/pause, previous, next, volume up,
+and volume down use the normal delivery path while the screen is off. This is
+host-emulator behavior with deterministic tests, not a claim that physical
+button sampling or repeat timing has been recovered.
