@@ -96,7 +96,8 @@ def nodes_of(order, runs, child_runs, parent_runs, depth):
 
 
 def main(inp, outp):
-    d = bytearray(open(inp, 'rb').read())
+    with open(inp, 'rb') as input_file:
+        d = bytearray(input_file.read())
     n = struct.unpack_from('<H', d, 8)[0]
     recs = [bytes(d[0x200 + i * 256:0x200 + (i + 1) * 256]) for i in range(n)]
     w = Writer(1 + (n * 256 + SECTOR - 1) // SECTOR)
@@ -176,7 +177,8 @@ def main(inp, outp):
         struct.pack_into('<3H', header, hoff + 8, *counts)
         struct.pack_into('<7H', header, hoff + 14, nsecs[0], nsecs[1], nsecs[2], asec, bsec, fsec, 0)
     out = bytes(header) + bytes(d[0x200:(1 + (n * 256 + SECTOR - 1) // SECTOR) * SECTOR]) + b''.join(w.chunks)
-    open(outp, 'wb').write(out)
+    with open(outp, 'wb') as output_file:
+        output_file.write(out)
     print('expected library: %d songs, %d sectors' % (n, w.sector))
 
 
