@@ -88,6 +88,15 @@ class LibrarySectionIndex:
     tables: LibrarySectionTables
 
 
+@dataclass(frozen=True)
+class LibrarySectionNodeSpan:
+    """Record indices covered by one node in section sort order."""
+
+    level: int
+    node_index: int
+    record_indices: tuple[int, ...]
+
+
 def decode_library_section_node(data: bytes) -> LibrarySectionNode:
     """Decode one node using the recovered little-endian field layout."""
     if len(data) != SECTION_NODE_SIZE:
@@ -425,6 +434,39 @@ def validate_library_section_node_indices(
 
     if tuple(expected_indices) != tables.node_indices:
         raise ValueError("library node-index table disagrees with deepest nodes")
+
+
+def interpret_library_section_index(
+    index: LibrarySectionIndex,
+    record_count: int,
+) -> tuple[LibrarySectionNodeSpan, ...]:
+    """Map validated node runs to record indices without assigning UI meaning."""
+    validate_library_section_nodes(index.nodes_by_level, record_count)
+    validate_library_section_node_indices(
+        index.nodes_by_level,
+        index.tables,
+        record_count,
+    )
+
+    spans: list[LibrarySectionNodeSpan] = []
+    for level, nodes in enumerate(index.nodes_by_level):
+        position = 0
+        for node_index, node in enumerate(nodes):
+            end = position + node.song_count
+            record_indices = index.tables.order[position:end]
+            if node.first_record_index != record_indices[0]:
+                raise ValueError("library node start disagrees with its order span")
+
+            spans.append(
+                LibrarySectionNodeSpan(
+                    level=level,
+                    node_index=node_index,
+                    record_indices=record_indices,
+                )
+            )
+            position = end
+
+    return tuple(spans)
 
 
 def read_library_section_index(

@@ -4,12 +4,14 @@ import unittest
 from sd_block_device import SdCardBlockDevice
 from library_file import (
     HEADER_SIZE,
+    LibrarySectionIndex,
     LibrarySectionNode,
     LibrarySectionTables,
     RECORD_SIZE,
     SECTION_NODE_SIZE,
     SECTOR_SIZE,
     decode_library_section_node,
+    interpret_library_section_index,
     parse_library_layout,
     read_library_image,
     read_library_layout,
@@ -367,6 +369,52 @@ class MusicLibraryLayoutTests(unittest.TestCase):
                 ),
                 5,
             )
+
+    def test_interprets_node_runs_without_rewriting_the_raw_tables(self):
+        nodes = (
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=2,
+                    first_record_index=2,
+                    first_child_index=0xFFFF,
+                    parent_index=0xFFFF,
+                    previous_index=0xFFFF,
+                    next_index=1,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=1,
+                    first_record_index=0,
+                    first_child_index=0xFFFF,
+                    parent_index=0xFFFF,
+                    previous_index=0,
+                    next_index=0xFFFF,
+                ),
+            ),
+            (),
+            (),
+        )
+        tables = LibrarySectionTables(
+            order=(2, 1, 0),
+            inverse=(2, 1, 0),
+            node_indices=(1, 0, 0),
+        )
+
+        spans = interpret_library_section_index(
+            LibrarySectionIndex(nodes_by_level=nodes, tables=tables),
+            3,
+        )
+
+        self.assertEqual(
+            [(span.level, span.node_index, span.record_indices) for span in spans],
+            [(0, 0, (2, 1)), (0, 1, (0,))],
+        )
+        self.assertEqual(tables.order, (2, 1, 0))
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)
