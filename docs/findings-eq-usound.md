@@ -129,3 +129,15 @@
   format-specific ready edge; hardware FIFO timing and the downstream reader
   remain outside the model.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
+
+## Product-documentation cross-check
+
+The available M30 user manual describes the USB port as Micro-USB 2.0 and
+documents computer charging/data transfer, while listing the 3.5 mm headphone
+and line outputs as the audio outputs. It does not advertise USB Audio or OTG:
+[M30 manual](https://manuals.plus/mechen/m30-hifi-player-manual). This is
+consumer documentation rather than a board schematic, so it cannot disprove
+the hidden `usound` path recovered from the firmware. It does lower confidence
+that the retail hardware exposes the required USB device/VBUS wiring; a
+config-only experiment should therefore remain unflashed until a reversible
+USB-enumeration test is available.
