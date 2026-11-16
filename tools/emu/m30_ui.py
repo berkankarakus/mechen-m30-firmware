@@ -450,7 +450,7 @@ class NowPlaying:
     progress_fraction: float = 0.40
     font: M30Font | None = None
     show_header: bool = True
-    eq_label: str = "EQ:Jazz"
+    eq_label: str = "EQ: Jazz"
     volume_level: int = 6
     battery_percent: int = 100
 
