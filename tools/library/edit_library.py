@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import sys
+import struct
 import tempfile
 
 import libmodel
@@ -25,6 +26,8 @@ TEXT_FIELDS = {
     "album": (0x58, 0x30),
     "genre": (0x88, 0x18),
 }
+SECTION_HEADER_OFFSETS = (0x10, 0x2C, 0x48, 0x64)
+SECTOR_SIZE = 512
 
 
 def _encode_text(value: str, width: int, original: bytes) -> bytes:
@@ -78,6 +81,32 @@ def apply_edits(data: bytes, edits: list[tuple[int, str, str]]) -> bytes:
     return bytes(edited)
 
 
+def read_existing_tie_orders(data: bytes) -> tuple[tuple[int, ...], ...] | None:
+    """Read existing section ranks for stable equal-key rebuilding.
+
+    A freshly generated synthetic fixture has no section tables, so the editor
+    falls back to the host model's normal stable ordering in that case.
+    """
+    if len(data) < RECORD_START:
+        return None
+    record_count = int.from_bytes(data[8:10], "little")
+    orders: list[tuple[int, ...]] = []
+    for header_offset in SECTION_HEADER_OFFSETS:
+        order_sector = struct.unpack_from("<H", data, header_offset + 14 + 3 * 2)[0]
+        start = order_sector * SECTOR_SIZE
+        end = start + record_count * 2
+        if order_sector == 0 or end > len(data):
+            return None
+        order = struct.unpack_from(f"<{record_count}H", data, start)
+        if sorted(order) != list(range(record_count)):
+            return None
+        ranks = [0] * record_count
+        for position, record_index in enumerate(order):
+            ranks[record_index] = position
+        orders.append(tuple(ranks))
+    return tuple(orders)
+
+
 def _refuse_volume_output(output: Path) -> None:
     resolved = output.expanduser().resolve()
     if resolved.parts and resolved.parts[0] == "/" and len(resolved.parts) > 1 and resolved.parts[1] == "Volumes":
@@ -92,12 +121,18 @@ def edit_library(input_path: Path, output_path: Path, edits: list[tuple[int, str
     if input_path == output_path:
         raise ValueError("input and output must be different files")
 
-    edited = apply_edits(input_path.read_bytes(), edits)
+    original = input_path.read_bytes()
+    edited = apply_edits(original, edits)
+    if edited == original:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(original)
+        return
+    tie_orders = read_existing_tie_orders(edited)
     with tempfile.TemporaryDirectory(prefix="m30-library-edit-") as temp_dir:
         modified_path = Path(temp_dir) / "modified.lib"
         rebuilt_path = Path(temp_dir) / "rebuilt.lib"
         modified_path.write_bytes(edited)
-        libmodel.main(str(modified_path), str(rebuilt_path))
+        libmodel.main(str(modified_path), str(rebuilt_path), tie_orders=tie_orders)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(rebuilt_path.read_bytes())
 

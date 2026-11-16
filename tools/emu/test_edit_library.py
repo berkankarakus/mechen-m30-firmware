@@ -9,6 +9,7 @@ sys.path.insert(0, str(LIBRARY_ROOT))
 sys.path.insert(0, str(EMU_ROOT))
 
 from edit_library import apply_edits, edit_library
+from library_record_codec import decode_record
 from library_primary_location_probe import inspect_primary_location
 import mklib
 
@@ -42,6 +43,15 @@ class EditLibraryTests(unittest.TestCase):
     def test_apply_edits_rejects_an_out_of_range_record(self):
         with self.assertRaises(IndexError):
             apply_edits(bytes(0x300), [(1, "title", "not present")])
+
+    def test_noop_edit_copies_a_realistic_input_byte_for_byte(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_path = self.make_input(temp_dir)
+            output_path = Path(temp_dir) / "noop.lib"
+            data = input_path.read_bytes()
+            record = decode_record(data[0x200:0x300])
+            edit_library(input_path, output_path, [(0, "title", record.title)])
+            self.assertEqual(output_path.read_bytes(), data)
 
     def test_device_volume_output_is_refused(self):
         with tempfile.TemporaryDirectory() as temp_dir:

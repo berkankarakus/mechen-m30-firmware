@@ -95,7 +95,7 @@ def nodes_of(order, runs, child_runs, parent_runs, depth):
     return bytes(out)
 
 
-def main(inp, outp):
+def main(inp, outp, tie_orders=None):
     with open(inp, 'rb') as input_file:
         d = bytearray(input_file.read())
     n = struct.unpack_from('<H', d, 8)[0]
@@ -117,6 +117,8 @@ def main(inp, outp):
                 return -1 if trk[a] < trk[b] else 1
             if sec and rank[a] != rank[b]:
                 return -1 if rank[a] < rank[b] else 1
+            if tie_orders is not None and tie_orders[sec][a] != tie_orders[sec][b]:
+                return -1 if tie_orders[sec][a] < tie_orders[sec][b] else 1
             return 0
         order = sorted(range(n), key=functools.cmp_to_key(cmp))
         levels = 0 if sec == 0 else sec
