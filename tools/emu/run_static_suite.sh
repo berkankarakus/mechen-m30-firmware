@@ -8,6 +8,31 @@ FW="$ROOT/analysis/community/fw"
 AP="$ROOT/build/qemu-minimal-safe/work/verify/fw/music.ap"
 HOST_ONLY=0
 
+if [ -z "${GHIDRA:-}" ] && command -v brew >/dev/null 2>&1; then
+  GHIDRA_PREFIX=$(brew --prefix ghidra 2>/dev/null || true)
+  if [ -x "$GHIDRA_PREFIX/libexec/support/analyzeHeadless" ]; then
+    GHIDRA="$GHIDRA_PREFIX/libexec/support/analyzeHeadless"
+  fi
+fi
+
+if [ -z "${JAVA_HOME:-}" ] && command -v brew >/dev/null 2>&1; then
+  JAVA_PREFIX=$(brew --prefix openjdk@25 2>/dev/null || true)
+  JAVA_HOME="$JAVA_PREFIX/libexec/openjdk.jdk/Contents/Home"
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  PATH="$JAVA_HOME/bin:$PATH"
+  export PATH
+fi
+
+if [ -n "${GHIDRA:-}" ]; then
+  export GHIDRA
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+fi
+
 # Keep all sequential Ghidra invocations inside one disposable cache/temp
 # root.  Without these properties Ghidra falls back to /var/tmp, which is
 # commonly read-only in the sandbox and produces noisy non-fatal cache errors.
@@ -18,6 +43,9 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$GHIDRA_WORK/home}"
 GHIDRA_JAVA_OPTIONS="$GHIDRA_JAVA_OPTIONS -Dapplication.cachedir=$GHIDRA_WORK/cache -Dapplication.tempdir=$GHIDRA_WORK/tmp"
 export GHIDRA_JAVA_OPTIONS
 
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Duser.home=$GHIDRA_WORK/home"
+export JAVA_TOOL_OPTIONS
+
 if [ "${1:-}" = "--host-only" ]; then
   HOST_ONLY=1
 elif [ "$#" -gt 0 ]; then
@@ -25,10 +53,40 @@ elif [ "$#" -gt 0 ]; then
   exit 2
 fi
 
+if [ "$HOST_ONLY" -eq 0 ]; then
+  REQUIRED_CORPORA=(
+    stock
+    community
+    first-pass-verify
+    v1.101.11
+    v1.101.12
+    v5
+  )
+  MISSING_CORPORA=()
+
+  for corpus in "${REQUIRED_CORPORA[@]}"; do
+    if [ ! -d "$ROOT/analysis/$corpus/fw" ]; then
+      MISSING_CORPORA+=("$corpus")
+    fi
+  done
+
+  if [ "${#MISSING_CORPORA[@]}" -gt 0 ]; then
+    echo "missing full-suite firmware corpora: ${MISSING_CORPORA[*]}" >&2
+    echo "provide analysis/<corpus>/fw or run with --host-only" >&2
+    exit 1
+  fi
+fi
+
 echo "[1/3] host unit tests"
 python3 -m unittest discover -s "$ROOT/tools/sim" -p 'test_*.py'
 python3 -m unittest discover -s "$ROOT/tools/emu" -p 'test_*.py'
 python3 -m unittest discover -s "$ROOT/tools/rom" -p 'test_*.py'
+
+if [ "$HOST_ONLY" -eq 1 ]; then
+  echo 'STATIC SUITE PASS host-only'
+  exit 0
+fi
+
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
   --all-files "$FW" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/provider_scan.py" \
@@ -81,11 +139,6 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/mmm_bp_binary_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/ui_resource_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
-
-if [ "$HOST_ONLY" -eq 1 ]; then
-  echo 'STATIC SUITE PASS host-only'
-  exit 0
-fi
 
 [ -f "$FW/drv_ui.drv" ] || { echo "missing $FW/drv_ui.drv" >&2; exit 1; }
 [ -f "$FW/kernel.drv" ] || { echo "missing $FW/kernel.drv" >&2; exit 1; }

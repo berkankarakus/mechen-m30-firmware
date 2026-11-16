@@ -13,11 +13,11 @@ player should be switched separately and explicitly with `adfu_reboot`.
 
 ## Build the host client on macOS
 
-The repository copy is `/Users/berkankarakus/Projects/actions_flash`. With
+The repository copy is `<local-workspace>/actions_flash`. With
 Homebrew libusb:
 
 ```sh
-cd /Users/berkankarakus/Projects/actions_flash
+cd <local-workspace>/actions_flash
 LIBUSB_PREFIX=$(brew --prefix libusb)
 cc -O2 -Wall -Wextra -std=c99 -pedantic -Wno-unused -DUSE_LIBUSB=1 \
   -I"$LIBUSB_PREFIX/include" -L"$LIBUSB_PREFIX/lib" \

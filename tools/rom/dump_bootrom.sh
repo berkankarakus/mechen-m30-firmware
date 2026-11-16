@@ -63,7 +63,6 @@ fi
 if [ -z "$adfus" ]; then
   for candidate in \
     "$(dirname "$0")/../../../actions_flash/payload/adfus.bin" \
-    "/Users/berkankarakus/Projects/actions_flash/payload/adfus.bin" \
     "payload/adfus.bin"; do
     if [ -f "$candidate" ]; then adfus=$candidate; break; fi
   done

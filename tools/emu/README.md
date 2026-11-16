@@ -126,9 +126,15 @@ The complete read-only validation suite is:
 bash tools/emu/run_static_suite.sh
 ```
 
-Use `--host-only` when Ghidra/MIPS binutils are unavailable; the default mode
-also runs the real driver, kernel, exception, and MIPS16 `next`, `previous`,
-and `redraw` scroll probes.
+Use `--host-only` when historical firmware corpora or Ghidra/MIPS binutils are
+unavailable. It runs only the three local unittest suites and does not require
+the cross-version binary-probe inputs. The default mode also runs the real
+driver, kernel, exception, and MIPS16 `next`, `previous`, and `redraw` scroll
+probes.
+
+The default mode checks for all six extracted corpora before running any
+probe, and reports their names if one is missing. This keeps a missing
+historical input from looking like a later probe regression.
 
 The kernel-side constant boundary can be reproduced without a device with:
 

@@ -14,22 +14,23 @@ işlemi yapılmamıştır.
 
 ### Çalışma durumu
 
-- Repo: `/Users/berkankarakus/Projects/mechen-m30-firmware`
+- Repo: repository root
 - Dal: `main`
-- Bu checkpoint öncesi son teknik commit: `36674c6 emu: model usound software ring producer`
-- Handoff belgesi için bundan sonra ayrı bir docs commit'i oluşturulmalıdır.
+- Bu checkpoint öncesi son teknik commit: `d568a1b fix: fail fast on incomplete full suite inputs`
+- Sonraki commit'ler aynı dar iş kapsamındaki script/test/dokümantasyon değişikliklerini gruplayacaktır.
 - Push yapılmadı. Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Kullanıcının açık güvenlik sınırı: cihazı yazma/flashlama yok; yalnızca offline
   analiz ve host-side test.
-- Son doğrulama komutu:
+- Son başarılı doğrulama komutu:
 
   ```sh
-  bash tools/emu/run_static_suite.sh
+  bash tools/emu/run_static_suite.sh --host-only
   ```
 
-  Sonuç: `STATIC SUITE PASS full`; host testleri `77 sim`, `107 emu`, `6 ROM`
-  olarak geçti. Ghidra klasör/navigasyon matrisi, driver/kernel probe'ları,
-  USB-audio probe'ları ve MIPS16 smoke probe'ları da bu çalışmada tamamlandı.
+  Sonuç: `STATIC SUITE PASS host-only`; host testleri `85 sim`, `114 emu`,
+  `6 ROM` olarak geçti. Varsayılan full suite, gerçek
+  `first-pass-verify`, `v1.101.11`, `v1.101.12` ve `v5` corpus'ları eksik
+  olduğu için preflight aşamasında duruyor.
 
 ### Bu aşamada kanıtlanan USB/usound sınırı
 
@@ -87,11 +88,14 @@ Son commit zinciri `usound` için aşağıdaki parçaları kanıt düzeyinde ay�
 1. Önce çalışma alanını doğrula ve suite'i host-only çalıştır:
 
    ```sh
-   cd /Users/berkankarakus/Projects/mechen-m30-firmware
+   cd <repo-root>
    git status --short
    git log --oneline -8
    bash tools/emu/run_static_suite.sh --host-only
    ```
+
+   `--host-only` yalnızca üç yerel unittest suite'ini çalıştırır; tarihsel
+   corpus isteyen binary probe'ları ve Ghidra adımlarını çalıştırmaz.
 
 2. Yeni Ghidra import'u baştan tekrarlama. Mevcut kanıtı kullanarak
    `FUN_bfc30dc4` sonrasındaki çağrı zincirini ve olası downstream reader/DMA
@@ -138,13 +142,13 @@ donanım davranışı için ayrıca cihaz testi gerekir.
 
 | Ne | Yol |
 |---|---|
-| Repo | `/Users/berkan/Projects/mechen-m30-firmware` (git yerel kimliği `berkankarakus`) |
-| Docker imajı | `m30-build` (Fedora, `mips64-linux-gnu-gcc` 16.2.1, `qemu-mipsel-static`, Rockbox `atjboottool`). Tanım: `/Users/berkan/Projects/m30-docker/Dockerfile` |
-| Stock V1.101.10 | `/Users/berkan/Projects/m30-inputs/stock/MECHEN_M30.HEX` |
-| Community V1.292.00 | `/Users/berkan/Projects/m30-inputs/community/MECHEN_M30.HEX` |
+| Repo | repository root (Git identity is configured outside the repository) |
+| Docker imajı | `m30-build` (Fedora, `mips64-linux-gnu-gcc` 16.2.1, `qemu-mipsel-static`, Rockbox `atjboottool`). Tanım: `<local-workspace>/m30-docker/Dockerfile` |
+| Stock V1.101.10 | `<local-workspace>/m30-inputs/stock/MECHEN_M30.HEX` |
+| Community V1.292.00 | `<local-workspace>/m30-inputs/community/MECHEN_M30.HEX` |
 | Aday (`red-back`) | `MECHEN_M30-community-v1.292-red-back.HEX` (repo kökünde, `.gitignore` dışında tutulur) |
-| Açılmış member'lar | `/Users/berkan/Projects/m30-work/{stock,community,cand}/fw/` |
-| Referans kaynak (Actions SDK) | `/Users/berkan/Projects/m30-inputs/ref/PD196` |
+| Açılmış member'lar | `<local-workspace>/m30-work/{stock,community,cand}/fw/` |
+| Referans kaynak (Actions SDK) | `<local-workspace>/m30-inputs/ref/PD196` |
 
 Docker notu: imaj amd64, ana makine arm64; emülasyonla çalışır. `docker run`
 sırasında `--platform linux/amd64` verme (imaj bulunamıyor hatası veriyor);
@@ -288,7 +292,7 @@ Riskler ve doğrulanmamış varsayımlar:
 - Ghidra 12.2 + JDK 25, `m30-build` imajında (`$GHIDRA` = `analyzeHeadless`).
 - `tools/ghidra/LoadAP.java` ve `DumpC.java` Ghidra 12.2'de çalışıyor. Community
   `browser.ap` için 75 blok, 449 fonksiyon; dump:
-  `/Users/berkan/Projects/m30-work/ghidra/browser_community.c` (15.752 satır,
+  `<local-workspace>/m30-work/ghidra/browser_community.c` (15.752 satır,
   repo dışında).
 - Komut (Docker içinde):
   `$GHIDRA PROJE_DİZİNİ ad -import X.ap -loader BinaryLoader -processor "MIPS:LE:32:default" -noanalysis -scriptPath tools/ghidra -postScript LoadAP.java X.ap -postScript DumpC.java out.c`
@@ -307,7 +311,7 @@ Riskler ve doğrulanmamış varsayımlar:
   (adres = `0x30000000` + dosya ofseti, 0x200'den itibaren; script
   `FlatLoad.java`; kodu `docs/discovery-environment.md` içinde).
   Sonuç: 119 fonksiyon, dump
-  `/Users/berkan/Projects/m30-work/ghidra/drvui_community.c` (9.217 satır).
+  `<local-workspace>/m30-work/ghidra/drvui_community.c` (9.217 satır).
   PC-göreli literal yüklemeleri doğru çözülür; fonksiyon işaretçisi
   üzerinden yapılan bankalar arası çağrılar (`(*_UNK_3000xxxx)(...)`) çözülmez.
   Bilinen fonksiyonlar: `FUN_300007c4` (UTF-16 karakter sınıfı),
@@ -399,7 +403,7 @@ hale getirip depolama erişimini engelleyebilir.
 
 ## Emülatör / harness: eksik ve tutarsız noktalar
 
-Kaynak: `tools/sim/*.py` (36 birim test, bu oturumda `python3 -I -m unittest
+Kaynak: `tools/sim/*.py` (85 birim test, bu oturumda `python3 -m unittest
 discover -s tools/sim` ile çalıştırıldı, hepsi geçti), `build.sh --test` ve
 `tools/*/harness.c`. QEMU harness'leri bu oturumda çalıştırılmadı; yalnızca
 okundu. Aşağıdakiler cihaz davranışına dair kanıt değil, test altyapısının
@@ -507,13 +511,20 @@ sınırlarıdır.
 
 ### Önerilen test boşlukları (öncelik sırasıyla)
 
-1. Adayın üç değişikliği (`mengine.ap` önceki tuş, `music.sty` ikonlar,
-   `setting.sty` metin) için baytlık regresyon testi: stock/community
-   ile fark yalnızca belgelenmiş ofsetlerde olmalı.
-2. `drv_ui.drv` `FUN_30008600` hizalama hatası için küçük bir host
-   modeli: `true_length` ile ortalama vs satır sonu (`0x000a`) karşılaştırma.
-3. `listbox.py` içine piksel başına kayma, 102 baytlık sınır ve
-   arka plan yeniden çizimi.
+1. Kısmen tamamlandı: `tools/emu/test_candidate_patches.py` içinde güvenli
+   candidate resource yamalarının (`music.sty`, `setting.sty`) sabit boyut,
+   kopya sayısı ve kaynak sınırı testleri var. Gerçek candidate için
+   stock/community üye karşılaştırması `candidate_delta_probe.py` ile ayrıca
+   çalıştırılmalı; `mengine.ap` Previous deneyi güvenli candidate kapsamına
+   dahil değildir.
+2. Tamamlandı: `tools/sim/text_alignment.py` içinde `FUN_30008600` için
+   küçük host modeli; `true_length` ölçümü, merkezleme ve satır sonu
+   (`0x000a` / `0x000d`) karşılaştırması `test_text_alignment.py` ile
+   sınanıyor. Bu model firmware yaması veya cihaz doğrulaması değildir.
+3. Kısmen tamamlandı: `listbox.py` içinde piksel başına kayma, 102 baytlık
+   kayan yazı taraması, BOM/iki boşluk hazırlığı ve arka plan yeniden çizimi
+   host sözleşmesi olarak modelleniyor. Gerçek font/LCD rasterizer'ı hâlâ
+   kapsam dışı.
 4. Sıralama modelini gerçek karşılaştırma fonksiyonuyla (QEMU) çapraz doğrulama.
 
 ## Önceki belgelerdeki düzeltmeler
@@ -573,9 +584,9 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 ## Bekleyen işler (bu belge yazılırken)
 
 - `build.sh --test` (Docker, stock HEX ile): Docker/QEMU ortamı erişilebilir
-  olmadığından çalıştırılamadı; host tarafında `tools/sim` 36 ve `tools/emu`
-  73 test geçti. Tam statik suite ayrıca browser layout boundary, tüm Ghidra
-  driver/kernel probe'ları ve üç gerçek MIPS16 event probe'ını PASS etti.
+  olmadığından çalıştırılamadı; host tarafında `tools/sim` 85 ve `tools/emu`
+  114 test geçti. Tam statik suite bu checkout'ta eksik historical corpus
+  preflight'ı nedeniyle Ghidra ve MIPS16 adımlarına ulaşmadı.
   `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
   lead-in ve lazy bank-stub olarak ayırıyor; `tools/sim/ui_calls.py` B3'teki
   çağrıları temkinli biçimde etiketliyor; `tools/emu/driver_banks.py` ise
@@ -625,7 +636,7 @@ sha256: 778bff42fa636343a4bf3bb61aaa30cdbb1db93e7a84dd5a542103a74ae01924
 ELF:    elf32-tradlittlemips, MIPS32, entry 0xbfc18000
 ```
 
-Kaynak ve linker düzeni `/Users/berkankarakus/Projects/actions_flash/payload`
+Kaynak ve linker düzeni `<local-workspace>/actions_flash/payload`
 altında duruyor. Bu payload cihaza gönderilmedi. USB taramasında da M30'un
 `10d6:1101` veya ADFU `10d6:10d6` kimliği görülmedi; dolayısıyla ROM okuma
 denemesi yapılmadı.

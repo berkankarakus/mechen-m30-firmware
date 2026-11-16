@@ -7,12 +7,12 @@ yeniden üretilir.
 
 ## Girdiler (repo dışında)
 
-| Ne | Yol (bu makine) | SHA-256 |
+| Ne | Yol (yerel çalışma alanı) | SHA-256 |
 |---|---|---|
-| Stock V1.101.10 | `/Users/berkan/Projects/m30-inputs/stock/MECHEN_M30.HEX` (README'deki Google Drive linkinden) | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
-| Community V1.292.00 | `/Users/berkan/Projects/m30-inputs/community/MECHEN_M30.HEX` (`dev-zetta/mechen-m30-community-firmware` release `v1.292.00`) | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` |
+| Stock V1.101.10 | `<local-workspace>/m30-inputs/stock/MECHEN_M30.HEX` (README'deki Google Drive linkinden) | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
+| Community V1.292.00 | `<local-workspace>/m30-inputs/community/MECHEN_M30.HEX` (`dev-zetta/mechen-m30-community-firmware` release `v1.292.00`) | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` |
 | Aday `red-back` | repo kökünde `MECHEN_M30-community-v1.292-red-back.HEX` (`.gitignore` dışında) | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` |
-| Actions SDK kaynağı | `/Users/berkan/Projects/m30-inputs/ref/PD196` (`Suber/PD196_ATJ2127`, GBK kodlu; `iconv -f gbk -t utf-8 -c`) | - |
+| Actions SDK kaynağı | `<local-workspace>/m30-inputs/ref/PD196` (`Suber/PD196_ATJ2127`, GBK kodlu; `iconv -f gbk -t utf-8 -c`) | - |
 
 Not: Google Drive indirmesi ve GitHub release indirmesi bu oturumda
 yapıldı; stock ve community dosyaları için yukarıdaki hash'ler README ve
@@ -45,8 +45,60 @@ ENV GHIDRA=/opt/ghidra/support/analyzeHeadless
 
 Doğrulanan sürümler: `mips64-linux-gnu-gcc` 16.2.1 (README'deki test edilen
 sürümle aynı), JDK 25.0.4.1, Ghidra 12.2. Kullanılan Dockerfile bu oturumda
-`/Users/berkan/Projects/m30-docker/Dockerfile` altındaydı; yukarıdaki blok
+`<local-workspace>/m30-docker/Dockerfile` altındaydı; yukarıdaki blok
 onun içeriğidir.
+
+## macOS ARM'da tam statik suite
+
+Tam `tools/emu/run_static_suite.sh` akışı Ghidra 12.2, Java 25 ve Ghidra'nın
+platforma özgü native decompiler bileşenini gerektirir. macOS ARM'da en kısa
+kurulum yolu Homebrew'dür:
+
+```sh
+brew install ghidra
+```
+
+Ghidra'nın doğrudan indirilen dağıtımı bazı macOS ARM paketlerinde
+`os/mac_arm_64/decompile` bileşenini içermeyebilir. Bu durumda Ghidra açılır,
+fakat decompiler probe'ları `native decompiler does not exist` hatasıyla
+başarısız olur. Homebrew kurulumu gerekli native bileşeni sağlar.
+
+`tools/emu/run_static_suite.sh`, Homebrew kurulumunu ve Java 25 yolunu otomatik
+keşfeder. Elle override etmek veya Homebrew dışı kurulum kullanmak gerekirse:
+
+```sh
+GHIDRA="$(brew --prefix ghidra)/libexec/support/analyzeHeadless"
+JAVA_HOME="$(brew --prefix openjdk@25)/libexec/openjdk.jdk/Contents/Home"
+GHIDRA_USER_HOME="${TMPDIR:-/private/tmp}/m30-ghidra-home"
+mkdir -p "$GHIDRA_USER_HOME"
+
+JAVA_TOOL_OPTIONS="-Duser.home=$GHIDRA_USER_HOME" \
+  GHIDRA="$GHIDRA" \
+  JAVA_HOME="$JAVA_HOME" \
+  bash tools/emu/run_static_suite.sh
+```
+
+`JAVA_TOOL_OPTIONS` gereklidir: Ghidra ilk çalıştırmada Java yolunu
+`$HOME/Library/ghidra` altına kaydeder; kısıtlı veya geçici çalışma ortamlarında
+bu dizin açıkça yazılabilir bir yere alınmalıdır. Suite yalnızca offline
+firmware analizidir ve cihazla USB iletişimi kurmaz.
+
+### Analiz girdileri
+
+Firmware üyeleri ve tüm corpus kopyaları `.gitignore` kapsamındadır; repoya
+eklenmez. Suite'in beklediği düzen:
+
+```text
+analysis/{stock,community,first-pass-verify,v1.101.11,v1.101.12,v5}/fw/
+```
+
+Bu dosyalar hazır bir yerel unpack çalışma alanında bulunuyorsa, her corpus
+altındaki `fw` dizini o çalışma alanına bağlanabilir. Bağlantıların mutlak
+makine yolları içermesi nedeniyle bunlar yalnızca yerel fixture olarak kalmalı;
+dokümantasyonda `<local-workspace>` yer tutucusu kullanılmalıdır.
+Eksik historical corpus'ları community kopyasına bağlamak geçerli değildir:
+`run_decoder_callback_probe.sh` gibi karşılaştırmalar gerçek
+`v1.101.12`/community byte farklarına dayanır.
 
 ## Üyeleri açma
 

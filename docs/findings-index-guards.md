@@ -42,7 +42,7 @@ not V1.292.00. Therefore its indexing after card insertion cannot falsify the
 community guard. The correct physical comparison is the untouched community
 image:
 
-`/Users/berkankarakus/Projects/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX`
+`<local-workspace>/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX`
 
 with the stock image retained offline for rollback.
 
