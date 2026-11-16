@@ -9,6 +9,7 @@ sys.path.insert(0, str(LIBRARY_ROOT))
 sys.path.insert(0, str(EMU_ROOT))
 
 from edit_library import apply_edits, edit_library
+from libmodel import refine_order
 from library_record_codec import decode_record
 from library_primary_location_probe import inspect_primary_location
 import mklib
@@ -52,6 +53,10 @@ class EditLibraryTests(unittest.TestCase):
             record = decode_record(data[0x200:0x300])
             edit_library(input_path, output_path, [(0, "title", record.title)])
             self.assertEqual(output_path.read_bytes(), data)
+
+    def test_library_model_refines_a_short_key_run(self):
+        keys = [b"A" * 16 + f"{index:04d}".encode() + b"\0" * 12 for index in range(4096)]
+        self.assertEqual(tuple(refine_order(keys, len(keys), 0, 32, None)), tuple(range(4096)))
 
     def test_device_volume_output_is_refused(self):
         with tempfile.TemporaryDirectory() as temp_dir:

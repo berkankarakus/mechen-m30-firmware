@@ -47,6 +47,64 @@ def cmptext(x, y):
     return 0
 
 
+def cmp_segment(keys, a, b, offset, length):
+    return cmptext(keys[a][offset:offset + length], keys[b][offset:offset + length])
+
+
+def tie_compare(tie_orders, sec, a, b):
+    if tie_orders is not None and tie_orders[sec][a] != tie_orders[sec][b]:
+        return -1 if tie_orders[sec][a] < tie_orders[sec][b] else 1
+    return 0
+
+
+def refine_order(keys, n, sec, width, tie_orders):
+    """Model the stock's short-key sort followed by tie refinement.
+
+    The stock indexer starts with a key length derived from N, then repeatedly
+    re-extracts only equal runs.  The old model sorted the complete converted
+    field in one pass, which is observably different for UTF-16 records whose
+    converted key keeps bytes after its first terminator.
+    """
+    initial = min(width, max(1, 0x10000 // n))
+
+    def initial_cmp(a, b):
+        result = cmp_segment(keys, a, b, 0, initial)
+        return result or tie_compare(tie_orders, sec, a, b)
+
+    order = sorted(range(n), key=functools.cmp_to_key(initial_cmp))
+
+    def refine_run(items, offset):
+        if len(items) < 2 or offset >= width:
+            return items
+        chunk = min(0x10000 // len(items), width - offset, 100)
+
+        def chunk_cmp(a, b):
+            result = cmp_segment(keys, a, b, offset, chunk)
+            return result or tie_compare(tie_orders, sec, a, b)
+
+        items = sorted(items, key=functools.cmp_to_key(chunk_cmp))
+        next_offset = offset + chunk
+        refined = []
+        start = 0
+        for position in range(1, len(items) + 1):
+            split = position == len(items) or cmp_segment(
+                keys, items[position - 1], items[position], offset, chunk
+            ) != 0
+            if split:
+                refined.extend(refine_run(items[start:position], next_offset))
+                start = position
+        return refined
+
+    refined = []
+    start = 0
+    for position in range(1, n + 1):
+        split = position == n or cmp_segment(keys, order[position - 1], order[position], 0, initial) != 0
+        if split:
+            refined.extend(refine_run(order[start:position], initial))
+            start = position
+    return refined
+
+
 class Writer:
     def __init__(self, first_sector):
         self.sector = first_sector
@@ -109,18 +167,7 @@ def main(inp, outp, tie_orders=None):
     header = bytearray(d[:0x200])
     for sec in range(4):
         text = keys[sec]
-        def cmp(a, b):
-            r = cmptext(text[a], text[b])
-            if r:
-                return r
-            if sec == 1 and trk[a] != trk[b]:
-                return -1 if trk[a] < trk[b] else 1
-            if sec and rank[a] != rank[b]:
-                return -1 if rank[a] < rank[b] else 1
-            if tie_orders is not None and tie_orders[sec][a] != tie_orders[sec][b]:
-                return -1 if tie_orders[sec][a] < tie_orders[sec][b] else 1
-            return 0
-        order = sorted(range(n), key=functools.cmp_to_key(cmp))
+        order = refine_order(text, n, sec, FIELDS[sec][1], tie_orders)
         levels = 0 if sec == 0 else sec
         runs = [[] for _ in range(levels)]
         if levels:
@@ -143,6 +190,49 @@ def main(inp, outp, tie_orders=None):
                     lens[lvl] += 1
             for lvl in range(levels):
                 runs[lvl].append(lens[lvl])
+            if levels:
+                # The stock pass first makes key groups, then sorts inside
+                # each group with the previous section's rank (and track
+                # number for ALBUM).  Keeping these as two operations matters
+                # when a short-key refinement changes only one group.
+                grouped_order = []
+                position = 0
+                for group_length in runs[0]:
+                    group = order[position:position + group_length]
+
+                    def group_cmp(a, b):
+                        if sec == 1 and trk[a] != trk[b]:
+                            return -1 if trk[a] < trk[b] else 1
+                        if rank[a] != rank[b]:
+                            return -1 if rank[a] < rank[b] else 1
+                        return tie_compare(tie_orders, sec, a, b)
+
+                    grouped_order.extend(sorted(group, key=functools.cmp_to_key(group_cmp)))
+                    position += group_length
+                order = grouped_order
+
+                # Recompute all nested runs after the within-group ordering;
+                # group sizes remain key-derived, while child/parent spans
+                # must follow the final on-disk order.
+                lens = [0] * levels
+                runs = [[] for _ in range(levels)]
+                for pos in range(n):
+                    if pos:
+                        a, b = order[pos - 1], order[pos]
+                        brk = 3
+                        if cmptext(text[a], text[b]) != 0:
+                            brk = 0
+                        elif levels > 1 and (album_group if sec == 2 else artist_group)[a] != (album_group if sec == 2 else artist_group)[b]:
+                            brk = 1
+                        elif levels > 2 and album_group[a] != album_group[b]:
+                            brk = 2
+                        for lvl in range(brk, levels):
+                            runs[lvl].append(lens[lvl])
+                            lens[lvl] = 0
+                    for lvl in range(levels):
+                        lens[lvl] += 1
+                for lvl in range(levels):
+                    runs[lvl].append(lens[lvl])
         hoff = (0x10, 0x2c, 0x48, 0x64)[sec]
         counts, nsecs = [0, 0, 0], [0, 0, 0]
         for lvl in range(levels):
