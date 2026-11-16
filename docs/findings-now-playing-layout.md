@@ -111,6 +111,14 @@ The same path uses `0x1004` for the album-art picture box and `0x2005` for a
 dynamic text draw.  `FUN_40114f20` clears a 150x150 content area at
 `(0, 0x1c)` before handing the artwork/data to the UI dispatcher.
 
+The paint branch's control sequence is also useful for the host preview:
+`0x1002` (artwork), `0x1003` (EQ), `0x1004` (transport), and `0x1005` through
+`0x1008` (the four metadata glyphs) are emitted by `FUN_40154ddc`.  The
+resource still contains PicBoxes 0 and 1, but this refresh function does not
+select their controls; the now-playing preview therefore leaves that header
+band empty, matching the supplied device screenshot instead of drawing the
+icons merely because their bitmaps exist in `music.sty`.
+
 The first call-site candidate changed the `0x2005` literal in this paint path,
 but the device-visible marquee is emitted by the shared scroll renderer, not
 by that call alone.  Ghidra identifies the actual draw path as:

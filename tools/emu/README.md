@@ -294,6 +294,9 @@ PicBox 3 is a separate EQ indicator: frame 0 is blank and frame 1 contains
 the shipped `EQ:` bitmap. It is not the bottom progress bar; that bar is the
 independent `progressbar[0]` record. PicBoxes 5..8 are fixed album, artist,
 title, and track glyphs, and their roles are included in the JSON trace.
+The now-playing refresh path selects controls `0x1002..0x1008`; PicBoxes 0 and
+1 are retained in the style atlas but are marked inactive in the now-playing
+trace and are not painted by the host screen preview.
 
 ## Folder/list visualizer
 

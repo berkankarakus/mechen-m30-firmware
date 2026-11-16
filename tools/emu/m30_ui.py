@@ -40,6 +40,13 @@ PICBOX_SEMANTICS = {
     8: "track-icon",
 }
 
+# FUN_40154ddc emits controls 0x1002..0x1008 on the now-playing refresh path.
+# PicBoxes 0 and 1 are present in music.sty, but no call-site in that paint
+# function selects them; drawing them here made the host preview show a pair
+# of header icons that is absent from the device screenshot.
+NOW_PLAYING_PICBOXES = (2, 3, 4, 5, 6, 7, 8)
+PICBOX_CONTROL_IDS = {index: 0x1000 + index for index in range(9)}
+
 # Ghidra names these as _UNK_40d551xx because they are literal-pool function
 # pointers.  These are the exact addresses read from the real AP bank.
 DISPATCH_POINTERS = {
@@ -488,6 +495,7 @@ class NowPlaying:
                 fb.pixel(picbox.x + column, picbox.y + row, rgb565(pixel))
         return {
             "picbox": picbox_index,
+            "control_id": f"0x{PICBOX_CONTROL_IDS[picbox_index]:04x}",
             "frame": frame_index,
             "resource": resource_index,
             "x": picbox.x,
@@ -509,6 +517,8 @@ class NowPlaying:
         return [
             {
                 "picbox": picbox_index,
+                "control_id": f"0x{PICBOX_CONTROL_IDS[picbox_index]:04x}",
+                "active_on_now_playing_paint": picbox_index in NOW_PLAYING_PICBOXES,
                 "frame": frame_index,
                 "resource": self.style.picboxes[picbox_index].frames[frame_index],
                 "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(
@@ -583,8 +593,6 @@ class NowPlaying:
         # frame choice is a host input because the AP state machine is not yet
         # emulated; the bitmap bytes and geometry themselves are not guessed.
         for picbox_index, frame_index in (
-            (0, self.status_frame),
-            (1, self.status_frame),
             (2, 0),
             (3, self.eq_frame),
             (4, self.transport_frame),

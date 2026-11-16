@@ -90,13 +90,16 @@ class M30UiTests(unittest.TestCase):
             status_frame=0,
         )
         frame = ui.render()
-        for picbox_index, frame_index in ((0, 0), (1, 0), (3, 1), (4, 1), (5, 0), (6, 0), (7, 0), (8, 0)):
+        for picbox_index, frame_index in ((2, 0), (3, 1), (4, 1), (5, 0), (6, 0), (7, 0), (8, 0)):
             picbox = style.picboxes[picbox_index]
             resource = style.bitmap(picbox.frames[frame_index])
             offset = (picbox.y * frame.width + picbox.x) * 3
             self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(resource.pixels[0])))
 
         selected = ui.selected_picbox_trace()
+        self.assertFalse(selected[0]["active_on_now_playing_paint"])
+        self.assertFalse(selected[1]["active_on_now_playing_paint"])
+        self.assertTrue(selected[2]["active_on_now_playing_paint"])
         self.assertEqual(selected[3]["state_semantics"], "eq-visible")
         self.assertEqual(selected[7]["state_semantics"], "title-icon")
 
