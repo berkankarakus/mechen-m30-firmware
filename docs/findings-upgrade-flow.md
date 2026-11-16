@@ -56,6 +56,15 @@ resource-name literals. It does not execute the overlay or write a candidate.
   exact filename-selection and validation contract still needs the indirect
   resident-call mapping.
 
+## Trace-only host boundary
+
+`tools/emu/upgrade_flow.py` records the five-option selection, confirmation
+request, known entry/failure selector values, and the observed decrypt/search
+preflight outcomes. It deliberately does not enforce an AP event order that
+the indirect calls have not proved. Its trace includes explicit provenance and
+forbids `flash`, `reboot`, and `successful-update` events; it is therefore a
+testable boundary model rather than an updater emulator.
+
 ## Emulator boundary
 
 The next implementation step is a trace-only state model for the verified

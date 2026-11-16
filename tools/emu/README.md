@@ -211,6 +211,26 @@ This is a resource-backed screen preview, not an updater implementation. The
 AP's file search, validation, confirmation, and power-off transitions remain a
 separate reverse-engineering boundary.
 
+The verified part of that boundary can be recorded without inventing updater
+behavior:
+
+```sh
+PYTHONPATH=tools/emu python3 - <<'PY'
+import json
+from upgrade_flow import UpgradeFlowTrace
+
+flow = UpgradeFlowTrace()
+flow.select(2)
+flow.request_confirm()
+flow.search_complete(filename="MECHEN_M30 HEX")
+print(json.dumps(flow.trace(), indent=2))
+PY
+```
+
+`upgrade_flow.py` is trace-only. It records the known selectors and preflight
+outcomes, but never emits a flash, reboot, or successful-update event while
+the fixed-ROM dispatcher remains unavailable.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh
