@@ -40,6 +40,12 @@ PICBOX_SEMANTICS = {
     8: "track-icon",
 }
 
+# The supplied device photo shows these music.sty controls in the persistent
+# header overlay.  They are not emitted by FUN_40154ddc itself, so the host
+# model keeps the overlay separate from the now-playing paint trace.
+OBSERVED_HEADER_FRAMES = ((1, 1), (0, 2))  # shuffle-on, repeat glyph
+HEADER_EQ_TEXTBOX = 5
+
 # FUN_40154ddc emits controls 0x1002..0x1008 on the now-playing refresh path.
 # PicBoxes 0 and 1 are present in music.sty, but no call-site in that paint
 # function selects them; drawing them here made the host preview show a pair
@@ -440,8 +446,13 @@ class NowPlaying:
     show_controls: bool = False
     elapsed: str = "00:18"
     track_position: str = "03/18"
+    duration: str = "0:04:08"
     progress_fraction: float = 0.40
     font: M30Font | None = None
+    show_header: bool = True
+    eq_label: str = "EQ:Jazz"
+    volume_level: int = 6
+    battery_percent: int = 100
 
     def dispatch_trace(self) -> list[dict[str, object]]:
         # This is the exact Ghidra-audited boundary that a future QEMU host
@@ -512,8 +523,12 @@ class NowPlaying:
         painted = {2, 3, 5, 6, 7, 8}
         if self.show_controls:
             painted.add(4)
+        if self.show_header:
+            painted.update(index for index, _ in OBSERVED_HEADER_FRAMES)
+        header_frames = dict(OBSERVED_HEADER_FRAMES) if self.show_header else {}
         selections = (
-            (0, self.status_frame), (1, self.status_frame), (2, 0),
+            (0, header_frames.get(0, self.status_frame)),
+            (1, header_frames.get(1, self.status_frame)), (2, 0),
             (3, self.eq_frame), (4, self.transport_frame),
             (5, self.status_frame), (6, self.status_frame),
             (7, self.status_frame), (8, self.status_frame),
@@ -533,6 +548,69 @@ class NowPlaying:
             for picbox_index, frame_index in selections
         ]
 
+    @staticmethod
+    def _outline(fb: Framebuffer, x: int, y: int, width: int, height: int, color: tuple[int, int, int]) -> None:
+        for xx in range(x, x + width):
+            fb.pixel(xx, y, color)
+            fb.pixel(xx, y + height - 1, color)
+        for yy in range(y, y + height):
+            fb.pixel(x, yy, color)
+            fb.pixel(x + width - 1, yy, color)
+
+    @staticmethod
+    def _speaker(fb: Framebuffer, x: int, y: int, color: tuple[int, int, int]) -> None:
+        # Compact speaker body + cone + two open wave strokes.  This is a
+        # host-only silhouette because the source bitmap is outside music.sty.
+        fb.rect(x, y + 5, 4, 7, color)
+        for row in range(9):
+            width = 2 + min(row, 8 - row)
+            for xx in range(width):
+                fb.pixel(x + 4 + xx, y + row + 4, color)
+        for delta in range(4):
+            fb.pixel(x + 13 + delta, y + 3 + delta, color)
+            fb.pixel(x + 13 + delta, y + 15 - delta, color)
+
+    @staticmethod
+    def _play_triangle(fb: Framebuffer, x: int, y: int, color: tuple[int, int, int]) -> None:
+        for row in range(12):
+            width = min(row + 1, 12 - row)
+            for xx in range(width):
+                fb.pixel(x + xx, y + row, color)
+
+    def _draw_host_status_icons(self, fb: Framebuffer) -> None:
+        """Draw the non-music.sty status glyphs as an explicit host overlay."""
+        color = (220, 225, 230)
+        self._speaker(fb, 6, 7, color)
+        self._draw_device_numeric(fb, str(max(0, min(99, self.volume_level))), 27, 6, (25, 2, 28, 20))
+        # The photo shows storage, play-state, and battery at the right edge;
+        # their exact source member/state is unresolved, so these remain
+        # deliberately simple host-only silhouettes.
+        self._outline(fb, 248, 7, 16, 13, color)
+        fb.rect(250, 6, 8, 2, color)
+        self._play_triangle(fb, 273, 8, color)
+        self._outline(fb, 295, 7, 19, 12, color)
+        fb.rect(314, 10, 3, 6, color)
+        fill = max(0, min(17, round(17 * self.battery_percent / 100)))
+        if fill:
+            fb.rect(297, 9, fill, 8, color)
+
+    def _draw_header_overlay(self, fb: Framebuffer) -> None:
+        if not self.show_header:
+            return
+        for picbox_index, frame_index in OBSERVED_HEADER_FRAMES:
+            self._draw_picbox_frame(fb, picbox_index, frame_index)
+        box = self.style.textboxes[HEADER_EQ_TEXTBOX]
+        color = self.style.color(box)
+        if self.font:
+            ink_bounds = self.font.vertical_ink_bounds(self.eq_label, pixel_scale=1)
+            text_y = box.y
+            if ink_bounds:
+                text_y = box.y + (box.height - (ink_bounds[1] - ink_bounds[0] + 1)) // 2 - ink_bounds[0]
+            self.font.draw_text(fb, self.eq_label, box.x, text_y, color, clip=(box.x, box.y, box.width, box.height))
+        else:
+            draw_text(fb, self.eq_label, box.x, box.y + 6, color, clip=(box.x, box.y, box.width, box.height))
+        self._draw_host_status_icons(fb)
+
     def _draw_device_numeric(self, fb: Framebuffer, text: str, x: int, y: int, clip: tuple[int, int, int, int]) -> None:
         """Draw time/track strings from the real 8x12 RU3 glyph resources."""
         resources = {str(index): 18 + index for index in range(10)}
@@ -551,27 +629,46 @@ class NowPlaying:
                         fb.pixel(px, py, rgb565(bitmap.pixels[row * bitmap.width + column]))
             cursor += bitmap.width
 
+    def _numeric_pixel_width(self, text: str) -> int:
+        """Measure a counter using the same native resources as its draw path."""
+        resources = {str(index): 18 + index for index in range(10)}
+        resources.update({":": 5, "/": 36})
+        return sum(
+            self.style.bitmap(resources[char]).width
+            for char in text
+            if char in resources
+        )
+
     def _draw_time_and_progress(self, fb: Framebuffer) -> None:
         """Render the music.sty timebox/progressbar geometry.
 
-        The first six words of the first timebox are the observed left
-        viewport (70,202,64,12,...).  The second timebox embeds the right
+        The numbox is the track-number counter above the footer controls.  The
+        first six words of the first timebox are the observed left
+        viewport (70,202,64,12,...).  The second timebox embeds the duration
         viewport at words 6..11 (235,202,64,12,...).  The progress resource
         is the 231x6 direct bitmap at resource 17; resources 31 and 32 are
         its one-pixel red/neutral fill columns.
         """
         if not self.style.timeboxes or not self.style.progressbars:
             return
+        if self.style.numboxes:
+            number = self.style.numboxes[0].words
+            number_width = self._numeric_pixel_width(self.track_position)
+            number_x = number[0] + max(0, (number[2] - number_width) // 2)
+            self._draw_device_numeric(
+                fb, self.track_position, number_x, number[1],
+                (number[0], number[1], number[2], number[3]),
+            )
         left = self.style.timeboxes[0].words
         self._draw_device_numeric(fb, self.elapsed, left[0], left[1], (left[0], left[1], left[2], left[3]))
         if len(self.style.timeboxes) > 1 and len(self.style.timeboxes[1].words) >= 10:
             right = self.style.timeboxes[1].words[6:]
-            track_width = right[2]
-            track_pixel_width = sum(self.style.bitmap(18 + int(ch)).width for ch in self.track_position if ch.isdigit()) + sum(
-                self.style.bitmap(5 if ch == ":" else 36).width for ch in self.track_position if ch in ":/"
+            duration_width = self._numeric_pixel_width(self.duration)
+            duration_x = right[0] + max(0, (right[2] - duration_width) // 2)
+            self._draw_device_numeric(
+                fb, self.duration, duration_x, right[1],
+                (right[0], right[1], right[2], right[3]),
             )
-            track_x = right[0] + max(0, (track_width - track_pixel_width) // 2)
-            self._draw_device_numeric(fb, self.track_position, track_x, right[1], (right[0], right[1], right[2], right[3]))
 
         bar = self.style.progressbars[0].words
         bar_x, bar_y = bar[1], bar[2]
@@ -594,6 +691,8 @@ class NowPlaying:
         # bands or separators that are absent from the RU3 records.
         fb.fill(rgb565(0x18C3))
 
+        self._draw_header_overlay(fb)
+
         # These are the actual music.sty PicBox coordinates/resources.  The
         # frame choice is a host input because the AP state machine is not yet
         # emulated; the bitmap bytes and geometry themselves are not guessed.
@@ -611,9 +710,14 @@ class NowPlaying:
         for box, value in zip(boxes, values):
             color = self.style.color(box)
             if self.font:
+                ink_bounds = self.font.vertical_ink_bounds(value, pixel_scale=1)
+                text_y = box.y
+                if ink_bounds:
+                    ink_height = ink_bounds[1] - ink_bounds[0] + 1
+                    text_y = box.y + (box.height - ink_height) // 2 - ink_bounds[0]
                 self.font.draw_marquee(
-                    fb, value, box.x, box.y, box.width,
-                    box.height, color, offset=self.scroll_offset, pixel_scale=2,
+                    fb, value, box.x, text_y, box.width,
+                    box.height, color, offset=self.scroll_offset, pixel_scale=1,
                 )
             else:
                 draw_marquee(
@@ -641,6 +745,7 @@ def main() -> int:
     parser.add_argument("--show-controls", action="store_true", help="show transient transport/metadata controls")
     parser.add_argument("--elapsed", default="00:18")
     parser.add_argument("--track-position", default="03/18")
+    parser.add_argument("--duration", default="0:04:08")
     parser.add_argument("--progress", dest="progress_fraction", type=float, default=0.40)
     parser.add_argument("--font", type=Path, help="M30 new_m.fnt; defaults to the style directory")
     args = parser.parse_args()
@@ -656,6 +761,7 @@ def main() -> int:
         show_controls=args.show_controls,
         elapsed=args.elapsed,
         track_position=args.track_position,
+        duration=args.duration,
         progress_fraction=args.progress_fraction,
         font=font,
     )

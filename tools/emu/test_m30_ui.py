@@ -48,7 +48,7 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[1]["style_id"], "0x2005")
 
     def test_transport_frame_semantics_are_explicit(self):
-        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
         selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
         self.assertEqual(selected[4]["frame"], 1)
         self.assertEqual(selected[4]["state_semantics"], "pause")
@@ -119,13 +119,55 @@ class M30UiTests(unittest.TestCase):
         background_offset = (220 * frame.width + 70 + round(bar.width * 0.4)) * 3
         self.assertEqual(frame.pixels[background_offset:background_offset + 3], bytes(rgb565(bar.pixels[round(bar.width * 0.4)])))
 
+    def test_footer_separates_track_number_from_duration(self):
+        style = MusicStyle.load(STY)
+        ui = NowPlaying(
+            style,
+            FirmwareTrace.load(AP),
+            track_position="88/103",
+            elapsed="0:00:00",
+            duration="0:04:08",
+            show_controls=True,
+            transport_frame=0,
+        )
+        frame = ui.render()
+        number = style.numboxes[0].words
+        background = bytes(rgb565(0x18C3))
+        self.assertTrue(any(
+            frame.pixels[(yy * frame.width + xx) * 3 : (yy * frame.width + xx + 1) * 3] != background
+            for yy in range(number[1], number[1] + number[3])
+            for xx in range(number[0], number[0] + number[2])
+        ))
+        right = style.timeboxes[1].words[6:]
+        self.assertTrue(any(
+            frame.pixels[(yy * frame.width + xx) * 3 : (yy * frame.width + xx + 1) * 3] != background
+            for yy in range(right[1], right[1] + right[3])
+            for xx in range(right[0], right[0] + right[2])
+        ))
+
+    def test_header_trace_matches_observed_resource_frames(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
+        self.assertEqual(selected[0]["frame"], 2)
+        self.assertEqual(selected[1]["frame"], 1)
+        self.assertTrue(selected[0]["painted_in_preview"])
+
     @unittest.skipUnless(FONT.exists(), "extracted M30 font is not present")
     def test_real_font_sparse_index_resolves_ascii_glyphs(self):
         font = M30Font.load(FONT)
         self.assertEqual(font.glyph("0").advance, 11)
         self.assertEqual(font.glyph("A").advance, 13)
+        self.assertEqual(font.glyph("M").advance, 18)
+        self.assertEqual(font.display_glyph("I").advance, 8)
+        self.assertEqual(font.display_glyph("M").advance, 12)
+        self.assertEqual(font.display_glyph("-").advance, 8)
+        self.assertEqual(font.display_glyph(".").advance, 6)
+        self.assertEqual(font.display_glyph("m").advance, 12)
+        self.assertEqual(font.display_glyph("i").advance, 7)
+        self.assertEqual(font.display_glyph("@").advance, 12)
+        self.assertEqual(font.vertical_ink_bounds("M", pixel_scale=1), (1, 14))
         self.assertGreater(sum(font.glyph("A").rows), 0)
-        self.assertEqual(font.text_width("A0", pixel_scale=2), 13)
+        self.assertEqual(font.text_width("A0", pixel_scale=2), 12)
 
     def test_marquee_uses_pixel_positions_and_gap(self):
         self.assertEqual(text_pixel_width("AB", 1), 12)

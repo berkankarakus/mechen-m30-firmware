@@ -120,7 +120,7 @@ def render_style(
                 textbox.y + 2,
                 color,
                 clip=(textbox.x, textbox.y, textbox.width, textbox.height),
-                pixel_scale=2,
+                pixel_scale=1,
             )
         else:
             draw_text(

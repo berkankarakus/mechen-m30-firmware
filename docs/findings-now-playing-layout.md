@@ -77,12 +77,15 @@ The extracted `new_m.fnt` is also an Actions sparse-index font: 1024 ten-byte
 presence entries begin at `0x10`, glyph records begin at `0x2810`, and this
 M30 member uses 61-byte records with a final advance-width byte.  ASCII glyph
 lookup is now implemented read-only in `tools/emu/m30_font.py`; the preview
-renders the metadata at a 2:1 downsample so the recovered glyph shapes fit the
-129-pixel TextBox viewports.  Each fixed 16-pixel row is clipped to the
-glyph's trailer advance before that bitmap and its advance are sampled; using
-the full row made narrow glyphs (notably `I`) overlap their neighbours.  This
-is a host-rendering correction only: `new_m.fnt` is not changed and no flash
-patch is proposed.
+renders the metadata at the native bitmap scale so the recovered glyph shapes
+fit the 129-pixel TextBox viewports.  Each fixed 16-pixel row is clipped to
+the glyph's trailer advance before drawing; using the full row made narrow
+glyphs (notably `I`) overlap their neighbours.  This is a host-rendering
+correction only: `new_m.fnt` is not changed and no flash patch is proposed.
+The raw ASCII and lowercase records are not a consistent display raster
+(punctuation such as `.` can also place ink outside its advance), so the host
+preview now uses a complete, deterministic 5x7-to-2x metadata rasterizer for
+printable ASCII.  The raw reader remains available for provenance.
 
 ## SDK-versus-M30 warning
 

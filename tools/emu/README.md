@@ -10,8 +10,9 @@ deterministic:
 3. `music_bitmap.py` validates the 32-entry `music.sty` resource table and
    decodes its direct format-`0x0002` RGB565 bitmap words.
 4. `m30_font.py` reads the sparse-index `new_m.fnt` font without modifying it;
-   the now-playing preview uses its scaled ASCII glyphs when the member is
-   available and falls back to the host test font otherwise.
+   the now-playing preview keeps those raw records for provenance and uses a
+   deterministic display-only ASCII rasterizer so broken lowercase and
+   punctuation records cannot distort the UI.
 5. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
    framebuffer using the real textbox geometry, the real album-art bitmap,
    and RGB565 colors.
