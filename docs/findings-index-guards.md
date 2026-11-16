@@ -56,3 +56,10 @@ two community guard sites do not cover this powered card-insertion trigger on
 the tested unit, or that a separate card-event path starts the builder. It
 does not invalidate the decompiled meaning of the two guard sites; it narrows
 the remaining work to the card-event/startup call chain.
+
+The host model keeps these outcomes separate: the static guard contract uses
+`CardChangePolicy.MANUAL_UPDATE_REQUIRED`, while the tested powered-card
+observation is represented explicitly by
+`CardChangePolicy.AUTOMATIC_REBUILD`. The latter requires a file count and
+enters the normal bounded update state; it does not claim that every card or
+startup trigger behaves this way.

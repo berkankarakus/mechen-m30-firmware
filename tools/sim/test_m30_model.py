@@ -3,6 +3,7 @@ import unittest
 
 from m30_model import (
     ArtworkSession,
+    CardChangePolicy,
     EQ_PRESETS,
     FIRMWARE_EQ_BAND_HZ,
     FIRMWARE_EQ_CUSTOM_DEFAULT,
@@ -42,6 +43,19 @@ class IndexStatusTests(unittest.TestCase):
         self.assertEqual(status.state, IndexState.DIRTY)
         self.assertEqual(status.progress, 0)
         self.assertIn("Manual", status.message)
+
+    def test_observed_automatic_card_change_starts_an_update(self):
+        status = IndexStatus(card_change_policy=CardChangePolicy.AUTOMATIC_REBUILD)
+        status.card_changed(files_total=4)
+        self.assertEqual(status.state, IndexState.UPDATING)
+        self.assertEqual(status.files_total, 4)
+        self.assertEqual(status.progress, 0)
+        self.assertIn("card change", status.message)
+
+    def test_automatic_card_change_requires_a_file_count(self):
+        status = IndexStatus(card_change_policy=CardChangePolicy.AUTOMATIC_REBUILD)
+        with self.assertRaises(ValueError):
+            status.card_changed()
 
     def test_update_progress_and_completion(self):
         status = IndexStatus()

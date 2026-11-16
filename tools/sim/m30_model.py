@@ -62,17 +62,33 @@ class IndexState(str, Enum):
     FAILED = "update-failed"
 
 
+class CardChangePolicy(str, Enum):
+    """Observed policy for a powered card-change event."""
+
+    MANUAL_UPDATE_REQUIRED = "manual-update-required"
+    AUTOMATIC_REBUILD = "automatic-rebuild"
+
+
 @dataclass
 class IndexStatus:
-    """State machine for the no-automatic-index policy."""
+    """State machine for manual and observed automatic index policies."""
 
     state: IndexState = IndexState.UP_TO_DATE
     progress: int = 100
     files_seen: int = 0
     files_total: int = 0
     message: str = "Index up to date"
+    card_change_policy: CardChangePolicy = CardChangePolicy.MANUAL_UPDATE_REQUIRED
 
-    def card_changed(self) -> None:
+    def card_changed(self, files_total: int | None = None) -> None:
+        if self.card_change_policy is CardChangePolicy.AUTOMATIC_REBUILD:
+            if files_total is None:
+                raise ValueError("automatic card changes require files_total")
+
+            self.begin(files_total)
+            self.message = "Updating playlist after card change"
+            return
+
         self.state = IndexState.DIRTY
         self.progress = 0
         self.message = "Manual Update Playlist required"

@@ -118,7 +118,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |
-| Manual-index policy | host state model + static automatic-index guards | PASS |
+| Manual-index policy | host state model + static automatic-index guards | PASS; manual path and tested powered-card automatic-rebuild path are separate; other triggers remain device-specific |
 | Artwork audio-first contract | host state model | PASS |
 | ASRC/EOF advance boundary | archived `music.ap` delta + host model | host contract present; mode-4 community path modeled, audible drain unverified |
 | Metadata reader boundary | archived `music.ap` delta + host model | host 0x200 split contract present; parser/callback ABI unresolved |
