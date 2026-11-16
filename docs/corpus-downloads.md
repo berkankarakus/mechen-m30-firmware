@@ -1,0 +1,109 @@
+# M30 corpus download manifest
+
+This is the reproducible download index for the firmware corpus used by the
+read-only comparisons in [`findings-version-corpus.md`](findings-version-corpus.md).
+The files are not stored in Git. A new analysis should download the original
+`MECHEN_M30.HEX` from the dated public Drive folder, save it under a unique
+date-named path, and verify the SHA-256 before decrypting or extracting it.
+
+## Canonical sources
+
+| Source | URL | Contents |
+|---|---|---|
+| M30 firmware root | <https://drive.google.com/drive/folders/1Y9v8c6FLR5lbxLY-PhAv-BQOeQa2BNev> | Dated firmware folders listed below |
+| 2025-06-26 direct HEX | <https://drive.google.com/file/d/1lTyyP05toQHbcnmmiK3R9FFToj9RZfxC/view> | `MECHEN_M30.HEX`, stock V1.101.10 |
+| Independent 2023-02-20 folder | <https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW> | `MECHEN_M30.HEX` and `Modification.txt` |
+| Independent `MUSIC.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> | Public comparison library; not proven to be M30-generated |
+| Community firmware source | <https://github.com/dev-zetta/mechen-m30-community-firmware> | V1.292.00 source/release corpus |
+| Actions unpacker | <https://github.com/Rockbox/rockbox/tree/master/utils/atj2137/atjboottool> | `atjboottool` build source |
+
+The Drive root exposes the dated folders. The table records each folder URL,
+so another analyst can navigate to `MECHEN_M30.HEX` even when Google changes
+the individual file URL. Only the 2025-06-26 individual file ID is preserved
+in the current evidence; no direct file ID is guessed for the other releases.
+
+## Dated HEX files
+
+Every dated folder contains a file named `MECHEN_M30.HEX`. Download that file,
+then compare its complete SHA-256 with this table before using it. The notes
+column is the accompanying modification description used by the analysis.
+
+| Date | Folder URL | SHA-256 | Modification note |
+|---|---|---|---|
+| 2022-08-05 | <https://drive.google.com/drive/folders/1tckT1luFSrfXn5H1iCRvVwfNqC_iY4py> | `ee47440fdc5fbcb8bef85119d4ce39108ad92b961bb100cfa3c785bf858c14ac` | Title sorting; lock-screen playback/volume controls |
+| 2022-08-16 | <https://drive.google.com/drive/folders/17wbTH105rnSaTFOeza2ih8Iwz7lWJlGt> | `aa07468df20f8f0ca3116c1e0bb1305b1ab6eecbfdf32bb7ef70c7dcde0b2a6e` | Disable wheel/buttons in lock screen |
+| 2022-09-14 | <https://drive.google.com/drive/folders/1E9enHNePSCDB-HOVBNnyqfXaobRGHvh8> | `6aa4e532307b5147d3da982439e0bfb82aca051853c3c911668fc651d909a640` | Wheel direction: next/previous track |
+| 2022-11-17 | <https://drive.google.com/drive/folders/19CJ4FG10OQh6FbZ-BO98R36RgTYR1PPR> | `aa54f80afb13bb6d6c405854643a2d06f8ef768b5b958d3aac9f711a65224e72` | Add volume-limit function; `modefications.txt` |
+| 2022-12-16 | <https://drive.google.com/drive/folders/1bEdfi4fHNQzieijt1CjNMzLVjsh098zx> | `0e56c50e9720da7e95910582fbd1c293f77c1f1346c755a02ca2e08b5753184e` | Fix boot volume zero bug |
+| 2023-02-20 | <https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW> | `ee164011fb1fe30f552348613f832c5cb0f2aee271834f891aad22be6674e6da` | Make sleep timer persistent; `Modification.txt` |
+| 2023-07-26 | <https://drive.google.com/drive/folders/1Wk7uw9FxE-jVf4qIY12Fx-Agrq0enZRv> | `07a8917d0d71c11894f9ecbb394b7013e04f2513d0ad5181ad9a3cb5e49c9bd5` | Any key activates the device |
+| 2024-02-28 | <https://drive.google.com/drive/folders/1T22Xc9buWp-bJLH_CUn298A-vMbfNBeP> | `ac761a406b99366804c64df3d353fb73f11d91e4bea386202c22a4cd70d33739` | Lock-screen playback/volume controls |
+| 2024-03-19 | <https://drive.google.com/drive/folders/1l6uaXoZoD3yNJuk7wfJe8_9y8XB5ELIH> | `6103567b8ef71b635ad7ff1715070982e4135bb0fe1864d8e1d7b95aa5463752` | English and Russian versions integrated |
+| 2024-04-24 | <https://drive.google.com/drive/folders/1wH7JtI31Yx1eoCgixPHHTq_CqwIMAeyj> | `8355edd60c4b964ef85d5510ed634cc50591b35f6a8e95f95d4a40b09ef99289` | Repeat-1 stop mode |
+| 2025-02-17 | <https://drive.google.com/drive/folders/1KaSNsT-HOtyisZLx97XC4fzQW35ZJmyd> | `7ec4f3e1f528d7368a27a18db4fb51253823cf42a9e1760f4381b4233eb9974e` | `.fw` filename describes main-screen rotation/lock-screen buttons |
+| 2025-06-26 | <https://drive.google.com/drive/folders/1cHhh5JISi_dwgFxokZb4wETnC6Tx7Ueh> | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` | Fix custom-EQ reboot volume-off issue |
+
+## Download and verify
+
+The only stable command-line URL currently recorded is the direct 2025-06-26
+file URL:
+
+```sh
+curl -L -o MECHEN_M30.HEX \
+  'https://drive.google.com/uc?export=download&id=1lTyyP05toQHbcnmmiK3R9FFToj9RZfxC'
+shasum -a 256 MECHEN_M30.HEX
+```
+
+For another date, open its folder URL, download the file named
+`MECHEN_M30.HEX`, and verify the matching row above. Do not rename different
+releases to one shared path before hashing; the date is part of the provenance.
+
+After verification, the expected offline layout is:
+
+```text
+m30-inputs/
+  stock/2025-06-26/MECHEN_M30.HEX
+  drive/2022-08-05/MECHEN_M30.HEX
+  drive/2022-08-16/MECHEN_M30.HEX
+  ...
+  drive/2025-06-26/MECHEN_M30.HEX
+```
+
+The unpacked layout used by the probes is one directory per date with
+`afi/`, `fw/`, and the original extraction logs. The repository's static
+suite never downloads files and never writes a flashable HEX; it consumes
+already verified files from outside Git.
+
+## Independent MUSIC.LIB sample
+
+The raw comparison file at
+<https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> was
+downloaded and stored outside the repository at:
+
+```text
+<persistent-evidence-root>/MUSIC.LIB
+```
+
+Its verified SHA-256 is
+`cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe`.
+It is 1,536,000 bytes and contains 251 records. It is a layout/comparison
+sample only, not an M30 device dump; keep that provenance label when using it.
+
+## Interpretation boundary
+
+The HEX is an Actions FWU v3 container. The analysis flow is:
+
+1. Verify the complete HEX hash from this manifest.
+2. Decrypt/unpack with `atjboottool` and retain the AFI/FWIMAGE checksum logs.
+3. Hash each extracted member before comparing releases.
+4. Treat changed members as evidence only after correlating them with the
+   dated modification note and, where needed, a Ghidra decompile.
+5. Feed only the confirmed byte boundary into a host model; keep unresolved
+   bytes as raw/opaque data.
+
+For the current index work, the important extracted member is `MUSIC.LIB`
+from a player-created card image, not a generic public sample. The emulator
+therefore models the confirmed `0x200` header, 256-byte records, section
+directories, 512-byte sector references, raw order/inverse/node-index tables,
+and decoded 16-byte nodes, while keeping filesystem-location bytes and
+M30-specific UI grouping semantics unresolved.

@@ -63,5 +63,8 @@ address, and 512-byte transfer-unit conversion. It also preserves the raw
 WRITE(10)'s direction remains unset. The request can now move exact sector
 bytes through the existing `SdCardBlockDevice`, which keeps the storage
 boundary useful without claiming that the USB transport framing is complete.
-The model still does not serialize a complete CBW, invent a CSW, interpret
-status codes, or emulate controller timing.
+The model still does not invent a CSW, interpret status codes, or emulate
+controller timing. `GuessedUsbMassStorageCommandBlock` now provides an
+explicitly labeled, test-covered 31-byte CBW-shaped hypothesis around the
+verified request fields; it is an emulator experiment, not a recovered
+firmware contract.

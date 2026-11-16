@@ -54,9 +54,49 @@ exposes these as `LibrarySectionTables` without validating or rewriting the
 values. The public comparison's grouping divergence is why the host model
 does not turn these tables into a user-facing sort policy.
 
+## New Ghidra confirmation
+
+Ghidra 12.2 was run against the extracted 2025-06-26 `playlist.ap` with:
+
+```sh
+bash tools/ghidra/run_library_index_probe.sh \
+  /path/to/2025-06-26/fw/playlist.ap \
+  /private/tmp/m30-ghidra-library-index-current
+```
+
+The probe decompiles the four index passes, the node writer, the shared sort
+dispatcher, and the text-key converter. The node writer confirms that the
+first record is read from the sorted order array, each node consumes one
+positive run length, child counts are accumulated from a child run stream,
+and parent indices advance from a parent run stream. It writes the previous
+and next links from the node counter and terminates the final next link with
+`0xffff`. The main entry calls the passes in `ALLSONG`, `ALBUM`, `ARTIST`,
+`GENRE` order. The converter distinguishes UTF-16LE BOM, UTF-8 BOM, and
+plain-byte paths, with the BOM paths reading twice the requested field width
+before conversion.
+
+The preserved decompile output `index.c` has SHA-256
+`b4d24e168ca61c697c489404ad35d92644d6a0e0effb5b03b010e76dc356fcbc`.
+The same hash was obtained for all twelve dated `playlist.ap` members in the
+corpus (2022-08-05 through 2025-06-26). The decompile outputs are intentionally
+kept outside the repository because they are derived from vendor firmware; the
+probe is the canonical regeneration path. This twelve-release match makes
+the index/node/key-converter contract a cross-version finding, but it does not
+resolve the opaque location bytes or prove that the public sample's grouping
+is M30-specific.
+
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public
 [MUSIC.LIB member](https://github.com/xleph/MP3.LIB/blob/main/MUSIC.LIB).
+
+The raw member was downloaded from
+<https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> and is
+kept outside the repository at
+`<persistent-evidence-root>/MUSIC.LIB`. Its SHA-256 is
+`cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe`.
+Passing this image through `SdCardBlockDevice`, `read_library_layout()`, and
+`interpret_library_section_index()` confirms the 251-record header/record
+boundary and the section node spans without copying the binary into Git.
 
 The comparison binary was used only as a temporary local hex reference. It is
 not stored in this repository.
@@ -66,6 +106,11 @@ not stored in this repository.
 `tools/sim/library_file.py` keeps `read_library_section_nodes()` as a raw
 16-byte reader and adds `decode_library_section_node()` for the field layout.
 This preserves unknown bytes and lets callers opt into the recovered fields.
+`interpret_library_section_index()` now maps each validated node's song span
+back to the raw record indices in the section order table. It validates the
+order, inverse, node-index, node-link, and coverage contracts first, then
+returns a read-only view; it does not rewrite tables or assign user-facing
+folder/album/artist semantics.
 
 Confidence is high for the byte order, field widths, and offsets because the
 local builder and the independent hex sample agree. Confidence is medium for

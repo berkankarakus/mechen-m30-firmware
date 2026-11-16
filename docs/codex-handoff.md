@@ -90,6 +90,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   başlangıç sektöründen byte image, bounded `LibraryRecord`, raw/typed section
   `u16` table, typed section snapshot ve fail-closed table/node-link validation
   ile 16-byte section node kayıtları okunabilir.
+  `interpret_library_section_index()` doğrulanmış node run'larını raw record
+  indekslerine read-only olarak eşler; UI albüm/sanatçı anlamı atamaz.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; public örneğin grouping/sort çıktısı local modelden farklı olduğu için
@@ -134,6 +136,8 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`findings-kernel-loader.md`](findings-kernel-loader.md)
 - [`findings-filesystem-drivers.md`](findings-filesystem-drivers.md)
 - [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md)
+- [`library-builder.md`](library-builder.md): record storage, key conversion,
+  index passes, node writer, and large-library constraints.
 - [`findings-library-record-locations.md`](findings-library-record-locations.md)
 - [`findings-ui-resources.md`](findings-ui-resources.md)
 - [`findings-decoder-callback.md`](findings-decoder-callback.md)
@@ -143,6 +147,8 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`provenance-risk.md`](provenance-risk.md): public/private reverse-engineering
   artifact ayrımı ve MIT lisansının kapsam sınırı.
 - [`discovery-environment.md`](discovery-environment.md)
+- [`corpus-downloads.md`](corpus-downloads.md): dated Drive folder URLs,
+  hashes, download verification, and extraction boundary.
 - [`../tools/rom/README.md`](../tools/rom/README.md)
 
 ## Değişmez kurallar

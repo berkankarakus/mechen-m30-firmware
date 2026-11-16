@@ -314,6 +314,16 @@ index), and the depth byte. Node layout: `u8 1`, `u8 depth`, `u16 children`, `u1
 `u16 first song record`, `u16 first child`, `u16 parent`, `u16 prev`, `u16 next`. `0xffff` means
 none. It returns the node count.
 
+The same contract was rechecked with Ghidra 12.2 against the 2025-06-26
+`playlist.ap` by `tools/ghidra/run_library_index_probe.sh`. The decompile shows
+the writer consuming a run-length entry for each node, advancing the first
+record pointer by that song count, accumulating child counts from the child
+run stream, and advancing the parent index from the parent run stream. It
+also writes adjacent-node links as `node_index - 1` and `node_index + 1`, then
+replaces the final next link with `0xffff`. This is direct evidence for the
+wire contract; it still does not give the nodes a user-facing album/artist
+meaning.
+
 ## MUSIC.LIB layout
 
 The file is one 512-byte header, then `N` records, then per section the node tables and three

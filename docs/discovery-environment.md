@@ -5,6 +5,9 @@ kullanılan ortamı kaydeder. Burada üretilen Ghidra çıktıları (`*_communit
 satıcı firmware'inden türetildiği için depoya eklenmedi; aşağıdaki komutlarla
 yeniden üretilir.
 
+Dated HEX klasör URL'leri ve hash doğrulaması için önce
+[`corpus-downloads.md`](corpus-downloads.md) manifestini kullan.
+
 ## Girdiler (repo dışında)
 
 | Ne | Yol (yerel çalışma alanı) | SHA-256 |

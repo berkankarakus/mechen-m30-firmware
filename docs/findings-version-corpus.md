@@ -5,6 +5,9 @@ community-firmware archive. Each image was decrypted and extracted with the
 Rockbox `atjboottool` before the comparison. The temporary extraction root is
 not part of this repository.
 
+The reproducible public download URLs, dated Drive folder IDs, and verified
+HEX hashes are indexed in [`corpus-downloads.md`](corpus-downloads.md).
+
 ## Corpus
 
 The tested versions are:
@@ -123,8 +126,48 @@ every changed byte as a new contract:
 
 - 2022-08-16 to 2022-09-14 has four repeated one-byte changes in each AP's
   corresponding table area, consistent with the wheel-direction note.
+- 2022-09-14 to 2022-11-17 adds one `setting.mcg` node (70 to 71); the new
+  node has ID `182`, while the accompanying note says "Add volume limit
+  function". Node `182` remains present in every later extracted release. The
+  host model therefore implements only the evidenced UI-level 0..100 clamp and
+  does not infer DAC gain or persistence semantics.
+- The same 2022-09-14 to 2022-11-17 transition changes five `setting.ap`
+  banks: `0x40214c00` (3 bytes), `0x402d4c00` (3 bytes), `0x48a54600`
+  (1252 bytes), `0x48a94600` (496 bytes), and `0x48bd4600` (1229 bytes).
+  Ghidra shows the changed `FUN_48a94798` at `0x48a94600` changing from a
+  two-byte volume conversion helper to a pointer-based control helper that
+  initializes a local upper bound of `100` and clamps `*param_1` to `*param_2`.
+  This strengthens the UI/control-level volume-limit contract while leaving
+  the downstream DAC scale unresolved.
+- A twelve-release scan of the same function window (`0x48a94798` plus
+  `0x100` bytes) shows three phases: the first three releases share legacy
+  conversion-window SHA-256 prefix `f0b343d14ed3c101`; 2022-11-17 has the
+  new clamp-window prefix `281d194e656c34e1`; and 2022-12-16 through
+  2025-06-26 share `7521b6811f9dc424`. The only 2022-11-17 → 2022-12-16
+  byte inside that window is virtual address `0x48a9486e`, consistent with
+  the separate boot-volume-zero fix. The 100-level clamp is therefore not a
+  one-release anomaly.
 - 2022-12-16 to 2023-02-20 changes only `config.ap` among the extracted
-  members, consistent with the sleep-timer note.
+  members, consistent with the sleep-timer note. All 338 byte differences are
+  inside the `config.ap` bank at file `0x1400` / virtual `0x40054c00`; the
+  changed virtual span is `0x40054f98..0x40055383`. This is the next focused
+  decompile boundary for persistence semantics. The host model records only
+  the verified distinction between a one-shot and reboot-persistent selected
+  value; it intentionally leaves timer units, selectable values, countdown,
+  and storage layout unresolved.
+- Ghidra 12.2 decompilation of that boundary identifies the handler
+  `FUN_40054f84` in both releases. After normalizing address shifts, its
+  control flow is the same except that the 2022-12-16 handler clears one
+  state byte (`state + 0x0b`) before writing the setting records; the
+  2023-02-20 handler no longer performs that clear. This is direct binary
+  evidence for the one-shot-to-persistent setting change, but it does not
+  identify the timer unit or countdown implementation. The single stored
+  decompile artifact has SHA-256
+  `a7fe6a37b3f37dfd09fefafd0bcd7e9127e5cfdc1af2683241ea860ac21e0368`.
+  The reusable `tools/emu/sleep_timer_delta_probe.py` checks the 338-byte
+  file span and its mapped virtual range without requiring Ghidra.
+  The stored volume-handler decompile artifact has SHA-256
+  `fa9d1666587a2827a191a2285430c9ddad1ef59133c85f4a39cccf379f0ef177`.
 - 2024-02-28 to 2024-03-19 changes `drv_ui.drv` and `setting.mcg` in addition
   to the application overlays, matching the language-integration note.
 - 2024-04-24 has a unique first EQ frequency of 50 Hz in `mengine.ap`; all
@@ -136,6 +179,27 @@ The 17 existing binary probes passed for 11 of 12 releases (203/204 probe
 runs). The only failure is the intentional 2024-04-24 EQ-frequency mismatch
 above. This is evidence that the host contracts are broadly cross-version
 stable while still exposing isolated release-specific exceptions.
+
+The adjacent member-delta matrix is:
+
+| Transition | Changed member scope | Note correlation |
+|---|---|---|
+| 2022-08-05 → 2022-08-16 | Nine application overlays: browser/config/mainmenu/music/playlist/setting/udisk/upgrade/usound | Lock-screen wheel and button policy |
+| 2022-08-16 → 2022-09-14 | The same nine application overlays, with four repeated byte changes per overlay | Wheel direction |
+| 2022-09-14 → 2022-11-17 | Seven application overlays plus `common.sty` and `setting.mcg` | Volume-limit feature; node `182` appears |
+| 2022-11-17 → 2022-12-16 | Seven application overlays | Boot-volume-zero fix |
+| 2022-12-16 → 2023-02-20 | `config.ap` only | Persistent sleep-timer change |
+| 2023-02-20 → 2023-07-26 | Nine application overlays plus `mengine.ap` | Any-key activation |
+| 2023-07-26 → 2024-02-28 | Nine application overlays | Lock-screen controls |
+| 2024-02-28 → 2024-03-19 | Nine application overlays, `drv_ui.drv`, and `setting.mcg` | English/Russian integration |
+| 2024-03-19 → 2024-04-24 | Application overlays plus `mainmenu.sty`, `music.mcg`, `music.sty`, `setting.mcg`, and `setting.sty` | Repeat-1 stop mode and resource updates |
+| 2024-04-24 → 2025-02-17 | Application overlays plus `mainmenu.sty`, `music.mcg`, `music.sty`, `setting.mcg`, and `setting.sty` | Filename-described UI/lock-screen changes |
+| 2025-02-17 → 2025-06-26 | Application overlays, `drv_ui.drv`, UI resources, and new `1257l.tbl`/`v1257.tbl` members | Custom-EQ reboot-volume fix |
+
+The matrix is intentionally a member-level result, not a claim that every
+changed byte implements the corresponding feature. It identifies the next
+decompile/probe boundary and keeps unrelated resource churn out of the host
+contract.
 
 ## Provider result
 
