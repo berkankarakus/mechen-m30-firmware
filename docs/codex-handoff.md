@@ -115,6 +115,8 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`findings-ui-resources.md`](findings-ui-resources.md)
 - [`findings-decoder-callback.md`](findings-decoder-callback.md)
 - [`findings-cards-driver.md`](findings-cards-driver.md)
+- [`findings-device-artifacts.md`](findings-device-artifacts.md): çevrimiçi
+  M30 kaynakları, eksik cihaz artefaktları ve güvenlik sınırları.
 - [`provenance-risk.md`](provenance-risk.md): public/private reverse-engineering
   artifact ayrımı ve MIT lisansının kapsam sınırı.
 - [`discovery-environment.md`](discovery-environment.md)
