@@ -146,3 +146,33 @@ directories, 512-byte sector references, raw order/inverse/node-index tables,
 and decoded 16-byte nodes. The reader's eight-byte location-key lookup is also
 modeled; the primary location blob, record links, and M30-specific UI grouping
 semantics remain unresolved.
+
+## 2026-11-16 download audit
+
+The dated public folders were fetched read-only into the external evidence
+path `/Users/berkankarakus/Projects/m30-inputs/hex/`. The following hashes were
+calculated locally after download. Eleven files were found from the folder
+listing, and the previously unavailable 2022-11-17 folder was recovered via
+an alternate Drive URL. The files are not copied into Git and are not flashed.
+
+| Date | Downloaded SHA-256 | Manifest status |
+|---|---|---|
+| 2022-08-05 | `1bccada9c943cf29495968a9f58c7c5fb949e47f1d7bb5a4134dc8c7f1803315` | differs from recorded hash; unresolved |
+| 2022-08-16 | `43ff251f90a5d80cf6fb8269d51be859d4c29a39a21ec7e19ddd32b542eb7b49` | differs from recorded hash; unresolved |
+| 2022-09-14 | `6aa4e532307b5147d3da982439e0bfb82aca051853c3c911668fc651d909a640` | matches |
+| 2022-11-17 | `aa54f80afb13bb6d6c405854643a2d06f8ef768b5b958d3aac9f711a65224e72` | matches |
+| 2022-12-16 | `5191d95f878f13cd480df3a07735235715ad52efe421fdd07eeb4a1965797e1c` | differs from recorded hash; unresolved |
+| 2023-02-20 | `ee164011fb1fe30f552348613f832c5cb0f2aee271834f891aad22be6674e6da` | matches |
+| 2023-07-26 | `07a8917d0d71c11894f9ecbb394b7013e04f2513d0ad5181ad9a3cb5e49c9bd5` | matches |
+| 2024-02-28 | `ac761a406b99366804c64df3d353fb73f11d91e4bea386202c22a4cd70d33739` | matches |
+| 2024-03-19 | `6103567b8ef71b635ad7ff1715070982e4135bb0fe1864d8e1d7b95aa5463752` | matches |
+| 2024-04-24 | `8355edd60c4b964ef85d5510ed634cc50591b35f6a8e95f95d4a40b09ef99289` | matches |
+| 2025-02-17 | `7ec4f3e1f528d7368a27a18db4fb51253823cf42a9e1760f4381b4233eb9974e` | matches |
+| 2025-06-26 | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` | matches |
+
+The three differing 2022 hashes are preserved as unresolved provenance
+discrepancies, not silently substituted into the manifest. They must not be
+used as cross-version evidence until their source/version relationship is
+resolved. `atjboottool` extraction of these newly downloaded HEX files is a
+separate step; the existing six extracted corpora remain the authoritative
+inputs for the current static suite.

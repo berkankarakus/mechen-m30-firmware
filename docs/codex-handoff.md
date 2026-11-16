@@ -6,7 +6,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 ## Güncel durum — 2026-11-16
 
-- Dal: `main`; push yapılmadı.
+- Dal: `main`; `fork/main` ile aynı commit'te (`bb31b85`). Önceki handoff
+  commit'i (`11833fa`) push edildi; bu pull sonrası yerel ek değişiklik yok.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Son teknik değişiklik ve commit kimliği için `git log -1 --oneline` kullanılır.
 - Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
@@ -14,11 +15,13 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ve `python3 tools/verify_persistent_evidence.py <evidence-root>` kullanılır;
   firmware, cihaz SD dosyaları ve Ghidra çıktıları Git dışında kalıcı kanıt
   kökünde tutulur.
-- Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
-  `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
-- Corpus gate: beklenen `analysis/*` dizinleri mevcut fakat boş; `m30-inputs`
-  ve tracked firmware binary'leri yok. Corpus karşılaştırması, yeni Ghidra
-  araması ve provider taraması bu dosyalar sağlanana kadar çalıştırılmaz.
+- Host-only suite son çalıştırmada başarılı oldu; güncel sonucu yeniden görmek
+  için yukarıdaki komutu çalıştır.
+- Tam suite için gerekli yerel corpus klasörleri mevcut (`stock`, `community`,
+  `first-pass-verify`, `v1.101.11`, `v1.101.12`, `v5`; her biri 99 extracted
+  member). Pull sonrası tam suite Ghidra aşamasına kadar ilerledi, ancak bu
+  inceleme turunda manuel olarak durduruldu; bu nedenle yeni commit'ler için
+  `STATIC SUITE PASS full` sonucu henüz kaydedilmemelidir.
 
 ## Kanıt → emulator karşılıkları
 

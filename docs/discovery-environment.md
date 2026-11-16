@@ -105,20 +105,18 @@ Eksik historical corpus'ları community kopyasına bağlamak geçerli değildir:
 
 ### Corpus gate
 
-Repo checkout'undaki beklenen altı dizin
+Bu çalışma makinesinde beklenen altı extracted corpus
 (`analysis/community`, `analysis/first-pass-verify`, `analysis/stock`,
-`analysis/v1.101.11`, `analysis/v1.101.12`, `analysis/v5`) mevcut olsa da
-hepsi hâlâ boştur. `m30-inputs` kökü de mevcut değildir ve firmware
-binary'leri repo içinde tracked değildir. Buna ek olarak, 2023 public update
-geçici olarak `/private/tmp/m30-corpus/2023-02-20/fw` altında açılmış ve
-`docs/findings-version-corpus.md` içindeki probe sonuçları bu extraction ile
-doğrulanmıştır.
+`analysis/v1.101.11`, `analysis/v1.101.12`, `analysis/v5`) mevcut ve her biri
+99 member içeriyor; bunlar Git'te tracked değildir. Tarihli özgün HEX girdileri
+`/Users/berkankarakus/Projects/m30-inputs/hex/` altında tutulur. Temiz bir
+checkout'ta bu yollar bulunmayabilir; o durumda tam suite, Ghidra yeniden-
+dekompilasyonu veya sürüm karşılaştırmaları çalıştırılmadan önce
+`corpus-downloads.md` ve `portable-handoff.md` izlenmelidir. Boş dizinleri
+community kopyasına bağlamak kanıt üretmez.
 
-Repo içindeki altı historical corpus hazır olmadığı sürece bunlara dayanan tam
-suite, Ghidra yeniden-dekompilasyonu veya sürüm karşılaştırmaları çalıştırılmamalıdır.
-2023 extraction gibi dışarıda tutulan bir corpus, yalnızca açıkça belirtilen
-tekil probe'lar için kullanılabilir. Boş dizinleri community kopyasına
-bağlamak kanıt üretmez.
+2023 public update'in extracted kopyası da aynı tarihli HEX'ten yeniden
+oluşturulabilir; mevcut yerel sonuçlar ayrı bir corpus olarak tutulmalıdır.
 
 ## Üyeleri açma
 
