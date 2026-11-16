@@ -22,6 +22,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `analysis/community/dec.bin` kritik extracted üyeleri birer kez içerir ve
   `0xbfc06d6c` handler işaretçisi içermez. `tools/emu/dec_container_probe.py`
   bu sınırı kontrol eder; eksik fixed-ROM handler'ı mevcut dump'tan çıkarılamaz.
+- `tools/emu/kernel_syscall_scope_probe.py`, `ker_text.bin`, `ker_init.bin`
+  ve `kernel.drv` içinde sıfır MIPS16 `break` noktası doğrular. Selector
+  dispatcher'ı bu extracted kernel üyelerinde yoktur; `break 0` etkisi fixed
+  ROM sınırında kalır.
 - DAC caller taraması da tekrar üretilebilir durumda:
   `tools/emu/dac_caller_scan.py`. Doğrudan helper pointer'ları yalnızca
   sürücü/container kopyalarında bulunur; codec register anlamı çözülmüş
