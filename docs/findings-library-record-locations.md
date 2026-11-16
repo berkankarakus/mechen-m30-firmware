@@ -29,6 +29,16 @@ group scratch tables. The temporary key layout is documented in the source as
 none of the record-tail location bytes are copied into it. The `0xa8`
 `always_one` byte is likewise not consumed by this pass.
 
+The record scan's location write is now traced one step further. In
+`FUN_40094f2c`, the firmware calls the filesystem module entry
+`0xbfc1640d` (module `0x11`) with operation `3`, passing the primary buffer
+at `record + 0xa9` and the secondary buffer at `record + 0xf4` together.
+The pointer is resolved from the literal pool, not inferred from the record
+bytes. This establishes that both slices are produced by one filesystem
+location ABI call; it still does not establish the internal layout of the
+73-byte primary result. The repeatable check is
+`tools/ghidra/run_library_record_probe.sh`.
+
 The host codec preserves the unresolved regions and decodes the supported
 secondary file key:
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify the playlist fallback record and track-number parser boundary.
+# Verify the playlist record/location ABI and fallback track-number parser boundary.
 # Static Ghidra analysis only; no firmware or library is modified.
 set -euo pipefail
 
@@ -31,11 +31,15 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$PLAYLIST" \
-  -postScript DumpAt.java 0x40094c8c,0x40094d60 "$WORK/fallback.c" containing \
+  -postScript DumpAt.java 0x40094c8c,0x40094d60,0x40094f2c,0x40094fec "$WORK/fallback.c" containing \
+  -postScript DumpWords.java 0x40094fe8 0x40094fec \
   >"$WORK/run.log" 2>&1
 
 grep -q 'DumpAt: 40094c8c -> FUN_40094c8c' "$WORK/run.log"
 grep -q 'DumpAt: 40094d60 -> FUN_40094d60' "$WORK/run.log"
+grep -q 'DumpAt: 40094f2c -> FUN_40094f2c' "$WORK/run.log"
+grep -q 'DumpAt: 40094fec -> FUN_40094fec' "$WORK/run.log"
+grep -q 'WORD address=40094fe8 value=0xbfc1640d' "$WORK/run.log"
 grep -q "param_1\[bStack_10\] = '.'" "$WORK/fallback.c"
 grep -q 'bStack_f = 9' "$WORK/fallback.c"
 grep -q 'bStack_10 < 4' "$WORK/fallback.c"
@@ -43,5 +47,7 @@ grep -q "_UNK_40094f24\[bStack_10\] != '/'" "$WORK/fallback.c"
 grep -q '0x2f < (byte)_UNK_40094f24' "$WORK/fallback.c"
 grep -q 'bStack_f = bStack_f \*' "$WORK/fallback.c"
 grep -q 'undefined2.*= 0xffff' "$WORK/fallback.c"
+grep -q '+ 0xa9' "$WORK/fallback.c"
+grep -q '+ 0xf4' "$WORK/fallback.c"
 
-echo 'LIBRARY RECORD GHIDRA PASS short-name=FUN_40094c8c track-prefix=4-digits fallback=0xffff'
+echo 'LIBRARY RECORD GHIDRA PASS location-callback=0xbfc1640d op=3 short-name=FUN_40094c8c track-prefix=4-digits fallback=0xffff'
