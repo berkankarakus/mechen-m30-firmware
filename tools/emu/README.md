@@ -290,6 +290,10 @@ The transport frame mapping is explicit from the bitmap atlas: `music.sty`
 PicBox 4 uses play/pause/next/previous at frames 0..3, while PicBox 1 uses
 shuffle-off/shuffle-on at frames 0..1. Other top-row status frames remain
 labeled `unresolved` until an AP state branch selects them.
+PicBox 3 is a separate EQ indicator: frame 0 is blank and frame 1 contains
+the shipped `EQ:` bitmap. It is not the bottom progress bar; that bar is the
+independent `progressbar[0]` record. PicBoxes 5..8 are fixed album, artist,
+title, and track glyphs, and their roles are included in the JSON trace.
 
 ## Folder/list visualizer
 

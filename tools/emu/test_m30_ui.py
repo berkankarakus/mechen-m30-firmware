@@ -86,7 +86,7 @@ class M30UiTests(unittest.TestCase):
             style,
             FirmwareTrace.load(AP),
             transport_frame=1,
-            progress_frame=1,
+            eq_frame=1,
             status_frame=0,
         )
         frame = ui.render()
@@ -95,6 +95,10 @@ class M30UiTests(unittest.TestCase):
             resource = style.bitmap(picbox.frames[frame_index])
             offset = (picbox.y * frame.width + picbox.x) * 3
             self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(resource.pixels[0])))
+
+        selected = ui.selected_picbox_trace()
+        self.assertEqual(selected[3]["state_semantics"], "eq-visible")
+        self.assertEqual(selected[7]["state_semantics"], "title-icon")
 
     def test_render_uses_real_numeric_glyph_and_progress_resources(self):
         style = MusicStyle.load(STY)

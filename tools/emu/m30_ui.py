@@ -29,7 +29,15 @@ RU3_MAGIC = b"RU3\x19"
 
 PICBOX_FRAME_SEMANTICS = {
     1: {0: "shuffle-off", 1: "shuffle-on"},
+    3: {0: "eq-hidden", 1: "eq-visible"},
     4: {0: "play", 1: "pause", 2: "next", 3: "previous"},
+}
+
+PICBOX_SEMANTICS = {
+    5: "album-icon",
+    6: "artist-icon",
+    7: "title-icon",
+    8: "track-icon",
 }
 
 # Ghidra names these as _UNK_40d551xx because they are literal-pool function
@@ -420,7 +428,7 @@ class NowPlaying:
     filename: str = "FILE"
     scroll_offset: int = 0
     transport_frame: int = 1
-    progress_frame: int = 0
+    eq_frame: int = 0
     status_frame: int = 0
     elapsed: str = "00:18"
     track_position: str = "03/18"
@@ -486,13 +494,15 @@ class NowPlaying:
             "y": picbox.y,
             "width": bitmap.width,
             "height": bitmap.height,
-            "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(frame_index, "unresolved"),
+            "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(
+                frame_index, PICBOX_SEMANTICS.get(picbox_index, "unresolved")
+            ),
         }
 
     def selected_picbox_trace(self) -> list[dict[str, object]]:
         selections = (
             (0, self.status_frame), (1, self.status_frame), (2, 0),
-            (3, self.progress_frame), (4, self.transport_frame),
+            (3, self.eq_frame), (4, self.transport_frame),
             (5, self.status_frame), (6, self.status_frame),
             (7, self.status_frame), (8, self.status_frame),
         )
@@ -501,7 +511,9 @@ class NowPlaying:
                 "picbox": picbox_index,
                 "frame": frame_index,
                 "resource": self.style.picboxes[picbox_index].frames[frame_index],
-                "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(frame_index, "unresolved"),
+                "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(
+                    frame_index, PICBOX_SEMANTICS.get(picbox_index, "unresolved")
+                ),
             }
             for picbox_index, frame_index in selections
         ]
@@ -574,7 +586,7 @@ class NowPlaying:
             (0, self.status_frame),
             (1, self.status_frame),
             (2, 0),
-            (3, self.progress_frame),
+            (3, self.eq_frame),
             (4, self.transport_frame),
             (5, self.status_frame),
             (6, self.status_frame),
@@ -621,7 +633,7 @@ def main() -> int:
     parser.add_argument("--file", dest="filename", default="FILE")
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--transport-frame", type=int, default=1)
-    parser.add_argument("--progress-frame", type=int, default=0)
+    parser.add_argument("--eq-frame", type=int, default=0)
     parser.add_argument("--status-frame", type=int, default=0)
     parser.add_argument("--elapsed", default="00:18")
     parser.add_argument("--track-position", default="03/18")
@@ -635,7 +647,7 @@ def main() -> int:
         MusicStyle.load(args.music_sty), trace, args.title, args.artist,
         args.album, args.filename, args.offset,
         transport_frame=args.transport_frame,
-        progress_frame=args.progress_frame,
+        eq_frame=args.eq_frame,
         status_frame=args.status_frame,
         elapsed=args.elapsed,
         track_position=args.track_position,

@@ -66,6 +66,13 @@ PicBox 1 frames 0..1 are shuffle-off and shuffle-on. The preview defaults to
 the pause frame because its default state represents a currently playing
 track. The five PicBox 0 top-row frames remain intentionally unresolved.
 
+The same inspection separates the embedded EQ indicator from the playback
+progress bar: PicBox 3 frame 0 is the blank 124x24 bitmap and frame 1 is the
+visible `EQ:` bitmap at its recorded position. The bottom progress bar is a
+different `progressbar[0]` record and is rendered from resources 17, 31, and
+32. PicBoxes 5..8 are fixed metadata glyphs (album, artist, title, and track),
+so the host trace reports those roles instead of calling them unresolved.
+
 The extracted `new_m.fnt` is also an Actions sparse-index font: 1024 ten-byte
 presence entries begin at `0x10`, glyph records begin at `0x2810`, and this
 M30 member uses 61-byte records with a final advance-width byte.  ASCII glyph
