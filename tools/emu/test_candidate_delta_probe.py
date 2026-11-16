@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from candidate_delta_probe import verify_exact_delta
+from candidate_delta_probe import build_manifest, verify_exact_delta, write_manifest
 
 
 class CandidateDeltaProbeTests(unittest.TestCase):
@@ -61,6 +61,32 @@ class CandidateDeltaProbeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(AssertionError, "member size changed"):
                 verify_exact_delta(baseline, candidate, ("music.sty",))
+
+    def test_manifest_records_hashes_sizes_and_non_flashable_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            baseline = root / "baseline"
+            candidate = root / "candidate"
+            baseline.mkdir()
+            candidate.mkdir()
+            (baseline / "music.sty").write_bytes(b"stock")
+            (candidate / "music.sty").write_bytes(b"patch")
+            (baseline / "setting.sty").write_bytes(b"same")
+            (candidate / "setting.sty").write_bytes(b"same")
+
+            manifest = build_manifest(baseline, candidate, ("music.sty",))
+            output = root / "manifest.json"
+            written = write_manifest(baseline, candidate, ("music.sty",), output)
+
+        self.assertEqual(manifest, written)
+        self.assertFalse(manifest["flashable_hex"])
+        self.assertEqual(manifest["changed_members"], ["music.sty"])
+        self.assertEqual(manifest["member_count"], 2)
+        self.assertEqual(manifest["members"]["music.sty"]["baseline_size"], 5)
+        self.assertNotEqual(
+            manifest["members"]["music.sty"]["baseline_sha256"],
+            manifest["members"]["music.sty"]["candidate_sha256"],
+        )
 
 
 if __name__ == "__main__":

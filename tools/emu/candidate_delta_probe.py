@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 from pathlib import Path
+from typing import Any
 
 
 def sha256(path: Path) -> str:
@@ -51,6 +53,68 @@ def verify_exact_delta(
     return actual
 
 
+def build_manifest(
+    baseline: Path,
+    candidate: Path,
+    expected_changed: tuple[str, ...],
+    require_same_size: bool = True,
+) -> dict[str, Any]:
+    """Return an explicit extracted-member delta manifest.
+
+    The result is deliberately marked non-flashable: it describes extracted
+    members and cannot replace full HEX/FWU checksum and round-trip checks.
+    """
+    changed = verify_exact_delta(
+        baseline,
+        candidate,
+        expected_changed,
+        require_same_size=require_same_size,
+    )
+    members: dict[str, dict[str, Any]] = {}
+    for name in member_names(baseline):
+        baseline_path = baseline / name
+        candidate_path = candidate / name
+        baseline_hash = sha256(baseline_path)
+        candidate_hash = sha256(candidate_path)
+        members[name] = {
+            "baseline_sha256": baseline_hash,
+            "candidate_sha256": candidate_hash,
+            "baseline_size": baseline_path.stat().st_size,
+            "candidate_size": candidate_path.stat().st_size,
+            "changed": baseline_hash != candidate_hash,
+        }
+
+    return {
+        "kind": "m30-extracted-member-candidate",
+        "flashable_hex": False,
+        "rollback_reference": str(baseline),
+        "candidate": str(candidate),
+        "expected_changed_members": list(sorted(set(expected_changed))),
+        "changed_members": list(changed),
+        "member_count": len(members),
+        "members": members,
+    }
+
+
+def write_manifest(
+    baseline: Path,
+    candidate: Path,
+    expected_changed: tuple[str, ...],
+    output: Path,
+    require_same_size: bool = True,
+) -> dict[str, Any]:
+    """Validate a candidate and write its JSON manifest outside the tree."""
+    manifest = build_manifest(
+        baseline,
+        candidate,
+        expected_changed,
+        require_same_size=require_same_size,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("baseline", type=Path, help="extracted baseline fw directory")
@@ -67,17 +131,34 @@ def main() -> int:
         action="store_true",
         help="allow changed members to have a different size",
     )
-    args = parser.parse_args()
-    changed = verify_exact_delta(
-        args.baseline,
-        args.candidate,
-        tuple(args.expected_changed),
-        require_same_size=not args.allow_size_change,
+    parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="write a JSON delta manifest; this remains an extracted-tree artifact",
     )
+    args = parser.parse_args()
+    expected_changed = tuple(args.expected_changed)
+    if args.manifest:
+        manifest = write_manifest(
+            args.baseline,
+            args.candidate,
+            expected_changed,
+            args.manifest,
+            require_same_size=not args.allow_size_change,
+        )
+        changed = tuple(manifest["changed_members"])
+    else:
+        changed = verify_exact_delta(
+            args.baseline,
+            args.candidate,
+            expected_changed,
+            require_same_size=not args.allow_size_change,
+        )
     print(
         "CANDIDATE DELTA PASS "
         f"baseline={args.baseline} candidate={args.candidate} "
         f"changed={','.join(changed)}"
+        + (f" manifest={args.manifest}" if args.manifest else "")
     )
     return 0
 

@@ -26,8 +26,14 @@ Then verify the exact delta:
 ```sh
 PYTHONPATH=tools/emu python3 tools/emu/candidate_delta_probe.py \
   analysis/community/fw /private/tmp/m30-safe-ui/fw \
-  --changed music.sty --changed setting.sty
+  --changed music.sty --changed setting.sty \
+  --manifest /private/tmp/m30-safe-ui/delta.json
 ```
+
+The optional JSON manifest records every extracted member's baseline/candidate
+SHA-256 and size, names the rollback/reference tree, and explicitly marks the
+result as `flashable_hex: false`. It is a comparison artifact, not a firmware
+image.
 
 The builder emits a PPM preview outside the member directory. It does not
 repack a HEX. A repack step may be documented only after the source HEX,
