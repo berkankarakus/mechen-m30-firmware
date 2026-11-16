@@ -9,10 +9,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from key_filter import (
+    KEY_DOWN,
+    KEY_HOLD,
+    KEY_LONG_PRESS,
+    KEY_RELEASE,
+    KeyEvent,
+)
+
 
 ADC_SAMPLE_MASK = 0x7F
 ADC_THRESHOLDS: tuple[int, ...] = (0x03, 0x18, 0x2A, 0x3A, 0x4A, 0x5F, 0x6F)
 UNMAPPED_KEY_VALUE = 0xFF
+SPECIAL_RELEASE_INPUT = 0x30
+SPECIAL_PLAY_INPUT = 0x32
+SPECIAL_CARD_INPUT = 0x34
+SPECIAL_PLAY_KEY = 0x0C
+SPECIAL_CARD_KEY = 0x0D
 
 
 @dataclass(frozen=True)
@@ -60,3 +73,57 @@ def classify_adc_sample(
             return AdcClassification(sampled_value, normalized_value, False)
 
     return AdcClassification(sampled_value, UNMAPPED_KEY_VALUE, False)
+
+
+@dataclass
+class KeyDriverRepeatState:
+    """Translate normalized driver values into application key events."""
+
+    previous_value: int = 0
+    repeat_count: int = 0
+
+    def process(self, normalized_value: int) -> KeyEvent | None:
+        """Emit the event proven by the resident repeat-state function.
+
+        A new value emits ``KEY_DOWN`` immediately.  The fifth consecutive
+        sample emits ``KEY_LONG_PRESS`` and each later sample emits
+        ``KEY_HOLD``.  The three special values are kept explicit because the
+        resident function handles them before the generic value path.
+        """
+        if not 0 <= normalized_value <= 0xFF:
+            raise ValueError("normalized key value must fit an unsigned byte")
+
+        if normalized_value == self.previous_value:
+            self.repeat_count += 1
+
+            if self.repeat_count == 5:
+                return KeyEvent(self.previous_value, KEY_LONG_PRESS)
+
+            if self.repeat_count >= 6:
+                return KeyEvent(self.previous_value, KEY_HOLD)
+
+            return None
+
+        if normalized_value == SPECIAL_RELEASE_INPUT:
+            event = KeyEvent(self.previous_value, KEY_RELEASE)
+            self.previous_value = 0
+            self.repeat_count = 0
+
+            return event
+
+        if normalized_value == SPECIAL_PLAY_INPUT:
+            self.previous_value = 0
+            self.repeat_count = 0
+
+            return KeyEvent(SPECIAL_PLAY_KEY, KEY_DOWN)
+
+        if normalized_value == SPECIAL_CARD_INPUT:
+            self.previous_value = 0
+            self.repeat_count = 0
+
+            return KeyEvent(SPECIAL_CARD_KEY, KEY_DOWN)
+
+        self.previous_value = normalized_value
+        self.repeat_count = 1
+
+        return KeyEvent(normalized_value, KEY_DOWN)

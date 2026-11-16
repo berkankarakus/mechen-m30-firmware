@@ -11,7 +11,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | SD controller | 512-byte transfer, card detect/capacity yolları | sektör cihazı mevcut; register polling/IRQ beklemede |
 | MCG/RU3 UI | altı corpus'ta byte-identical node/group metadata | katalog mevcut; localized name ve node→app eşlemesi beklemede |
 | USB host | altı `USBC` CBW marker'ı, CSW yok | CBW/CSW emülasyonu için kanıt yetersiz |
-| Key driver | ADC threshold tablosu, normalized event/repeat sınırı | 7-bit threshold classifier ve uygulama key-filter mevcut; fiziksel ADC→key mapping ve timing beklemede |
+| Key driver | ADC threshold tablosu, normalized event/repeat sınırı | 7-bit threshold classifier, repeat event state ve uygulama key-filter mevcut; fiziksel ADC→key mapping ve timing beklemede |
 | Decoder callback | community callback kesin `-1` döndürüyor | fail-closed boundary mevcut; PCM decoder yolu yok |
 | Artwork playback | metadata/JPEG fallback yolları statik olarak ayrıştırıldı | placeholder/render state; async decode veya ses gecikmesi modeli yok |
 

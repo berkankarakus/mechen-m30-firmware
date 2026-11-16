@@ -51,6 +51,11 @@ for address in bfc10008 bfc10084 bfc10178 bfc101f4 bfc10220 bfc102e4 bfc103cc bf
 done
 grep -q 'param_1 == 0x32' "$WORK/key.c"
 grep -q 'param_1 == 0x34' "$WORK/key.c"
+grep -q 'param_1 == 0x30' "$WORK/key.c"
+grep -q '+ 0x18' "$WORK/key.c"
+grep -q '+ 0x1c' "$WORK/key.c"
+grep -q '0xc' "$WORK/key.c"
+grep -q '0xd' "$WORK/key.c"
 grep -q '0x1000' "$WORK/key.c"
 grep -q '0x800' "$WORK/key.c"
 grep -q 'FUN_bfc103cc' "$WORK/key.c"

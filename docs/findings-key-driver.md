@@ -87,8 +87,13 @@ The host emulator also exposes the proven ADC classifier in
 `tools/sim/key_driver.py`: it masks samples to seven bits, applies the seven
 resident thresholds, returns `0xff` when no threshold matches, and keeps the
 RAM-supplied normalized values explicit. The override path likewise requires
-its external table value. No physical button names or MMIO register meanings
-are assigned.
+its external table value. `KeyDriverRepeatState` now carries the proven event
+boundary into the application model: a new normalized value emits `0x2000`,
+the fifth identical sample emits `0x1000`, and subsequent identical samples
+emit `0x800`. The explicit `0x30` release, `0x32` to normalized key `0x0c`,
+and `0x34` to normalized key `0x0d` paths are represented as well. The
+external callback side effect, physical button names, and MMIO register
+meanings remain unmodeled.
 
 It does **not** yet prove:
 
