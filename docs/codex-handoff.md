@@ -63,6 +63,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   prefix selector modeli vardır.
 - `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
   alanları; file-location byte dizileri opaque tutulur.
+- `tools/sim/library_scan.py`: stock fixed-array scanının 4,000-record
+  kapasite sınırı; `MUSIC.LIB` formatı veya experimental large-library yolu
+  bu modelle birleştirilmez.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3

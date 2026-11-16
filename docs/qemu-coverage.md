@@ -117,6 +117,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Folder-list handler p-code execution | real browser/music MIPS16 handlers with helper intercepts | PASS; next/previous state assertions in both apps |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
+| Library scan capacity | `playlist.ap` fixed-array scan loop | PASS; stock 4,000-record stop modeled separately from file-format capacity |
 | Filename natural-order contract | host model | PASS; deterministic host contract |
 | Manual-index policy | host state model + static automatic-index guards | PASS; manual path and tested powered-card automatic-rebuild path are separate; other triggers remain device-specific |
 | Artwork audio-first contract | host state model | PASS |

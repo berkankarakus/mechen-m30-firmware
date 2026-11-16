@@ -161,6 +161,13 @@ file, stops at 4,000 (`0x400952c8`, file `0x32c8`):
 Pass 2 ends by flushing the partial staging buffer. The M3U scanner `FUN_40154ecc` has the same
 shape with a per-type limit table.
 
+The stock song scan limit is modeled separately in
+`tools/sim/library_scan.py`: the fixed-array path accepts at most 4,000
+candidate records and reports when the scan stops at that capacity. This is a
+scan boundary, not a claim that the 256-byte record format or `MUSIC.LIB`
+storage cannot represent more records; the experimental large-library builder
+remains a separate path.
+
 The host emulator records only the selector boundary in
 `tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
 or claim that type 8's fallback record is hardware-equivalent.
