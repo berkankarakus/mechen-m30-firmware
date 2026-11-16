@@ -144,7 +144,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` plus resident matcher loop | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); driver slot order is bit 31→slot 0 through bit 1→slot 30 |
 | Library tag-reader selector | `playlist.ap` `FUN_40094f2c` mapping | PASS; types 0–7 plus type-8 fallback; reader ABI/metadata parsing unresolved |
 | Library fallback record | `playlist.ap` type-8/tag-failure path | PASS; 8.3 title formatting, fixed fallback fields, and bounded track selector |
-| MUSIC.LIB record codec | documented 256-byte scan record layout | PASS; text/flags/track/link fields decoded; location semantics remain opaque |
+| MUSIC.LIB record codec | documented 256-byte scan record layout plus `index.c` field accesses | PASS; text/flags/track/link fields decoded and index-consumed fields separated from opaque location slices; location semantics remain opaque |
 | Library directory walker | stock `playlist.ap`/playall walker contract | PASS; DFS order, depth 8, `RECORD` skip, target count; filesystem callbacks unresolved |
 | SD sector/capacity boundary | `cards.drv` 512-byte transfer and capacity path | PASS; host sector device with card presence, bounds checks and explicit `sector_count * 512` capacity |
 | Resident `yqhx` loader materialization | kernel loader copy/BSS evidence + host sparse memory | PASS; declared segments and BSS are applied without entry execution; fixed ROM handoff unresolved |

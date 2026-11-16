@@ -34,6 +34,7 @@ class LibraryRecordCodecTests(unittest.TestCase):
         self.assertTrue(record.tag_ok)
         self.assertEqual(record.extension, "MP3")
         self.assertEqual(record.track_number, 7)
+        self.assertEqual(record.location_primary, bytes(range(0x49)))
         self.assertEqual(record.previous_index, 3)
         self.assertEqual(record.next_index, 5)
         self.assertEqual(record.location_secondary, b"LOCATION")

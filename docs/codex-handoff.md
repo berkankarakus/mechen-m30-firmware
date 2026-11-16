@@ -74,7 +74,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   fallback text alanları; raw 8.3 `NAME.EXT` formatter ve dört haneli track
   prefix selector modeli vardır.
 - `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
-  alanları; file-location byte dizileri opaque tutulur.
+  alanları; `index.c`'nin gerçekten kullandığı text/track alanları ile
+  file-location byte dizileri ayrıştırılır, location alanları opaque tutulur.
 - `tools/sim/library_scan.py`: stock fixed-array scanının 4,000-record
   kapasite sınırı; `MUSIC.LIB` formatı veya experimental large-library yolu
   bu modelle birleştirilmez.
@@ -123,6 +124,7 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`findings-kernel-loader.md`](findings-kernel-loader.md)
 - [`findings-filesystem-drivers.md`](findings-filesystem-drivers.md)
 - [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md)
+- [`findings-library-record-locations.md`](findings-library-record-locations.md)
 - [`findings-ui-resources.md`](findings-ui-resources.md)
 - [`findings-decoder-callback.md`](findings-decoder-callback.md)
 - [`findings-cards-driver.md`](findings-cards-driver.md)
