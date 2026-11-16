@@ -437,6 +437,7 @@ class NowPlaying:
     transport_frame: int = 1
     eq_frame: int = 0
     status_frame: int = 0
+    show_controls: bool = False
     elapsed: str = "00:18"
     track_position: str = "03/18"
     progress_fraction: float = 0.40
@@ -508,6 +509,9 @@ class NowPlaying:
         }
 
     def selected_picbox_trace(self) -> list[dict[str, object]]:
+        painted = {2, 3}
+        if self.show_controls:
+            painted.update((4, 5, 6, 7, 8))
         selections = (
             (0, self.status_frame), (1, self.status_frame), (2, 0),
             (3, self.eq_frame), (4, self.transport_frame),
@@ -519,6 +523,7 @@ class NowPlaying:
                 "picbox": picbox_index,
                 "control_id": f"0x{PICBOX_CONTROL_IDS[picbox_index]:04x}",
                 "active_on_now_playing_paint": picbox_index in NOW_PLAYING_PICBOXES,
+                "painted_in_preview": picbox_index in painted,
                 "frame": frame_index,
                 "resource": self.style.picboxes[picbox_index].frames[frame_index],
                 "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(
@@ -592,15 +597,10 @@ class NowPlaying:
         # These are the actual music.sty PicBox coordinates/resources.  The
         # frame choice is a host input because the AP state machine is not yet
         # emulated; the bitmap bytes and geometry themselves are not guessed.
-        for picbox_index, frame_index in (
-            (2, 0),
-            (3, self.eq_frame),
-            (4, self.transport_frame),
-            (5, self.status_frame),
-            (6, self.status_frame),
-            (7, self.status_frame),
-            (8, self.status_frame),
-        ):
+        controls = ((4, self.transport_frame), (5, self.status_frame),
+                    (6, self.status_frame), (7, self.status_frame),
+                    (8, self.status_frame)) if self.show_controls else ()
+        for picbox_index, frame_index in ((2, 0), (3, self.eq_frame), *controls):
             self._draw_picbox_frame(fb, picbox_index, frame_index)
 
         # Metadata geometries are taken directly from textboxes 1..4.  The
@@ -643,6 +643,7 @@ def main() -> int:
     parser.add_argument("--transport-frame", type=int, default=1)
     parser.add_argument("--eq-frame", type=int, default=0)
     parser.add_argument("--status-frame", type=int, default=0)
+    parser.add_argument("--show-controls", action="store_true", help="show transient transport/metadata controls")
     parser.add_argument("--elapsed", default="00:18")
     parser.add_argument("--track-position", default="03/18")
     parser.add_argument("--progress", dest="progress_fraction", type=float, default=0.40)
@@ -657,6 +658,7 @@ def main() -> int:
         transport_frame=args.transport_frame,
         eq_frame=args.eq_frame,
         status_frame=args.status_frame,
+        show_controls=args.show_controls,
         elapsed=args.elapsed,
         track_position=args.track_position,
         progress_fraction=args.progress_fraction,

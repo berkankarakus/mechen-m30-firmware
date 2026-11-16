@@ -88,6 +88,7 @@ class M30UiTests(unittest.TestCase):
             transport_frame=1,
             eq_frame=1,
             status_frame=0,
+            show_controls=True,
         )
         frame = ui.render()
         for picbox_index, frame_index in ((2, 0), (3, 1), (4, 1), (5, 0), (6, 0), (7, 0), (8, 0)):
@@ -100,6 +101,8 @@ class M30UiTests(unittest.TestCase):
         self.assertFalse(selected[0]["active_on_now_playing_paint"])
         self.assertFalse(selected[1]["active_on_now_playing_paint"])
         self.assertTrue(selected[2]["active_on_now_playing_paint"])
+        self.assertFalse(NowPlaying(style, FirmwareTrace.load(AP)).selected_picbox_trace()[4]["painted_in_preview"])
+        self.assertTrue(selected[4]["painted_in_preview"])
         self.assertEqual(selected[3]["state_semantics"], "eq-visible")
         self.assertEqual(selected[7]["state_semantics"], "title-icon")
 
