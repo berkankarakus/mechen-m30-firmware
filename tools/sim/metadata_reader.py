@@ -17,6 +17,14 @@ class MetadataReadChunk:
     flush_after: bool
 
 
+@dataclass(frozen=True)
+class MetadataReadPlan:
+    """Copy chunks plus the opaque reader's trailing-skip byte count."""
+
+    chunks: tuple[MetadataReadChunk, ...]
+    trailing_skip: int
+
+
 def plan_metadata_read(
     start_offset: int,
     requested: int,
@@ -51,3 +59,26 @@ def plan_metadata_read(
         remaining -= length
 
     return tuple(chunks)
+
+
+def plan_metadata_operation(
+    start_offset: int,
+    copied_bytes: int,
+    total_bytes: int,
+) -> MetadataReadPlan:
+    """Model the bounded copy and trailing skip arithmetic.
+
+    The recovered reader copies ``copied_bytes`` in 0x200-bounded chunks and
+    passes ``total_bytes - copied_bytes`` to an existing skip helper.  This
+    function records that count without assigning an ABI or interpreting the
+    metadata.
+    """
+    if copied_bytes < 0:
+        raise ValueError("copied_bytes must be non-negative")
+    if total_bytes < copied_bytes:
+        raise ValueError("total_bytes must cover copied_bytes")
+
+    return MetadataReadPlan(
+        chunks=plan_metadata_read(start_offset, copied_bytes),
+        trailing_skip=total_bytes - copied_bytes,
+    )

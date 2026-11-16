@@ -1,6 +1,10 @@
 import unittest
 
-from metadata_reader import MetadataReadChunk, plan_metadata_read
+from metadata_reader import (
+    MetadataReadChunk,
+    plan_metadata_operation,
+    plan_metadata_read,
+)
 
 
 class MetadataReaderTests(unittest.TestCase):
@@ -26,6 +30,16 @@ class MetadataReaderTests(unittest.TestCase):
 
     def test_empty_read_has_no_chunks(self):
         self.assertEqual(plan_metadata_read(0x200, 0), ())
+
+    def test_operation_preserves_trailing_skip_arithmetic(self):
+        plan = plan_metadata_operation(0x1F0, 0x220, 0x260)
+
+        self.assertEqual(plan.chunks[0], MetadataReadChunk(0x1F0, 0x10, True))
+        self.assertEqual(plan.trailing_skip, 0x40)
+
+    def test_operation_rejects_total_shorter_than_copy(self):
+        with self.assertRaises(ValueError):
+            plan_metadata_operation(0, 0x21, 0x20)
 
 
 if __name__ == "__main__":
