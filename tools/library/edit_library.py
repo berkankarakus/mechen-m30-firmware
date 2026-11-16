@@ -15,7 +15,17 @@ import sys
 import struct
 import tempfile
 
+SIM_ROOT = Path(__file__).resolve().parents[1] / "sim"
+if str(SIM_ROOT) not in sys.path:
+    sys.path.insert(0, str(SIM_ROOT))
+
 import libmodel
+from library_file import (
+    interpret_library_section_index,
+    parse_library_layout,
+    read_library_section_index,
+)
+from sd_block_device import SdCardBlockDevice
 
 
 RECORD_START = 0x200
@@ -32,15 +42,24 @@ SECTOR_SIZE = 512
 
 def _encode_text(value: str, width: int, original: bytes) -> bytes:
     """Encode a field while preserving the original ASCII/UTF-16 style."""
+    if "\0" in value:
+        raise ValueError("metadata values cannot contain NUL characters")
     if original[:2] == b"\xff\xfe" or any(ord(character) > 0xFF for character in value):
-        encoded = b"\xff\xfe" + value.encode("utf-16-le")
-        return encoded[: width - 2].ljust(width, b"\0")
+        try:
+            encoded = b"\xff\xfe" + value.encode("utf-16-le")
+        except UnicodeEncodeError as error:
+            raise ValueError("value contains an invalid Unicode character") from error
+        if len(encoded) > width:
+            raise ValueError(f"metadata value does not fit in {width} bytes")
+        return encoded.ljust(width, b"\0")
 
     try:
-        encoded = value.encode("latin-1")
+        encoded = value.encode("latin-1") + b"\0"
     except UnicodeEncodeError as error:
         raise ValueError("value cannot be represented in this field") from error
-    return encoded[: width - 1].ljust(width, b"\0")
+    if len(encoded) > width:
+        raise ValueError(f"metadata value does not fit in {width} bytes")
+    return encoded.ljust(width, b"\0")
 
 
 def parse_edit(spec: str) -> tuple[int, str, str]:
@@ -107,6 +126,18 @@ def read_existing_tie_orders(data: bytes) -> tuple[tuple[int, ...], ...] | None:
     return tuple(orders)
 
 
+def validate_library_image(data: bytes) -> None:
+    """Validate all recovered section tables and node links."""
+    if len(data) % SECTOR_SIZE:
+        raise ValueError("MUSIC.LIB image size must be sector-aligned")
+    layout = parse_library_layout(data)
+    device = SdCardBlockDevice(len(data) // SECTOR_SIZE)
+    device.storage[:] = data
+    for section in layout.sections:
+        index = read_library_section_index(device, 0, section.name)
+        interpret_library_section_index(index, layout.record_count)
+
+
 def _refuse_volume_output(output: Path) -> None:
     resolved = output.expanduser().resolve()
     if resolved.parts and resolved.parts[0] == "/" and len(resolved.parts) > 1 and resolved.parts[1] == "Volumes":
@@ -133,8 +164,10 @@ def edit_library(input_path: Path, output_path: Path, edits: list[tuple[int, str
         rebuilt_path = Path(temp_dir) / "rebuilt.lib"
         modified_path.write_bytes(edited)
         libmodel.main(str(modified_path), str(rebuilt_path), tie_orders=tie_orders)
+        rebuilt = rebuilt_path.read_bytes()
+        validate_library_image(rebuilt)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(rebuilt_path.read_bytes())
+        output_path.write_bytes(rebuilt)
 
 
 def main(argv: list[str] | None = None) -> None:

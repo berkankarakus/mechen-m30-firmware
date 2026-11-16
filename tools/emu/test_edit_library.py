@@ -29,7 +29,7 @@ class EditLibraryTests(unittest.TestCase):
             edit_library(
                 input_path,
                 output_path,
-                [(3, "title", "Edited title"), (3, "artist", "Edited artist")],
+                [(3, "title", "Edited title"), (3, "artist", "New artist")],
             )
             rebuilt = output_path.read_bytes()
 
@@ -44,6 +44,14 @@ class EditLibraryTests(unittest.TestCase):
     def test_apply_edits_rejects_an_out_of_range_record(self):
         with self.assertRaises(IndexError):
             apply_edits(bytes(0x300), [(1, "title", "not present")])
+
+    def test_apply_edits_rejects_truncation_and_embedded_nul(self):
+        data = bytearray(0x400)
+        data[8:10] = (1).to_bytes(2, "little")
+        with self.assertRaises(ValueError):
+            apply_edits(bytes(data), [(0, "title", "x" * 64)])
+        with self.assertRaises(ValueError):
+            apply_edits(bytes(data), [(0, "title", "bad\0value")])
 
     def test_noop_edit_copies_a_realistic_input_byte_for_byte(self):
         with tempfile.TemporaryDirectory() as temp_dir:
