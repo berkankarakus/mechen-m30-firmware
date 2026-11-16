@@ -273,10 +273,13 @@ selection such as play/pause or an upgrade progress state remains an explicit
 preview input until the corresponding dispatcher state is recovered.
 
 The now-playing renderer follows the same rule. It draws the real `music.sty`
-PicBox resources at their recorded coordinates and uses the real TextBox
-viewports for metadata scrolling. It no longer adds mock labels, separators,
-timer strings, or ASCII transport arrows that are not present in the recovered
-RU3 records.
+PicBox resources at their recorded coordinates, uses the real TextBox
+viewports for metadata scrolling, and parses the real timebox/progressbar
+records. The 8x12 digit resources (`18..27`) plus the real colon/slash
+resources are used for the elapsed/track counters; the host supplies their
+values until playback state is connected. Labels are limited to the literal
+`TITLE`, `ARTIST`, `ALBUM`, and `TRACK` strings observed in `music.ap`.
+Unresolved AP state still controls which optional icon/frame is selected.
 
 ## Folder/list visualizer
 

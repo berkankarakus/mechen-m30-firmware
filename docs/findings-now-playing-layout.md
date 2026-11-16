@@ -43,6 +43,23 @@ confirmed.  `ID3_SCROLL_TEXTBOX` is directly referenced by the scroll code;
 the other textbox IDs are also used for album-art regions, lyrics, and browser
 filename display.  They must not be repurposed globally.
 
+The resource also contains the controls that the first host mockup had
+previously drawn by hand.  The extracted `music.sty` records are:
+
+```text
+timebox[0]     x=70,  y=202, w=64, h=12
+timebox[1]     right viewport embedded at x=235, y=202, w=64, h=12
+progressbar[0] origin x=70, y=220
+```
+
+Resources `18..27` are the ten direct 8x12 digit glyphs, resource `5` is the
+colon, and resource `36` is the slash.  Resource `17` is a 231x6 neutral
+progress strip; resources `31` and `32` are one-pixel fill columns.  These
+facts let the host preview reproduce the counter/progress geometry and native
+small glyphs without inventing a font or placing the controls from the HTML
+prototype.  The values and optional PicBox frame choices still come from an
+explicit host state until the AP playback state machine is connected.
+
 ## SDK-versus-M30 warning
 
 The public SDK also contains `case/resource/music/music.ui`, which is useful

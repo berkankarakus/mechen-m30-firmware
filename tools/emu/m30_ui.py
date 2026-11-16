@@ -83,10 +83,19 @@ class PicBox:
 
 
 @dataclass(frozen=True)
+class RawControl:
+    kind: str
+    words: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class MusicStyle:
     path: Path
     textboxes: tuple[TextBox, ...]
     picboxes: tuple[PicBox, ...]
+    numboxes: tuple[RawControl, ...] = ()
+    timeboxes: tuple[RawControl, ...] = ()
+    progressbars: tuple[RawControl, ...] = ()
 
     @classmethod
     def load(cls, path: Path) -> "MusicStyle":
@@ -97,6 +106,9 @@ class MusicStyle:
         style_begin = _u32(data, style_addr + 8)
         pic_addr, pic_count = _u32(data, style_begin + 8), _u32(data, style_begin + 12)
         text_addr, text_count = _u32(data, style_begin + 16), _u32(data, style_begin + 20)
+        num_addr, num_count = _u32(data, style_begin + 24), _u32(data, style_begin + 28)
+        time_addr, time_count = _u32(data, style_begin + 32), _u32(data, style_begin + 36)
+        progress_addr, progress_count = _u32(data, style_begin + 40), _u32(data, style_begin + 44)
         pics: list[PicBox] = []
         for i in range(pic_count):
             v = struct.unpack_from("<16H", data, pic_addr + i * 32)
@@ -105,7 +117,20 @@ class MusicStyle:
         for i in range(text_count):
             v = struct.unpack_from("<10H", data, text_addr + i * 20)
             texts.append(TextBox(*v))
-        return cls(path, tuple(texts), tuple(pics))
+        def raw_controls(address: int, count: int, kind: str, size: int) -> tuple[RawControl, ...]:
+            return tuple(
+                RawControl(kind, tuple(struct.unpack_from(f"<{size // 2}H", data, address + i * size)))
+                for i in range(count)
+            )
+
+        return cls(
+            path,
+            tuple(texts),
+            tuple(pics),
+            raw_controls(num_addr, num_count, "numbox", 28),
+            raw_controls(time_addr, time_count, "timebox", 24),
+            raw_controls(progress_addr, progress_count, "progressbar", 24),
+        )
 
     def textboxes_by_geometry(self) -> tuple[TextBox, ...]:
         return tuple(sorted(self.textboxes, key=lambda item: (item.y, item.x)))
@@ -391,6 +416,9 @@ class NowPlaying:
     transport_frame: int = 0
     progress_frame: int = 0
     status_frame: int = 0
+    elapsed: str = "00:18"
+    track_position: str = "03/18"
+    progress_fraction: float = 0.40
 
     def dispatch_trace(self) -> list[dict[str, object]]:
         # This is the exact Ghidra-audited boundary that a future QEMU host
@@ -454,7 +482,61 @@ class NowPlaying:
             "state_semantics": "unresolved",
         }
 
+    def _draw_device_numeric(self, fb: Framebuffer, text: str, x: int, y: int, clip: tuple[int, int, int, int]) -> None:
+        """Draw time/track strings from the real 8x12 RU3 glyph resources."""
+        resources = {str(index): 18 + index for index in range(10)}
+        resources.update({":": 5, "/": 36})
+        cursor = x
+        for char in text:
+            resource_index = resources.get(char)
+            if resource_index is None:
+                cursor += 8
+                continue
+            bitmap = self.style.bitmap(resource_index)
+            for row in range(bitmap.height):
+                for column in range(bitmap.width):
+                    px, py = cursor + column, y + row
+                    if clip[0] <= px < clip[0] + clip[2] and clip[1] <= py < clip[1] + clip[3]:
+                        fb.pixel(px, py, rgb565(bitmap.pixels[row * bitmap.width + column]))
+            cursor += bitmap.width
+
+    def _draw_time_and_progress(self, fb: Framebuffer) -> None:
+        """Render the music.sty timebox/progressbar geometry.
+
+        The first six words of the first timebox are the observed left
+        viewport (70,202,64,12,...).  The second timebox embeds the right
+        viewport at words 6..11 (235,202,64,12,...).  The progress resource
+        is the 231x6 direct bitmap at resource 17; resources 31 and 32 are
+        its one-pixel red/neutral fill columns.
+        """
+        if not self.style.timeboxes or not self.style.progressbars:
+            return
+        left = self.style.timeboxes[0].words
+        self._draw_device_numeric(fb, self.elapsed, left[0], left[1], (left[0], left[1], left[2], left[3]))
+        if len(self.style.timeboxes) > 1 and len(self.style.timeboxes[1].words) >= 10:
+            right = self.style.timeboxes[1].words[6:]
+            track_width = right[2]
+            track_pixel_width = sum(self.style.bitmap(18 + int(ch)).width for ch in self.track_position if ch.isdigit()) + sum(
+                self.style.bitmap(5 if ch == ":" else 36).width for ch in self.track_position if ch in ":/"
+            )
+            track_x = right[0] + max(0, (track_width - track_pixel_width) // 2)
+            self._draw_device_numeric(fb, self.track_position, track_x, right[1], (right[0], right[1], right[2], right[3]))
+
+        bar = self.style.progressbars[0].words
+        bar_x, bar_y = bar[1], bar[2]
+        background = self.style.bitmap(17)
+        for row in range(background.height):
+            for column in range(background.width):
+                fb.pixel(bar_x + column, bar_y + row, rgb565(background.pixels[row * background.width + column]))
+        fill = self.style.bitmap(31 if self.progress_fraction > 0 else 32)
+        fill_width = max(0, min(background.width, round(background.width * self.progress_fraction)))
+        for column in range(fill_width):
+            for row in range(fill.height):
+                fb.pixel(bar_x + column, bar_y + row, rgb565(fill.pixels[row * fill.width]))
+
     def render(self) -> Framebuffer:
+        if not 0.0 <= self.progress_fraction <= 1.0:
+            raise ValueError("progress_fraction must be between 0 and 1")
         fb = Framebuffer()
         # 0x18c3 is the background word observed in the real resource set and
         # in the audited clear-background dispatch.  Do not add decorative
@@ -477,26 +559,28 @@ class NowPlaying:
         ):
             self._draw_picbox_frame(fb, picbox_index, frame_index)
 
-        # Metadata geometries are taken directly from textboxes 1..4.  A
-        # TextBox is a value viewport; labels were part of the old mockup, not
-        # a recovered resource record, so they are intentionally not painted.
+        # Metadata geometries are taken directly from textboxes 1..4.  The
+        # label literals TITLE/ARTIST/ALBUM/TRACK are present in music.ap;
+        # the fourth value remains a host placeholder until its runtime
+        # buffer is mapped.
         boxes = [box for box in self.style.textboxes if box.width == 129 and box.height == 20]
         values = (self.title, self.artist, self.album, self.filename)
-        for box, value in zip(boxes, values):
+        labels = ("TITLE", "ARTIST", "ALBUM", "TRACK")
+        red = rgb565(0xF800)
+        for box, label, value in zip(boxes, labels, values):
             color = self.style.color(box)
+            draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, 42, box.height))
             draw_marquee(
                 fb,
                 value,
-                box.x,
-                box.y,
-                box.width,
+                box.x + 42,
+                box.y + 9,
+                box.width - 42,
                 box.height,
                 color,
                 offset=self.scroll_offset,
             )
-        # Timing/counter strings are not PicBox/TextBox resources in this
-        # style.  Leaving them out is more faithful than placing invented
-        # glyphs over the real transport/progress bitmaps.
+        self._draw_time_and_progress(fb)
         return fb
 
 
@@ -514,6 +598,9 @@ def main() -> int:
     parser.add_argument("--transport-frame", type=int, default=0)
     parser.add_argument("--progress-frame", type=int, default=0)
     parser.add_argument("--status-frame", type=int, default=0)
+    parser.add_argument("--elapsed", default="00:18")
+    parser.add_argument("--track-position", default="03/18")
+    parser.add_argument("--progress", dest="progress_fraction", type=float, default=0.40)
     args = parser.parse_args()
     trace = FirmwareTrace.load(args.music_ap)
     ui = NowPlaying(
@@ -522,6 +609,9 @@ def main() -> int:
         transport_frame=args.transport_frame,
         progress_frame=args.progress_frame,
         status_frame=args.status_frame,
+        elapsed=args.elapsed,
+        track_position=args.track_position,
+        progress_fraction=args.progress_fraction,
     )
     ui.render().ppm(args.out)
     if args.trace:
@@ -529,6 +619,11 @@ def main() -> int:
             "firmware": trace.json(),
             "calls": ui.dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
+            "resource_controls": {
+                "numbox": [list(control.words) for control in ui.style.numboxes],
+                "timebox": [list(control.words) for control in ui.style.timeboxes],
+                "progressbar": [list(control.words) for control in ui.style.progressbars],
+            },
         }, indent=2) + "\n")
     print(f"rendered {args.out} using {len(trace.banks)} real AP banks; scroll call 0x{SCROLL_VADDR:08x} -> style 0x{SCROLL_STYLE:04x}")
     return 0

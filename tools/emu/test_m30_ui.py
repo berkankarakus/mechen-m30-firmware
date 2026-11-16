@@ -35,6 +35,9 @@ class M30UiTests(unittest.TestCase):
         panel = [box for box in style.textboxes if box.width == 129 and box.height == 20]
         self.assertEqual([(box.x, box.y) for box in panel], [(190, 40), (190, 75), (190, 111), (190, 147)])
         self.assertEqual(style.color(panel[0]), (255, 255, 255))
+        self.assertEqual(style.timeboxes[0].words[:4], (70, 202, 64, 12))
+        self.assertEqual(style.timeboxes[1].words[6:10], (235, 202, 64, 12))
+        self.assertEqual(style.progressbars[0].words[1:3], (70, 220))
 
     def test_trace_keeps_shared_scroll_style_distinct(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
@@ -82,6 +85,18 @@ class M30UiTests(unittest.TestCase):
             resource = style.bitmap(picbox.frames[frame_index])
             offset = (picbox.y * frame.width + picbox.x) * 3
             self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(resource.pixels[0])))
+
+    def test_render_uses_real_numeric_glyph_and_progress_resources(self):
+        style = MusicStyle.load(STY)
+        frame = NowPlaying(style, FirmwareTrace.load(AP), progress_fraction=0.4).render()
+        digit_zero = style.bitmap(18)
+        digit_offset = (202 * frame.width + 70) * 3
+        self.assertEqual(frame.pixels[digit_offset:digit_offset + 3], bytes(rgb565(digit_zero.pixels[0])))
+        bar = style.bitmap(17)
+        bar_offset = (220 * frame.width + 70) * 3
+        self.assertEqual(frame.pixels[bar_offset:bar_offset + 3], bytes(rgb565(style.bitmap(31).pixels[0])))
+        background_offset = (220 * frame.width + 70 + round(bar.width * 0.4)) * 3
+        self.assertEqual(frame.pixels[background_offset:background_offset + 3], bytes(rgb565(bar.pixels[round(bar.width * 0.4)])))
 
     def test_marquee_uses_pixel_positions_and_gap(self):
         self.assertEqual(text_pixel_width("AB", 1), 12)
