@@ -92,6 +92,21 @@ operation. The resident probe asserts the forwarder shape. The flat loader used 
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.
 
+### Dated-corpus forwarder cross-check
+
+As a hypothesis test for the red marquee rectangle, the resident probe was
+run with the nine hash-verified dated `drv_ui.drv` files available outside
+Git. All nine passed with the same resident boundary:
+
+```text
+DRV_UI RESIDENT PASS syscall=bfc09c00 mode_forwarder=bfc09e34 state_setters=bfc0a8bc,bfc0a8c8
+```
+
+This makes the shared forwarder/state-setter envelope a stable cross-version
+fact. It does not resolve the external A17 provider at `0x164490a1`, so the
+“incomplete background restore” explanation remains a medium-confidence
+hypothesis rather than a patch justification.
+
 ### Real `music.ap` scroll probe
 
 The Ghidra p-code probe was run against the persistent
