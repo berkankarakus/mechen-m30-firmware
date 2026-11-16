@@ -66,6 +66,12 @@ case-insensitively and applies only an explicit set of accepted slot numbers.
 It does not infer the caller's bitmask, walk directories, or assign meanings
 to the wildcard-looking `**` and `*f` slots.
 
+The caller-side raw masks are checked separately by
+`tools/emu/library_mask_probe.py`: `playlist.ap` stores `0x7e190ea0` at file
+`0x2a20` and `0x00080400` at file `0x2a28`, with a pointer word between them.
+Their bit positions are exposed as raw data only; the probe does not claim a
+bit-to-extension mapping.
+
 ## Directory enumeration
 
 The dispatch functions are:

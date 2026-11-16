@@ -125,12 +125,14 @@ index passes (`FUN_400d5290`).
 
 ### Extension mask
 
-The mask table at `0x40055220` (file `0x2a20`) holds `0x7e190ea0` for MUSIC.LIB and
-`0x00080400` for M3U.LIB. The mask selects entries of the file system driver's extension table
-(`exfatn.drv` file `0x7f4`, `fat_32n.drv` file `0x77c`): MP3, WMA, WAV, AAC, FLAC, APE, AVI, TXT,
-JPG, JPEG, DSF, DFF, LRC, ASF, OGG, TTA, ISO, AAX, AA, MP1, MP2, M4A, POS, ACT, BMK, AIF, and
-more. The MUSIC.LIB mask has 17 bits set, matching the 17 audio formats, and the sample library
-confirms M4A is included. The bit order inside the driver isn't decoded. The folder views in
+The mask table at `0x40055220` (file `0x2a20`) holds `0x7e190ea0` for MUSIC.LIB;
+the M3U.LIB mask is at file `0x2a28` and is `0x00080400`. The word at `0x2a24`
+is a separate pointer (`0xbfc166c8`), not a second mask. The raw values have 14
+and 2 bits set respectively; the repeatable check is
+`tools/emu/library_mask_probe.py`. The masks select entries of the file system
+driver's extension table (`exfatn.drv` file `0x7f4`, `fat_32n.drv` file `0x77c`).
+The bit order inside the driver is not decoded, so the raw bit positions are recorded
+without assigning each bit to an extension. The folder views in
 `browser.ap` and `music.ap` OR in the literal `0x00400000` separately.
 
 ### Scan: FUN_40095220 (bank 0x40094c00, file 0x3220)

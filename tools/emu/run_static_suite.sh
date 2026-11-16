@@ -133,6 +133,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/norud_binary_probe.py" \
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/filesystem_binary_probe.py" \
   "$ROOT/analysis/community/fw/exfatn.drv" \
   "$ROOT/analysis/community/fw/fat_32n.drv" >/dev/null
+PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/library_mask_probe.py" \
+  "$ROOT/analysis/community/fw/playlist.ap" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/dsp_binary_probe.py" \
   --analysis-root "$ROOT/analysis" >/dev/null
 PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/mmm_bp_binary_probe.py" \

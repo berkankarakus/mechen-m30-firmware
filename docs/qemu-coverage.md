@@ -133,6 +133,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Decoder write callback | community `mengine.ap` callback boundary | PASS; unconfigured/known callback returns `-1`, unknown pointer fail-closed |
 | EQ message/coefficient boundary | `mengine.ap` dispatcher and `music.ap` selector path | PASS; message `0x303`, `{eq_type, selector}` envelope, seven gain rows; DSP calls unresolved |
 | FAT32/exFAT extension boundary | six-corpus resident driver table | PASS; shared 31-slot vocabulary and explicit-slot host filter; caller mask/walker unresolved |
+| Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); bit-to-slot order unresolved |
 | SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral

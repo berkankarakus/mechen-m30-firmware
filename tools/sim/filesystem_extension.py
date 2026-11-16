@@ -46,6 +46,10 @@ FIRMWARE_EXTENSION_SLOTS: tuple[str, ...] = (
 )
 
 
+MUSIC_LIBRARY_EXTENSION_MASK = 0x7E190EA0
+M3U_LIBRARY_EXTENSION_MASK = 0x00080400
+
+
 @dataclass(frozen=True)
 class FilesystemExtensionTable:
     """Resolve the proven slot vocabulary without assigning mask semantics."""
@@ -78,3 +82,19 @@ class FilesystemExtensionTable:
             return False
 
         return slot in accepted_slots
+
+
+@dataclass(frozen=True)
+class LibraryExtensionMask:
+    """A raw playlist mask whose bit-to-slot mapping remains unresolved."""
+
+    name: str
+    value: int
+
+    @property
+    def enabled_bit_positions(self) -> tuple[int, ...]:
+        return tuple(index for index in range(32) if self.value & (1 << index))
+
+
+MUSIC_LIBRARY_MASK = LibraryExtensionMask("MUSIC.LIB", MUSIC_LIBRARY_EXTENSION_MASK)
+M3U_LIBRARY_MASK = LibraryExtensionMask("M3U.LIB", M3U_LIBRARY_EXTENSION_MASK)
