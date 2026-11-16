@@ -70,6 +70,24 @@ changed and with unchanged member sizes. This is strong cross-corpus evidence
 for the resource boundary, but it is still an extracted-member candidate: it
 is not a repacked or device-validated flashable firmware image.
 
+## `music.sty` bitmap semantics
+
+The resource table begins at `0x400` and has 32 entries of 16 bytes. Across
+all 12 persistent corpora, every entry has format field low bits `0x0002`, a
+non-zero width/height, and `size == width * height * 2` within the member.
+There is no palette pointer or palette-sized side table in this resource
+contract. The current evidence therefore supports direct little-endian
+16-bit RGB565 words, with the exact meaning of format code `0x0002` kept as a
+resource-format fact rather than a vendor enum name.
+
+The host decoder in `tools/emu/music_bitmap.py` enforces that format and
+geometry, rejects all other formats, and `NowPlaying.render()` uses resource
+0 (the 150x150 album-art box) instead of drawing a synthetic placeholder. The
+40x40 transport resources use the same direct-word contract. This makes the
+emulator and visual patch preview consume the same bytes; it does not assign a
+palette or LCD orientation transformation to `ALBUM.PIC`, which remains a
+separate SD cache artifact.
+
 ## Consequence for the emulator
 
 The emulator now loads the real MCG node list, opaque name bytes, and RU3 group

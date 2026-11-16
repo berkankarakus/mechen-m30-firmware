@@ -8,8 +8,10 @@ from m30_ui import (
     MusicStyle,
     NowPlaying,
     marquee_positions,
+    rgb565,
     text_pixel_width,
 )
+from music_bitmap import load_music_bitmap
 
 
 ROOT = Path(__file__).parents[2]
@@ -55,6 +57,15 @@ class M30UiTests(unittest.TestCase):
             ui.render().ppm(out)
             self.assertEqual(out.read_bytes()[:15], b"P6\n320 240\n255\n")
             self.assertEqual(len(out.read_bytes()), 15 + 320 * 240 * 3)
+
+    def test_render_uses_the_real_album_art_bitmap(self):
+        style = MusicStyle.load(STY)
+        bitmap = load_music_bitmap(STY, 0)
+        frame = NowPlaying(style, FirmwareTrace.load(AP)).render()
+        expected = frame.pixels[(28 * 320) * 3 : (28 * 320) * 3 + 3]
+
+        self.assertEqual(bitmap.pixels[0], 0x8430)
+        self.assertEqual(expected, bytes(rgb565(bitmap.pixels[0])))
 
     def test_marquee_uses_pixel_positions_and_gap(self):
         self.assertEqual(text_pixel_width("AB", 1), 12)

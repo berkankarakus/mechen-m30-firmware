@@ -115,6 +115,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   doğrulanmış key boundary'si host'ta modellenmiştir.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
+- `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
+  table'ının format `0x2`, boyut ve doğrudan little-endian RGB565 sözleşmesi;
+  bilinmeyen formatlar reddedilir. `NowPlaying` resource 0 bitmap'ini gerçek
+  framebuffer çıktısına taşır.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`
   değiştiren extracted-member candidate üretimi; iki bilinen `music.sty`
   layout'ını ve iki bilinen `setting.sty` kaynağını payload hash'leriyle

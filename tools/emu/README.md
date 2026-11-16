@@ -7,87 +7,90 @@ deterministic:
    Ghidra-audited shared marquee call at `0x40d55078`, and resolves the
    literal-pool UI/timer pointers around `0x40d5516c`.
 2. `MusicStyle` parses the real M30 `music.sty` RU3 control records.
-3. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
-   framebuffer using the real textbox geometry and RGB565 colors.
-4. `scroll_descriptor.py` models the verified state/event offsets used by
+3. `music_bitmap.py` validates the 32-entry `music.sty` resource table and
+   decodes its direct format-`0x0002` RGB565 bitmap words.
+4. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
+   framebuffer using the real textbox geometry, the real album-art bitmap,
+   and RGB565 colors.
+5. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
-5. `ui_dispatcher.py` provides the conservative host shim for the verified
+6. `ui_dispatcher.py` provides the conservative host shim for the verified
    dispatcher target `0xbfc16405`.
-6. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
+7. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
    MIPS16 renderer with only the audited literal pointers redirected to test
    stubs. Its MIPS32-to-MIPS16 entry uses an architectural `JALX` trampoline,
    and its Linux-user stack/null shims reproduce the Ghidra harness without
    mapping guest address zero.
-7. `tools/ghidra/run_scroll_probe.sh` executes that same real-bank renderer in
+8. `tools/ghidra/run_scroll_probe.sh` executes that same real-bank renderer in
    Ghidra's MIPS p-code emulator. `run_qemu_probe.sh` executes the equivalent
    user-mode ELF when a MIPS QEMU binary is available (the current macOS setup
    uses the Fedora container for that step); neither path models an ATJ2127
    SoC boot.
-8. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
+9. `driver_banks.py` parses the real `drv_ui.drv` overlay table and exposes
    far-pointer payload candidates without treating every candidate as code.
    It preserves the raw B2 `0x471` provenance while exposing its aligned
    MIPS16 entry offset `0x470`; the unresolved B2 `0x4e9` entry remains
    separate from that validated path.
-9. `tools/ghidra/run_kernel_exception_probe.sh` checks the extracted
+10. `tools/ghidra/run_kernel_exception_probe.sh` checks the extracted
    `ker_xsys` exception entry and records the boundary where the unavailable
    fixed handler begins.
-10. `yqhx.py` parses the resident driver's three copy segments, BSS range,
+11. `yqhx.py` parses the resident driver's three copy segments, BSS range,
    entry fields, and the kernel's mode-dependent slot layout. It is a load
    plan only; it never executes raw payload bytes.
-11. `driver_loader.py` models the two decompiled resident loader contracts:
+12. `driver_loader.py` models the two decompiled resident loader contracts:
    `FUN_bfc0a408` has the mode 6/7 compact-slot branch and entry callback,
    while `FUN_bfc0a578` always uses twelve-byte slots and has no callback.
-12. `provider_scan.py` reproduces the negative A17/A19/B16 provider scan across
+13. `provider_scan.py` reproduces the negative A17/A19/B16 provider scan across
    extracted `.drv` members. It reports byte occurrences only and does not
    infer executable ownership from a match.
-13. `tools/ghidra/run_drvui_pointer_probe.sh` maps the complete UI driver as
+14. `tools/ghidra/run_drvui_pointer_probe.sh` maps the complete UI driver as
    a static MIPS16 corpus and reports each observed far-pointer literal with
    its containing Ghidra function when one is known.
-14. `tools/ghidra/run_drvui_b2_probe.sh` remaps the real B02 bank and checks
+15. `tools/ghidra/run_drvui_b2_probe.sh` remaps the real B02 bank and checks
     the paired `+0x471`/`+0x4e9` candidates: the former decompiles from the
     aligned MIPS16 address while the latter terminates as bad instruction
     data.
-15. `bank_runtime.py` models lazy bank selection and load events. It only
+16. `bank_runtime.py` models lazy bank selection and load events. It only
     permits explicitly validated entry offsets to become executable; an
     unresolved candidate is recorded but never called. Load events preserve
     both the raw pointer offset and the aligned MIPS16 entry offset.
-16. `tools/ghidra/run_drvui_pointer_cluster_probe.sh` groups the 16 observed
+17. `tools/ghidra/run_drvui_pointer_cluster_probe.sh` groups the 16 observed
     far-pointer literals by nearby file offsets; the B3 literal pool is the
     verified five-hit cluster at `0x992c..0x996c`.
-17. `tools/ghidra/run_drvui_resident_probe.sh` maps that B3 region together
+18. `tools/ghidra/run_drvui_resident_probe.sh` maps that B3 region together
     with the two resident `drv_ui` segments and verifies the extracted
     `bfc09c00` syscall wrapper, its second trap entry at `bfc09c04`, plus the
     `bfc0a8bc`/`bfc0a8c8` state setters.
-18. `resident_ui.py` carries those verified resident effects into the host
+19. `resident_ui.py` carries those verified resident effects into the host
     model while aligning odd MIPS16 pointers and refusing unknown targets.
-19. `scan_mips16_imports.py` parses the real B3 MIPS16 disassembly and reports
+20. `scan_mips16_imports.py` parses the real B3 MIPS16 disassembly and reports
     indirect-call delay slots that select an import number. The Ghidra import
     probe also maps the resident `0xbfc09c05` wrapper and verifies the
     four-argument selector-15/17 call shape. The selector semantics remain
     unresolved on M30; public ordinal names live in the reference-only
     `ui_imports.py` module.
-20. `tools/ghidra/run_drvui_b3_table_probe.sh` maps the B3 tail and the
+21. `tools/ghidra/run_drvui_b3_table_probe.sh` maps the B3 tail and the
     following data area, then dumps the pointer words consumed by the second
     B3 UI function. It verifies the two resident entries and three
     bank-qualified candidates without treating any candidate as a directly
     executable address.
-21. `tools/ghidra/run_drvui_b3_candidate_probe.sh` maps the B04, B07, and B08
+22. `tools/ghidra/run_drvui_b3_candidate_probe.sh` maps the B04, B07, and B08
     candidate banks together with their post-bank literal areas. The three
     aligned candidate offsets decompile as coherent MIPS16 functions, which is
     stronger evidence than a numeric bank-offset match but still not a proof
     of the hardware dispatcher ABI.
-22. `tools/ghidra/run_folder_nav_probe.sh` decompiles the real browser/music
+23. `tools/ghidra/run_folder_nav_probe.sh` decompiles the real browser/music
     `next` and `previous` handlers and checks their shared one-step and redraw
     contract before the acceleration candidate is considered applicable.
-23. `compare_firmware_versions.py` compares hashes and provider-pointer counts
+24. `compare_firmware_versions.py` compares hashes and provider-pointer counts
     across a directory of extracted M30 release images. It excludes the known
     `drv_ui.drv` consumer by default, so repeated pointer literals in the
     container or consumer are not misclassified as provider modules.
-24. `tools/ghidra/run_browser_layout_probe.sh` checks the browser's literal
+25. `tools/ghidra/run_browser_layout_probe.sh` checks the browser's literal
     table for the exact list-buffer and adjacent `path_info` addresses. This
     keeps the 8x50-byte layout boundary executable as a regression rather than
     leaving the 64-byte overlap warning as prose only.
-25. `folder_ui.py` keeps the selected directory item visible in the seven-row
+26. `folder_ui.py` keeps the selected directory item visible in the seven-row
     directory viewport (the eighth allocated slot is the title). It wraps at
     both list edges, matching the real handler boundary matrix, and records the
     source row index in the trace; it models folder navigation state, not the
@@ -95,34 +98,34 @@ deterministic:
     same burst gears as `scroll_accel.py`, so accelerated up/down events and
     viewport movement can be tested together without implying a hardware
     input-rate measurement.
-26. `FolderList.marquee_offset_at()` and `render_at()` advance the host frame
+27. `FolderList.marquee_offset_at()` and `render_at()` advance the host frame
     on the reference listbox's measured 80 ms refresh tick. They use integer
     timestamps for reproducible screenshots/traces and leave the firmware's
     0x32-byte name-slot truncation unchanged.
-27. `tools/sim/ui_imports.py` records a reference-only ordinal cross-check from
+28. `tools/sim/ui_imports.py` records a reference-only ordinal cross-check from
      the public UI operation table: selector 15 is `UI_SCROLLSTRING_EXT` and
      selector 17 is `UI_GET_DC_STATUS`. It does not assign those names to the
      M30 dispatcher or execute either unresolved import.
 
-28. `folder_input.py` connects the proven application key-filter model to
+29. `folder_input.py` connects the proven application key-filter model to
     `FolderList`: stock screen-off navigation produces only the wake decision,
     while the patched five-key path reaches the same accelerated folder
     navigation used by the host view. It accepts normalized key events and
     does not infer the physical key-driver sampling values.
 
-29. `ui_resources.py` loads the six-corpus-verified MCG node records and RU3
+30. `ui_resources.py` loads the six-corpus-verified MCG node records and RU3
     group metadata as immutable emulator inputs. It keeps node IDs and group
     indices structural until an AP/resource lookup proves their UI meaning.
 
-30. The decoder write boundary lives in `tools/sim/decoder_output.py`. Both
+31. The decoder write boundary lives in `tools/sim/decoder_output.py`. Both
     an unconfigured callback and the community's known rejecting callback
     return `-1`; unknown callback pointers are fail-closed and no rejected
     payload is counted as PCM.
 
-31. `tools/sim/sd_block_device.py` provides the evidence-backed 512-byte SD
+32. `tools/sim/sd_block_device.py` provides the evidence-backed 512-byte SD
     sector boundary with explicit card presence and bounds checks. It does not
     claim to emulate the controller's register polling or filesystem walker.
-32. `driver_loader.py` can apply the verified `yqhx` segment payloads and BSS
+33. `driver_loader.py` can apply the verified `yqhx` segment payloads and BSS
     zeroing into sparse byte-addressable resident memory. It never invokes the
     image entry point or the unresolved fixed-ROM handler.
 

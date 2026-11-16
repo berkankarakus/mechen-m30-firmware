@@ -16,6 +16,8 @@ import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from music_bitmap import MusicBitmap, load_music_bitmap
+
 
 WIDTH, HEIGHT = 320, 240
 SCROLL_VADDR = 0x40D55078
@@ -110,6 +112,9 @@ class MusicStyle:
 
     def color(self, box: TextBox) -> tuple[int, int, int]:
         return rgb565(box.text_color)
+
+    def bitmap(self, resource_index: int) -> MusicBitmap:
+        return load_music_bitmap(self.path, resource_index)
 
 
 @dataclass(frozen=True)
@@ -422,13 +427,13 @@ class NowPlaying:
         fb.rect(0, 179, WIDTH, 61, (12, 13, 15))
         # Album-art control comes from the first 150x150 textbox.
         art = next(box for box in self.style.textboxes if box.x == 0 and box.y == 28 and box.width == 150)
-        art_color = self.style.color(art)
-        fb.rect(art.x, art.y, art.width, art.height, (22, 23, 26))
-        fb.rect(12, 40, 126, 126, art_color if art_color != (0, 0, 0) else red)
-        # A simple note-like mark makes the empty-art state unmistakable.
-        fb.rect(64, 70, 10, 58, (18, 19, 22))
-        fb.rect(73, 70, 32, 10, (18, 19, 22))
-        fb.rect(97, 70, 10, 46, (18, 19, 22))
+        art_bitmap = self.style.bitmap(0)
+        if (art_bitmap.width, art_bitmap.height) != (art.width, art.height):
+            raise ValueError("music.sty album-art resource does not match its style box")
+        for row in range(art_bitmap.height):
+            for column in range(art_bitmap.width):
+                pixel = art_bitmap.pixels[row * art_bitmap.width + column]
+                fb.pixel(art.x + column, art.y + row, rgb565(pixel))
         # Metadata geometries are taken directly from textboxes 1..4.
         boxes = [box for box in self.style.textboxes if box.width == 129 and box.height == 20]
         values = (self.title, self.artist, self.album, self.filename)
