@@ -73,6 +73,39 @@ candidate, not the device's exact tie-break policy. The emulator therefore
 keeps candidate sorting separate from the read-only byte decoder and does not
 rewrite the device indexes from this comparison alone.
 
+### Observed previous-rank replay
+
+The candidate comparator was replayed with the device image's actual preceding
+section rank supplied to each later pass. This avoids attributing a later-pass
+difference to an earlier-pass tie order. The read-only result was:
+
+| Section | Candidate entries matching device order | First mismatch |
+|---|---:|---:|
+| `ALLSONG` | 3,801 / 4,000 | 14 |
+| `ALBUM` | 3,981 / 4,000 | 859 |
+| `ARTIST` | 3,944 / 4,000 | 83 |
+| `GENRE` | 4,000 / 4,000 | none |
+
+The reproducible probe is:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_order_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
+```
+
+This is strong evidence that the preceding-section rank is the correct
+secondary key for the later passes, especially because the complete `GENRE`
+order matches. The remaining `ALBUM`/`ARTIST` differences are concentrated in
+UTF-16/ASCII representation boundaries and unresolved text-converter/tie
+refinement behavior. A byte-origin classification of the mismatching order
+positions found 199 UTF-16↔UTF-16 differences in `ALLSONG`, 19
+UTF-16↔UTF-16 differences in `ALBUM`, and 56 `ARTIST` differences split into
+26 UTF-16↔UTF-16, 15 ASCII→UTF-16, and 15 UTF-16→ASCII positions. The probe is
+diagnostic only; it does not make the candidate sorter a firmware writer and
+does not rewrite a device index.
+
 ## Location-key corroboration
 
 The public US212A application-design manual documents the file record's

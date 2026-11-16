@@ -110,7 +110,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; gerçek cihaz `MUSIC.LIB` görüntüsünde tüm section node/table coverage'ı
   doğrulanmıştır. Cihazın duplicate-key tie-break sırası ve location semantics
-  hâlâ doğrulanmamıştır. Ayrıntı: [`findings-device-sd-library.md`](findings-device-sd-library.md).
+  hâlâ doğrulanmamıştır. `tools/emu/library_order_probe.py` önceki-section
+  rank'ı sonraki candidate pass'e vererek comparator farkını izole eder; mevcut
+  görüntüde GENRE sırası 4,000/4,000 eşleşir. Ayrıntı:
+  [`findings-device-sd-library.md`](findings-device-sd-library.md).
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - MUSIC.LIB açık TODO'ları `docs/findings-music-lib-node-format.md` ve
