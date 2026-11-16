@@ -10,6 +10,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Son teknik değişiklik ve commit kimliği için `git log -1 --oneline` kullanılır.
 - Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
+- Başka bilgisayara geçiş için [`portable-handoff.md`](portable-handoff.md)
+  ve `python3 tools/verify_persistent_evidence.py <evidence-root>` kullanılır;
+  firmware, cihaz SD dosyaları ve Ghidra çıktıları Git dışında kalıcı kanıt
+  kökünde tutulur.
 - Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
   `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
 - Corpus gate: beklenen `analysis/*` dizinleri mevcut fakat boş; `m30-inputs`
