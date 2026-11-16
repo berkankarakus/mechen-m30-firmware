@@ -79,6 +79,14 @@ indices to directories, or assume that `node_type=1` has a broader meaning
 than the observed builder contract. It also does not reuse the public sample
 to change sorting or grouping behavior.
 
+`tools/sim/library_index_sort.py` now exposes the decompiled comparison as a
+candidate order-only model: ASCII-only upper-casing, signed album track-byte
+tie-breaking, and previous-section rank tie-breaking. It operates on raw
+256-byte records and never writes an index or claims that its order is the
+M30 device's final UI policy. This separation is intentional because the
+public comparison file produces different grouping counts from the local
+model.
+
 `validate_library_section_nodes()` checks only the recovered wire contract:
 non-zero node type/depth and song counts, record bounds, same-level
 previous/next sentinels, parent/child reciprocity, contiguous child ranges,
