@@ -137,6 +137,13 @@ PYTHONPATH=tools/sim:tools/emu \
   e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
 ```
 
+The same probe was rerun on 2026-11-16 against the mounted
+`/Volumes/MECHEN M30/MUSIC.LIB` file. Its hash matched the captured M30 image
+and the result was unchanged: `ALLSONG` 3,803/4,000, `ALBUM` 3,981/4,000,
+`ARTIST` 4,000/4,000, and `GENRE` 4,000/4,000. This is a reproducibility
+check of the existing evidence, not a claim that the remaining mismatches are
+safe to rewrite in the firmware or on the card.
+
 This is still a differential probe, not a firmware writer or a replacement
 for QEMU execution. The existing QEMU MIPS probe scripts remain the next
 machine-local validation step when QEMU user-mode is available.

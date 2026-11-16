@@ -22,6 +22,25 @@ shasum -a 256 \
   <persistent-evidence-root>/device-sd/MUSIC.LIB
 ```
 
+## Mounted-volume revalidation
+
+On 2026-11-16 the same three files were read directly from the mounted
+`/Volumes/MECHEN M30` volume, without writing to the card. Their sizes and
+SHA-256 values matched the captured evidence exactly. The read-only probes
+also reproduced the library geometry, the refined order comparison, and the
+`ALBUM.PIC` container boundary. This confirms that the attached volume is the
+same evidence set, not a new or partially rebuilt library.
+
+The M3U header probe additionally observed `u16@0x08 = 0`,
+`u16@0x0a = 1`, and `ALLFILE` at `0x10`. The payload remains opaque; no
+entry records are inferred from this header alone.
+
+```text
+MUSIC.LIB: 2625536 bytes, e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
+M3U.LIB:   1550848 bytes, ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01
+ALBUM.PIC: 128000 bytes,   65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671
+```
+
 ## MUSIC.LIB geometry and indexes
 
 `tools/emu/musiclib_evidence_probe.py` reads the image through
