@@ -29,3 +29,28 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 Her yeni satır için önce ilgili `findings-*.md` dosyası güncellenir; ardından
 yalnızca doğrulanmış bölüm testli host modeline alınır.
+
+## Kanıt gelmeden teslim edilemeyecek sonuçlar
+
+Bu çalışma ağacındaki mevcut binary, QEMU ve host kanıtı aşağıdaki sonuçları
+güvenilir biçimde üretemez. Bunlar eksik bir host modeliyle tamamlanacak işler
+değil; yeni firmware corpus'u, donanım gözlemi veya cihaz testi gerektiren
+sınırlardır:
+
+- M30 firmware'ini gerçekten boot eden tam ATJ2127/QEMU makinesi ve overlay
+  loader'ı;
+- decoder, DSP, ASRC, DAC, codec register'ları ve audible fade/gapless playback
+  davranışı;
+- fiziksel ADC tuşlarının gerçek isim, debounce ve repeat zamanlaması ile LCD
+  panel/elektriksel aktarım davranışı;
+- MCG/RU3 localized name ve node-to-application eşlemesinin kesin anlamı;
+- eksik resident/provider bankalarının gerçek çağrı ABI'leri ve bunların
+  çalıştırılması;
+- cihaz üzerinde boot, playback, tuş, ekran ve güvenli firmware release
+  kabulü;
+- firmware, resource dump, decompile veya türetilmiş patch'lerin public
+  dağıtımı için hukuki/telif temizliği.
+
+Bu sınırlar çözülmüş gibi görünmesi için host modeline varsayımsal davranış
+eklenmez. Yeni kanıt geldiğinde önce ilgili bulgu belgesi, sonra fail-closed
+model ve test güncellenir.
