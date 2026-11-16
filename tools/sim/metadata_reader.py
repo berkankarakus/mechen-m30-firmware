@@ -1,0 +1,53 @@
+"""Bounded metadata-reader chunks recovered from the community music bank."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+METADATA_BUFFER_BYTES = 0x200
+
+
+@dataclass(frozen=True)
+class MetadataReadChunk:
+    """One contiguous read that does not cross the internal buffer boundary."""
+
+    offset: int
+    length: int
+    flush_after: bool
+
+
+def plan_metadata_read(
+    start_offset: int,
+    requested: int,
+) -> tuple[MetadataReadChunk, ...]:
+    """Split a metadata read at every 0x200-byte boundary.
+
+    The V1.101.11/community reader loops until the requested bytes are copied.
+    This models only that bounded-copy contract; source callbacks, metadata
+    interpretation, and the reader's trailing skip helper remain opaque.
+    """
+    if start_offset < 0:
+        raise ValueError("metadata start offset must be non-negative")
+    if requested < 0:
+        raise ValueError("metadata request length must be non-negative")
+
+    chunks: list[MetadataReadChunk] = []
+    offset = start_offset
+    remaining = requested
+
+    while remaining:
+        boundary_offset = offset % METADATA_BUFFER_BYTES
+        bytes_to_boundary = METADATA_BUFFER_BYTES - boundary_offset
+        length = min(remaining, bytes_to_boundary)
+        chunks.append(
+            MetadataReadChunk(
+                offset=offset,
+                length=length,
+                flush_after=length == bytes_to_boundary,
+            )
+        )
+        offset += length
+        remaining -= length
+
+    return tuple(chunks)

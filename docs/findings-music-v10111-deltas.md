@@ -29,6 +29,12 @@ buffer boundary. It is not evidence that the decoder, ASRC, or DAC path was
 changed, and it should not be presented as a second explanation for the
 Audacity fade-out tail.
 
+The host model records the narrow copy boundary in
+`tools/sim/metadata_reader.py`: a request is split at every `0x200` boundary
+and a chunk ending at that boundary is marked for the proven flush point.
+Source callbacks, the trailing skip helper, and metadata interpretation stay
+outside the model.
+
 ## The small sibling change
 
 Three instruction bytes at file offset `0x115cc` change from `e1 26 25` to

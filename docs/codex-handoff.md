@@ -36,6 +36,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3
   advance yolu ve community/V1.101.11 için eklenen mode-4 yolu; ASRC/DAC
   örnek kuyruğu ve audible tail modellenmez.
+- `tools/sim/metadata_reader.py`: V1.101.11/community metadata okuyucusunun
+  doğrulanmış 0x200 buffer boundary split planı; source callback, parser ve
+  trailing skip helper ABI'si modellenmez.
 - `tools/sim/filesystem_extension.py`: FAT32/exFAT için byte kanıtlı 31-slot
   extension sözlüğü, explicit-slot kabul filtresi ve driver high-bit-first mask
   decoder; caller product policy ve directory callback ABI modellenmez.
