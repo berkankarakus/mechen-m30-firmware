@@ -85,6 +85,58 @@ the stable driver hashes do not. This makes the new corpus useful as a
 cross-version behavioral confirmation, but not as evidence that the missing
 resident UI provider exists in flash.
 
+## Complete public Drive inventory
+
+The dated M30 folders under the public [M30 Drive root](https://drive.google.com/drive/folders/1Y9v8c6FLR5lbxLY-PhAv-BQOeQa2BNev) contain twelve HEX images. Their downloaded SHA-256
+values and the accompanying modification notes are recorded here so that a
+future analysis does not need to rediscover the folder contents:
+
+| Date | HEX SHA-256 | Modification note or filename hint |
+|---|---|---|
+| 2022-08-05 | `ee47440fdc5fbcb8bef85119d4ce39108ad92b961bb100cfa3c785bf858c14ac` | Title-based sorting; lock-screen playback/volume controls |
+| 2022-08-16 | `aa07468df20f8f0ca3116c1e0bb1305b1ab6eecbfdf32bb7ef70c7dcde0b2a6e` | Disable scroll wheel and buttons in lock screen |
+| 2022-09-14 | `6aa4e532307b5147d3da982439e0bfb82aca051853c3c911668fc651d909a640` | Wheel direction: next/previous track |
+| 2022-11-17 | `aa54f80afb13bb6d6c405854643a2d06f8ef768b5b958d3aac9f711a65224e72` | Add volume-limit function |
+| 2022-12-16 | `0e56c50e9720da7e95910582fbd1c293f77c1f1346c755a02ca2e08b5753184e` | Fix boot volume zero bug |
+| 2023-02-20 | `ee164011fb1fe30f552348613f832c5cb0f2aee271834f891aad22be6674e6da` | Make sleep timer persistent |
+| 2023-07-26 | `07a8917d0d71c11894f9ecbb394b7013e04f2513d0ad5181ad9a3cb5e49c9bd5` | Any key activates the device |
+| 2024-02-28 | `ac761a406b99366804c64df3d353fb73f11d91e4bea386202c22a4cd70d33739` | Lock-screen playback/volume controls |
+| 2024-03-19 | `6103567b8ef71b635ad7ff1715070982e4135bb0fe1864d8e1d7b95aa5463752` | English and Russian versions integrated |
+| 2024-04-24 | `8355edd60c4b964ef85d5510ed634cc50591b35f6a8e95f95d4a40b09ef99289` | Repeat-1 stop mode |
+| 2025-02-17 | `7ec4f3e1f528d7368a27a18db4fb51253823cf42a9e1760f4381b4233eb9974e` | `.fw` filename says main-screen rotation and lock-screen buttons ineffective; no note file found |
+| 2025-06-26 | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` | Fix custom-EQ reboot volume-off issue |
+
+The 2022-11 note is named `modefications.txt` in the source folder and the
+2023-02 note is singular `Modification.txt`; both were included. The 2025-02
+behavior is preserved from the descriptive `.fw` filename because that folder
+has no separate note file.
+
+All twelve images decrypt and unpack successfully. Eleven extracted
+`FWIMAGE.FW` images contain 97 members; 2025-06 contains 99 because it adds
+the `1257l.tbl` and `v1257.tbl` language-table members. The kernel and the
+storage/audio boundary drivers remain byte-identical across the full set.
+
+## Modification correlation results
+
+Adjacent-image byte diffs localize the documented changes without treating
+every changed byte as a new contract:
+
+- 2022-08-16 to 2022-09-14 has four repeated one-byte changes in each AP's
+  corresponding table area, consistent with the wheel-direction note.
+- 2022-12-16 to 2023-02-20 changes only `config.ap` among the extracted
+  members, consistent with the sleep-timer note.
+- 2024-02-28 to 2024-03-19 changes `drv_ui.drv` and `setting.mcg` in addition
+  to the application overlays, matching the language-integration note.
+- 2024-04-24 has a unique first EQ frequency of 50 Hz in `mengine.ap`; all
+  other ten checked releases use 80 Hz and the 2025 releases return to 80 Hz.
+  This is recorded as a version-specific observation, not a global emulator
+  rule.
+
+The 17 existing binary probes passed for 11 of 12 releases (203/204 probe
+runs). The only failure is the intentional 2024-04-24 EQ-frequency mismatch
+above. This is evidence that the host contracts are broadly cross-version
+stable while still exposing isolated release-specific exceptions.
+
 ## Provider result
 
 The observed UI pointer set was scanned in every extracted `fw/` directory,
