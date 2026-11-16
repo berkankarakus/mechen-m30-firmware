@@ -46,6 +46,14 @@ local model derives `(2, 2, 0)`, and the public `GENRE` directory has
 wire layout is shared while grouping/tie-breaking behavior may vary by
 firmware or by the source library's contents.
 
+The local builder and `libdiff.py` also establish the three per-record table
+roles after the node slots: reference `3` is the section's sorted record
+order, reference `4` is its inverse rank, and reference `5` is the per-song
+node/group index when that section has levels. `tools/sim/library_file.py`
+exposes these as `LibrarySectionTables` without validating or rewriting the
+values. The public comparison's grouping divergence is why the host model
+does not turn these tables into a user-facing sort policy.
+
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public
 [MUSIC.LIB member](https://github.com/xleph/MP3.LIB/blob/main/MUSIC.LIB).

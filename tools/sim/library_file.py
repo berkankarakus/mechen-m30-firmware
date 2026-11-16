@@ -14,6 +14,9 @@ HEADER_SIZE = 0x200
 RECORD_SIZE = 0x100
 SECTION_NODE_SIZE = 0x10
 RECORD_START_SECTOR = 1
+ORDER_TABLE_REFERENCE = 3
+INVERSE_TABLE_REFERENCE = 4
+NODE_INDEX_TABLE_REFERENCE = 5
 SECTION_HEADERS = (
     ("ALLSONG", 0x10),
     ("ALBUM", 0x2C),
@@ -65,6 +68,15 @@ class LibrarySectionNode:
     parent_index: int
     previous_index: int
     next_index: int
+
+
+@dataclass(frozen=True)
+class LibrarySectionTables:
+    """Per-record tables emitted alongside one section's index nodes."""
+
+    order: tuple[int, ...]
+    inverse: tuple[int, ...]
+    node_indices: tuple[int, ...]
 
 
 def decode_library_section_node(data: bytes) -> LibrarySectionNode:
@@ -211,6 +223,34 @@ def read_library_section_words(
     )
 
     return struct.unpack_from(f"<{word_count}H", data, 0)
+
+
+def read_library_section_tables(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    section_name: str,
+) -> LibrarySectionTables:
+    """Read the observed order, inverse, and node-index tables for a section."""
+    return LibrarySectionTables(
+        order=read_library_section_words(
+            device,
+            start_sector,
+            section_name,
+            ORDER_TABLE_REFERENCE,
+        ),
+        inverse=read_library_section_words(
+            device,
+            start_sector,
+            section_name,
+            INVERSE_TABLE_REFERENCE,
+        ),
+        node_indices=read_library_section_words(
+            device,
+            start_sector,
+            section_name,
+            NODE_INDEX_TABLE_REFERENCE,
+        ),
+    )
 
 
 def read_library_section_nodes(

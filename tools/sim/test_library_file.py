@@ -12,6 +12,7 @@ from library_file import (
     read_library_image,
     read_library_layout,
     read_library_record,
+    read_library_section_tables,
     read_library_section_nodes,
     read_library_section_words,
 )
@@ -101,6 +102,21 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         words = read_library_section_words(card, 1, "ALLSONG", 0)
 
         self.assertEqual(words, (9, 4, 1))
+
+    def test_reads_section_tables_with_the_recovered_roles(self):
+        image = make_library(3)
+        card = SdCardBlockDevice(sector_count=7)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE : 2 * SECTOR_SIZE])
+        card.write_sector(3, image[2 * SECTOR_SIZE : 3 * SECTOR_SIZE])
+        card.write_sector(5, struct.pack("<3H", 2, 0, 1).ljust(SECTOR_SIZE, b"\0"))
+        card.write_sector(6, struct.pack("<3H", 1, 2, 0).ljust(SECTOR_SIZE, b"\0"))
+
+        tables = read_library_section_tables(card, 1, "ALLSONG")
+
+        self.assertEqual(tables.order, (2, 0, 1))
+        self.assertEqual(tables.inverse, (1, 2, 0))
+        self.assertEqual(tables.node_indices, ())
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)
