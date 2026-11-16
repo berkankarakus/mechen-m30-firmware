@@ -10,6 +10,7 @@ from library_file import (
     read_library_image,
     read_library_layout,
     read_library_record,
+    read_library_section_words,
 )
 
 
@@ -55,6 +56,25 @@ class MusicLibraryLayoutTests(unittest.TestCase):
 
         with self.assertRaises(IndexError):
             read_library_record(card, 1, 1)
+
+    def test_reads_raw_section_words_from_the_header_reference(self):
+        image = make_library(3)
+        card = SdCardBlockDevice(sector_count=6)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE : 2 * SECTOR_SIZE])
+        card.write_sector(3, image[2 * SECTOR_SIZE : 3 * SECTOR_SIZE])
+        card.write_sector(4, struct.pack("<3H", 9, 4, 1).ljust(SECTOR_SIZE, b"\0"))
+
+        words = read_library_section_words(card, 1, "ALLSONG", 0)
+
+        self.assertEqual(words, (9, 4, 1))
+
+    def test_zero_section_reference_returns_no_words(self):
+        card = SdCardBlockDevice(sector_count=2)
+        image = make_library(0)
+        card.write_sector(1, image[:SECTOR_SIZE])
+
+        self.assertEqual(read_library_section_words(card, 1, "ALLSONG", 0), ())
 
     def test_reads_library_image_from_caller_supplied_sd_sector(self):
         image = make_library()

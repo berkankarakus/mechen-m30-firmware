@@ -145,3 +145,33 @@ def read_library_record(
         )
 
     return decode_record(record_bytes)
+
+
+def read_library_section_words(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    section_name: str,
+    reference_index: int,
+) -> tuple[int, ...]:
+    """Read a referenced section table as raw little-endian 16-bit words."""
+    if start_sector < 0:
+        raise ValueError("library start sector must be non-negative")
+
+    if not 0 <= reference_index < 7:
+        raise ValueError("section reference index must fit the seven header entries")
+
+    layout = parse_library_layout(read_library_image(device, start_sector))
+    section = layout.section(section_name)
+    sector = section.sector_references[reference_index]
+    if sector == 0:
+        return ()
+
+    word_count = layout.record_count
+    byte_count = word_count * 2
+    sector_count = (byte_count + SECTOR_SIZE - 1) // SECTOR_SIZE
+    data = b"".join(
+        device.read_sector(start_sector + sector + offset)
+        for offset in range(sector_count)
+    )
+
+    return struct.unpack_from(f"<{word_count}H", data, 0)
