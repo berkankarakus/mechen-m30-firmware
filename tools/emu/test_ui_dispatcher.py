@@ -38,6 +38,17 @@ class UiDispatcherTests(unittest.TestCase):
         self.assertIn(MAIN_PAINT_STYLE, styles)
         self.assertIn(SECONDARY_STYLE, styles)
 
+    def test_replay_preserves_observed_scroll_call_order(self):
+        trace = replay_now_playing_dispatcher().trace()
+
+        self.assertEqual(
+            [call["op"] for call in trace],
+            [0x14, 0x12, 0x14, 0x12, 0x02, 0x02, 0x03, 0x06, 0x03],
+        )
+        self.assertEqual(trace[7]["arg2"], 6)
+        self.assertEqual(trace[4]["style_id"], 0x1012)
+        self.assertEqual(trace[5]["style_id"], 0x1013)
+
     def test_dynamic_text_uses_the_clipped_marquee_path(self):
         dispatcher = UiDispatcher()
         dispatcher.call(

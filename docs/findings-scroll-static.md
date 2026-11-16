@@ -92,6 +92,26 @@ operation. The resident probe asserts the forwarder shape. The flat loader used 
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.
 
+### Real `music.ap` scroll probe
+
+The Ghidra p-code probe was run against the persistent
+`2025-06-26/fw/music.ap` copy with generated MIPS stubs. The firmware AP was
+not modified. The full renderer passed after 359 emulator steps and exposed
+this dispatcher order:
+
+```text
+clear-color, clear-rect, clear-color, clear-rect,
+draw-control(0x1012), draw-control(0x1013),
+draw-text(style 0x2005), draw-dynamic(a2=6), draw-text(style 0x2001)
+```
+
+The event entry point independently passed all three tested modes: `next`
+produced `active=1, previous=0, status=2, y=40`; `previous` produced
+`active=2, previous=0, status=2, y=40`; and `redraw` produced
+`active=0, previous=0, status=1, y=50`. The host dispatcher replay now keeps
+this exact call order, while event state and unresolved LCD/resource helper
+semantics remain separate.
+
 ### Text alignment: `FUN_30008600`
 
 The existing static finding remains: for multi-line centered text the routine

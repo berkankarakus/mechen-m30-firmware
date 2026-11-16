@@ -116,10 +116,15 @@ class UiDispatcher:
 
 
 def replay_now_playing_dispatcher() -> UiDispatcher:
-    """Replay the verified static call envelope used by the scroll renderer."""
+    """Replay the verified call envelope observed in the real scroll renderer."""
     dispatcher = UiDispatcher()
     dispatcher.call(0x18C3, 0, 0, OP_CLEAR_COLOR)
     dispatcher.call(0, 0, 0, OP_CLEAR_RECT)
+    dispatcher.call(0x18C3, 0, 0, OP_CLEAR_COLOR)
+    dispatcher.call(0, 0, 0, OP_CLEAR_RECT)
+    dispatcher.call({"style_id": 0x1012}, 0, 0, OP_DRAW_CONTROL)
+    dispatcher.call({"style_id": 0x1013}, 0, 0, OP_DRAW_CONTROL)
     dispatcher.call({"style_id": MAIN_PAINT_STYLE}, TextPayload("TITLE", 190, 40, 129, 20), 1, OP_DRAW_TEXT)
+    dispatcher.call(0, TextPayload("TITLE", 190, 40, 129, 20), 6, OP_DRAW_DYNAMIC)
     dispatcher.call({"style_id": SECONDARY_STYLE}, TextPayload("TITLE", 190, 40, 129, 20), 1, OP_DRAW_TEXT)
     return dispatcher
