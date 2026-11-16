@@ -76,6 +76,7 @@ def build(
     patch_upgrade_prompt(
         source / "setting.sty",
         candidate / "setting.sty",
+        validate_source=validate_source,
     )
 
     return verify_exact_delta(

@@ -29,7 +29,7 @@ class CandidatePatchTests(unittest.TestCase):
             output_path = root / "out" / "setting.sty"
             source_path.write_bytes(source)
 
-            patch_upgrade_prompt(source_path, output_path)
+            patch_upgrade_prompt(source_path, output_path, validate_source=False)
             result = output_path.read_bytes()
 
         self.assertEqual(len(result), len(source))
@@ -43,6 +43,18 @@ class CandidatePatchTests(unittest.TestCase):
             source_path = root / "setting.sty"
             output_path = root / "out" / "setting.sty"
             source_path.write_bytes(OLD)
+
+            with self.assertRaises(SystemExit):
+                patch_upgrade_prompt(source_path, output_path, validate_source=False)
+
+            self.assertFalse(output_path.exists())
+
+    def test_upgrade_prompt_rejects_unknown_source_payload(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_path = root / "setting.sty"
+            output_path = root / "out" / "setting.sty"
+            source_path.write_bytes(OLD * EXPECTED_COPIES)
 
             with self.assertRaises(SystemExit):
                 patch_upgrade_prompt(source_path, output_path)

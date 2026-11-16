@@ -63,12 +63,12 @@ icons, shifting those icons from indices `29, 30` to `30, 31`. The four
 transport payload hashes remain identical across both layouts, and the
 150x150 missing-cover payload is identical as well.
 
-The candidate builder verifies those payload hashes before changing bytes. A
-matrix run over all 12 persistent extracted corpora passed, with only
-`music.sty` and `setting.sty` changed and with unchanged member sizes. This is
-strong cross-corpus evidence for the resource boundary, but it is still an
-extracted-member candidate: it is not a repacked or device-validated flashable
-firmware image.
+The candidate builder verifies the missing-cover, transport-icon, and
+`setting.sty` source hashes before changing bytes. A matrix run over all 12
+persistent extracted corpora passed, with only `music.sty` and `setting.sty`
+changed and with unchanged member sizes. This is strong cross-corpus evidence
+for the resource boundary, but it is still an extracted-member candidate: it
+is not a repacked or device-validated flashable firmware image.
 
 ## Consequence for the emulator
 
