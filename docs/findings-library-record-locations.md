@@ -150,6 +150,22 @@ multiple of `0x20` for all 4,000 records.  On this card those differences span
 relationship substantially more plausible than an arbitrary binary token, but
 does not identify the exact base entry or layer number.
 
+## Mounted-tree cross-check
+
+The mounted card provides an independent path-level check without raw-device
+access.  Matching a record title to a unique filename under the mounted music
+tree matched 2,242 of 4,000 records.  Of those, 2,240 records belonged to a
+`cluster_no` group that mapped to exactly one parent directory; 404 of the 405
+observed cluster groups were single-parent groups.  Multiple songs in a folder
+share the cluster while their `dir_entry` values vary in `0x20`-aligned steps.
+
+This strongly favors the interpretation that the secondary eight-byte key is
+the containing directory's cluster plus an entry offset, rather than the audio
+file's data cluster.  The reproducible read-only check is
+`tools/emu/mounted_library_path_probe.py`.  The result still does not decode
+the primary blob or prove the exact exFAT entry-set base; the path match is
+limited to titles that are also unique filenames.
+
 This result is a high-value next target for a paired card-directory capture:
 the primary word that equals `cluster_no` can be compared against the actual
 directory chain and file entry.  Until that pairing exists, a semantic
