@@ -117,7 +117,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Folder-list handler p-code execution | real browser/music MIPS16 handlers with helper intercepts | PASS; next/previous state assertions in both apps |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
-| Filename natural-order contract | host model | PASS; 11/11 model tests overall |
+| Filename natural-order contract | host model | PASS; deterministic host contract |
 | Manual-index policy | host state model + static automatic-index guards | PASS; manual path and tested powered-card automatic-rebuild path are separate; other triggers remain device-specific |
 | Artwork audio-first contract | host state model | PASS |
 | ASRC/EOF advance boundary | archived `music.ap` delta + host model | host contract present; mode-4 community path modeled, audible drain unverified |
@@ -142,7 +142,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Library fallback record | `playlist.ap` type-8/tag-failure path | PASS; 8.3 title formatting, fixed fallback fields, and bounded track selector |
 | MUSIC.LIB record codec | documented 256-byte scan record layout | PASS; text/flags/track/link fields decoded; location semantics remain opaque |
 | Library directory walker | stock `playlist.ap`/playall walker contract | PASS; DFS order, depth 8, `RECORD` skip, target count; filesystem callbacks unresolved |
-| SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
+| SD sector/capacity boundary | `cards.drv` 512-byte transfer and capacity path | PASS; host sector device with card presence, bounds checks and explicit `sector_count * 512` capacity |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
 diagnostic build with the experimental whole-card library enabled. It was not

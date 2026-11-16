@@ -50,7 +50,9 @@ This closes the low-level SD-controller gap needed before a more realistic
 QEMU storage model can be attempted. The host emulator now exposes the
 controller's evidence-backed 512-byte transfer boundary through
 `tools/sim/sd_block_device.py`, including explicit card insertion/removal and
-sector bounds. It is a storage boundary, not an emulation of the controller's
+sector bounds. The same model exposes capacity as `sector_count * 512` bytes,
+without assigning meaning to the controller's raw geometry registers. It is a
+storage boundary, not an emulation of the controller's
 register polling, IRQ timing, or automatic-index trigger. It does not by itself explain the
 automatic-index trigger: that decision remains in the application/library
 call chain documented in `findings-index-guards.md` and `library-builder.md`.

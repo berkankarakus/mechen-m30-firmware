@@ -4,6 +4,11 @@ from sd_block_device import CardNotPresentError, SECTOR_SIZE, SdCardBlockDevice
 
 
 class SdCardBlockDeviceTests(unittest.TestCase):
+    def test_capacity_uses_the_512_byte_geometry(self) -> None:
+        card = SdCardBlockDevice(sector_count=3)
+
+        self.assertEqual(card.capacity_bytes, 3 * SECTOR_SIZE)
+
     def test_sector_round_trip_uses_exact_512_byte_blocks(self) -> None:
         card = SdCardBlockDevice(sector_count=2)
         payload = bytes((index % 256 for index in range(SECTOR_SIZE)))

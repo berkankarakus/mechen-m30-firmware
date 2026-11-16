@@ -31,6 +31,11 @@ class SdCardBlockDevice:
     def remove(self) -> None:
         self.present = False
 
+    @property
+    def capacity_bytes(self) -> int:
+        """Return the card capacity using the recovered 512-byte unit."""
+        return self.sector_count * SECTOR_SIZE
+
     def read_sector(self, sector: int) -> bytes:
         self._validate_transfer(sector)
         start = sector * SECTOR_SIZE

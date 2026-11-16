@@ -33,7 +33,7 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `{eq_type, selector}` çifti ve selector kaynağı ofseti; opaque DSP çağrıları
   çalıştırılmaz.
 - `tools/sim/sd_block_device.py`: kanıtlanmış 512-byte SD sektör sınırı,
-  card presence ve bounds davranışı.
+  card presence, bounds ve `sector_count * 512` capacity davranışı.
 - `tools/sim/mmm_bp_model.py`: `mmm_bp` ring read sınırı ve Ghidra ile doğrulanan
   60-step fade phase / ±1000 level arithmetic; callback ve attenuation opaque.
 - `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3
