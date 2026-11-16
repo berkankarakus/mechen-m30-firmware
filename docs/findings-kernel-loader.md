@@ -553,6 +553,31 @@ The read-only cross-check is reproducible with:
 bash tools/ghidra/run_drvui_import_probe.sh analysis/community/fw/drv_ui.drv
 ```
 
+### Dated-corpus binutils cross-check
+
+The same MIPS16 binutils scan was run against the nine hash-verified dated
+HEX extractions currently available outside Git (2022-09-14 through
+2025-06-26, excluding the three older `ACTS-FWT001` files that the current
+unpacker cannot open). Every `drv_ui.drv` produced the same decoded import
+summary:
+
+```text
+MIPS16 IMPORT SUMMARY calls=5 selectors=0:2,1:1,15:1,17:1
+selector 0xf:  call 0x260e5794, delay 0x260e5796
+selector 0x11: call 0x260e579e, delay 0x260e57a0
+```
+
+The two older common blobs are byte-identical with SHA-256
+`4614c31a4175ca7fdf24ae5b2e2266afe063df373d6255cc115eb67d2ff8f323`; the
+2024-03-19, 2024-04-24 and 2025-02-17 blobs are byte-identical with SHA-256
+`f9d63d68f7d66f8f83f109044d1c7e91e415d9feec49ca4663d5119867aee0b2`; and the
+2025-06-26 blob is a third variant with SHA-256
+`011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a`.
+Despite those byte-level variants, the decoded selector/call boundary is
+unchanged across all nine inputs. This is independent instruction-decoder
+evidence for the existing Ghidra result, not proof that selectors `0xf` or
+`0x11` have identical semantics in every firmware release.
+
 The probe now maps the B3 function together with the extracted resident
 wrapper. It verifies that the selector-15 and selector-17 calls use the same
 four-argument resident target at `0xbfc09c05`, while the target decompiles to
