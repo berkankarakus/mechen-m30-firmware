@@ -35,6 +35,16 @@ as containing an automatic-index bypass while preserving the manual Settings
 never initiate a rebuild, nor do they replace a cold-boot and powered-card
 physical test.
 
+### Dated official-corpus control check
+
+The same raw offsets were checked in the nine newly extracted official
+corpora. Every dated official file retained `0x22` at both `config.ap+0x1e0d`
+and `udisk.ap+0x1909`; the community baseline alone has `0x10` at both
+locations. This supports the hypothesis that the two-byte guard change is a
+community-specific modification rather than a general property of the M30
+firmware line. It still does not identify the separate powered-card event
+path observed on the device.
+
 ## Interpretation of the recent device test
 
 An older stock-based index experiment was not V1.292.00. Therefore its
