@@ -284,6 +284,12 @@ The same JSON includes a one-based `navigation` snapshot (`total`, `start`,
 `end`, and `active`) so host UI tests can assert list state independently of
 the framebuffer pixels.
 
+Pass `--common-sty PATH` to load the resource-backed list colors and geometry
+instead of the host defaults. The current card/UI-blue resource yields
+selection RGB565 `0x22f6`; the archived community baseline yields the original
+red `0xd000`. This affects only the host preview and never rewrites the
+resource.
+
 `python3 tools/emu/compare_folder_nav_host.py` executes the 28-case real
 browser/music p-code matrix and compares the recovered
 `start/end/active/previous/status/update` tuple plus redraw/reset helper hits

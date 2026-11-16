@@ -14,6 +14,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from common_sty import CommonStyle
 from m30_ui import Framebuffer, draw_text
 from scroll_accel import NEXT, PREVIOUS, ScrollAccelerator
 from tools.sim.listbox import (
@@ -129,6 +130,7 @@ class FolderList:
     scroll_offset_px: int = 0
     top_y: int = LIST_TOP_Y
     accelerator: ScrollAccelerator = field(default_factory=ScrollAccelerator, repr=False)
+    common_style: CommonStyle | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.rows:
@@ -233,6 +235,31 @@ class FolderList:
             self.scroll_offset_px = original_offset
 
     def render(self) -> tuple[Framebuffer, list[dict[str, object]]]:
+        selection_color = (
+            self.common_style.selection_color
+            if self.common_style is not None
+            else SELECTION_BACKGROUND
+        )
+        selected_text_color = (
+            self.common_style.active_text_color
+            if self.common_style is not None
+            else WHITE
+        )
+        unselected_text_color = (
+            self.common_style.text_color
+            if self.common_style is not None
+            else DIM
+        )
+        selection_label = (
+            "selection-resource"
+            if self.common_style is not None
+            else "selection-red"
+        )
+        solid_selection_label = (
+            "solid-selection-resource"
+            if self.common_style is not None
+            else "solid-selection-red"
+        )
         fb = Framebuffer()
         fb.fill(BACKGROUND)
         fb.rect(0, 0, WIDTH, self.top_y, HEADER_BACKGROUND)
@@ -248,7 +275,7 @@ class FolderList:
             row_index = first_visible + slot
             selected = row_index == self.selected_index
             if selected:
-                fb.rect(0, row_y, WIDTH, DIRECTORY_ROW_HEIGHT, SELECTION_BACKGROUND)
+                fb.rect(0, row_y, WIDTH, DIRECTORY_ROW_HEIGHT, selection_color)
             draw_folder_icon(fb, FOLDER_ICON_X, row_y + 4, RED if selected else DIM)
             slot_text = row.slot_text
             positions = draw_directory_text(
@@ -257,7 +284,7 @@ class FolderList:
                 DIRECTORY_TEXT_X,
                 row_y + 6,
                 DIRECTORY_TEXT_WIDTH,
-                WHITE if selected else DIM,
+                selected_text_color if selected else unselected_text_color,
                 offset_px=self.scroll_offset_px if selected else 0,
             )
             marquee_active = selected and (
@@ -278,11 +305,12 @@ class FolderList:
                 "offset_px": self.scroll_offset_px if selected else 0,
                 "positions": list(positions),
                 "refresh_period_ms": DIRECTORY_SCROLL_PERIOD_MS,
-                "background": "selection-red" if selected else "list-background",
+                "background": selection_label if selected else "list-background",
+                "background_rgb": list(selection_color) if selected else list(BACKGROUND),
                 "restore_mode": (
                     "sdimage-tail"
                     if marquee_active
-                    else "solid-selection-red" if selected else "solid-list-background"
+                    else solid_selection_label if selected else "solid-list-background"
                 ),
             })
         return fb, trace
@@ -314,11 +342,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True, help="PPM framebuffer output")
     parser.add_argument("--trace", type=Path, help="write folder layout trace as JSON")
+    parser.add_argument("--common-sty", type=Path, help="load geometry/colors from an extracted common.sty")
     parser.add_argument("--selected", type=int, default=0)
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("names", nargs="*", default=["Music", "Podcasts", "Long folder name"])
     args = parser.parse_args()
-    view = FolderList(tuple(FolderRow(name) for name in args.names), args.selected, args.offset)
+    style = CommonStyle.load(args.common_sty) if args.common_sty else None
+    view = FolderList(
+        tuple(FolderRow(name) for name in args.names),
+        args.selected,
+        args.offset,
+        common_style=style,
+    )
     frame, _ = view.render()
     frame.ppm(args.out)
     if args.trace:
