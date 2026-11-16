@@ -31,7 +31,7 @@ class MountedLibraryPathProbeTests(unittest.TestCase):
 
         self.assertEqual(summary["matched_records"], 4)
         self.assertEqual(summary["unique_name_matches"], 4)
-        self.assertEqual(summary["primary_parent_cluster_matches"], 0)
+        self.assertEqual(summary["primary_grandparent_cluster_matches"], 0)
         self.assertEqual(summary["cluster_count"], 1)
         self.assertEqual(summary["single_parent_clusters"], 1)
         self.assertEqual(summary["single_parent_records"], 4)

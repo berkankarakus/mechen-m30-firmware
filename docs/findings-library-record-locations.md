@@ -171,9 +171,10 @@ share the cluster while their `dir_entry` values vary in `0x20`-aligned steps.
 The non-selected primary cluster word provides a second path-layer signal: in
 1,706 of those 2,242 unique matches it equals the mounted inode of the file's
 grandparent directory.  This is a mount-level inode cross-check, not raw
-exFAT proof, but it is consistent with the primary blob carrying two adjacent
-directory layers: the selected/current directory pair plus a parent-directory
-pair.  The exact entry-offset interpretation of that second pair remains open.
+exFAT proof, but it is consistent with the primary blob carrying one or more
+directory-layer pairs.  Shallower paths do not show the same grandparent
+match, and the non-selected pair may instead preserve traversal/sibling state;
+the exact layer and entry-offset interpretation therefore remains open.
 
 This strongly favors the interpretation that the secondary eight-byte key is
 the containing directory's cluster plus an entry offset, rather than the audio
