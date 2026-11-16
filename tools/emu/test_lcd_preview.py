@@ -32,6 +32,7 @@ class LcdPreviewTests(unittest.TestCase):
         self.assertEqual(sink.window.pixel_count, 320 * 240)
         self.assertEqual(sink.remaining_pixels, 0)
         self.assertEqual(len(ui.render().pixels), 320 * 240 * 3)
+        self.assertIsNotNone(ui.font)
 
     def test_preview_writes_a_ppm(self):
         sink, _ = render_preview(

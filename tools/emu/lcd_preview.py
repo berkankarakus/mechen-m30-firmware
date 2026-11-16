@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 from lcd_transfer import LcdTransferBoundary
+from m30_font import M30Font
 from m30_ui import FirmwareTrace, MusicStyle, NowPlaying
 
 
@@ -37,6 +38,8 @@ def render_preview(
     scroll_offset: int,
 ) -> tuple[LcdTransferBoundary, NowPlaying]:
     trace = FirmwareTrace.load(music_ap)
+    font_path = music_sty.with_name("new_m.fnt")
+    font = M30Font.load(font_path) if font_path.exists() else None
     ui = NowPlaying(
         MusicStyle.load(music_sty),
         trace,
@@ -45,6 +48,7 @@ def render_preview(
         album=album,
         filename=filename,
         scroll_offset=scroll_offset,
+        font=font,
     )
     source = ui.render()
     sink = LcdTransferBoundary()
