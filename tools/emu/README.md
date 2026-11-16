@@ -104,6 +104,12 @@ deterministic:
      selector 17 is `UI_GET_DC_STATUS`. It does not assign those names to the
      M30 dispatcher or execute either unresolved import.
 
+28. `folder_input.py` connects the proven application key-filter model to
+    `FolderList`: stock screen-off navigation produces only the wake decision,
+    while the patched five-key path reaches the same accelerated folder
+    navigation used by the host view. It accepts normalized key events and
+    does not infer the physical key-driver sampling values.
+
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
 `never-direct-call`, and A19/B16 candidates remain `lazy-only` because their
