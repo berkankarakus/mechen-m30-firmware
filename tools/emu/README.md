@@ -23,7 +23,11 @@ deterministic:
    with a translated MIPS16 helper-call alias and a synthetic GPIO context. It
    verifies the byte-transfer boundary across all six local DAC driver
    corpora; it does not emulate codec registers or audio output.
-8. `scroll_descriptor.py` models the verified state/event offsets used by
+8. `run_qemu_usound_chain_probe.sh` composes the exact producer and ring
+   consumer in one guest with a shared ring and the real selector-`0x10`
+   callback trap. It proves only the byte/state composition; PCM/DAC ownership
+   remains unresolved.
+9. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
 8. `ui_dispatcher.py` provides the conservative host shim for the verified
    dispatcher target `0xbfc16405`.

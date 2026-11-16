@@ -138,6 +138,7 @@ suite therefore no longer re-imports the same driver eight times.
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
+| Real `usound.drv` producer→consumer chain | exact segment + shared guest ring + real callback exception shim | PASS across six corpora; producer publishes 16 bytes, `FUN_bfc31654` consumes 16, and selector `0x10` traps once; PCM/DAC ownership remains unresolved |
 | Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
 | Real `drv_dac.drv` byte-transfer execution | exact resident segment + translated MIPS16 helper-call alias + synthetic RAM GPIO context | PASS across six corpora; real 8-bit transmit, two-byte public send, and all-high/all-low byte sampling execute; codec/GPIO electrical semantics remain unresolved |
 | LCD-backed now-playing preview | real `music.ap`/`music.sty` host renderer + recovered LCD sink | PASS; visible 320x240 RGB565 round-trip with `0x36,0x2a,0x2b,0x2c` trace; hybrid preview, not full ATJ2127 boot |
@@ -300,6 +301,15 @@ probe passes a linear write, a write split at the `0x6e40` ring end, and the
 format-1 fixed-point `0xaaaaaaab` size path. This verifies the producer's
 control flow and state arithmetic, but not the USB polling callback, hardware
 FIFO, interrupt timing, or DAC/codec output.
+
+`bash tools/emu/run_qemu_usound_chain_probe.sh` then runs the real producer and
+`FUN_bfc31654` consumer in one guest, with a shared ring buffer and separate
+recovered state descriptors. Across all six local `usound.drv` corpora, the
+producer publishes 16 bytes, the consumer returns 16 bytes, and the real
+selector-`0x10` callback traps once. This proves that the two recovered
+software boundaries can be composed at the byte/state level; it does not prove
+that the stock USB callback, kernel service, PCM owner, or DAC consumes the
+same data on hardware.
 
 `bash tools/emu/run_qemu_lcd_probe.sh` executes the real LCD resident helpers
 `FUN_bfc0a378` and `FUN_bfc0a438`. The guest relocates only the driver's
