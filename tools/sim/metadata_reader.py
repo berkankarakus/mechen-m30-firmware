@@ -61,6 +61,27 @@ def plan_metadata_read(
     return tuple(chunks)
 
 
+def read_metadata_chunks(
+    source: bytes,
+    start_offset: int,
+    requested: int,
+) -> tuple[bytes, ...]:
+    """Read source bytes using the recovered bounded chunk boundaries."""
+    if start_offset < 0:
+        raise ValueError("metadata start offset must be non-negative")
+    if requested < 0:
+        raise ValueError("metadata request length must be non-negative")
+
+    end_offset = start_offset + requested
+    if end_offset > len(source):
+        raise ValueError("metadata request exceeds the source bytes")
+
+    return tuple(
+        source[chunk.offset : chunk.offset + chunk.length]
+        for chunk in plan_metadata_read(start_offset, requested)
+    )
+
+
 def plan_metadata_operation(
     start_offset: int,
     copied_bytes: int,

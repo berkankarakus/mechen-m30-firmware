@@ -32,9 +32,10 @@ Audacity fade-out tail.
 The host model records the narrow copy boundary in
 `tools/sim/metadata_reader.py`: a request is split at every `0x200` boundary
 and a chunk ending at that boundary is marked for the proven flush point. It
-also records the proven `total_bytes - copied_bytes` trailing-skip arithmetic;
-the skip callback, source callbacks, and metadata interpretation stay outside
-the model.
+also records the proven `total_bytes - copied_bytes` trailing-skip arithmetic.
+`read_metadata_chunks()` applies those boundaries to a concrete source byte
+string; the skip callback, source callback ABI, and metadata interpretation stay
+outside the model.
 
 ## The small sibling change
 

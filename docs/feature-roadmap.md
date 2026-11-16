@@ -15,7 +15,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | USB host | altı `USBC` marker'ı, READ(10)/WRITE(10), 512-byte transfer birimi, CSW yok | block-request alanları ve SD byte aktarımı modelleniyor; tam CBW/CSW framing, status ve controller davranışı beklemede |
 | Key driver | ADC threshold tablosu, normalized event/repeat sınırı | 7-bit threshold classifier, repeat event state ve uygulama key-filter mevcut; fiziksel ADC→key mapping ve timing beklemede |
 | ASRC/EOF | `music.ap` mode-3 advance branch'i, community/V1.101.11 mode-4 delta'sı | mode-3/mode-4 control-flow boundary modeli mevcut; gerçek ASRC/DAC drain ve audible tail ölçümü beklemede |
-| Metadata reader | community/V1.101.11 0x200 buffer boundary loop'u ve bounded caller'lar | boundary-split read planı ve trailing-skip aritmetiği mevcut; source/skip callback ABI'si ve metadata parser beklemede |
+| Metadata reader | community/V1.101.11 0x200 buffer boundary loop'u ve bounded caller'lar | boundary-split source-byte read ve trailing-skip aritmetiği mevcut; source/skip callback ABI'si ve metadata parser beklemede |
 | Artwork fallback | community JPEG fallback'in 0xff yolu, 150x150 RGB565 cache sınırı, component/block guard'ları ve `ALBUM.PIC` header'ı | bounded fallback policy ve cache record modeli mevcut; JPEG decode, SD/CPU timing ve UI render beklemede |
 | Decoder callback | community callback kesin `-1` döndürüyor | fail-closed boundary mevcut; PCM decoder yolu yok |
 | Artwork playback | metadata/JPEG fallback yolları statik olarak ayrıştırıldı | placeholder/render state; async decode veya ses gecikmesi modeli yok |

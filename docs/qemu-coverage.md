@@ -123,7 +123,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Manual-index policy | host state model + static automatic-index guards | PASS; manual path and tested powered-card automatic-rebuild path are separate; other triggers remain device-specific |
 | Artwork audio-first contract | host state model | PASS |
 | ASRC/EOF advance boundary | archived `music.ap` delta + host model | host contract present; mode-4 community path modeled, audible drain unverified |
-| Metadata reader boundary | archived `music.ap` delta + host model | host 0x200 split/flush and trailing-skip arithmetic present; parser/callback ABI unresolved |
+| Metadata reader boundary | archived `music.ap` delta + host model | host 0x200 split/flush, source-byte reads and trailing-skip arithmetic present; parser/callback ABI unresolved |
 | Artwork fallback/cache | community `music.ap` decompile + host models | policy and `ALBUM.PIC` record modeled; JPEG decode, SD/CPU timing and UI render unverified |
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
