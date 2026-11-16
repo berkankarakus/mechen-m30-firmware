@@ -95,7 +95,7 @@ bash tools/ghidra/run_library_tie_probe.sh \
 ```
 
 The preserved `tie.c` has SHA-256
-`52218e353814274b9b64b5b8e5676e07871079312201c3877b7e92b544e06bb4`.
+`80c8cd7af541f3327e459af47f487a0bebdd98334c1de1c503649acefb98b559`.
 `FUN_40114d54` tracks the compared-byte length for each sorted entry, finds
 equal runs, reloads a bounded additional key slice of `0x10000 / run_length`
 bytes (capped by the remaining field width and 100 bytes), re-sorts that run,
@@ -105,6 +105,32 @@ current bytes are NUL. This explains why a visible text-key model can match
 the high-level order while missing terminator-adjacent UTF-16/ASCII ties. The
 host model keeps this refinement opt-in until the source-offset conversion path
 is independently reproduced.
+
+The reproducible cross-comparison tool is
+`tools/emu/library_tie_refinement_probe.py`. It applies the recovered bounded
+refinement shape to the device image and compares each candidate order with
+the stored section table while feeding the device's preceding-section rank to
+later passes. Against the captured M30 image it reports:
+
+```text
+ALLSONG 3803/4000 (first mismatch 14)
+ALBUM 3981/4000 (first mismatch 859)
+ARTIST 4000/4000
+GENRE 4000/4000
+```
+
+Run it with:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_tie_refinement_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
+```
+
+This is still a differential probe, not a firmware writer or a replacement
+for QEMU execution. The existing QEMU MIPS probe scripts remain the next
+machine-local validation step when QEMU user-mode is available.
 
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public

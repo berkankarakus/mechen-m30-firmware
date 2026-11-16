@@ -49,8 +49,8 @@ EXACT_FILES = {
     "decompile/library-record-consumers-2025-06-26/album-run.log": ("d1f81e75f6adf462d037c018d468e12fd92b8c04190e2bbfe2424fa184f839c4", None),
     "decompile/library-index-2025-06-26/index.c": ("b4d24e168ca61c697c489404ad35d92644d6a0e0effb5b03b010e76dc356fcbc", None),
     "decompile/library-index-2025-06-26/run.log": ("ed7b274f79bc6a73896c592a9b65cad30813ff369629a115894430f85280bad8", None),
-    "decompile/library-tie-2025-06-26/tie.c": ("52218e353814274b9b64b5b8e5676e07871079312201c3877b7e92b544e06bb4", None),
-    "decompile/library-tie-2025-06-26/run.log": ("b98dc59e0667870d1dadbbd0959c2e109ad7d3f240133d1e9bea1688356a4035", None),
+    "decompile/library-tie-2025-06-26/tie.c": ("80c8cd7af541f3327e459af47f487a0bebdd98334c1de1c503649acefb98b559", None),
+    "decompile/library-tie-2025-06-26/run.log": ("32b960ef3325d8e8973b576e08d56c50751ecf9836d902ea0191ef8d59115ce5", None),
     "references/us212a-app-design-guide-v2.pdf": ("c6795e5aaef95af5b9bd16d469086e4f69603db87409791f039315705d7d0b05", None),
 }
 
