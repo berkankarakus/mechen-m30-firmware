@@ -41,6 +41,15 @@ M3U.LIB:   1550848 bytes, ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f
 ALBUM.PIC: 128000 bytes,   65bad6f0a143f3990f1d0e958699513159dc3b06f7bcec0452ee318217c8e671
 ```
 
+The bounded M3U check is reproducible with:
+
+```sh
+PYTHONPATH=tools/emu \
+  python3 tools/emu/m3u_library_evidence_probe.py \
+  <persistent-evidence-root>/device-sd/M3U.LIB \
+  ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01
+```
+
 ## MUSIC.LIB geometry and indexes
 
 `tools/emu/musiclib_evidence_probe.py` reads the image through
