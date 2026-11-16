@@ -137,6 +137,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Library tag-reader selector | `playlist.ap` `FUN_40094f2c` mapping | PASS; types 0–7 plus type-8 fallback; reader ABI/metadata parsing unresolved |
 | Library fallback record | `playlist.ap` type-8/tag-failure path | PASS; short-name title, fixed fallback fields, and bounded track selector |
 | MUSIC.LIB record codec | documented 256-byte scan record layout | PASS; text/flags/track/link fields decoded; location semantics remain opaque |
+| Library directory walker | stock `playlist.ap`/playall walker contract | PASS; DFS order, depth 8, `RECORD` skip, target count; filesystem callbacks unresolved |
 | SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral

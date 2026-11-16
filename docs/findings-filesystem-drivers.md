@@ -90,6 +90,11 @@ extension, link indexes, and opaque location slices. It is a byte codec, not a
 filesystem or metadata-reader implementation. The Ghidra evidence is
 reproducible with `tools/ghidra/run_library_record_probe.sh`.
 
+The application walker is represented separately by
+`tools/sim/library_walker.py`: it preserves pre-order depth-first traversal,
+the maximum depth of 8, and the `RECORD` exclusion from the verified stock
+contract. Filesystem callbacks and physical directory state are not emulated.
+
 ## Directory enumeration
 
 The dispatch functions are:

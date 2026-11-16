@@ -41,6 +41,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   fallback text alanları; dört haneli track prefix selector modeli vardır.
 - `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
   alanları; file-location byte dizileri opaque tutulur.
+- `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
+  target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`

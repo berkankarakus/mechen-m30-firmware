@@ -173,6 +173,11 @@ separate zero-writing path.
 The byte layout itself is decoded by `tools/sim/library_record_codec.py`, and
 `tools/ghidra/run_library_record_probe.sh` verifies the corresponding
 `FUN_40094c8c`/`FUN_40094d60` boundary.
+
+The directory traversal contract is modeled in `tools/sim/library_walker.py`:
+pre-order depth-first folders, the eight-level limit, `RECORD` exclusion, and
+the target-count return convention. It does not access a card or implement the
+filesystem callback ABI.
 Location fields remain opaque byte slices; this codec does not parse filesystem
 clusters or reader metadata.
 
