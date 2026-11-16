@@ -58,6 +58,18 @@ Those tests cover the fixed-width UTF-16 prompt replacement and the declared
 transport-icon resource boundaries. They do not replace the member-level
 comparison against the actual extracted candidate.
 
+To reproduce the safe UI candidate from an extracted community member tree,
+run:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/build_safe_ui_members.py \
+  analysis/community/fw /private/tmp/m30-safe-ui/fw
+```
+
+This creates only an extracted-member candidate and a PPM preview. It changes
+`music.sty` and `setting.sty`, preserves every other member and both resource
+sizes, and does not repack or produce a flashable HEX by itself.
+
 - FWU trailer checksum: passed.
 - Resource size: unchanged.
 - Repacked FWU trailer checksum: passed.

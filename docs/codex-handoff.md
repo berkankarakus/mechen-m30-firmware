@@ -27,7 +27,7 @@ işlemi yapılmamıştır.
   bash tools/emu/run_static_suite.sh --host-only
   ```
 
-  Sonuç: `STATIC SUITE PASS host-only`; host testleri `85 sim`, `114 emu`,
+  Sonuç: `STATIC SUITE PASS host-only`; host testleri `85 sim`, `116 emu`,
   `6 ROM` olarak geçti. Varsayılan full suite, gerçek
   `first-pass-verify`, `v1.101.11`, `v1.101.12` ve `v5` corpus'ları eksik
   olduğu için preflight aşamasında duruyor.
@@ -81,7 +81,10 @@ Son commit zinciri `usound` için aşağıdaki parçaları kanıt düzeyinde ay�
 - EQ, sayaç, playback UI ve artwork için önceki statik bulgular belgelerde
   mevcut; bu checkpoint'teki USB modelleri bunları flashlanabilir hâle
   getirmez.
-- Bu değişiklik serisinin ürettiği flashlanabilir HEX yoktur.
+- `tools/emu/build_safe_ui_members.py`, community extracted member ağacından
+  güvenli UI üyelerini (`music.sty`, `setting.sty`) yeniden üretip tam member
+  delta'sını doğrular. Bu değişiklik serisinin ürettiği flashlanabilir HEX
+  hâlâ yoktur; HEX için kaynak community imajı ve repack adımı ayrıca gerekir.
 
 ### Devam edecek model için sıralı iş listesi
 
@@ -419,8 +422,9 @@ sınırlarıdır.
   Adayın (community V1.292.00 + kırmızı ikonlar + önceki tuş + upgrade metni)
   değişikliklerini üreten bir giriş noktası yok: `tools/patch_prev_restart.py`,
   `patch_ui_*.py`, `patch_upgrade_prompt.py`, `patch_default_art.py` vb. 12
-  betik var ama `build.sh` bunların hiçbirini çağırmıyor. Aday HEX bu
-  depodan yeniden üretilebilir değil; yalnızca hash'i belgelenmiş.
+  betik var ama `build.sh` bunların hiçbirini çağırmıyor. Güvenli UI extracted
+  üyeleri artık `tools/emu/build_safe_ui_members.py` ile yeniden üretilebilir;
+  tam aday HEX için community kaynak imajı ve repack girdileri gerekir.
 - Hiçbir harness adayın değişikliklerini (önceki tuş eşiği, ikonlar, upgrade
   metni) ya da community'nin 8 üyesini (`docs/community-diff.md`) test etmiyor.
   QEMU kapsamı (shuffle, playall, scroll, keys, library) community tabanından
@@ -585,7 +589,7 @@ Aşağıdaki iddialar bu oturumdaki bulgularla çelişiyor veya eksik:
 
 - `build.sh --test` (Docker, stock HEX ile): Docker/QEMU ortamı erişilebilir
   olmadığından çalıştırılamadı; host tarafında `tools/sim` 85 ve `tools/emu`
-  114 test geçti. Tam statik suite bu checkout'ta eksik historical corpus
+  116 test geçti. Tam statik suite bu checkout'ta eksik historical corpus
   preflight'ı nedeniyle Ghidra ve MIPS16 adımlarına ulaşmadı.
   `tools/sim/bankmap.py`, Actions A/B/C pointer'larını overlay,
   lead-in ve lazy bank-stub olarak ayırıyor; `tools/sim/ui_calls.py` B3'teki

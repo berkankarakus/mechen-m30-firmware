@@ -136,6 +136,10 @@ The default mode checks for all six extracted corpora before running any
 probe, and reports their names if one is missing. This keeps a missing
 historical input from looking like a later probe regression.
 
+To regenerate the safe UI member tree from an extracted community firmware,
+use `build_safe_ui_members.py`; it verifies that only `music.sty` and
+`setting.sty` changed. It does not create a flashable HEX.
+
 The kernel-side constant boundary can be reproduced without a device with:
 
 ```sh
