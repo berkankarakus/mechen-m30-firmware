@@ -25,6 +25,9 @@ deponun ve bu kökün birlikte nasıl taşınacağını tanımlar.
     album.c
     run.log
     album-run.log
+  decompile/library-index-2025-06-26/
+    index.c
+    run.log
   references/us212a-app-design-guide-v2.pdf
 ```
 

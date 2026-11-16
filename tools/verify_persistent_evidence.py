@@ -47,6 +47,8 @@ EXACT_FILES = {
     "decompile/library-record-consumers-2025-06-26/album.c": ("e8cfb7d628e0b188e1a73a7617c2e7d6f52d9537dd36c6d98a1db5180dd6fe22", None),
     "decompile/library-record-consumers-2025-06-26/run.log": ("6e0226856e6c5976478def9f3c76cba4e1de83704c6d3dddd764378ca2564a47", None),
     "decompile/library-record-consumers-2025-06-26/album-run.log": ("d1f81e75f6adf462d037c018d468e12fd92b8c04190e2bbfe2424fa184f839c4", None),
+    "decompile/library-index-2025-06-26/index.c": ("b4d24e168ca61c697c489404ad35d92644d6a0e0effb5b03b010e76dc356fcbc", None),
+    "decompile/library-index-2025-06-26/run.log": ("ed7b274f79bc6a73896c592a9b65cad30813ff369629a115894430f85280bad8", None),
     "references/us212a-app-design-guide-v2.pdf": ("c6795e5aaef95af5b9bd16d469086e4f69603db87409791f039315705d7d0b05", None),
 }
 
