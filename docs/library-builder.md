@@ -168,6 +168,11 @@ scan boundary, not a claim that the 256-byte record format or `MUSIC.LIB`
 storage cannot represent more records; the experimental large-library builder
 remains a separate path.
 
+The file-layout boundary is modeled in `tools/sim/library_file.py`: it parses
+the 0x200-byte header, the four section directories, the padded 256-byte
+record area, and the seven raw sector references per section. Node contents and
+filesystem location semantics remain opaque.
+
 The host emulator records only the selector boundary in
 `tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
 or claim that type 8's fallback record is hardware-equivalent.
