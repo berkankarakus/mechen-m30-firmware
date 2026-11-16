@@ -25,6 +25,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
   USB Audio descriptor, 200-byte packet ve ring sınırları; `RingConsumer`
   gerçek 0x1000-byte kaynak üzerinden wrap-aware bytes okuyabilir.
+- `tools/sim/dac_bus.py`: `drv_dac.drv` içindeki kanıtlanmış byte dizisi
+  gönderme/alma ve byte başına 8-bit transfer sınırı; bit sırası, codec
+  register map'i ve timing modellenmez.
 - `tools/sim/usb_mass_storage.py`: `uhost.drv` içindeki `USBC`, READ(10)/WRITE(10),
   block address ve 512-byte transfer birimi; request bytes'ları
   `SdCardBlockDevice` sektörlerine taşınabilir; raw `0x1f`/`0x80`–`0x88`

@@ -69,3 +69,11 @@ DAC context/API in the resident audio path and correlate their arguments with
 the existing fade/volume state machine. Without that caller trace, changing
 these bit operations would risk silencing the device or leaving the codec
 bus in an invalid state.
+
+## Host byte boundary
+
+`tools/sim/dac_bus.py` now exposes the narrow byte-level slice proven by these
+helpers: complete byte sequences can be queued, sent, and received, and the
+eight-bits-per-byte transfer count is available for traces. It deliberately
+does not assign a bit order, bus-ready timeout, GPIO line meaning, codec
+register address, volume/mute behavior, or PCM/audio timing.
