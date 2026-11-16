@@ -37,8 +37,9 @@ The raw input files in the repository remain unchanged.
 
 The two decompiled resident routines use the same three-segment `yqhx`
 contract but have separate driver-state tables. The host-side parser and
-load-plan model is now in `tools/emu/yqhx.py`; it intentionally stops at file
-copies and BSS zeroing rather than pretending to execute an unverified bank.
+load-plan model is now in `tools/emu/yqhx.py`; `ResidentMemory` in
+`tools/emu/driver_loader.py` can apply the verified file copies and BSS zeroing
+without pretending to execute an unverified bank.
 
 ### `FUN_bfc0a408`
 

@@ -7,7 +7,7 @@ models copying and residency bookkeeping only; no raw MIPS payload is called.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from yqhx import YqhxImage, slot_layout
@@ -37,6 +37,49 @@ class DriverLoadEvent:
     entry_context: bytes | None
 
 
+@dataclass
+class ResidentMemory:
+    """Sparse destination memory for the verified ``yqhx`` copy contract."""
+
+    _data: dict[int, int] = field(default_factory=dict)
+
+    def read(self, address: int, size: int) -> bytes:
+        if address < 0 or size < 0:
+            raise ValueError("memory address and size must be non-negative")
+
+        return bytes(
+            self._data.get(address + offset, 0)
+            for offset in range(size)
+        )
+
+    def load(self, address: int, data: bytes) -> None:
+        if address < 0:
+            raise ValueError("memory address must be non-negative")
+
+        for offset, value in enumerate(data):
+            self._data[address + offset] = value
+
+    def write(self, address: int, data: bytes) -> None:
+        self.load(address, data)
+
+    def apply(self, image: YqhxImage) -> None:
+        """Copy image segments and clear the image's BSS without executing it."""
+        source = image.path.read_bytes()
+
+        for segment in image.segments:
+            if segment.length == 0:
+                continue
+
+            payload = source[segment.file_offset : segment.file_offset + segment.length]
+            if len(payload) != segment.length:
+                raise ValueError("yqhx segment source is shorter than its declared length")
+
+            self.load(segment.destination, payload)
+
+        if image.bss_size:
+            self.load(image.bss_address, bytes(image.bss_size))
+
+
 class ResidentDriverLoader:
     """Track the resident slots exposed by one decompiled loader."""
 
@@ -58,12 +101,22 @@ class ResidentDriverLoader:
             return (mode & 0xFF) * slot_layout(mode)[1]
         return (mode & 0xFF) * self.spec.slot_stride
 
-    def load(self, path: Path, mode: int) -> DriverLoadEvent:
+    def load(
+        self,
+        path: Path,
+        mode: int,
+        *,
+        memory: ResidentMemory | None = None,
+    ) -> DriverLoadEvent:
         image = YqhxImage.load(path)
         offset = self.slot_offset(mode)
         already_installed = offset in self._installed
         if not already_installed:
             self._installed.add(offset)
+
+        if memory is not None:
+            memory.apply(image)
+
         event = DriverLoadEvent(
             loader=self.spec.name,
             mode=mode & 0xFF,

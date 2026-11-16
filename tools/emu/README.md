@@ -122,6 +122,9 @@ deterministic:
 31. `tools/sim/sd_block_device.py` provides the evidence-backed 512-byte SD
     sector boundary with explicit card presence and bounds checks. It does not
     claim to emulate the controller's register polling or filesystem walker.
+32. `driver_loader.py` can apply the verified `yqhx` segment payloads and BSS
+    zeroing into sparse byte-addressable resident memory. It never invokes the
+    image entry point or the unresolved fixed-ROM handler.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
