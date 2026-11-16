@@ -54,6 +54,26 @@ The group addresses/counts are structural facts only. Item sizes and semantic
 IDs must be supplied by the matching application/resource headers before any
 resource-only patch is considered.
 
+`upgrade.sty` is byte-identical across all six local corpora checked here. It
+contains five 16x16 PicBoxes at `(72,185)`,
+`(112,185)`, `(152,185)`, `(192,185)`, and `(232,185)`. Each has two real
+bitmap frames: frame 0 is the unselected circle and frame 1 is the selected
+circle. The two real text viewports are `(35,110,250,48)` and
+`(85,40,150,16)`, both white. `tools/emu/upgrade_ui.py` exposes only the
+selected-option state needed to preview this screen; it does not pretend to
+execute the updater's AP input or file-validation state machine.
+
+To render a selected-option preview without modifying firmware data:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/upgrade_ui.py \
+  --style analysis/community/fw/upgrade.sty \
+  --font analysis/community/fw/new_m.fnt \
+  --selected 2 \
+  --out /private/tmp/m30-upgrade-selected.ppm \
+  --trace /private/tmp/m30-upgrade-selected.json
+```
+
 ## Safe extracted-member UI candidate
 
 The extracted-member candidate builder recognizes two observed `music.sty`

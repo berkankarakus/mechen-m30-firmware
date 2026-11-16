@@ -2,10 +2,12 @@
 
 The Actions US212A SDK source in the public ATJ2127 reference project shows
 that directory and menu views share the listbox driver.  The M30 common.sty
-directory item has a 205-pixel text region beginning at x=35, a 30-pixel row
-height, and an 80 ms active-scroll refresh interval.  This model keeps those
-values explicit so UI regressions can be tested without claiming to render
-the LCD or reproduce the vendor font rasterizer.
+directory item has a 205-pixel text region beginning at x=35 and a 30-pixel row
+height.  The host model uses a 64 ms active-scroll refresh interval so the
+requested faster marquee cadence can be tested without claiming that the stock
+firmware timer has been patched.  This model keeps those values explicit so UI
+regressions can be tested without claiming to render the LCD or reproduce the
+vendor font rasterizer.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ DIRECTORY_TEXT_WIDTH = 205
 DIRECTORY_TEXT_HEIGHT = 16
 DIRECTORY_ROW_HEIGHT = 30
 DIRECTORY_HEAD_X = 5
-DIRECTORY_SCROLL_PERIOD_MS = 80
+DIRECTORY_SCROLL_PERIOD_MS = 64
 DIRECTORY_GLYPH_WIDTH_PX = 8
 # The SDK declares 52 bytes, but the M30 browser binary initializes each
 # directory-list slot with 0x32 (50) bytes.  This is the limit that matters

@@ -34,6 +34,7 @@ class DirectoryListboxTests(unittest.TestCase):
     def test_long_folder_name_uses_active_scroll_contract(self):
         self.assertFalse(needs_active_scroll(len("short")))
         self.assertTrue(needs_active_scroll(DIRECTORY_TEXT_WIDTH + 1))
+        self.assertEqual(DIRECTORY_SCROLL_PERIOD_MS, 64)
         self.assertEqual(active_redraw_period_ms(), DIRECTORY_SCROLL_PERIOD_MS)
 
     def test_firmware_name_buffer_is_smaller_than_the_scroll_region(self):

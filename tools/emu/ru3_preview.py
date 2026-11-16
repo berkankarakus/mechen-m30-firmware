@@ -74,6 +74,7 @@ def render_style(
     *,
     text_values: dict[int, str] | None = None,
     font: M30Font | None = None,
+    pic_frames: dict[int, int] | None = None,
 ) -> Ru3Preview:
     picboxes, textboxes = _load_style(path)
     frame = Framebuffer()
@@ -82,14 +83,39 @@ def render_style(
     text_values = text_values or {}
     rendered_pics: list[dict[str, object]] = []
     skipped_pics: list[dict[str, object]] = []
+    pic_frames = pic_frames or {}
 
     for index, picbox in enumerate(picboxes):
-        resource_index = next(
-            (_resource_index(value) for value in picbox.frames if _resource_index(value) is not None),
-            None,
+        requested_frame = pic_frames.get(index)
+        if requested_frame is None:
+            frame_index = next(
+                (
+                    frame
+                    for frame, value in enumerate(picbox.frames)
+                    if _resource_index(value) is not None
+                ),
+                None,
+            )
+        else:
+            if not 0 <= requested_frame < len(picbox.frames):
+                raise ValueError(
+                    f"picbox {index} frame {requested_frame} is outside the "
+                    f"{len(picbox.frames)}-frame record"
+                )
+            frame_index = requested_frame
+        resource_index = (
+            None
+            if frame_index is None
+            else _resource_index(picbox.frames[frame_index])
         )
         if resource_index is None:
-            skipped_pics.append({"picbox": index, "reason": "no-frame"})
+            skipped_pics.append(
+                {
+                    "picbox": index,
+                    "frame": frame_index,
+                    "reason": "no-frame",
+                }
+            )
             continue
         try:
             bitmap = load_music_bitmap(path, resource_index)
@@ -100,6 +126,7 @@ def render_style(
         rendered_pics.append(
             {
                 "picbox": index,
+                "frame": frame_index,
                 "resource": resource_index,
                 "x": picbox.x,
                 "y": picbox.y,
@@ -167,17 +194,40 @@ def _parse_text_values(values: list[str]) -> dict[int, str]:
     return result
 
 
+def _parse_pic_frames(values: list[str]) -> dict[int, int]:
+    result: dict[int, int] = {}
+    for value in values:
+        try:
+            index, frame = value.split("=", 1)
+            result[int(index, 0)] = int(frame, 0)
+        except ValueError as exc:
+            raise ValueError(f"pic frame must use INDEX=FRAME: {value!r}") from exc
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--style", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--text", action="append", default=[], metavar="INDEX=VALUE")
+    parser.add_argument(
+        "--pic-frame",
+        action="append",
+        default=[],
+        metavar="INDEX=FRAME",
+        help="select a real PicBox frame; repeatable",
+    )
     parser.add_argument("--font", type=Path, help="M30 new_m.fnt; defaults to the style directory")
     args = parser.parse_args()
     font_path = args.font or args.style.with_name("new_m.fnt")
     font = M30Font.load(font_path) if font_path.exists() else None
-    preview = render_style(args.style, text_values=_parse_text_values(args.text), font=font)
+    preview = render_style(
+        args.style,
+        text_values=_parse_text_values(args.text),
+        font=font,
+        pic_frames=_parse_pic_frames(args.pic_frame),
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     preview.framebuffer.ppm(args.out)
     args.trace.parent.mkdir(parents=True, exist_ok=True)

@@ -108,11 +108,11 @@ class FolderUiTests(unittest.TestCase):
         result = view.move_event(PREVIOUS, 701)
         self.assertEqual((result["requested_steps"], result["selected_index"]), (1, 2))
 
-    def test_marquee_offset_uses_the_eighty_millisecond_refresh_tick(self):
+    def test_marquee_offset_uses_the_64_millisecond_refresh_tick(self):
         view = FolderList((FolderRow("A long folder name"),), scroll_offset_px=3)
         self.assertEqual(view.marquee_offset_at(0), 3)
-        self.assertEqual(view.marquee_offset_at(79), 3)
-        self.assertEqual(view.marquee_offset_at(80), 4)
+        self.assertEqual(view.marquee_offset_at(63), 3)
+        self.assertEqual(view.marquee_offset_at(64), 4)
         self.assertEqual(view.marquee_offset_at(240, start_ms=80), 5)
         self.assertEqual(view.scroll_offset_px, 3)
 
