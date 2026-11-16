@@ -225,12 +225,13 @@ next target for a safe buffer-size patch instead of guessing from screenshots.
 The application-level key filter is now represented by
 `tools/sim/key_filter.py`. It is intentionally below the unresolved physical
 key-driver/MMIO boundary: normalized events are delivered while the screen is
-on, stock screen-off events become wake message `0x106`, and the remembered
-wake key's long-press/release sequence is discarded. The model also exposes
-the proven `keypass.S` behavior: only play/pause, previous, next, volume up,
-and volume down use the normal delivery path while the screen is off. This is
-host-emulator behavior with deterministic tests, not a claim that physical
-button sampling or repeat timing has been recovered.
+on, the `WAKE_ONLY` screen-off policy turns non-power events into wake message
+`0x106`, and the remembered wake key's long-press/release sequence is
+discarded. The changelog-backed `MEDIA_KEYS_PASS` policy routes only
+play/pause, previous, next, volume up, and volume down through the normal
+delivery path while the screen is off. This is host-emulator behavior with
+deterministic tests, not a claim that physical button sampling or repeat timing
+has been recovered.
 
 `tools/sim/usb_audio_stream.py` now composes the observed USB Audio
 descriptor with the 4 KiB ring-consumer boundary. It accepts only the

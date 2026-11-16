@@ -10,6 +10,7 @@ unknown MMIO sampling and debounce registers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
 
 KEY_PLAY_PAUSE = 0x01
@@ -40,6 +41,13 @@ KEY_RELEASE = 0x0400
 WAKE_MESSAGE = 0x106
 
 
+class ScreenOffKeyPolicy(str, Enum):
+    """Observed application policy for non-power keys while the screen is off."""
+
+    WAKE_ONLY = "wake-only"
+    MEDIA_KEYS_PASS = "media-keys-pass"
+
+
 @dataclass(frozen=True)
 class KeyEvent:
     """One normalized key event passed to the application filter."""
@@ -67,10 +75,11 @@ class FilterDecision:
 
 @dataclass
 class KeyFilterState:
-    """Model stock or patched screen-off handling for normalized key events."""
+    """Model an observed screen-off policy for normalized key events."""
 
     screen_state: int = SCREEN_ON
     wake_key: int | None = None
+    screen_off_policy: ScreenOffKeyPolicy = ScreenOffKeyPolicy.WAKE_ONLY
 
     def __post_init__(self) -> None:
         if self.screen_state not in (SCREEN_ON, SCREEN_OFF):
@@ -79,11 +88,12 @@ class KeyFilterState:
     def process(self, event: KeyEvent, *, patched: bool = False) -> FilterDecision:
         """Filter one event without mutating the physical-key or LCD state.
 
-        With the screen on, the stock path delivers the event.  With the
-        screen off, stock firmware turns non-power events into wake message
+        With the screen on, the stock path delivers the event. With the screen
+        off, the wake-only policy turns non-power events into wake message
         ``0x106`` and remembers the key so its long-press/release sequence is
-        discarded.  The screen-off key patch routes only the five media keys
-        through the normal screen-on path.
+        discarded. The media-keys-pass policy routes only the five normalized
+        media keys through the normal screen-on path. ``patched`` remains a
+        compatibility alias for that policy.
         """
         if self.screen_state == SCREEN_ON or event.key_code == KEY_POWER:
             return self._deliver(event)
@@ -100,7 +110,11 @@ class KeyFilterState:
                 wake_key=self.wake_key,
             )
 
-        if patched and event.key_code in KEYPASS_KEYS:
+        media_keys_pass = (
+            patched
+            or self.screen_off_policy is ScreenOffKeyPolicy.MEDIA_KEYS_PASS
+        )
+        if media_keys_pass and event.key_code in KEYPASS_KEYS:
             return self._deliver(event)
 
         self.wake_key = event.key_code

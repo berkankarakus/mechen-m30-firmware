@@ -95,6 +95,15 @@ and `0x34` to normalized key `0x0d` paths are represented as well. The
 external callback side effect, physical button names, and MMIO register
 meanings remain unmodeled.
 
+The public firmware changelog supplies a second, application-level distinction:
+2022-08-16 says that the scroll wheel and all buttons are disabled while
+locked, while 2022-08-05 and 2024-02-28 explicitly retain play/pause,
+previous/next, and volume controls. `tools/sim/key_filter.py` now represents
+these two observed policies as `WAKE_ONLY` and `MEDIA_KEYS_PASS`. The existing
+`patched=True` argument remains a compatibility alias for the latter; this
+does not assign physical names to normalized key values or claim a debounce
+timing.
+
 It does **not** yet prove:
 
 - which physical button corresponds to each normalized value;

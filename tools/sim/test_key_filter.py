@@ -10,6 +10,7 @@ from key_filter import (
     KEY_VOLUME_DOWN,
     KEY_VOLUME_UP,
     SCREEN_OFF,
+    ScreenOffKeyPolicy,
     FilterDecision,
     KeyEvent,
     KeyFilterState,
@@ -59,6 +60,30 @@ class KeyFilterTests(unittest.TestCase):
         self.assertEqual(decision.delivered, event)
         self.assertTrue(decision.idle_counters_reset)
         self.assertIsNone(decision.wake_message)
+
+    def test_media_keys_pass_policy_reaches_application_without_patch_alias(self) -> None:
+        event = KeyEvent(KEY_NEXT, KEY_DOWN)
+        state = KeyFilterState(
+            screen_state=SCREEN_OFF,
+            screen_off_policy=ScreenOffKeyPolicy.MEDIA_KEYS_PASS,
+        )
+
+        decision = state.process(event)
+
+        self.assertEqual(decision.action, "deliver")
+        self.assertEqual(decision.delivered, event)
+        self.assertTrue(decision.idle_counters_reset)
+
+    def test_wake_only_policy_keeps_media_key_as_wake_event(self) -> None:
+        state = KeyFilterState(
+            screen_state=SCREEN_OFF,
+            screen_off_policy=ScreenOffKeyPolicy.WAKE_ONLY,
+        )
+
+        decision = state.process(KeyEvent(KEY_NEXT, KEY_DOWN))
+
+        self.assertEqual(decision.action, "wake")
+        self.assertEqual(decision.wake_message, WAKE_MESSAGE)
 
     def test_patched_screen_off_non_media_key_keeps_stock_wake_behavior(self) -> None:
         state = KeyFilterState(screen_state=SCREEN_OFF)
