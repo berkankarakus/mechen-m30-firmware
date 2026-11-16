@@ -150,6 +150,14 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(left, bytes(rgb565(0x18C3)))
         self.assertEqual(right, bytes(rgb565(0x18C3)))
 
+    def test_metadata_textboxes_share_icon_row_geometry(self):
+        style = MusicStyle.load(STY)
+        boxes = [box for box in style.textboxes if box.width == 129 and box.height == 20]
+        icon_indices = (7, 6, 5, 8)
+        for box, icon_index in zip(boxes, icon_indices):
+            picbox = style.picboxes[icon_index]
+            self.assertEqual((box.x, box.y), (picbox.x + 30, picbox.y))
+
 
 if __name__ == "__main__":
     unittest.main()

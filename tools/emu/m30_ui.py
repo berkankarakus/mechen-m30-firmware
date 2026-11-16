@@ -612,7 +612,7 @@ class NowPlaying:
             color = self.style.color(box)
             if self.font:
                 self.font.draw_marquee(
-                    fb, value, box.x, box.y + 2, box.width,
+                    fb, value, box.x, box.y, box.width,
                     box.height, color, offset=self.scroll_offset, pixel_scale=2,
                 )
             else:
