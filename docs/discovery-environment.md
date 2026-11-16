@@ -99,6 +99,20 @@ Eksik historical corpus'ları community kopyasına bağlamak geçerli değildir:
 `run_decoder_callback_probe.sh` gibi karşılaştırmalar gerçek
 `v1.101.12`/community byte farklarına dayanır.
 
+### Corpus gate
+
+Bu çalışma alanındaki son kontrol sırasında beklenen altı dizin
+(`analysis/community`, `analysis/first-pass-verify`, `analysis/stock`,
+`analysis/v1.101.11`, `analysis/v1.101.12`, `analysis/v5`) mevcut olsa da
+hepsi boştur. `m30-inputs` kökü de mevcut değildir ve firmware binary'leri
+repo içinde tracked değildir.
+
+Bu nedenle corpus bağımlı karşılaştırma, Ghidra yeniden-dekompilasyonu veya
+provider araması çalıştırılmamalıdır. Mevcut kaynak kodu, kayıtlı decompile
+çıktıları, sentetik fixture'lar ve host-only testler kullanılabilir; gerçek
+corpus isteyen bir iş, ilgili dosyalar yerel olarak sağlanana kadar TODO olarak
+kalır. Boş dizinleri community kopyasına bağlamak kanıt üretmez.
+
 ## Üyeleri açma
 
 ```sh

@@ -12,6 +12,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
 - Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
   `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
+- Corpus gate: beklenen `analysis/*` dizinleri mevcut fakat boş; `m30-inputs`
+  ve tracked firmware binary'leri yok. Corpus karşılaştırması, yeni Ghidra
+  araması ve provider taraması bu dosyalar sağlanana kadar çalıştırılmaz.
 
 ## Kanıt → emulator karşılıkları
 
