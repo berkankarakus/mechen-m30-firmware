@@ -9,7 +9,7 @@ fields that are visible in the decompilation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sd_block_device import SdCardBlockDevice
 
@@ -20,6 +20,8 @@ READ_DIRECTION = 0x80
 BLOCK_SIZE = 512
 CONTROL_OPERATION = 0x1F
 OBSERVED_STATUS_CODES = frozenset(range(0x80, 0x89))
+GUESSED_COMMAND_BLOCK_LENGTH = 31
+GUESSED_CDB_LENGTH = 10
 
 
 @dataclass(frozen=True)
@@ -118,3 +120,112 @@ class UsbMassStorageBlockRequest:
                 self.block_address + offset,
                 payload[start : start + BLOCK_SIZE],
             )
+
+
+@dataclass(frozen=True)
+class GuessedUsbMassStorageCommandBlock:
+    """Serialize a standard-shaped command block around an observed request.
+
+    The ``USBC`` signature and request fields are observed. The remaining
+    31-byte layout follows the common bulk-only command-block shape as an
+    explicitly marked hypothesis. No command-status wrapper is generated.
+    """
+
+    tag: int
+    request: UsbMassStorageBlockRequest
+    lun: int = 0
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.tag <= 0xFFFFFFFF:
+            raise ValueError("command-block tag must fit four bytes")
+
+        if not 0 <= self.lun <= 0xFF:
+            raise ValueError("command-block LUN must fit one byte")
+
+        if self.request.block_address > 0xFFFFFFFF:
+            raise ValueError("command-block block address must fit four bytes")
+
+        if self.request.block_count > 0xFFFF:
+            raise ValueError("command-block block count must fit two bytes")
+
+    @property
+    def transfer_bytes(self) -> int:
+        return self.request.transfer_bytes
+
+    def encode(self) -> bytes:
+        """Return the guessed 31-byte command block without a status phase."""
+        cdb = bytearray(16)
+        cdb[0] = self.request.opcode
+        cdb[2:6] = self.request.block_address.to_bytes(4, "big")
+        cdb[7:9] = self.request.block_count.to_bytes(2, "big")
+        flags = READ_DIRECTION if self.request.opcode == READ10_OPCODE else 0
+
+        encoded = (
+            CBW_SIGNATURE
+            + self.tag.to_bytes(4, "little")
+            + self.transfer_bytes.to_bytes(4, "little")
+            + bytes((flags, self.lun, GUESSED_CDB_LENGTH))
+            + bytes(cdb)
+        )
+        if len(encoded) != GUESSED_COMMAND_BLOCK_LENGTH:
+            raise AssertionError("guessed command block has an unexpected length")
+
+        return encoded
+
+
+@dataclass(frozen=True)
+class GuessedUsbMassStorageExchange:
+    """One guessed command/data exchange without a CSW or status meaning."""
+
+    request: UsbMassStorageBlockRequest
+    command_block: bytes
+    data_phase: bytes
+    status: int | None = None
+
+
+@dataclass
+class GuessedUsbMassStorageSession:
+    """Connect guessed command blocks to the verified SD sector boundary."""
+
+    device: SdCardBlockDevice
+    exchanges: list[GuessedUsbMassStorageExchange] = field(default_factory=list)
+
+    def read10(
+        self,
+        tag: int,
+        block_address: int,
+        block_count: int,
+    ) -> GuessedUsbMassStorageExchange:
+        request = UsbMassStorageBlockRequest.read10(block_address, block_count)
+        command = GuessedUsbMassStorageCommandBlock(tag, request)
+        data = request.read_from(self.device)
+
+        return self._record(request, command, data)
+
+    def write10(
+        self,
+        tag: int,
+        block_address: int,
+        block_count: int,
+        payload: bytes,
+    ) -> GuessedUsbMassStorageExchange:
+        request = UsbMassStorageBlockRequest.write10(block_address, block_count)
+        command = GuessedUsbMassStorageCommandBlock(tag, request)
+        request.write_to(self.device, payload)
+
+        return self._record(request, command, payload)
+
+    def _record(
+        self,
+        request: UsbMassStorageBlockRequest,
+        command: GuessedUsbMassStorageCommandBlock,
+        data: bytes,
+    ) -> GuessedUsbMassStorageExchange:
+        exchange = GuessedUsbMassStorageExchange(
+            request=request,
+            command_block=command.encode(),
+            data_phase=data,
+        )
+        self.exchanges.append(exchange)
+
+        return exchange
