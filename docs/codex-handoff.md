@@ -6,22 +6,30 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 ## Güncel durum — 2026-11-16
 
-- Dal: `main`; `fork/main` ile aynı commit'te (`bb31b85`). Önceki handoff
-  commit'i (`11833fa`) push edildi; bu pull sonrası yerel ek değişiklik yok.
+- Dal: `main`; çalışma ağacı temiz. Son anlamlı commit'leri görmek için
+  `git log --oneline -6` kullanılır. Push yapılmadı.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
-- Son teknik değişiklik ve commit kimliği için `git log -1 --oneline` kullanılır.
-- Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
+- Host-only ve tam statik suite son doğrulamada başarılıdır:
+  `bash tools/emu/run_static_suite.sh --host-only` ve
+  `bash tools/emu/run_static_suite.sh`.
+- Tam suite; Ghidra driver/kernel, gerçek MIPS16 scroll/navigation ve altı
+  firmware corpus'u üzerindeki host kontrollerini kapsar. QEMU leaf/chain
+  probe'ları ayrıca çalıştırılır; bunlar tam ATJ2127 boot iddiası değildir.
+- Son yüksek etkili düzeltme: `kernel.drv` içindeki
+  `FUN_bfc0a408`/`FUN_bfc0a578` adaylarının loader değil resident-table
+  yardımcıları olduğu doğrulandı. `yqhx.py` ve sparse materializer yalnızca
+  header/segment/BSS sözleşmesini modeller.
+- `analysis/community/dec.bin` kritik extracted üyeleri birer kez içerir ve
+  `0xbfc06d6c` handler işaretçisi içermez. `tools/emu/dec_container_probe.py`
+  bu sınırı kontrol eder; eksik fixed-ROM handler'ı mevcut dump'tan çıkarılamaz.
+- DAC caller taraması da tekrar üretilebilir durumda:
+  `tools/emu/dac_caller_scan.py`. Doğrudan helper pointer'ları yalnızca
+  sürücü/container kopyalarında bulunur; codec register anlamı çözülmüş
+  değildir.
 - Başka bilgisayara geçiş için [`portable-handoff.md`](portable-handoff.md)
   ve `python3 tools/verify_persistent_evidence.py <evidence-root>` kullanılır;
   firmware, cihaz SD dosyaları ve Ghidra çıktıları Git dışında kalıcı kanıt
   kökünde tutulur.
-- Host-only suite son çalıştırmada başarılı oldu; güncel sonucu yeniden görmek
-  için yukarıdaki komutu çalıştır.
-- Tam suite için gerekli yerel corpus klasörleri mevcut (`stock`, `community`,
-  `first-pass-verify`, `v1.101.11`, `v1.101.12`, `v5`; her biri 99 extracted
-  member). Pull sonrası tam suite Ghidra aşamasına kadar ilerledi, ancak bu
-  inceleme turunda manuel olarak durduruldu; bu nedenle yeni commit'ler için
-  `STATIC SUITE PASS full` sonucu henüz kaydedilmemelidir.
 
 ## Kanıt → emulator karşılıkları
 
