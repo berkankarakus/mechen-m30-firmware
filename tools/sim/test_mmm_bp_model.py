@@ -1,6 +1,13 @@
 import unittest
 
-from mmm_bp_model import REFILL_BLOCK_BYTES, fade_mode_name, plan_ring_read
+from mmm_bp_model import (
+    FADE_LEVEL_STEP,
+    FADE_PHASE_INTERVAL,
+    REFILL_BLOCK_BYTES,
+    advance_fade_step,
+    fade_mode_name,
+    plan_ring_read,
+)
 
 
 class MmmBpBufferTests(unittest.TestCase):
@@ -25,6 +32,24 @@ class MmmBpBufferTests(unittest.TestCase):
         self.assertEqual(fade_mode_name(2), "slow")
         self.assertEqual(fade_mode_name(3), "fast")
         self.assertEqual(fade_mode_name(1), "inactive")
+
+    def test_slow_fade_advances_level_every_60_steps(self):
+        plan = advance_fade_step(2, FADE_PHASE_INTERVAL - 1, 99, 10000)
+        self.assertEqual((plan.mode, plan.step_count, plan.phase), (2, 60, 1))
+        self.assertEqual(plan.level, 10000 - FADE_LEVEL_STEP)
+        self.assertTrue(plan.callback_due)
+
+    def test_direction_change_resets_the_step_counter(self):
+        plan = advance_fade_step(2, 59, 100, 10000)
+        self.assertEqual((plan.mode, plan.step_count, plan.phase), (3, 0, 0))
+        self.assertEqual(plan.level, 10000)
+        self.assertFalse(plan.callback_due)
+
+    def test_fast_fade_uses_the_positive_level_delta(self):
+        plan = advance_fade_step(3, 119, 100, 2000)
+        self.assertEqual((plan.mode, plan.step_count, plan.phase), (3, 120, 2))
+        self.assertEqual(plan.level, 2000 + 2 * FADE_LEVEL_STEP)
+        self.assertTrue(plan.callback_due)
 
 
 if __name__ == "__main__":

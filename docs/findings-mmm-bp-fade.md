@@ -98,9 +98,10 @@ against the `available-count` and `0x200`-byte refill conditions.
 `tools/sim/mmm_bp_model.py` now exposes the safe part of this contract:
 `plan_ring_read()` rejects reads larger than the available count and returns
 the same two-segment wrap plan as the recovered reader; `REFILL_BLOCK_BYTES`
-records the observed `0x200` decoder refill; and `fade_mode_name()` preserves
-only the proven slow/fast mode labels. No DSP bytes or guessed attenuation
-coefficients are executed.
+records the observed `0x200` decoder refill; and `advance_fade_step()` models
+the proven mode selection, 60-step phase, and ±1000 level arithmetic while
+keeping the caller-provided base level opaque. No DSP bytes, callback body, or
+guessed attenuation coefficients are executed.
 
 Because all six corpora agree byte-for-byte at these locations, the community
 firmware did not change this module. The next step is to trace callers and

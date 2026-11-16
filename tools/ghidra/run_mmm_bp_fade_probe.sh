@@ -6,18 +6,25 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 AL=${1:-$ROOT/analysis/community/fw/mmm_bp.al}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
-JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+
+if [ -z "${JAVA_HOME:-}" ] && command -v brew >/dev/null 2>&1; then
+  JAVA_PREFIX=$(brew --prefix openjdk@25 2>/dev/null || true)
+  JAVA_HOME="$JAVA_PREFIX/libexec/openjdk.jdk/Contents/Home"
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+fi
 
 [ -f "$AL" ] || { echo "missing mmm_bp.al: $AL" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-mmm-bp.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$WORK/project"
+mkdir -p "$WORK/project" "$WORK/home"
 
 set +e
-JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
-GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
   "$GHIDRA" "$WORK/project" m30mmmbp \
   -import "$AL" \
   -loader BinaryLoader \
@@ -26,6 +33,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
   -postScript DumpAt.java 0xbfc21530,0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0xbfc274c8,0xbfc27520,0xbfc276ac,0x680a1ed4 "$WORK/decomp.c" \
+  -postScript DumpWords.java 0xbfc21694 0xbfc21698 \
   -postScript DumpWords.java 0xbfc21698 0xbfc2169c \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
@@ -61,6 +69,10 @@ grep -q 'param_1 + 0x81' "$WORK/decomp.c"
 grep -q 'param_1 + 0xc0' "$WORK/decomp.c"
 grep -q 'param_1 + 0xcc' "$WORK/decomp.c"
 grep -q 'param_1 + 0x81' "$WORK/decomp.c"
+grep -q 'param_1 + 0x88.*< 100' "$WORK/decomp.c"
+grep -q 'uVar1 + uVar2 \* -0x3c' "$WORK/decomp.c"
+grep -q '\* -1000' "$WORK/decomp.c"
+grep -q '\* 1000' "$WORK/decomp.c"
 grep -q 'param_1\[2\] = 0x400' "$WORK/decomp.c"
 grep -q 'param_3\[3\]' "$WORK/decomp.c"
 grep -q 'param_1 + 0x70' "$WORK/decomp.c"
@@ -71,6 +83,7 @@ grep -q '0x200' "$WORK/decomp.c"
 # not treated as new patch targets: the callback body is outside this module's
 # safely recovered function set.
 grep -q 'WORD address=bfc21698 value=0xbfc21a3d' "$WORK/ghidra.log"
+grep -q 'WORD address=bfc21694 value=0x88888889' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc27488 value=0xbfc21a3d' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc274c4 value=0xbfc21a3d' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc2769c value=0x9fc21b00' "$WORK/ghidra.log"
