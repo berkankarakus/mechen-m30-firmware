@@ -92,6 +92,34 @@ operation. The resident probe asserts the forwarder shape. The flat loader used 
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.
 
+### B3 trailing table: local B08 renderer is a separate path
+
+The adjacent table after the second B3 function contains `0x26209401`, not
+`0x26409401`. The former maps through the public bank formula to the local B08
+candidate `0x26225400`; the latter is the separate B16-qualified pointer used
+by the marquee descriptor path and has no payload in the extracted M30 driver.
+Conflating these two values would incorrectly turn a local candidate into a
+claimed B16 recovery.
+
+The B08 candidate decompiles to a descriptor/line renderer. Its observed shape
+is useful but narrower than a complete provider proof: it reads a short string
+descriptor, normalizes the `~` marker, derives alignment/clipping flags from
+the descriptor, clamps rendered width to the available width, computes the
+remaining-space offset for centered text, and submits the final region through
+an indirect renderer helper. This confirms that width/clipping decisions exist
+in a local renderer, but it does not identify the image-backed tail restore
+operation. The B08 mapping and decompile are reproducible with:
+
+```sh
+bash tools/ghidra/run_drvui_b3_table_probe.sh analysis/community/fw/drv_ui.drv
+bash tools/ghidra/run_drvui_b3_candidate_probe.sh analysis/community/fw/drv_ui.drv
+```
+
+The red folder-name artifact therefore remains split into two independently
+testable paths: the local B08 renderer can account for clipping/alignment
+behavior, while the missing B16/A17 provider chain is still required to prove
+the image-backed tail restore that should remove the stale red rectangle.
+
 ### Dated-corpus forwarder cross-check
 
 As a hypothesis test for the red marquee rectangle, the resident probe was
