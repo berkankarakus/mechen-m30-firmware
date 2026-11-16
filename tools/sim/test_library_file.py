@@ -36,12 +36,13 @@ def make_library(record_count: int = 3) -> bytearray:
     return data
 
 
-def add_record(data: bytearray, title: bytes) -> None:
+def add_record(data: bytearray, title: bytes, record_index: int = 0) -> None:
     record = bytearray(RECORD_SIZE)
     record[: len(title)] = title
     record[0xA3] = 1
     record[0xA4:0xA8] = b"MP3\0"
-    data[SECTOR_SIZE : SECTOR_SIZE + RECORD_SIZE] = record
+    record_offset = HEADER_SIZE + record_index * RECORD_SIZE
+    data[record_offset : record_offset + RECORD_SIZE] = record
 
 
 class MusicLibraryLayoutTests(unittest.TestCase):
@@ -86,6 +87,25 @@ class MusicLibraryLayoutTests(unittest.TestCase):
 
         self.assertEqual(record.title, "From SD")
         self.assertEqual(record.extension, "MP3")
+
+    def test_reads_opaque_record_tail_from_sd_bytes(self):
+        image = make_library(2)
+        add_record(image, b"From SD", record_index=1)
+        image[0x300 + 0xA9 : 0x300 + 0xF2] = bytes(range(0x49))
+        image[0x300 + 0xF4 : 0x300 + 0xFC] = b"LOCATION"
+        struct.pack_into("<HH", image, 0x300 + 0xFC, 0xBEEF, 0xCAFE)
+
+        card = SdCardBlockDevice(sector_count=3)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE:])
+
+        record = read_library_record(card, 1, 1)
+
+        self.assertEqual(record.title, "From SD")
+        self.assertEqual(record.location_primary, bytes(range(0x49)))
+        self.assertEqual(record.location_secondary, b"LOCATION")
+        self.assertEqual(record.previous_index, 0xBEEF)
+        self.assertEqual(record.next_index, 0xCAFE)
 
     def test_record_index_is_bounded_by_the_library_header(self):
         image = make_library(1)

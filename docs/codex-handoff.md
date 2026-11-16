@@ -93,6 +93,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   M30-specific node link/location/sort semantics hâlâ doğrulanmamıştır.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
+- MUSIC.LIB açık TODO'ları `docs/findings-music-lib-node-format.md` içindedir:
+  `0xa9..0xf1`, `0xf4..0xfb` ve `0xfc..0xff` alanları opaque kalır; section
+  reference `5` ve nested run modelinin M30 görüntüsüyle doğrulanması beklenir.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`

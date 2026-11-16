@@ -34,10 +34,27 @@ class LibraryRecordCodecTests(unittest.TestCase):
         self.assertTrue(record.tag_ok)
         self.assertEqual(record.extension, "MP3")
         self.assertEqual(record.track_number, 7)
+        self.assertEqual(record.always_one, 1)
         self.assertEqual(record.location_primary, bytes(range(0x49)))
         self.assertEqual(record.previous_index, 3)
         self.assertEqual(record.next_index, 5)
         self.assertEqual(record.location_secondary, b"LOCATION")
+
+    def test_opaque_location_and_tail_values_are_exposed_without_validation(self):
+        data = bytearray(RECORD_SIZE)
+        data[0xA9:0xF2] = bytes((index * 7) & 0xFF for index in range(0x49))
+        data[0xF4:0xFC] = b"\x00\xff\x10\xef\x80\x01\x7f\xaa"
+        struct.pack_into("<HH", data, 0xFC, 0xBEEF, 0xCAFE)
+
+        record = decode_record(bytes(data))
+
+        self.assertEqual(
+            record.location_primary,
+            bytes((index * 7) & 0xFF for index in range(0x49)),
+        )
+        self.assertEqual(record.location_secondary, b"\x00\xff\x10\xef\x80\x01\x7f\xaa")
+        self.assertEqual(record.previous_index, 0xBEEF)
+        self.assertEqual(record.next_index, 0xCAFE)
 
     def test_requires_one_complete_record(self):
         with self.assertRaises(ValueError):

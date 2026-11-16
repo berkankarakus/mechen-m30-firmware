@@ -24,6 +24,17 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | LCD transfer | `drv_lcd.drv` address-window commands `0x2a/0x2b/0x2c` | bounded RGB565 window-to-framebuffer sink modeled; controller timing, orientation and electrical behavior remain unresolved |
 | Resident driver loader | kernel `yqhx` copy/BSS contract | sparse host memory applies declared segments and BSS clearing; entry execution and fixed-ROM handoff remain unresolved |
 
+## MUSIC.LIB TODO
+
+- M30-created `MUSIC.LIB` byte image edinip section tables, node ranges and
+  duplicate metadata groups against the candidate modelle karşılaştır.
+- `0xa9..0xf1` primary location blob'unu source path/cluster değişimleriyle
+  çöz; `0xf4..0xfb` alanı için byte order veya locator varsayımı yapma.
+- `0xfc..0xff` record predecessor/successor alanlarının gerçekten hangi
+  consumer tarafından okunduğunu trace et.
+- Reference `5` node/group table'ının level-zero node index'i olduğunu gerçek
+  multi-group M30 görüntüsüyle doğrula.
+
 ## Bilinçli olarak ertelenenler
 
 - Tam ATJ2127 boot ve upstream QEMU machine model.

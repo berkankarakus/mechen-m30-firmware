@@ -79,6 +79,28 @@ indices to directories, or assume that `node_type=1` has a broader meaning
 than the observed builder contract. It also does not reuse the public sample
 to change sorting or grouping behavior.
 
+## Open TODOs and educated guesses
+
+These are investigation targets, not emulator contracts:
+
+| Bytes or behavior | Educated guess | Confidence | What would confirm or reject it |
+|---|---|---|---|
+| `0xa9..0xf1` | A fixed-width primary file-location or storage-metadata blob. Its size and position between tag metadata and the track field make a path, cluster, or locator representation plausible, but no current consumer decodes it. | Low | An M30-created record paired with its source path and a second record whose path differs in only one component. |
+| `0xf4..0xfb` | A compact secondary locator, offset, size, or file identity associated with the primary blob. The eight-byte width is compatible with several storage representations, so no byte order is assumed. | Low | Controlled records with known file offsets, sizes, or cluster chains, compared across relocations and rewrites. |
+| `0xfc..0xff` | Per-record predecessor/successor links for source or scan order, separate from section-node links. The placement at the record tail and 16-bit width support this, but no reader has been traced. | Low–medium | Records reordered on disk while preserving metadata, or a traced playback/browser consumer reading these fields. |
+| Section table reference `5` | A per-record index into level-zero nodes for the section, because the recovered writer builds it from `runs[0]`. It may still be an implementation-local group index rather than a public UI identifier. | Medium | A multi-group M30 image where table values match node ranges and the UI selection path. |
+| Nested run model | ALBUM, then ARTIST, then GENRE nodes are hierarchical runs rather than independent flat groups. This follows the recovered builder and is the strongest current behavioral guess. | Medium–high | A real M30 image with duplicate artists/albums/genres and matching node counts, child counts, and table values. |
+
+The next evidence pass should therefore prioritize one M30-generated
+`MUSIC.LIB` image, not more generic hex samples. Until that exists, the
+location fields remain opaque and the candidate run model remains read-only.
+
+The current host tests do exercise the complete synthetic SD path: a
+sector-backed image is loaded through `SdCardBlockDevice`, a record is read
+through `read_library_record()`, and the opaque location plus tail values are
+checked for lossless transport. This verifies the emulator's byte path, not
+the real-world meaning of those values.
+
 `tools/sim/library_index_sort.py` now exposes the decompiled comparison as a
 candidate order-only model: ASCII-only upper-casing, signed album track-byte
 tie-breaking, and previous-section rank tie-breaking. It operates on raw
