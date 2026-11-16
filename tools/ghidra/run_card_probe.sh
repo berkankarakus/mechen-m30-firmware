@@ -5,7 +5,15 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 DRIVER=${1:-$ROOT/analysis/community/fw/card.drv}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
-JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+
+if [ -z "${JAVA_HOME:-}" ] && command -v brew >/dev/null 2>&1; then
+  JAVA_PREFIX=$(brew --prefix openjdk@25 2>/dev/null || true)
+  JAVA_HOME="$JAVA_PREFIX/libexec/openjdk.jdk/Contents/Home"
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+fi
 
 [ -f "$DRIVER" ] || { echo "missing SD adapter driver: $DRIVER" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
@@ -14,13 +22,12 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/card_binary_probe.py" "$DR
 
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-card.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
-mkdir -p "$WORK/project"
+mkdir -p "$WORK/project" "$WORK/home"
 
 # card.drv has a resident segment and a second controller segment. Automatic
 # prologue discovery is incomplete, so the entry call tree is seeded explicitly.
 set +e
-JAVA_HOME_OVERRIDE="$JAVA_HOME_OVERRIDE" \
-GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
   "$GHIDRA" "$WORK/project" m30card \
   -import "$DRIVER" \
   -loader BinaryLoader \
