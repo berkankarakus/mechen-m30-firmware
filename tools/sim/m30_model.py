@@ -122,6 +122,62 @@ class IndexStatus:
         self.message = message
 
 
+MAX_VOLUME_LEVEL = 100
+DEFAULT_VOLUME_LIMIT = MAX_VOLUME_LEVEL
+
+
+class SleepTimerPersistence(str, Enum):
+    ONE_SHOT = "one-shot"
+    PERSISTENT = "persistent"
+
+
+@dataclass
+class SleepTimerState:
+    """Track the selected sleep-timer value across a modeled reboot.
+
+    The public change note establishes persistence, but not the timer unit,
+    selectable values, or countdown implementation. The value is therefore
+    intentionally opaque and this state does not model elapsed time.
+    """
+
+    selected_value: int | None = None
+    persistence: SleepTimerPersistence = SleepTimerPersistence.PERSISTENT
+
+    def select(self, value: int | None) -> None:
+        self.selected_value = value
+
+    def reboot(self) -> None:
+        """Apply the observed setting lifetime without advancing a timer."""
+        if self.persistence is SleepTimerPersistence.ONE_SHOT:
+            self.selected_value = None
+
+
+@dataclass
+class VolumeLimitState:
+    """Model the documented UI-level volume cap without claiming DAC scaling."""
+
+    limit: int = DEFAULT_VOLUME_LIMIT
+
+    def __post_init__(self) -> None:
+        self._validate_level(self.limit)
+
+    def set_limit(self, limit: int) -> None:
+        """Set the inclusive maximum volume level exposed by the UI."""
+        self._validate_level(limit)
+        self.limit = limit
+
+    def clamp(self, requested_level: int) -> int:
+        """Return a requested level constrained by the configured cap."""
+        self._validate_level(requested_level)
+
+        return min(requested_level, self.limit)
+
+    @staticmethod
+    def _validate_level(level: int) -> None:
+        if not 0 <= level <= MAX_VOLUME_LEVEL:
+            raise ValueError("volume level must be between 0 and 100")
+
+
 @dataclass(frozen=True)
 class EqPreset:
     name: str

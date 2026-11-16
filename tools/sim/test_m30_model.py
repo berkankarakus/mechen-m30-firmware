@@ -4,6 +4,7 @@ import unittest
 from m30_model import (
     ArtworkSession,
     CardChangePolicy,
+    DEFAULT_VOLUME_LIMIT,
     EQ_PRESETS,
     FIRMWARE_EQ_2024_04_PROFILE,
     FIRMWARE_EQ_BAND_HZ,
@@ -15,6 +16,10 @@ from m30_model import (
     FIRMWARE_EQ_SELECTOR_OFFSET,
     IndexState,
     IndexStatus,
+    MAX_VOLUME_LEVEL,
+    SleepTimerPersistence,
+    SleepTimerState,
+    VolumeLimitState,
     eq_names,
     find_eq,
     firmware_eq_gains,
@@ -75,6 +80,62 @@ class IndexStatusTests(unittest.TestCase):
         status.advance(1)
         with self.assertRaises(RuntimeError):
             status.complete()
+
+
+class VolumeLimitTests(unittest.TestCase):
+    def test_documented_default_limit_is_full_volume_range(self):
+        state = VolumeLimitState()
+
+        self.assertEqual(DEFAULT_VOLUME_LIMIT, MAX_VOLUME_LEVEL)
+        self.assertEqual(state.limit, 100)
+        self.assertEqual(state.clamp(100), 100)
+
+    def test_configured_limit_clamps_requested_volume(self):
+        state = VolumeLimitState()
+
+        state.set_limit(20)
+
+        self.assertEqual(state.clamp(0), 0)
+        self.assertEqual(state.clamp(20), 20)
+        self.assertEqual(state.clamp(100), 20)
+
+    def test_volume_limit_rejects_levels_outside_the_observed_range(self):
+        with self.assertRaises(ValueError):
+            VolumeLimitState(-1)
+        with self.assertRaises(ValueError):
+            VolumeLimitState(MAX_VOLUME_LEVEL + 1)
+
+        state = VolumeLimitState()
+        with self.assertRaises(ValueError):
+            state.set_limit(MAX_VOLUME_LEVEL + 1)
+        with self.assertRaises(ValueError):
+            state.clamp(-1)
+
+
+class SleepTimerTests(unittest.TestCase):
+    def test_persistent_selection_survives_reboot(self):
+        state = SleepTimerState()
+        opaque_value = 30
+        state.select(opaque_value)
+
+        state.reboot()
+
+        self.assertEqual(state.selected_value, opaque_value)
+
+    def test_one_shot_selection_is_cleared_on_reboot(self):
+        state = SleepTimerState(persistence=SleepTimerPersistence.ONE_SHOT)
+        state.select(30)
+
+        state.reboot()
+
+        self.assertIsNone(state.selected_value)
+
+    def test_reboot_does_not_claim_to_advance_elapsed_time(self):
+        state = SleepTimerState(selected_value=30)
+
+        state.reboot()
+
+        self.assertEqual(state.selected_value, 30)
 
 
 class EqCatalogTests(unittest.TestCase):
