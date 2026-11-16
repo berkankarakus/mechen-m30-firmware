@@ -325,3 +325,10 @@ four recovered LCD commands and all 76,800 pixels. It is intentionally called
 a hybrid preview: the actual UI resource renderer is host-side until a
 MIPS-user-mode run of the bank path and an ATJ2127 LCD device model are
 available.
+
+For one command that first executes the real LCD QEMU probe and then emits the
+visible preview, use:
+
+```sh
+bash tools/emu/run_lcd_preview.sh
+```

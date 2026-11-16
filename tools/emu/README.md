@@ -16,11 +16,14 @@ deterministic:
    `0x36/0x2a/0x2b/0x2c` LCD sink and writes a visible 320x240 PPM plus a
    command/pixel trace. This is the hybrid screen preview; it is not a full
    ATJ2127 boot or physical LCD emulation.
-6. `scroll_descriptor.py` models the verified state/event offsets used by
+6. `run_lcd_preview.sh` runs the real LCD QEMU probe first and only then
+   writes that hybrid preview, keeping the visible artifact tied to a passing
+   real-code LCD boundary.
+7. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
-7. `ui_dispatcher.py` provides the conservative host shim for the verified
+8. `ui_dispatcher.py` provides the conservative host shim for the verified
    dispatcher target `0xbfc16405`.
-8. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
+9. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
    MIPS16 renderer with only the audited literal pointers redirected to test
    stubs. Its MIPS32-to-MIPS16 entry uses an architectural `JALX` trampoline,
    and its Linux-user stack/null shims reproduce the Ghidra harness without
