@@ -33,6 +33,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   card presence ve bounds davranışı.
 - `tools/sim/mmm_bp_model.py`: `mmm_bp` ring read sınırı ve Ghidra ile doğrulanan
   60-step fade phase / ±1000 level arithmetic; callback ve attenuation opaque.
+- `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3
+  advance yolu ve community/V1.101.11 için eklenen mode-4 yolu; ASRC/DAC
+  örnek kuyruğu ve audible tail modellenmez.
 - `tools/sim/filesystem_extension.py`: FAT32/exFAT için byte kanıtlı 31-slot
   extension sözlüğü, explicit-slot kabul filtresi ve driver high-bit-first mask
   decoder; caller product policy ve directory callback ABI modellenmez.

@@ -39,8 +39,10 @@ This is strong evidence for the community's end-of-track playback/ASRC
 correction and explains why it is the best existing candidate for the reported
 Audacity fade-out tail loss. It does not prove that the six-byte change alone
 drains every DAC/ASRC sample, nor that every codec uses the same mode. The
-current emulator therefore records this as a verified firmware boundary, not
-as an audible playback pass.
+host emulator records the narrow control-flow boundary in
+`tools/sim/asrc_model.py`: mode `3` takes the existing advance path in both
+variants, while mode `4` does so only with the accepted drain fix. It remains
+an audibility-neutral model, not an audible playback pass.
 
 The other V1.101.11 `music.ap` changes at offsets around `0x1150c` and
 `0x120e0` are not yet assigned a playback meaning. They remain outside this
