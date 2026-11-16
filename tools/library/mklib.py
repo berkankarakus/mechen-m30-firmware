@@ -1,11 +1,18 @@
 """Make a synthetic MUSIC.LIB with N scanned records, as the stock scan leaves it, for the
 index-pass tests.
 
-usage: mklib.py N OUT.LIB [SEED]
+usage: mklib.py N OUT.LIB [SEED] [LOCATION_MODE]
 The names are pseudo-random but deterministic.  They include the cases the passes must get
 right: titles shared between albums, albums shared between artists, names that differ only in
 case, the same name stored as ASCII in one record and UTF-16 in another, tracks without a
 number, and a few names with characters above U+00FF.
+
+LOCATION_MODE is ``random`` by default.  ``observed`` fills the unresolved
+location blob with the byte-level correlations measured on an M30 card: one
+of the two cluster words at primary offsets +0x18/+0x20 equals the secondary
+cluster, and its companion offset is aligned relative to the secondary
+dir_entry.  This is a fixture mode, not a claim that the primary fields have
+been semantically decoded.
 """
 import random
 import struct
@@ -29,7 +36,35 @@ def field(text, width, ascii_ok, rnd):
     return b.ljust(width, b'\0')
 
 
-def main(n, out, seed=1):
+def observed_location_fields(record, index):
+    """Write only the observed primary/secondary location relationships."""
+    cluster_no = 0x1000 + (index // 8) * 0x40
+    dir_entry = (index % 8) * 0x80
+    companion_delta = (index % 71) * 0x20
+    companion = dir_entry + companion_delta
+
+    # The real card uses both pair positions.  Alternate by directory group
+    # so the fixture exercises both observed representations.
+    use_first_pair = (index // 8) % 2 == 0
+    if use_first_pair:
+        struct.pack_into('<II', record, 0xa9 + 0x18, cluster_no, companion)
+    else:
+        struct.pack_into('<II', record, 0xa9 + 0x20, cluster_no, companion)
+
+    # These constants were stable across the observed card image.  Keep them
+    # as raw fixture bytes; their semantic names remain unresolved.
+    struct.pack_into('<II', record, 0xa9 + 0x28, 0x45f56, 0xd80)
+    struct.pack_into('<II', record, 0xa9 + 0x30, 0, 0)
+    struct.pack_into('<I', record, 0xa9 + 0x38, 0)
+    struct.pack_into('<I', record, 0xa9 + 0x3c, 0)
+    struct.pack_into('<I', record, 0xa9 + 0x40, 0)
+    struct.pack_into('<II', record, 0xf4, cluster_no, dir_entry)
+
+
+def main(n, out, seed=1, location_mode='random'):
+    if location_mode not in ('random', 'observed'):
+        raise ValueError("LOCATION_MODE must be 'random' or 'observed'")
+
     rnd = random.Random(seed)
     artists = ['%s %s' % (rnd.choice(WORDS), rnd.choice(WORDS)) for _ in range(max(2, n // 15))]
     artists += ['The ' + a for a in artists[:len(artists) // 6]]
@@ -59,15 +94,22 @@ def main(n, out, seed=1):
         r[0xa4:0xa8] = b'MP3\0' if rnd.random() < 0.95 else b'M4A\0'
         r[0xa8] = 1
         r[0xa9:0xf2] = bytes(rnd.getrandbits(8) for _ in range(0xf2 - 0xa9))
+        if location_mode == 'observed':
+            observed_location_fields(r, i)
         struct.pack_into('<H', r, 0xf2, trk)
-        r[0xf4:0xfc] = bytes(rnd.getrandbits(8) for _ in range(8))
+        if location_mode == 'random':
+            r[0xf4:0xfc] = bytes(rnd.getrandbits(8) for _ in range(8))
         struct.pack_into('<HH', r, 0xfc, (i - 1) & 0xffff, i + 1)
         recs.append(bytes(r))
     body = b''.join(recs)
     body = body.ljust((len(body) + 511) // 512 * 512, b'\0')
-    open(out, 'wb').write(bytes(hdr) + body)
-    print('wrote %s: %d songs, %d artists, %d albums' % (out, n, len(artists), len(albums)))
+    with open(out, 'wb') as output:
+        output.write(bytes(hdr) + body)
+    print('wrote %s: %d songs, %d artists, %d albums, location=%s' %
+          (out, n, len(artists), len(albums), location_mode))
 
 
 if __name__ == '__main__':
-    main(int(sys.argv[1]), sys.argv[2], int(sys.argv[3]) if len(sys.argv) > 3 else 1)
+    main(int(sys.argv[1]), sys.argv[2],
+         int(sys.argv[3]) if len(sys.argv) > 3 else 1,
+         sys.argv[4] if len(sys.argv) > 4 else 'random')

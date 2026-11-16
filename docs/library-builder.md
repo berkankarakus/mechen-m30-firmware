@@ -648,6 +648,11 @@ without a flash cycle per experiment; nobody has tried yet.
    18,000-song one, every table and node is identical to the model, for the first version and
    for the two-file version. Against the stock passes, `tools/library/libgroups.py` shows the
    only grouping differences are the ASCII-versus-UTF-16 duplicates described above.
+
+   `mklib.py N OUT.LIB SEED observed` is an additional location-fixture mode. It keeps the
+   index inputs synthetic but fills the primary/secondary record tail with the measured
+   cluster and 32-byte-aligned companion-offset relationships. It is useful for QEMU
+   preservation tests; it is not a semantic decoder for the primary location blob.
 3. `build.sh --test` runs the harness on a 6,000-song synthetic library and requires the
    byte-for-byte match.
 4. Done: on the player, the benchmark, probe, I/O test and replay firmwares in turn, then the
