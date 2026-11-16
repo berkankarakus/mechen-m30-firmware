@@ -52,6 +52,41 @@ class MusicLibraryLayout:
         raise KeyError(name)
 
 
+@dataclass(frozen=True)
+class LibrarySectionNode:
+    """Decoded fields from one observed 16-byte index node."""
+
+    node_type: int
+    depth: int
+    child_count: int
+    song_count: int
+    first_record_index: int
+    first_child_index: int
+    parent_index: int
+    previous_index: int
+    next_index: int
+
+
+def decode_library_section_node(data: bytes) -> LibrarySectionNode:
+    """Decode one node using the recovered little-endian field layout."""
+    if len(data) != SECTION_NODE_SIZE:
+        raise ValueError("library section node must contain exactly 16 bytes")
+
+    fields = struct.unpack("<BBHHHHHHH", data)
+
+    return LibrarySectionNode(
+        node_type=fields[0],
+        depth=fields[1],
+        child_count=fields[2],
+        song_count=fields[3],
+        first_record_index=fields[4],
+        first_child_index=fields[5],
+        parent_index=fields[6],
+        previous_index=fields[7],
+        next_index=fields[8],
+    )
+
+
 def parse_library_layout(data: bytes) -> MusicLibraryLayout:
     """Parse the documented header and section directory from one library."""
     if len(data) < HEADER_SIZE:

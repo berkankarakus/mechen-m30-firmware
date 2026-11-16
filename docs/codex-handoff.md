@@ -80,9 +80,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   bu modelle birleştirilmez.
 - `tools/sim/library_file.py`: `MUSIC.LIB` 0x200 header, 256-byte record area,
   four section directory ve raw sector references; caller-supplied SD
-  başlangıç sektöründen byte image, bounded `LibraryRecord` ve raw section
-  `u16` table ile 16-byte opaque section node kayıtları okunabilir;
-  node/location semantics opaque tutulur.
+  başlangıç sektöründen byte image, bounded `LibraryRecord`, raw section
+  `u16` table ve 16-byte section node kayıtları okunabilir. `decode_library_section_node()`
+  local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
+  açar; M30-specific node link/location semantics hâlâ doğrulanmamıştır.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
@@ -118,6 +119,7 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`release-candidate.md`](release-candidate.md)
 - [`findings-kernel-loader.md`](findings-kernel-loader.md)
 - [`findings-filesystem-drivers.md`](findings-filesystem-drivers.md)
+- [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md)
 - [`findings-ui-resources.md`](findings-ui-resources.md)
 - [`findings-decoder-callback.md`](findings-decoder-callback.md)
 - [`findings-cards-driver.md`](findings-cards-driver.md)

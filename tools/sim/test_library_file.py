@@ -7,6 +7,7 @@ from library_file import (
     RECORD_SIZE,
     SECTION_NODE_SIZE,
     SECTOR_SIZE,
+    decode_library_section_node,
     parse_library_layout,
     read_library_image,
     read_library_layout,
@@ -38,6 +39,36 @@ def add_record(data: bytearray, title: bytes) -> None:
 
 
 class MusicLibraryLayoutTests(unittest.TestCase):
+    def test_decodes_observed_section_node_fields(self):
+        node = struct.pack(
+            "<BBHHHHHHH",
+            1,
+            2,
+            1,
+            251,
+            23,
+            0,
+            0xFFFF,
+            0xFFFF,
+            0xFFFF,
+        )
+
+        decoded_node = decode_library_section_node(node)
+
+        self.assertEqual(decoded_node.node_type, 1)
+        self.assertEqual(decoded_node.depth, 2)
+        self.assertEqual(decoded_node.child_count, 1)
+        self.assertEqual(decoded_node.song_count, 251)
+        self.assertEqual(decoded_node.first_record_index, 23)
+        self.assertEqual(decoded_node.first_child_index, 0)
+        self.assertEqual(decoded_node.parent_index, 0xFFFF)
+        self.assertEqual(decoded_node.previous_index, 0xFFFF)
+        self.assertEqual(decoded_node.next_index, 0xFFFF)
+
+    def test_rejects_short_section_node(self):
+        with self.assertRaises(ValueError):
+            decode_library_section_node(bytes(SECTION_NODE_SIZE - 1))
+
     def test_reads_and_decodes_one_record_from_sd_bytes(self):
         image = make_library(1)
         add_record(image, b"From SD")
