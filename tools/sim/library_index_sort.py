@@ -129,6 +129,17 @@ def group_indices_from_runs(
     return tuple(groups)
 
 
+def deepest_group_indices_from_runs(
+    order: Sequence[int],
+    run_lengths: Sequence[Sequence[int]],
+) -> tuple[int, ...]:
+    """Map each record to the deepest node group emitted for a section."""
+    if not run_lengths:
+        return ()
+
+    return group_indices_from_runs(order, run_lengths[-1])
+
+
 def derive_section_run_lengths(
     records: Sequence[bytes],
     section_name: str,

@@ -3,6 +3,7 @@ import unittest
 
 from library_index_sort import (
     derive_section_run_lengths,
+    deepest_group_indices_from_runs,
     group_indices_from_runs,
     sort_record_indices,
 )
@@ -65,9 +66,10 @@ class LibraryIndexSortTests(unittest.TestCase):
             make_record(album=b"Album C\0", artist=b"Artist B\0", genre=b"Genre\0"),
         )
         order = (0, 1, 2, 3)
+        album_runs = derive_section_run_lengths(records, "ALBUM", order)
         album_groups = group_indices_from_runs(
             order,
-            derive_section_run_lengths(records, "ALBUM", order)[0],
+            album_runs[0],
         )
         artist_runs = derive_section_run_lengths(
             records,
@@ -77,7 +79,15 @@ class LibraryIndexSortTests(unittest.TestCase):
         )
         artist_groups = group_indices_from_runs(order, artist_runs[0])
 
+        self.assertEqual(
+            deepest_group_indices_from_runs(order, album_runs),
+            album_groups,
+        )
         self.assertEqual(artist_runs, ((2, 2), (1, 1, 2)))
+        self.assertEqual(
+            deepest_group_indices_from_runs(order, artist_runs),
+            (0, 1, 2, 2),
+        )
         self.assertEqual(
             derive_section_run_lengths(
                 records,

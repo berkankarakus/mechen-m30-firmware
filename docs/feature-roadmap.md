@@ -32,8 +32,9 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
   çöz; `0xf4..0xfb` alanı için byte order veya locator varsayımı yapma.
 - `0xfc..0xff` record predecessor/successor alanlarının gerçekten hangi
   consumer tarafından okunduğunu trace et.
-- Reference `5` node/group table'ının level-zero node index'i olduğunu gerçek
-  multi-group M30 görüntüsüyle doğrula.
+- Reference `5` node/group table'ının local writer'daki deepest-level index
+  davranışını gerçek multi-group M30 görüntüsüyle doğrula; level-zero artist
+  group scratch akışını ayrıca takip et.
 
 ## Bilinçli olarak ertelenenler
 
