@@ -18,6 +18,11 @@ class LibraryMaskProbeTests(unittest.TestCase):
         self.assertEqual(MUSIC_LIBRARY_MASK.value, 0x7E190EA0)
         self.assertEqual(len(MUSIC_LIBRARY_MASK.enabled_bit_positions), 14)
         self.assertEqual(M3U_LIBRARY_MASK.enabled_bit_positions, (10, 19))
+        self.assertEqual(
+            MUSIC_LIBRARY_MASK.driver_slot_positions,
+            (1, 2, 3, 4, 5, 6, 11, 12, 15, 20, 21, 22, 24, 26),
+        )
+        self.assertEqual(M3U_LIBRARY_MASK.driver_slot_positions, (12, 21))
 
     def test_probe_reads_little_endian_masks(self):
         with tempfile.TemporaryDirectory() as tmp:

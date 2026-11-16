@@ -58,8 +58,10 @@ def main() -> int:
         "LIBRARY MASK PASS "
         f"music_offset=0x{MUSIC_MASK_OFFSET:x} music=0x{values[0]:08x} "
         f"music_bits={MUSIC_LIBRARY_MASK.enabled_bit_positions} "
+        f"music_slots={MUSIC_LIBRARY_MASK.driver_slot_positions} "
         f"m3u_offset=0x{M3U_MASK_OFFSET:x} m3u=0x{values[1]:08x} "
         f"m3u_bits={M3U_LIBRARY_MASK.enabled_bit_positions} "
+        f"m3u_slots={M3U_LIBRARY_MASK.driver_slot_positions} "
         f"corpus={len(paths)}"
     )
     return 0

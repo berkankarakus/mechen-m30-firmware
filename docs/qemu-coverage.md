@@ -133,7 +133,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Decoder write callback | community `mengine.ap` callback boundary | PASS; unconfigured/known callback returns `-1`, unknown pointer fail-closed |
 | EQ message/coefficient boundary | `mengine.ap` dispatcher and `music.ap` selector path | PASS; message `0x303`, `{eq_type, selector}` envelope, seven gain rows; DSP calls unresolved |
 | FAT32/exFAT extension boundary | six-corpus resident driver table | PASS; shared 31-slot vocabulary and explicit-slot host filter; caller mask/walker unresolved |
-| Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); bit-to-slot order unresolved |
+| Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` plus resident matcher loop | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); driver slot order is bit 31→slot 0 through bit 1→slot 30 |
 | Library tag-reader selector | `playlist.ap` `FUN_40094f2c` mapping | PASS; types 0–7 plus type-8 fallback; reader ABI/metadata parsing unresolved |
 | Library fallback record | `playlist.ap` type-8/tag-failure path | PASS; 8.3 title formatting, fixed fallback fields, and bounded track selector |
 | MUSIC.LIB record codec | documented 256-byte scan record layout | PASS; text/flags/track/link fields decoded; location semantics remain opaque |

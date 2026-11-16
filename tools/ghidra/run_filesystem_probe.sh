@@ -7,6 +7,15 @@ EXFAT=${1:-$ROOT/analysis/community/fw/exfatn.drv}
 FAT32=${2:-$ROOT/analysis/community/fw/fat_32n.drv}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 
+if [ -z "${JAVA_HOME:-}" ] && command -v brew >/dev/null 2>&1; then
+  JAVA_PREFIX=$(brew --prefix openjdk@25 2>/dev/null || true)
+  JAVA_HOME="$JAVA_PREFIX/libexec/openjdk.jdk/Contents/Home"
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+fi
+
 [ -f "$EXFAT" ] || { echo "missing exFAT driver: $EXFAT" >&2; exit 1; }
 [ -f "$FAT32" ] || { echo "missing FAT32 driver: $FAT32" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
@@ -24,9 +33,9 @@ run_one() {
   local expected_markers=$4
   local project="$WORK/project-$name"
   local output="$WORK/$name.c"
-  mkdir -p "$project"
+  mkdir -p "$project" "$WORK/home-$name"
 
-  GHIDRA_JAVA_OPTIONS="-Duser.home=$WORK/home-$name" \
+  JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home-$name" \
     "$GHIDRA" "$project" "m30$name" \
       -import "$driver" \
       -loader BinaryLoader \

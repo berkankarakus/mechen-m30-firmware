@@ -131,8 +131,9 @@ is a separate pointer (`0xbfc166c8`), not a second mask. The raw values have 14
 and 2 bits set respectively; the repeatable check is
 `tools/emu/library_mask_probe.py`. The masks select entries of the file system
 driver's extension table (`exfatn.drv` file `0x7f4`, `fat_32n.drv` file `0x77c`).
-The bit order inside the driver is not decoded, so the raw bit positions are recorded
-without assigning each bit to an extension. The folder views in
+The driver matcher consumes the mask high-bit first: slot 0 is bit 31 and slot 30 is bit 1;
+bit 0 is not consumed. The host model exposes that driver slot order while keeping the
+caller-side product policy separate. The folder views in
 `browser.ap` and `music.ap` OR in the literal `0x00400000` separately.
 
 ### Scan: FUN_40095220 (bank 0x40094c00, file 0x3220)

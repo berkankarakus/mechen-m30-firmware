@@ -55,22 +55,25 @@ it is therefore relevant to library candidate enumeration. It is not itself
 the automatic-index trigger, which remains in the application/configuration
 call chain documented in `library-builder.md`.
 
-The table bytes and order are proven. The exact mapping of every literal mask
-in `playlist.ap` to a table index is not claimed here: the caller-side mask
-convention is outside these two driver members and needs a separate caller
-probe before a patch is considered.
+The table bytes and order are proven. The matcher loop also proves the
+driver-side mask convention: slot `0` checks bit `31`, slot `1` checks bit
+`30`, and slot `30` checks bit `1`; bit `0` is not consumed by the 31-entry
+loop. This is a bit-order fact, not an assignment of product meaning to every
+literal mask in `playlist.ap`.
 
 The host emulator exposes this boundary in
 `tools/sim/filesystem_extension.py`. It resolves the shared slot vocabulary
-case-insensitively and applies only an explicit set of accepted slot numbers.
-It does not infer the caller's bitmask, walk directories, or assign meanings
-to the wildcard-looking `**` and `*f` slots.
+case-insensitively, applies explicit slot selections, and exposes the
+driver-side high-bit-first mask decoding. It does not infer the caller's
+product policy, walk directories, or assign meanings to the wildcard-looking
+`**` and `*f` slots.
 
 The caller-side raw masks are checked separately by
 `tools/emu/library_mask_probe.py`: `playlist.ap` stores `0x7e190ea0` at file
 `0x2a20` and `0x00080400` at file `0x2a28`, with a pointer word between them.
-Their bit positions are exposed as raw data only; the probe does not claim a
-bit-to-extension mapping.
+Their raw bit positions and driver slot positions are exposed separately by
+the probe/model; the model does not claim that the resulting set is the full
+user-facing meaning of either library type.
 
 The application-level extension-to-reader selector is modeled separately in
 `tools/sim/library_tag_reader.py`: the recovered types are `AA`, `AAC`,
@@ -151,7 +154,7 @@ Verified:
 
 Still uncertain:
 
-- exact caller-side mask-to-extension bit numbering;
+- exact caller-side product policy beyond the driver's high-bit-first matcher;
 - exact meanings of the four traversal opcodes in every caller state;
 - exact imported callback signatures for file open/close/seek/read/write;
 - whether any asynchronous behavior is scheduled above this boundary.

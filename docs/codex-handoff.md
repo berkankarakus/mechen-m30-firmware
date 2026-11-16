@@ -8,7 +8,7 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 - Dal: `main`; push yapılmadı.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
-- Son teknik commit: `2c797ee feat: model SD sector transfers`.
+- Son teknik değişiklik ve commit kimliği için `git log -1 --oneline` kullanılır.
 - Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
 - Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
   `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
@@ -29,12 +29,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/sd_block_device.py`: kanıtlanmış 512-byte SD sektör sınırı,
   card presence ve bounds davranışı.
 - `tools/sim/filesystem_extension.py`: FAT32/exFAT için byte kanıtlı 31-slot
-  extension sözlüğü ve yalnızca explicit-slot kabul filtresi; caller maskesi
-  ve directory walker modellenmez.
+  extension sözlüğü, explicit-slot kabul filtresi ve driver high-bit-first mask
+  decoder; caller product policy ve directory callback ABI modellenmez.
 - `tools/sim/filesystem_extension.py` içindeki raw library maskeleri ve
   `tools/emu/library_mask_probe.py`: MUSIC `0x7e190ea0` (`0x2a20`), M3U
-  `0x00080400` (`0x2a28`); aradaki pointer nedeniyle bit→slot sırası
-  çözülmediği için yalnızca ham bit konumları tutulur.
+  `0x00080400` (`0x2a28`); resident matcher için slot 0→bit 31, slot 30→bit
+  1 sırası `tools/ghidra/run_library_mask_mapping_probe.sh` ile doğrulanır.
 - `tools/sim/library_tag_reader.py`: `playlist.ap` extension→reader type
   seçimi; reader ABI ve metadata parsing çalıştırılmaz.
 - `tools/sim/library_record.py`: tag başarısızlığında short-name title ve sabit
