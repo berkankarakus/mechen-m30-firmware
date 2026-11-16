@@ -85,6 +85,15 @@ the index/node/key-converter contract a cross-version finding, but it does not
 resolve the opaque location bytes or prove that the public sample's grouping
 is M30-specific.
 
+An additional nine-date validation used newly extracted firmware files whose
+current `playlist.ap` hashes are not all identical. The standalone
+`run_library_index_probe.sh` passed for every available date from 2022-09-14
+through 2025-06-26, including the 2024-04-24 and 2025-06-26 variants. This
+supports the narrower hypothesis that the index-pass/node-writer ABI is stable
+even when the surrounding `playlist.ap` member changes. It does not prove that
+the sort comparator or duplicate-key tie-break produces the same order without
+a matching M30-created `MUSIC.LIB` image.
+
 An additional read-only probe dumps the tie-refinement and compare callbacks
 to `<persistent-evidence-root>/decompile/library-tie-2025-06-26/tie.c`:
 
