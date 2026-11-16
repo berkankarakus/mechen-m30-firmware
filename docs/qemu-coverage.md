@@ -112,7 +112,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Shuffle fix | real `mengine.ap` patch bank | PASS |
 | Shuffle-all / play-all | real patched engine units | PASS |
 | Scroll acceleration | real `browser.ap` bank, stock vs patched | PASS; 30,000 events, 0 failures |
-| Folder-list acceleration contract | host model mirroring the real blob | PASS; 58 emulator tests total, 700 ms boundary modeled; physical event timing unmeasured |
+| Folder-list acceleration contract | host model mirroring the real blob | PASS; 700 ms boundary modeled; physical event timing unmeasured |
 | Folder-list handler contract | Ghidra decompile of browser/music next/previous | PASS; stock one-step and redraw calls present |
 | Folder-list handler p-code execution | real browser/music MIPS16 handlers with helper intercepts | PASS; next/previous state assertions in both apps |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
@@ -120,14 +120,18 @@ suite therefore no longer re-imports the same driver eight times.
 | Filename natural-order contract | host model | PASS; 11/11 model tests overall |
 | Manual-index policy | host state model + static automatic-index guards | PASS |
 | Artwork audio-first contract | host state model | PASS |
+| Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
-| USB Audio ring-consumer boundary | Ghidra `usound.drv` + generic host model | PASS; 0x1000-byte wrap and 100-short-read reset; producer/PCM ownership unmodeled |
+| USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrap and 100-short-read reset; decoder/PCM ownership remains separate |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
 | Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |
+| MCG/RU3 resource metadata | six-corpus byte-identical resource members | PASS; immutable node/group catalog, localized names unresolved |
+| Decoder write callback | community `mengine.ap` callback boundary | PASS; unconfigured/known callback returns `-1`, unknown pointer fail-closed |
+| SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
 diagnostic build with the experimental whole-card library enabled. It was not

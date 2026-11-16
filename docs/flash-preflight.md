@@ -1,47 +1,26 @@
 # M30 firmware flash preflight
 
-This checklist is for the MECHEN M30 running the verified stock release
-`V1.101.10` / `MECHEN_M30.HEX` dated 2025-06-26.
+This checklist applies only to the MECHEN M30 `V1.101.10` / 2025-06-26
+firmware. The repository currently has no flashable candidate artifact.
 
-## Files
+## Required files
 
-Keep both files on the computer before touching the player:
+Keep the stock rollback source outside the player:
 
-| Purpose | File | SHA-256 |
-| --- | --- | --- |
-| Stock rollback source | `MECHEN_M30.HEX` | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
-| Current candidate — not physically tested | `build/MECHEN_M30-community-v1.292-red-ui-safe.HEX` | `59959053aac9ed8d58d4ac39129bd988bc92ca1b64d4dddcaf8b28bb32be091d` |
-| Historical candidate — do not flash | `build/MECHEN_M30-community-v1.292-red-back.HEX` | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` |
-| Previous custom candidate | `build/MECHEN_M30-minimal-safe.HEX` | `12ad027900f433b281aa5c181d0cbfb845603eb4d38bb2ae8718c811f1fcd12f` |
-| Experimental UI-only candidate | `build/MECHEN_M30-ui-blue-clean-icons.HEX` | `01467cca80ea5b991fee7288394755ae1581c578ff67f2495a645202522564ba` |
+| Purpose | SHA-256 |
+|---|---|
+| Stock `MECHEN_M30.HEX` | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
 
-The current candidate is community V1.292.00 with only the documented default
-artwork, transport-icon colour, and upgrade-prompt resource changes layered on
-top. `mengine.ap` is unchanged from community V1.292.00, so the unsafe
-Previous experiment is absent. It passed offline member and FWU checksum
-verification but has not been physically tested.
-
-The historical `red-back` candidate contains the unsafe Previous experiment;
-do not flash it.
-
-The UI-only candidate is not a recommended release. It replaces only the
-verified 310x29 selection-highlight bitmap in `common.sty`; it is intended
-for a later visual test after the baseline behavior is fully documented.
-
-The folder-name `50 -> 64` experiment is not a release candidate. It is kept
-under `/tmp/m30-name64.4Eiu04/` for static analysis only: the expanded eight
-slot area reaches into the adjacent `path_info` structure. Do not rename or
-flash that file.
-
-Rename only a copy of the candidate to exactly `MECHEN_M30.HEX` when it is
-ready to be placed on the player. There must be only one file with that name
-in the device root.
+Do not flash an extracted-member tree. A future candidate must first have a
+full HEX hash, container/checksum round-trip verification, exact member delta,
+and an explicit physical-test status recorded in
+[`release-candidate.md`](release-candidate.md).
 
 ## Before flashing
 
 - Confirm the player still reports `V1.101.10`.
 - Charge the player fully and use a stable USB cable/connection.
-- Keep the original stock file and this candidate outside the player.
+- Keep the original stock file outside the player for rollback.
 - Remove any older `MECHEN_M30.HEX` from the device root.
 - Do not disconnect power or USB during the update.
 - Do not proceed if the player is freezing, repeatedly rebooting, or showing a
@@ -69,6 +48,6 @@ screen state/error message before attempting a rollback.
 
 ## Scope caveat
 
-QEMU validates the shuffle, play-all, and scroll patches, plus a separate
-regression harness for the key-filter code. The current candidate itself has
-not been physically tested, so the first boot checks above are required.
+Host/Ghidra harnesses validate selected patch contracts, but they do not make
+an untested candidate physically safe. No candidate should be described as
+device-accepted without the checks above.

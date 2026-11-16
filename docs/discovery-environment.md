@@ -11,7 +11,6 @@ yeniden üretilir.
 |---|---|---|
 | Stock V1.101.10 | `<local-workspace>/m30-inputs/stock/MECHEN_M30.HEX` (README'deki Google Drive linkinden) | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
 | Community V1.292.00 | `<local-workspace>/m30-inputs/community/MECHEN_M30.HEX` (`dev-zetta/mechen-m30-community-firmware` release `v1.292.00`) | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` |
-| Aday `red-back` | repo kökünde `MECHEN_M30-community-v1.292-red-back.HEX` (`.gitignore` dışında) | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` |
 | Actions SDK kaynağı | `<local-workspace>/m30-inputs/ref/PD196` (`Suber/PD196_ATJ2127`, GBK kodlu; `iconv -f gbk -t utf-8 -c`) | - |
 
 Not: Google Drive indirmesi ve GitHub release indirmesi bu oturumda
@@ -134,54 +133,8 @@ alanlarından gelir. Bu yapı artık `tools/inspect_drv.py` ile raporlanıyor.
 Bank yükleme adreslerinin M30 loader tarafındaki son eşlemesi yine çözülmediği
 için dosya düz haritalanıyor: adres = `0x30000000` + dosya ofseti,
 0x200'den itibaren. PC-göreli literal yüklemeleri doğru çözülür; işaretçi
-üzerinden bankalar arası çağrılar çözülmez.
-
-```java
-// FlatLoad.java: Ghidra headless postScript. Arguments: file, base, startOffset.
-// The maintained copy is tools/ghidra/FlatLoad.java.
-import ghidra.app.script.GhidraScript;
-import ghidra.program.model.address.*;
-import ghidra.program.model.lang.Register;
-import ghidra.program.model.mem.*;
-import java.io.ByteArrayInputStream;
-import java.math.BigInteger;
-import java.nio.file.*;
-import java.util.Arrays;
-
-public class FlatLoad extends GhidraScript {
-    @Override
-    public void run() throws Exception {
-        byte[] d = Files.readAllBytes(Paths.get(getScriptArgs()[0]));
-        long base = Long.decode(getScriptArgs()[1]);
-        int from = Integer.decode(getScriptArgs()[2]);
-        Memory mem = currentProgram.getMemory();
-        for (MemoryBlock b : mem.getBlocks()) mem.removeBlock(b, monitor);
-        AddressSpace sp = currentProgram.getAddressFactory().getDefaultAddressSpace();
-        Register isa = currentProgram.getRegister("ISA_MODE");
-        Address start = sp.getAddress(base + from);
-        int s = d.length - from;
-        byte[] chunk = Arrays.copyOfRange(d, from, d.length);
-        MemoryBlock blk = mem.createInitializedBlock("flat", start, new ByteArrayInputStream(chunk), s, monitor, false);
-        blk.setRead(true); blk.setExecute(true);
-        currentProgram.getProgramContext().setValue(isa, start, start.add(s - 1), BigInteger.ONE);
-        int n = 0;
-        for (int i = 0; i + 1 < chunk.length; i += 2) {
-            int hw = (chunk[i] & 0xff) | ((chunk[i + 1] & 0xff) << 8);
-            if ((hw & 0xff80) != 0x6480) continue;
-            int fs = i;
-            if (i >= 2) {
-                int prev = (chunk[i - 2] & 0xff) | ((chunk[i - 1] & 0xff) << 8);
-                if ((prev & 0xf800) == 0xf000) fs = i - 2;
-            }
-            Address fa = start.add(fs);
-            if (getFunctionAt(fa) == null && disassemble(fa) && createFunction(fa, null) != null) n++;
-        }
-        println("FlatLoad: functions=" + n);
-    }
-}
-```
-
-Çağrı: `-postScript FlatLoad.java drv_ui.drv 0x30000000 0x200`.
+üzerinden bankalar arası çağrılar çözülmez. Ghidra postScript'in güncel kopyası
+[`tools/ghidra/FlatLoad.java`](../tools/ghidra/FlatLoad.java) içindedir.
 
 ### `drv_ui.drv` fonksiyon eşlemesi
 
@@ -194,17 +147,3 @@ public class FlatLoad extends GhidraScript {
 | `FUN_30008600` | Çok satırlı `put_string` (hizalama `x` hesabı) |
 | `FUN_30009070` | Kayan yazı başlatma: ilk 0x66 bayt içinde sonlandırıcı arar, iki boşluk ekler, BOM'u atlar |
 | `FUN_30009674` | Kayan yazı adımı (`scroll_desc` 0x7c bayt) |
-
-## Banka düzeni için yapılan ve sonuç vermeyen girişimler
-
-- `drv_ui.drv` içinde JAL/JALX hedef histogramı (kayıtlarda yeterli yoğunluk
-  yok; çağrılar `lw` ile literal havuzundan işaretçi yüklenip `jalr` ile yapılıyor).
-- 32 bit kelime histogramı: yalnızca `0x9fc0b000` (RAM verisi), `0xbfc09000`
-  ve `0xbfc0a000` (resident kod) bölgeleri belirgin; kod yarım kelimeleri
-  gürültü ürettiği için banka yükleme adresleri çıkarılamadı.
-- `tools/apinfo.py` `.drv` için anlamsız çıktı verir (başlık farklı).
-
-## Komut dili notu
-
-Kabukta `echo =====` gibi satırlar zsh'de komut sanılabilir; ayırıcı için
-`printf` kullan.

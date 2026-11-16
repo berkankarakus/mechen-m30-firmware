@@ -1,7 +1,7 @@
 # Community integration and next steps
 
-This note records the community fixes incorporated into the current M30
-candidate and the work that remains. It is intentionally separate from the
+This note records the community fixes incorporated into the M30 candidate
+history and the work that remains. It is intentionally separate from the
 older experimental 24,000-song library work.
 
 
@@ -18,8 +18,7 @@ older experimental 24,000-song library work.
 |---|---|---|
 | Official MECHEN 2025-06-26 / V1.101.10 | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` | Rollback source |
 | Community V1.292.00 | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` | Accepted community baseline |
-| Historical combined candidate | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` | Community baseline plus unsafe Previous experiment |
-| Current safe UI candidate | `59959053aac9ed8d58d4ac39129bd988bc92ca1b64d4dddcaf8b28bb32be091d` | Community baseline plus artwork/icon/prompt resources |
+| Historical combined candidate | `f78bdf3bb9c2b29f3a9162150cf028aeef3d3f693a9230dc0fc7ee13d90b736c` | Archived analysis artifact; unsafe Previous experiment |
 
 The community release is based on the same official V1.101.10 payload. Its
 release notes describe hardware acceptance on a Mechen M30, but the testing
@@ -36,12 +35,10 @@ powered card-insertion and cold-boot paths still require a device test.
 The stock-versus-community control-flow comparison is reproducible in
 [`findings-index-guards.md`](findings-index-guards.md).
 
-The locally tested `build/MECHEN_M30-index-off-space-preview.HEX` must not be
-used as evidence against the community baseline: it was built from the stock
-payload with the two guard bytes and an upgrade-prompt resource change, and
-did not include the community V1.292 members. Therefore the observation that
-this image indexed after card insertion does not establish that V1.292 behaves
-the same way.
+An older stock-based index experiment is not part of the current worktree and
+must not be used as evidence against the community baseline: it did not
+include the community V1.292 members. Therefore its card-insertion result does
+not establish that V1.292 behaves the same way.
 
 ## Community fixes included
 
@@ -87,26 +84,27 @@ FWIMAGE members:
 
 - Community image decrypted using the official stock plaintext and its
   encrypted-sector key schedule.
-- The combined candidate repacked successfully at the original size.
-- FWU trailer checksum: passed.
-- A second decryption comparison found exactly three changed members:
-  `mengine.ap`, `music.sty`, and `setting.sty`.
+- The historical combined candidate repacked successfully at the original
+  size; it is retained as analysis history, not as a current release artifact.
+- The current reproducible candidate boundary is extracted-member-only:
+  exactly `music.sty` and `setting.sty` differ from community V1.292.00.
 - All other community members, including `playlist.ap`, `config.ap`,
   `mainmenu.ap`, `udisk.ap`, and `browser.ap`, remain byte-identical to the
   V1.292.00 baseline.
 - The historical candidate has not been flashed or physically tested and is
   not a release recommendation because of the unsafe `mengine.ap` experiment.
-- The current safe UI candidate keeps `mengine.ap` byte-identical to the
-  community baseline. It changes only `music.sty` and `setting.sty`; its FWU
-  trailer checksum and member-level diff were verified offline. It has not
-  been physically tested.
+- The current safe UI recipe keeps `mengine.ap` byte-identical to the
+  community baseline and changes only `music.sty` and `setting.sty`; it does
+  not currently produce a persistent flashable HEX.
 
 ## Remaining work
 
 ### First priority: device checks
 
-1. Flash the combined candidate with the stock HEX kept offline for rollback.
-2. Check boot, playback, next/previous, volume, and screen-off controls.
+1. Obtain/rebuild a complete candidate HEX and record its full hash and
+   round-trip checksums.
+2. Flash it only with the stock HEX kept offline for rollback; then check
+   boot, playback, next/previous, volume, and screen-off controls.
 3. Confirm Previous always restarts the current song.
 4. Test the four red transport icons against the red default artwork.
 5. Cold-boot and manual-update tests remain. On 2026-11-15, the untouched

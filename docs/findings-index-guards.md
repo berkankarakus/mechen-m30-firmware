@@ -37,10 +37,9 @@ physical test.
 
 ## Interpretation of the recent device test
 
-`build/MECHEN_M30-index-off-space-preview.HEX` was a stock-based experiment,
-not V1.292.00. Therefore its indexing after card insertion cannot falsify the
-community guard. The correct physical comparison is the untouched community
-image:
+An older stock-based index experiment was not V1.292.00. Therefore its
+indexing after card insertion cannot falsify the community guard. The correct
+physical comparison is the untouched community image:
 
 `<local-workspace>/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX`
 
