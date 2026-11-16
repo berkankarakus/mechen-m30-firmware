@@ -7,6 +7,7 @@ from mmm_bp_model import (
     advance_fade_step,
     fade_mode_name,
     plan_ring_read,
+    read_ring_bytes,
 )
 
 
@@ -27,6 +28,17 @@ class MmmBpBufferTests(unittest.TestCase):
     def test_reader_rejects_short_buffer(self):
         with self.assertRaises(ValueError):
             plan_ring_read(read_offset=0, capacity=32, available=3, requested=4)
+
+    def test_ring_read_returns_wrapped_source_bytes(self):
+        source = bytes(range(32))
+
+        payload = read_ring_bytes(source, read_offset=28, available=8, requested=8)
+
+        self.assertEqual(payload, bytes((28, 29, 30, 31, 0, 1, 2, 3)))
+
+    def test_ring_read_rejects_source_shorter_than_declared_capacity(self):
+        with self.assertRaises(ValueError):
+            read_ring_bytes(bytes(0), read_offset=0, available=0, requested=0)
 
     def test_fade_mode_names_are_conservative(self):
         self.assertEqual(fade_mode_name(2), "slow")

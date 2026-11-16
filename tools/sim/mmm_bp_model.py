@@ -69,6 +69,19 @@ def plan_ring_read(
     )
 
 
+def read_ring_bytes(
+    source: bytes | bytearray,
+    read_offset: int,
+    available: int,
+    requested: int,
+) -> bytes:
+    """Read a planned decoder-ring payload without interpreting its samples."""
+    plan = plan_ring_read(read_offset, len(source), available, requested)
+    first = source[plan.first_offset : plan.first_offset + plan.first_length]
+    second = source[: plan.second_length]
+    return bytes(first + second)
+
+
 def fade_mode_name(mode: int) -> str:
     """Return the recovered diagnostic/state name for a fade mode."""
     return FADE_MODES.get(mode, "inactive")

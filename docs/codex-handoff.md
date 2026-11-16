@@ -39,7 +39,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/emu/driver_loader.py`: doğrulanmış `yqhx` segment bytes'larını sparse
   resident memory'ye kopyalama ve BSS sıfırlama; entry/fixed-ROM çağrısı yok.
 - `tools/sim/mmm_bp_model.py`: `mmm_bp` ring read sınırı ve Ghidra ile doğrulanan
-  60-step fade phase / ±1000 level arithmetic; callback ve attenuation opaque.
+  60-step fade phase / ±1000 level arithmetic; wrap-aware source-byte read
+  mevcut, callback ve attenuation opaque.
 - `tools/sim/asrc_model.py`: `music.ap` EOF branch'inin doğrulanmış mode-3
   advance yolu ve community/V1.101.11 için eklenen mode-4 yolu; ASRC/DAC
   örnek kuyruğu ve audible tail modellenmez.
