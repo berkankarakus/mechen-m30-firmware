@@ -39,6 +39,12 @@ location ABI call; it still does not establish the internal layout of the
 73-byte primary result. The repeatable check is
 `tools/ghidra/run_library_record_probe.sh`.
 
+The same probe passed against all nine available dated/community `playlist.ap`
+members in the repository, including the stock and V1.101.11/V1.101.12
+corpora. The callback address and operation number are therefore stable across
+the available application versions, rather than a single community-build
+artifact.
+
 The host codec preserves the unresolved regions and decodes the supported
 secondary file key:
 
