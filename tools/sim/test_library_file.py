@@ -183,12 +183,23 @@ class MusicLibraryLayoutTests(unittest.TestCase):
                 LibrarySectionNode(
                     node_type=1,
                     depth=2,
-                    child_count=1,
+                    child_count=2,
                     song_count=3,
                     first_record_index=0,
                     first_child_index=0,
                     parent_index=0xFFFF,
                     previous_index=0xFFFF,
+                    next_index=1,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=2,
+                    child_count=1,
+                    song_count=2,
+                    first_record_index=3,
+                    first_child_index=2,
+                    parent_index=0xFFFF,
+                    previous_index=0,
                     next_index=0xFFFF,
                 ),
             ),
@@ -197,39 +208,62 @@ class MusicLibraryLayoutTests(unittest.TestCase):
                     node_type=1,
                     depth=1,
                     child_count=0,
-                    song_count=3,
+                    song_count=1,
                     first_record_index=0,
                     first_child_index=0xFFFF,
                     parent_index=0,
                     previous_index=0xFFFF,
+                    next_index=1,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=2,
+                    first_record_index=1,
+                    first_child_index=0xFFFF,
+                    parent_index=0,
+                    previous_index=0,
+                    next_index=2,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=2,
+                    first_record_index=3,
+                    first_child_index=0xFFFF,
+                    parent_index=1,
+                    previous_index=1,
                     next_index=0xFFFF,
                 ),
             ),
             (),
         )
 
-        validate_library_section_nodes(nodes, 3)
+        validate_library_section_nodes(nodes, 5)
 
         invalid_nodes = (
             (
                 LibrarySectionNode(
                     node_type=1,
                     depth=2,
-                    child_count=0,
+                    child_count=1,
                     song_count=3,
                     first_record_index=0,
-                    first_child_index=0xFFFF,
+                    first_child_index=0,
                     parent_index=0xFFFF,
                     previous_index=0xFFFF,
-                    next_index=0xFFFF,
+                    next_index=1,
                 ),
+                nodes[0][1],
             ),
             nodes[1],
             (),
         )
 
         with self.assertRaises(ValueError):
-            validate_library_section_nodes(invalid_nodes, 3)
+            validate_library_section_nodes(invalid_nodes, 5)
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)

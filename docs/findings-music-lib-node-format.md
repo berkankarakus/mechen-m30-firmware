@@ -81,10 +81,10 @@ to change sorting or grouping behavior.
 
 `validate_library_section_nodes()` checks only the recovered wire contract:
 non-zero node type/depth and song counts, record bounds, same-level
-previous/next sentinels, parent ranges, child ranges, and per-level song
-coverage. The public 251-record sample passes this check for all four
-sections. A multi-group M30 image is still required before these links are
-used as a user-facing hierarchy.
+previous/next sentinels, parent/child reciprocity, contiguous child ranges,
+depth relationships, and per-level song coverage. The public 251-record
+sample passes this check for all four sections. A multi-group M30 image is
+still required before these links are used as a user-facing hierarchy.
 
 ## Next evidence target
 

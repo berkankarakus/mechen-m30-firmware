@@ -298,6 +298,11 @@ def validate_library_section_nodes(
 
     for level, nodes in enumerate(nodes_by_level):
         song_total = 0
+        has_child_level = (
+            level + 1 < len(nodes_by_level)
+            and bool(nodes_by_level[level + 1])
+        )
+        expected_child_index = 0
 
         for index, node in enumerate(nodes):
             if node.node_type != 1:
@@ -330,10 +335,6 @@ def validate_library_section_nodes(
             ):
                 raise ValueError("library node parent link is outside the previous level")
 
-            has_child_level = (
-                level + 1 < len(nodes_by_level)
-                and bool(nodes_by_level[level + 1])
-            )
             if not has_child_level:
                 if node.child_count != 0 or node.first_child_index != NULL_INDEX:
                     raise ValueError("leaf library node has a child link")
@@ -346,10 +347,29 @@ def validate_library_section_nodes(
                 if child_end > len(nodes_by_level[level + 1]):
                     raise ValueError("library node child range is outside the next level")
 
+                if node.first_child_index != expected_child_index:
+                    raise ValueError("library node child ranges are not contiguous")
+
+                children = nodes_by_level[level + 1][node.first_child_index:child_end]
+                if sum(child.song_count for child in children) != node.song_count:
+                    raise ValueError("library child song counts do not match the parent")
+
+                for child in children:
+                    if child.parent_index != index:
+                        raise ValueError("library child points to the wrong parent")
+
+                    if child.depth + 1 != node.depth:
+                        raise ValueError("library parent and child depths disagree")
+
+                expected_child_index = child_end
+
             song_total += node.song_count
 
         if nodes and song_total != record_count:
             raise ValueError("library node song counts do not cover the record area")
+
+        if has_child_level and expected_child_index != len(nodes_by_level[level + 1]):
+            raise ValueError("library child ranges do not cover the next level")
 
 
 def read_library_section_index(
