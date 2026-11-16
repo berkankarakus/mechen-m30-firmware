@@ -361,10 +361,17 @@ def find_eq(name: str) -> EqPreset:
 
 @dataclass
 class ArtworkSession:
-    """Non-blocking playback/artwork contract for the latency experiment."""
+    """Playback-start and UI-thread artwork contract.
+
+    The engine starts audio before the UI requests artwork, but the recovered
+    artwork decode itself is synchronous on the UI thread. Keep those facts
+    separate so a host trace does not accidentally present the decode as an
+    asynchronous implementation.
+    """
 
     audio_started: bool = False
     artwork_state: str = "none"
+    ui_blocked: bool = False
     chunks_decoded: int = 0
     events: list[str] | None = None
 
@@ -386,12 +393,14 @@ class ArtworkSession:
             raise RuntimeError("artwork cannot decode before audio starts")
         if self.artwork_state != "pending":
             raise RuntimeError("no artwork is pending")
+        self.ui_blocked = True
         self.chunks_decoded += 1
-        self.events.append("artwork-yield")
+        self.events.append("artwork-decode-block")
 
     def finish_artwork(self) -> None:
         if self.artwork_state != "pending":
             raise RuntimeError("no artwork is pending")
         self.artwork_state = "ready"
+        self.ui_blocked = False
         self.events.append("artwork-ready")
 

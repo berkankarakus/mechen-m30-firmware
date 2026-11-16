@@ -210,8 +210,10 @@ class ArtworkLatencyTests(unittest.TestCase):
         session.start_track(has_artwork=True)
         self.assertEqual(session.events, ["audio-start", "artwork-placeholder"])
         session.decode_chunk()
+        self.assertTrue(session.ui_blocked)
         session.finish_artwork()
         self.assertEqual(session.artwork_state, "ready")
+        self.assertFalse(session.ui_blocked)
         self.assertEqual(session.events[0], "audio-start")
 
     def test_missing_artwork_does_not_block_playback(self):

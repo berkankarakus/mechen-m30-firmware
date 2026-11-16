@@ -101,6 +101,11 @@ is preserved locally at `analysis/local-evidence/artwork-fallback-community.c`;
 it is ignored and is not a public repository artifact.
 JPEG decoding and UI timing remain outside the model.
 
+`ArtworkSession` in `tools/sim/m30_model.py` now keeps the two proven timing
+facts separate: `audio-start` precedes artwork work, while an active decode is
+marked `ui_blocked` until the cache record is complete. This is a host trace
+contract, not a measured duration and not evidence of asynchronous decoding.
+
 The cache writer's observable record is modeled separately in
 `tools/sim/artwork_cache.py`: successful records use the six-byte `OK` plus
 `x,y,w,h` header followed by `w*h*2` RGB565 bytes; failed records use `NO`
