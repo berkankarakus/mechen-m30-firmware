@@ -5,11 +5,13 @@ from sd_block_device import SdCardBlockDevice
 from library_file import (
     HEADER_SIZE,
     RECORD_SIZE,
+    SECTION_NODE_SIZE,
     SECTOR_SIZE,
     parse_library_layout,
     read_library_image,
     read_library_layout,
     read_library_record,
+    read_library_section_nodes,
     read_library_section_words,
 )
 
@@ -75,6 +77,20 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         card.write_sector(1, image[:SECTOR_SIZE])
 
         self.assertEqual(read_library_section_words(card, 1, "ALLSONG", 0), ())
+
+    def test_reads_opaque_sixteen_byte_section_nodes(self):
+        image = make_library(3)
+        card = SdCardBlockDevice(sector_count=6)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE : 2 * SECTOR_SIZE])
+        card.write_sector(3, image[2 * SECTOR_SIZE : 3 * SECTOR_SIZE])
+        node = bytes(range(SECTION_NODE_SIZE))
+        card.write_sector(4, node.ljust(SECTOR_SIZE, b"\0"))
+
+        self.assertEqual(
+            read_library_section_nodes(card, 1, "ALLSONG", 0),
+            (node,),
+        )
 
     def test_reads_library_image_from_caller_supplied_sd_sector(self):
         image = make_library()

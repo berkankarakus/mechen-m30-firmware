@@ -12,6 +12,7 @@ from sd_block_device import SdCardBlockDevice
 SECTOR_SIZE = 512
 HEADER_SIZE = 0x200
 RECORD_SIZE = 0x100
+SECTION_NODE_SIZE = 0x10
 RECORD_START_SECTOR = 1
 SECTION_HEADERS = (
     ("ALLSONG", 0x10),
@@ -175,3 +176,36 @@ def read_library_section_words(
     )
 
     return struct.unpack_from(f"<{word_count}H", data, 0)
+
+
+def read_library_section_nodes(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    section_name: str,
+    level: int,
+) -> tuple[bytes, ...]:
+    """Read referenced section nodes as bounded opaque 16-byte records."""
+    if start_sector < 0:
+        raise ValueError("library start sector must be non-negative")
+
+    if not 0 <= level < 3:
+        raise ValueError("section node level must be zero, one, or two")
+
+    layout = parse_library_layout(read_library_image(device, start_sector))
+    section = layout.section(section_name)
+    node_count = section.node_counts[level]
+    sector = section.sector_references[level]
+    if node_count == 0 or sector == 0:
+        return ()
+
+    byte_count = node_count * SECTION_NODE_SIZE
+    sector_count = (byte_count + SECTOR_SIZE - 1) // SECTOR_SIZE
+    data = b"".join(
+        device.read_sector(start_sector + sector + offset)
+        for offset in range(sector_count)
+    )
+
+    return tuple(
+        data[offset : offset + SECTION_NODE_SIZE]
+        for offset in range(0, byte_count, SECTION_NODE_SIZE)
+    )
