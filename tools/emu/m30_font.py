@@ -101,14 +101,19 @@ class M30Font:
         cursor = x
         for char in text:
             glyph = self.glyph(char)
+            # Records have a fixed 16-pixel row, but the trailer advance is
+            # the glyph's actual native width.  Ignore right-side padding or
+            # neighbouring bitmap data before downsampling; otherwise narrow
+            # glyphs such as I paint into the next cell.
+            source_width = min(GLYPH_BITS, glyph.advance)
             output_rows = range(0, len(glyph.rows), pixel_scale)
-            output_columns = range(0, GLYPH_BITS, pixel_scale)
+            output_columns = range(0, source_width, pixel_scale)
             for row in output_rows:
                 for column in output_columns:
                     ink = any(
                         glyph.rows[source_row] & (1 << (GLYPH_BITS - 1 - source_column))
                         for source_row in range(row, min(row + pixel_scale, len(glyph.rows)))
-                        for source_column in range(column, min(column + pixel_scale, GLYPH_BITS))
+                        for source_column in range(column, min(column + pixel_scale, source_width))
                     )
                     if not ink:
                         continue

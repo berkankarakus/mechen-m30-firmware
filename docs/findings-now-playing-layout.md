@@ -78,8 +78,11 @@ presence entries begin at `0x10`, glyph records begin at `0x2810`, and this
 M30 member uses 61-byte records with a final advance-width byte.  ASCII glyph
 lookup is now implemented read-only in `tools/emu/m30_font.py`; the preview
 renders the metadata at a 2:1 downsample so the recovered glyph shapes fit the
-129-pixel TextBox viewports.  This removes the old 5x7 host-font overlap from
-the UI preview without changing `new_m.fnt` or proposing a flash patch.
+129-pixel TextBox viewports.  Each fixed 16-pixel row is clipped to the
+glyph's trailer advance before that bitmap and its advance are sampled; using
+the full row made narrow glyphs (notably `I`) overlap their neighbours.  This
+is a host-rendering correction only: `new_m.fnt` is not changed and no flash
+patch is proposed.
 
 ## SDK-versus-M30 warning
 
