@@ -143,6 +143,13 @@ the complete primary blob losslessly.  The same probe also observes constant
 32-bit values at primary offsets `+0x28` and `+0x2c` on this card; those values
 are recorded as invariants, not assigned meanings.
 
+The next word in whichever pair contains the matching cluster is also
+structured: its unsigned difference from the secondary `dir_entry` is a
+multiple of `0x20` for all 4,000 records.  On this card those differences span
+`0x0..0x8c0`.  This makes an exFAT directory-entry-chain or layer-offset
+relationship substantially more plausible than an arbitrary binary token, but
+does not identify the exact base entry or layer number.
+
 This result is a high-value next target for a paired card-directory capture:
 the primary word that equals `cluster_no` can be compared against the actual
 directory chain and file entry.  Until that pairing exists, a semantic

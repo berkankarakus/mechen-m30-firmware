@@ -33,6 +33,8 @@ class LibraryPrimaryLocationProbeTests(unittest.TestCase):
         self.assertEqual(summary["word8_cluster_matches"], 2)
         self.assertEqual(summary["both_cluster_matches"], 1)
         self.assertEqual(summary["neither_cluster_matches"], 1)
+        self.assertEqual(summary["exclusive_cluster_matches"], 2)
+        self.assertEqual(summary["companion_delta_non_32_aligned"], 0)
 
     def test_rejects_an_image_shorter_than_declared_record_area(self):
         data = bytearray(0x200)

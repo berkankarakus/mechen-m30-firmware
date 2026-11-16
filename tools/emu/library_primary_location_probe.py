@@ -36,6 +36,9 @@ def inspect_primary_location(data: bytes) -> dict[str, object]:
     word8_matches = 0
     both_matches = 0
     neither_matches = 0
+    exclusive_matches = 0
+    companion_delta_non_32_aligned = 0
+    companion_deltas: list[int] = []
     word10_values: set[int] = set()
     word11_values: set[int] = set()
 
@@ -59,6 +62,14 @@ def inspect_primary_location(data: bytes) -> dict[str, object]:
         word8_matches += word8_match
         both_matches += word6_match and word8_match
         neither_matches += not word6_match and not word8_match
+        if word6_match ^ word8_match:
+            exclusive_matches += 1
+            companion_offset = 0x1C if word6_match else 0x24
+            companion = struct.unpack_from("<I", primary, companion_offset)[0]
+            dir_entry = struct.unpack_from("<I", secondary, 4)[0]
+            delta = (companion - dir_entry) & 0xFFFFFFFF
+            companion_deltas.append(delta)
+            companion_delta_non_32_aligned += delta % 0x20 != 0
 
     return {
         "bytes": len(data),
@@ -69,6 +80,10 @@ def inspect_primary_location(data: bytes) -> dict[str, object]:
         "word8_cluster_matches": word8_matches,
         "both_cluster_matches": both_matches,
         "neither_cluster_matches": neither_matches,
+        "exclusive_cluster_matches": exclusive_matches,
+        "companion_delta_non_32_aligned": companion_delta_non_32_aligned,
+        "companion_delta_min": min(companion_deltas, default=None),
+        "companion_delta_max": max(companion_deltas, default=None),
         "word10_values": tuple(sorted(word10_values)),
         "word11_values": tuple(sorted(word11_values)),
     }
@@ -82,7 +97,13 @@ def main(path: Path) -> None:
         f"word+0x18-cluster={summary['word6_cluster_matches']} "
         f"word+0x20-cluster={summary['word8_cluster_matches']} "
         f"both={summary['both_cluster_matches']} "
-        f"neither={summary['neither_cluster_matches']}"
+        f"neither={summary['neither_cluster_matches']} "
+        f"exclusive={summary['exclusive_cluster_matches']} "
+        f"delta-not-0x20-aligned={summary['companion_delta_non_32_aligned']}"
+    )
+    print(
+        "companion-delta-range="
+        f"{summary['companion_delta_min']:#x}..{summary['companion_delta_max']:#x}"
     )
     print(f"word+0x28-values={summary['word10_values']}")
     print(f"word+0x2c-values={summary['word11_values']}")

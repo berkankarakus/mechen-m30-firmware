@@ -13,7 +13,11 @@
 set -euo pipefail
 [ $# -ge 2 ] || { sed -n '2,8p' "$0"; exit 2; }
 T=$(cd "$(dirname "$0")" && pwd)
-AP=$(realpath "$1"); LIB=$(realpath "$2"); W=$(realpath -m "${3:-build/t_library}"); MODE=${4:-new}
+AP=$(realpath "$1"); LIB=$(realpath "$2"); W_ARG=${3:-build/t_library}; MODE=${4:-new}
+# macOS /usr/bin/realpath has no -m option. Create the work directory first,
+# then resolve it with the portable realpath form used for existing paths.
+mkdir -p "$W_ARG"
+W=$(cd "$W_ARG" && pwd)
 CROSS=${CROSS:-mips64-linux-gnu-}; QEMU=${QEMU:-qemu-mipsel-static}; PY=${PYTHON:-python3}
 HFLAGS="-EL -mabi=32 -march=mips32 -mno-mips16 -O1 -G0 -mno-abicalls -fno-pic -ffreestanding -fno-builtin -nostdlib"
 CFLAGS="-EL -mabi=32 -march=mips32 -mips16 -Os -G0 -mno-abicalls -fno-pic -ffreestanding -fno-builtin
