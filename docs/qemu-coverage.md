@@ -239,3 +239,14 @@ descriptor's exact 200-byte stereo packet, preserves packet bytes across the
 ring wrap, and rejects over-capacity writes. This is a host stream contract;
 it does not promote the unresolved `usound` producer callback into a codec,
 DAC, or hardware-DMA implementation.
+
+The recovered packet/ring boundary also has a real QEMU system-CPU smoke probe:
+`bash tools/emu/run_qemu_usb_audio_probe.sh`. It links freestanding little-
+endian MIPS32 code and runs it on QEMU's Malta machine. The guest queues 32
+synthetic 200-byte packets, consumes them in two batches, crosses the 4 KiB
+ring wrap, and verifies every byte before reporting
+`USB AUDIO QEMU BOUNDARY PASS`. Malta's FPGA UART is used only for the result
+line. This is stronger than a host-only test for CPU, guest memory, and ring
+arithmetic, but it is not a M30 boot: QEMU still does not model the ATJ2127
+USB controller, VBUS/device negotiation, the `usound.drv` callback, codec/DAC
+routing, or the physical headphone/line output.
