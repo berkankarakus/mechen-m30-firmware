@@ -4,7 +4,8 @@
 This deliberately stops before FWU repacking. It takes an extracted community
 firmware directory, applies only the default-art, transport-icon, and upgrade
 prompt resource changes, and verifies that exactly ``music.sty`` and
-``setting.sty`` differ from the source directory.
+``setting.sty`` differ from the source directory. The default source
+validation only accepts the two observed ``music.sty`` layouts.
 """
 
 from __future__ import annotations
@@ -28,7 +29,12 @@ from candidate_delta_probe import verify_exact_delta  # noqa: E402
 EXPECTED_CHANGED_MEMBERS = ("music.sty", "setting.sty")
 
 
-def build(source: Path, candidate: Path, preview: Path | None = None) -> tuple[str, ...]:
+def build(
+    source: Path,
+    candidate: Path,
+    preview: Path | None = None,
+    validate_source: bool = True,
+) -> tuple[str, ...]:
     """Create a verified extracted safe-UI candidate without overwriting data."""
     if not source.is_dir():
         raise ValueError(f"source firmware directory does not exist: {source}")
@@ -60,8 +66,13 @@ def build(source: Path, candidate: Path, preview: Path | None = None) -> tuple[s
         candidate / "music.sty",
         candidate / "music.sty",
         preview_path,
+        validate_source=validate_source,
     )
-    patch_music_controls(candidate / "music.sty", candidate / "music.sty")
+    patch_music_controls(
+        candidate / "music.sty",
+        candidate / "music.sty",
+        validate_source=validate_source,
+    )
     patch_upgrade_prompt(
         source / "setting.sty",
         candidate / "setting.sty",

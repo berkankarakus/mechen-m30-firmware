@@ -54,6 +54,22 @@ The group addresses/counts are structural facts only. Item sizes and semantic
 IDs must be supplied by the matching application/resource headers before any
 resource-only patch is considered.
 
+## Safe extracted-member UI candidate
+
+The extracted-member candidate builder recognizes two observed `music.sty`
+layouts and refuses all others. Eleven dated corpora use the standard layout;
+`2024-04-24` inserts a 192-byte 8-pixel resource before the final transport
+icons, shifting those icons from indices `29, 30` to `30, 31`. The four
+transport payload hashes remain identical across both layouts, and the
+150x150 missing-cover payload is identical as well.
+
+The candidate builder verifies those payload hashes before changing bytes. A
+matrix run over all 12 persistent extracted corpora passed, with only
+`music.sty` and `setting.sty` changed and with unchanged member sizes. This is
+strong cross-corpus evidence for the resource boundary, but it is still an
+extracted-member candidate: it is not a repacked or device-validated flashable
+firmware image.
+
 ## Consequence for the emulator
 
 The emulator now loads the real MCG node list, opaque name bytes, and RU3 group

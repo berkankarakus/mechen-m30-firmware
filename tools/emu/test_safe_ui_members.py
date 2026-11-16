@@ -36,7 +36,7 @@ class SafeUiMembersTests(unittest.TestCase):
             source.joinpath("setting.sty").write_bytes(OLD * EXPECTED_COPIES)
             source.joinpath("browser.ap").write_bytes(b"unchanged")
 
-            changed = build(source, candidate)
+            changed = build(source, candidate, validate_source=False)
 
             self.assertEqual(changed, EXPECTED_CHANGED_MEMBERS)
             self.assertEqual(

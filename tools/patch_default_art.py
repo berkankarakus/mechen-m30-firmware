@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Replace the stock missing-cover glyph with a static M30 red waveform."""
 from __future__ import annotations
+import hashlib
 import struct
 import sys
 from pathlib import Path
@@ -8,6 +9,10 @@ from pathlib import Path
 TABLE_OFFSET = 0x400
 RESOURCE = 0
 EXPECTED = (0x840, 45000, 150)
+EXPECTED_RESOURCE_OFFSETS = (0x840, 0x850)
+EXPECTED_RESOURCE_SHA256 = (
+    "8213347c2ed4c8170062c5781397ca354278c7ded6377320dee1b35294c12ef4"
+)
 WIDTH = HEIGHT = 150
 
 
@@ -41,12 +46,30 @@ def render() -> tuple[bytes, bytes]:
     return bytes(raw), b'P6\n150 150\n255\n' + rgb
 
 
-def patch(src: Path, dst: Path, preview: Path) -> None:
+def patch(
+    src: Path,
+    dst: Path,
+    preview: Path,
+    validate_source: bool = True,
+) -> None:
     original = src.read_bytes()
     off, size, fmt, _ = struct.unpack_from('<IIII', original, TABLE_OFFSET + RESOURCE * 16)
     width = fmt >> 16
-    if (off, size, width) != EXPECTED:
+    if (
+        size != EXPECTED[1]
+        or width != EXPECTED[2]
+        or off not in EXPECTED_RESOURCE_OFFSETS
+    ):
         raise SystemExit(f'unexpected missing-cover resource: {(off, size, width)!r}')
+
+    if validate_source:
+        resource_sha256 = hashlib.sha256(original[off:off + size]).hexdigest()
+        if resource_sha256 != EXPECTED_RESOURCE_SHA256:
+            raise SystemExit(
+                "unexpected missing-cover resource payload: "
+                f"sha256={resource_sha256}"
+            )
+
     pixels, ppm = render()
     if len(pixels) != size:
         raise AssertionError('rendered bitmap size mismatch')

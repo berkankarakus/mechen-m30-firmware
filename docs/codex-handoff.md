@@ -116,7 +116,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`
-  değiştiren extracted-member candidate üretimi; flashable HEX üretmez.
+  değiştiren extracted-member candidate üretimi; iki bilinen `music.sty`
+  layout'ını kaynak payload hash'leriyle doğrular ve bilinmeyen düzenlerde
+  durur; flashable HEX üretmez. UI bulguları: [`findings-ui-resources.md`](findings-ui-resources.md).
 
 ## Bilinçli olarak uygulanmayanlar
 
