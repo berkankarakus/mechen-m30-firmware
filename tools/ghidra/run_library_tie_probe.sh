@@ -20,10 +20,11 @@ fi
 [ -f "$PLAYLIST" ] || { echo "missing playlist.ap: $PLAYLIST" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 
-mkdir -p "$OUTPUT_DIR/home" "$OUTPUT_DIR/project"
+mkdir -p "$OUTPUT_DIR/home"
+PROJECT_DIR=$(mktemp -d "$OUTPUT_DIR/project.XXXXXX")
 
 JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$OUTPUT_DIR/home}" \
-  "$GHIDRA" "$OUTPUT_DIR/project" m30librarytie \
+  "$GHIDRA" "$PROJECT_DIR" m30librarytie \
   -import "$PLAYLIST" \
   -loader BinaryLoader \
   -processor 'MIPS:LE:32:default' \
@@ -31,12 +32,14 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$OUTPUT_DIR/home}" \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$PLAYLIST" \
   -postScript DumpAt.java \
-    0x40114d54,0x71812548,0x71812650,0x718126c0,0x71812788,0x718127cc,0x48014534,0x48014588 \
+    0x40114c00,0x40114d54,0x71812500,0x71812548,0x71812650,0x718126c0,0x71812788,0x718127cc,0x48014534,0x48014588 \
     "$OUTPUT_DIR/tie.c" containing \
     >"$OUTPUT_DIR/run.log" 2>&1
 
 for address in \
+  '40114c00 -> FUN_40114c00' \
   '40114d54 -> FUN_40114d54' \
+  '71812500 -> FUN_71812500' \
   '71812548 -> FUN_71812548' \
   '71812650 -> FUN_71812650' \
   '718126c0 -> FUN_718126c0' \
