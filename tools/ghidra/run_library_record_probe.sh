@@ -36,6 +36,8 @@ JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$WORK/home}" \
 
 grep -q 'DumpAt: 40094c8c -> FUN_40094c8c' "$WORK/run.log"
 grep -q 'DumpAt: 40094d60 -> FUN_40094d60' "$WORK/run.log"
+grep -q "param_1\[bStack_10\] = '.'" "$WORK/fallback.c"
+grep -q 'bStack_f = 9' "$WORK/fallback.c"
 grep -q 'bStack_10 < 4' "$WORK/fallback.c"
 grep -q "_UNK_40094f24\[bStack_10\] != '/'" "$WORK/fallback.c"
 grep -q '0x2f < (byte)_UNK_40094f24' "$WORK/fallback.c"

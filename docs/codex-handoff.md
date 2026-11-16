@@ -38,7 +38,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/library_tag_reader.py`: `playlist.ap` extension→reader type
   seçimi; reader ABI ve metadata parsing çalıştırılmaz.
 - `tools/sim/library_record.py`: tag başarısızlığında short-name title ve sabit
-  fallback text alanları; dört haneli track prefix selector modeli vardır.
+  fallback text alanları; raw 8.3 `NAME.EXT` formatter ve dört haneli track
+  prefix selector modeli vardır.
 - `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
   alanları; file-location byte dizileri opaque tutulur.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve

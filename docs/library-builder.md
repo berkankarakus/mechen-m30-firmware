@@ -173,6 +173,9 @@ separate zero-writing path.
 The byte layout itself is decoded by `tools/sim/library_record_codec.py`, and
 `tools/ghidra/run_library_record_probe.sh` verifies the corresponding
 `FUN_40094c8c`/`FUN_40094d60` boundary.
+The same model exposes the raw 8.3 formatter: eight-byte base name plus
+three-byte extension becomes `NAME.EXT`, with a trailing dot removed when the
+extension is empty.
 
 The directory traversal contract is modeled in `tools/sim/library_walker.py`:
 pre-order depth-first folders, the eight-level limit, `RECORD` exclusion, and

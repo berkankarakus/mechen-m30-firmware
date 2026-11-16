@@ -89,6 +89,8 @@ The 256-byte record layout is exposed by
 extension, link indexes, and opaque location slices. It is a byte codec, not a
 filesystem or metadata-reader implementation. The Ghidra evidence is
 reproducible with `tools/ghidra/run_library_record_probe.sh`.
+The raw 8.3-to-`NAME.EXT` formatting boundary is also exposed by
+`format_short_name()` in `tools/sim/library_record.py`.
 
 The application walker is represented separately by
 `tools/sim/library_walker.py`: it preserves pre-order depth-first traversal,
