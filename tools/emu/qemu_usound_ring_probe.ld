@@ -3,8 +3,8 @@ SECTIONS
 {
     . = 0x80010000;
     .text : { *(.text) }
-    . = 0x80012000;
-    .callback : { KEEP(*(.callback)) }
+    . = 0x80011180;
+    .vectors : { KEEP(*(.vectors)) }
     . = 0x80020000;
     .rodata : { *(.rodata) }
     . = 0x80030000;

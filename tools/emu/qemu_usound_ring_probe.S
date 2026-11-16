@@ -3,14 +3,47 @@
 	.set	noreorder
 	.set	noat
 
+	.section .vectors,"ax"
+	.globl	general_exception
+	.ent	general_exception
+general_exception:
+	/* Record the real bfc326a9 syscall envelope, then return to JALRC's RA. */
+	lui	$k0, 0x8006
+	addiu	$k0, $k0, 0x2000
+	lw	$k1, 0x0($k0)
+	addiu	$k1, $k1, 1
+	sw	$k1, 0x0($k0)
+	lw	$k1, 0x4($k0)
+	addu	$k1, $k1, $a2
+	sw	$k1, 0x4($k0)
+	sw	$v1, 0x8($k0)
+	mtc0	$ra, $14
+	nop
+	eret
+	nop
+	.end	general_exception
+
 	.text
 	.globl	_start
 	.ent	_start
 _start:
 	lui	$sp, 0x8004
 	ori	$sp, $sp, 0xfff0
+	/* Use a RAM-backed exception vector instead of Malta's PROM. */
+	lui	$k0, 0x8001
+	ori	$k0, $k0, 0x1000
+	mtc0	$k0, $15, 1
+	nop
+	mfc0	$k1, $12
+	li	$t1, 0xffbfffff
+	and	$k1, $k1, $t1
+	mtc0	$k1, $12
+	nop
 
 	/* First call: consume 16 bytes without wrapping. */	lui	$t0, 0x8006
+	sw	$zero, 0x2000($t0)
+	sw	$zero, 0x2004($t0)
+	sw	$zero, 0x2008($t0)
 	ori	$t1, $zero, 16
 	sw	$t1, 0($t0)
 	sw	$zero, 4($t0)
@@ -28,6 +61,18 @@ _start:
 	bnez	$t1, fail_first
 	 nop
 	lw	$t1, 8($t0)
+	lw	$t2, 0x2000($t0)
+	li	$t3, 1
+	bne	$t2, $t3, fail_first
+	 nop
+	lw	$t2, 0x2004($t0)
+	li	$t3, 16
+	bne	$t2, $t3, fail_first
+	 nop
+	lw	$t2, 0x2008($t0)
+	li	$t3, 0x10
+	bne	$t2, $t3, fail_first
+	 nop
 
 	/* Second call: 32 bytes from read offset 0xff8, forcing two callbacks. */	li	$t2, 32
 	sw	$t2, 0($t0)
@@ -47,6 +92,18 @@ _start:
 	lw	$t1, 8($t0)
 	/* The real function resets the pointer to zero after crossing 0x1000. */	li	$t2, 0
 	bne	$t1, $t2, fail_wrap
+	 nop
+	lw	$t2, 0x2000($t0)
+	li	$t3, 3
+	bne	$t2, $t3, fail_wrap
+	 nop
+	lw	$t2, 0x2004($t0)
+	li	$t3, 48
+	bne	$t2, $t3, fail_wrap
+	 nop
+	lw	$t2, 0x2008($t0)
+	li	$t3, 0x10
+	bne	$t2, $t3, fail_wrap
 	 nop
 
 	la	$a0, pass_text
@@ -88,17 +145,6 @@ puts_done:
 	jr	$ra
 	 nop
 	.end	puts
-
-	/* The recovered callback is MIPS16. It is intentionally no-op here. */
-	.section .callback,"ax"
-	.set	mips16
-	.globl	usound_callback_stub
-	.ent	usound_callback_stub
-usound_callback_stub:
-	jr	$ra
-	 nop
-	.end	usound_callback_stub
-	.set	mips32
 
 	.section .rodata
 pass_text:

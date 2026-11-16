@@ -130,7 +130,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
-| Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + MIPS16 callback stub | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the callback twice on wrap, and resets its read pointer to zero; callback is intentionally no-op |
+| Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 callback syscall | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the real `selector=0x10` callback twice on wrap, and resets its read pointer to zero; kernel service/DAC side effect remains unresolved |
 | Real `usound.drv` callback syscall | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, and the four callback arguments survive the trap boundary; kernel service effect remains unresolved |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
@@ -266,14 +266,14 @@ does not prove the driver entry, its global state, USB controller interrupts,
 the callback at `0xbfc326a9`, or DAC/codec output.
 
 `bash tools/emu/run_qemu_usound_ring_probe.sh` now executes the real
-`FUN_bfc31654` consumer with only its six recovered literal-pool state words
-relocated into guest RAM. Two calls pass: a linear 16-byte read and a wrapped
-32-byte read that invokes the callback twice. The QEMU result exposed an
-important exact behavior: after the read pointer crosses `0x1000`, the
-firmware stores zero rather than retaining the remainder. `tools/sim/usb_ring.py`
-and its tests now follow that observed behavior. The callback remains a
-no-op, so this still proves state and control flow—not PCM delivery or DAC
-output.
+`FUN_bfc31654` consumer with its six recovered literal-pool state words
+relocated into guest RAM and the actual `0xbfc326a9` callback restored. Two
+calls pass: a linear 16-byte read and a wrapped 32-byte read that invokes the
+real callback twice. The QEMU result exposed an important exact behavior:
+after the read pointer crosses `0x1000`, the firmware stores zero rather than
+retaining the remainder. `tools/sim/usb_ring.py` and its tests now follow that
+observed behavior. The exception handler records the callback envelope only;
+the kernel service, PCM ownership, and DAC output remain outside coverage.
 
 `bash tools/emu/run_qemu_usound_port_probe.sh` executes the real
 `FUN_bfc318cc` helper after relocating only its recovered gate, data-port, and

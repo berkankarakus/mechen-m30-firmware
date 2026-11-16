@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Execute the real usound.drv ring consumer with a guest-side state shim.
-# The callback is intentionally no-op; this proves state/wrap control flow,
-# not PCM ownership or DAC output.
+# Execute the real usound.drv ring consumer with its real break-0 callback.
+# The guest catches the syscall envelope; it does not emulate the kernel
+# service or claim PCM/DAC ownership.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -36,7 +36,7 @@ relocations = {
     0x172C: 0x80060004,  # short-read count
     0x1730: 0x80060008,  # read offset
     0x1734: 0x80061000,  # 0x1000-byte ring
-    0x1738: 0x80012001,  # MIPS16 callback stub
+    0x1738: 0x800526A9,  # real bfc326a9 MIPS16 callback
     0x173C: 0x8006000C,  # reset signal
 }
 for offset, value in relocations.items():
