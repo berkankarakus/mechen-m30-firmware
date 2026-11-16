@@ -133,6 +133,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   korur. `/Volumes` doğrudan çıktı yolu olarak reddedilir. Metadata değiştiren
   çıktı hâlâ yalnızca adaydır; `tools/library/libdiff.py` farkları görülmeden
   cihaza yazılmamalıdır.
+- `c02057e` (`fix: model short-key library refinement`) ile host model,
+  Ghidra'da doğrulanan kısa başlangıç anahtarı + eşit kümelerde artan yeniden
+  karşılaştırma akışını ve section içi track/önceki-rank sıralamasını izliyor.
+  Bu, gerçek metadata değişikliklerinin indeks farklarını azaltmak için yüksek
+  getirili bir model düzeltmesidir; yine de cihaz üzerinde yeniden indeksleme
+  ile doğrulanmadığı için edit çıktısını release/flash adayı yapmaz.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
