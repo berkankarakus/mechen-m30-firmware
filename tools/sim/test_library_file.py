@@ -12,6 +12,7 @@ from library_file import (
     read_library_image,
     read_library_layout,
     read_library_record,
+    read_library_section_index,
     read_library_section_tables,
     read_library_section_nodes,
     read_library_section_words,
@@ -117,6 +118,37 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         self.assertEqual(tables.order, (2, 0, 1))
         self.assertEqual(tables.inverse, (1, 2, 0))
         self.assertEqual(tables.node_indices, ())
+
+    def test_reads_typed_section_index_snapshot(self):
+        image = make_library(3)
+        card = SdCardBlockDevice(sector_count=7)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE : 2 * SECTOR_SIZE])
+        card.write_sector(3, image[2 * SECTOR_SIZE : 3 * SECTOR_SIZE])
+        card.write_sector(
+            4,
+            struct.pack(
+                "<BBHHHHHHH",
+                1,
+                0,
+                0,
+                3,
+                2,
+                0xFFFF,
+                0xFFFF,
+                0xFFFF,
+                0xFFFF,
+            ).ljust(SECTOR_SIZE, b"\0"),
+        )
+        card.write_sector(5, struct.pack("<3H", 2, 0, 1).ljust(SECTOR_SIZE, b"\0"))
+        card.write_sector(6, struct.pack("<3H", 1, 2, 0).ljust(SECTOR_SIZE, b"\0"))
+
+        index = read_library_section_index(card, 1, "ALLSONG")
+
+        self.assertEqual(len(index.nodes_by_level), 3)
+        self.assertEqual(index.nodes_by_level[0][0].first_record_index, 2)
+        self.assertEqual(index.nodes_by_level[1], ())
+        self.assertEqual(index.tables.order, (2, 0, 1))
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)

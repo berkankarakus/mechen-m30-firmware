@@ -79,6 +79,14 @@ class LibrarySectionTables:
     node_indices: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class LibrarySectionIndex:
+    """Typed nodes and per-record tables for one section."""
+
+    nodes_by_level: tuple[tuple[LibrarySectionNode, ...], ...]
+    tables: LibrarySectionTables
+
+
 def decode_library_section_node(data: bytes) -> LibrarySectionNode:
     """Decode one node using the recovered little-endian field layout."""
     if len(data) != SECTION_NODE_SIZE:
@@ -250,6 +258,31 @@ def read_library_section_tables(
             section_name,
             NODE_INDEX_TABLE_REFERENCE,
         ),
+    )
+
+
+def read_library_section_index(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    section_name: str,
+) -> LibrarySectionIndex:
+    """Read one section without assigning user-facing sort or tree semantics."""
+    nodes_by_level = tuple(
+        tuple(
+            decode_library_section_node(raw_node)
+            for raw_node in read_library_section_nodes(
+                device,
+                start_sector,
+                section_name,
+                level,
+            )
+        )
+        for level in range(3)
+    )
+
+    return LibrarySectionIndex(
+        nodes_by_level=nodes_by_level,
+        tables=read_library_section_tables(device, start_sector, section_name),
     )
 
 
