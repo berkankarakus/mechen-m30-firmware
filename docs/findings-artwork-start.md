@@ -96,8 +96,9 @@ The host emulator records the static fallback guard in
 `tools/sim/artwork_fallback.py`: the community path is attempted only for
 status `0xff`, accepts dimensions from 1 through 150, accepts one or three
 JPEG components, accepts a positive block product up to and including
-`0x1000`, and limits the RGB565 output to 45,000 bytes. The preserved
-decompile excerpt is [`evidence-artwork-fallback-community.c`](evidence-artwork-fallback-community.c).
+`0x1000`, and limits the RGB565 output to 45,000 bytes. The decompile excerpt
+is preserved locally at `analysis/local-evidence/artwork-fallback-community.c`;
+it is ignored and is not a public repository artifact.
 JPEG decoding and UI timing remain outside the model.
 
 The cache writer's observable record is modeled separately in
