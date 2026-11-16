@@ -176,6 +176,17 @@ The default mode checks for all six extracted corpora before running any
 probe, and reports their names if one is missing. This keeps a missing
 historical input from looking like a later probe regression.
 
+For an independent observation of the recovered `break 0` exception, run:
+
+```sh
+bash tools/emu/run_qemu_exception_trace_probe.sh
+```
+
+This builds a passive QEMU 11.1.3 TCG plugin and runs it alongside the guest
+CP0 probe. The plugin only records the exception discontinuity; it cannot read
+or modify guest state. The expected result is a `from=0x800526aa` to
+`to=0x80010180` transition followed by the guest's exception-code/EPC trace.
+
 To regenerate the safe UI member tree from an extracted community firmware,
 use `build_safe_ui_members.py`; it verifies that only `music.sty` and
 `setting.sty` changed. It does not create a flashable HEX.

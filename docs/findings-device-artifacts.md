@@ -57,6 +57,35 @@ byte bus and eight-bit send/receive helpers. It therefore does not justify a
 codec register map, audio volume model, or new boot, panel, or key emulator
 implementation.
 
+## Live USB/card observation (2026-11-16)
+
+The connected unit enumerated on macOS as a USB mass-storage card reader, not
+as a ROM/debug interface:
+
+```text
+vendor      M30 / 0x10d6
+product     USB CARDREADER / 0x1101
+interface   class 8, subclass 5, protocol 0x50 (mass storage)
+volume      /dev/disk5s1 -> /Volumes/MECHEN M30
+```
+
+The card root contained `MECHEN_M30~.HEX` (11,662,336 bytes), whose SHA-256 is
+`ef772911f27f4dbf6dd11f4ecad9e4d1ad211621428530d1f625765064df4a2c`. The
+read-only `atjboottool` FWU/AFI/FW extraction passed every container and member
+checksum; the AFI date is `26/06/2025`. The temporary extraction was made
+under `/private/tmp` and was not added to Git or written back to the card.
+
+The extracted member tree is byte-identical to the archived `community/fw`
+tree except for `common.sty`. That `common.sty` is byte-identical to the local
+`build/ui-blue/common.sty` candidate. This identifies the card file as a
+firmware update image carrying the community code plus the UI resource
+variant; it is not evidence that the internal NOR/ROM was read.
+
+Consequently the current USB connection can provide a verified update image
+and SD-card contents, but not an internal ROM dump. A ROM dump still requires
+a distinct recovery/debug enumeration, a bootloader read command, or physical
+flash/UART/JTAG access.
+
 ## Scope and safety
 
 - No firmware archive or raw update image was downloaded.

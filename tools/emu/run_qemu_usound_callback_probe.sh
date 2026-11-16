@@ -38,11 +38,18 @@ PY
 
 "$PY" - "$QEMU" "$OUT/qemu_usound_callback_probe.elf" <<'PY'
 import subprocess
+import os
 import sys
 
 qemu, elf = sys.argv[1:]
 command = [
-    qemu, "-M", "malta", "-cpu", "24Kc", "-m", "16M", "-nographic",
+    qemu,
+]
+plugin = os.environ.get("QEMU_PLUGIN")
+if plugin:
+    command += ["-plugin", plugin]
+command += [
+    "-M", "malta", "-cpu", "24Kc", "-m", "16M", "-nographic",
     "-monitor", "none", "-serial", "null", "-serial", "null",
     "-serial", "stdio", "-kernel", elf,
 ]
