@@ -122,6 +122,32 @@ The eight-byte secondary locator is now modeled as a little-endian
 `+0xa9..+0xf1` and `+0xfc..+0xff` remain lossless opaque fields until an
 actual M30 card image and its directory contents are paired.
 
+## Primary-location correlation on the observed card
+
+The mounted read-only M30 card provides a useful byte-level invariant without
+requiring raw-device access.  `tools/emu/library_primary_location_probe.py`
+checks all 4,000 records and compares the secondary `cluster_no` against two
+32-bit words inside the unresolved primary blob:
+
+| Primary offset | Matches secondary `cluster_no` |
+|---|---:|
+| `+0x18` | 865 / 4,000 |
+| `+0x20` | 3,135 / 4,000 |
+
+The matches are exclusive: no record matches both words, and no record matches
+neither.  This is strong evidence that the primary blob contains a directory
+or location-layer representation related to the secondary file key.  It is
+not yet enough to choose between a directory-layer field, a selected-layer
+field, or a format-dependent union, so the host codec continues to preserve
+the complete primary blob losslessly.  The same probe also observes constant
+32-bit values at primary offsets `+0x28` and `+0x2c` on this card; those values
+are recorded as invariants, not assigned meanings.
+
+This result is a high-value next target for a paired card-directory capture:
+the primary word that equals `cluster_no` can be compared against the actual
+directory chain and file entry.  Until that pairing exists, a semantic
+decoder or record rewriter would still be speculative.
+
 The repository's `tools/library/mklib.py` fixture writes
 `previous_index=i-1` and `next_index=i+1` while constructing synthetic records.
 That makes the linked-record hypothesis useful for test data and explains why
