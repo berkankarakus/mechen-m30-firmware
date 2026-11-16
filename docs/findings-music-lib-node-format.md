@@ -85,6 +85,27 @@ the index/node/key-converter contract a cross-version finding, but it does not
 resolve the opaque location bytes or prove that the public sample's grouping
 is M30-specific.
 
+An additional read-only probe dumps the tie-refinement and compare callbacks
+to `<persistent-evidence-root>/decompile/library-tie-2025-06-26/tie.c`:
+
+```sh
+bash tools/ghidra/run_library_tie_probe.sh \
+  /path/to/2025-06-26/fw/playlist.ap \
+  /path/to/m30-evidence/decompile/library-tie-2025-06-26
+```
+
+The preserved `tie.c` has SHA-256
+`52218e353814274b9b64b5b8e5676e07871079312201c3877b7e92b544e06bb4`.
+`FUN_40114d54` tracks the compared-byte length for each sorted entry, finds
+equal runs, reloads a bounded additional key slice of `0x10000 / run_length`
+bytes (capped by the remaining field width and 100 bytes), re-sorts that run,
+and repeats while a run can still be refined. `FUN_71812548` uppercases ASCII
+bytes, compares up to the supplied length, and returns equality when both
+current bytes are NUL. This explains why a visible text-key model can match
+the high-level order while missing terminator-adjacent UTF-16/ASCII ties. The
+host model keeps this refinement opt-in until the source-offset conversion path
+is independently reproduced.
+
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public
 [MUSIC.LIB member](https://github.com/xleph/MP3.LIB/blob/main/MUSIC.LIB).
