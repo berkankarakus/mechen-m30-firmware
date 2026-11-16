@@ -156,7 +156,7 @@ suite therefore no longer re-imports the same driver eight times.
 | MUSIC.LIB record codec | documented 256-byte scan record layout plus `index.c` field accesses | PASS; text/flags/track fields and the `cluster_no`/`dir_entry` key are decoded, while the primary location blob and record links remain opaque |
 | Library directory walker | stock `playlist.ap`/playall walker contract | PASS; DFS order, depth 8, `RECORD` skip, target count; filesystem callbacks unresolved |
 | SD sector/capacity boundary | `cards.drv` 512-byte transfer and capacity path | PASS; host sector device with card presence, bounds checks and explicit `sector_count * 512` capacity |
-| Resident `yqhx` loader materialization | kernel loader copy/BSS evidence + host sparse memory | PASS; declared segments and BSS are applied without entry execution; fixed ROM handoff unresolved |
+| Resident `yqhx` header/materialization | kernel header + host sparse memory | PASS; declared segments and BSS are applied without entry execution; real resident loader and fixed ROM handoff unresolved |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
 diagnostic build with the experimental whole-card library enabled. It was not

@@ -82,8 +82,8 @@ the little-endian resident entry and helper addresses across the extracted
 expected driver/container occurrences but no second `.ap`, `.bin`, DSP, or
 other driver payload that directly names those helper addresses.
 
-This narrows the useful search boundary to an indirect resident loader/table or
-fixed ROM audio caller. It does **not** prove that the DAC driver is unused,
+This narrows the useful search boundary to an indirect resident table, fixed
+ROM, or other audio caller. It does **not** prove that the DAC driver is unused,
 nor does it identify codec registers. The scan is reproducible with:
 
 ```sh

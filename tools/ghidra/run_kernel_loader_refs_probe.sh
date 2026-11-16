@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Report static references to resident loader/mask candidates in kernel.drv.
+# Report static references to resident-table candidates in kernel.drv.
 # This does not execute the driver or infer calls from raw byte coincidences.
 set -euo pipefail
 
@@ -35,4 +35,4 @@ set -e
 for target in 0xbfc0a408 0xbfc0a578 0xbfc0a6a0 0xbfc0a808 0xbfc0a944 0xbfc0ac98; do
   grep -q "FUNCTION_TOTAL target=$target count=0" "$WORK/ghidra.log"
 done
-echo 'KERNEL LOADER REFS PASS targets=6 direct_refs=0'
+echo 'KERNEL RESIDENT TABLE REFS PASS targets=6 direct_refs=0'

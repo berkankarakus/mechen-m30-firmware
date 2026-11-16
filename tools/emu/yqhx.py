@@ -77,10 +77,11 @@ class YqhxImage:
 
 
 def slot_layout(mode: int) -> tuple[str, int]:
-    """Return the resident loader's slot layout for a mode byte.
+    """Return the hypothesis slot layout for a mode byte.
 
-    The decompiled branch uses four-byte slots for modes 6 and 7 and
-    twelve-byte slots for the other modes.
+    This is retained for the host model only. The current M30 kernel helpers
+    at the corresponding candidate addresses are resident-table helpers, not
+    a proven YQHX copy routine.
     """
 
     return ("compact", 4) if (mode & 0xFF) in (6, 7) else ("extended", 12)

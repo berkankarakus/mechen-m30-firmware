@@ -52,9 +52,9 @@ deterministic:
 11. `yqhx.py` parses the resident driver's three copy segments, BSS range,
    entry fields, and the kernel's mode-dependent slot layout. It is a load
    plan only; it never executes raw payload bytes.
-12. `driver_loader.py` models the two decompiled resident loader contracts:
-   `FUN_bfc0a408` has the mode 6/7 compact-slot branch and entry callback,
-   while `FUN_bfc0a578` always uses twelve-byte slots and has no callback.
+12. `driver_loader.py` models the verified `yqhx` header/segment materializer.
+   Its synthetic `a408`/`a578` slot cases are kept as hypotheses and must not
+   be confused with the similarly named M30 resident-table helpers.
 13. `provider_scan.py` reproduces the negative A17/A19/B16 provider scan across
    extracted `.drv` members. It reports byte occurrences only and does not
    infer executable ownership from a match.
@@ -187,7 +187,7 @@ bash tools/ghidra/run_kernel_bank_boundary_probe.sh \
   analysis/community/fw/kernel.drv
 ```
 
-Static references to the resident loader candidates can be checked with
+Static references to the resident-table candidates can be checked with
 `tools/ghidra/run_kernel_loader_refs_probe.sh`; the current extracted image
 has zero direct references to all six targets, so their callers remain table
 or external-dispatch mediated.

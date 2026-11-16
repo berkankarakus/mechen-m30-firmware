@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Host-side model of the two resident driver-loader variants.
+"""Host-side materializer for the verified ``yqhx`` file-format boundary.
 
-This turns the Ghidra-derived loader contracts into deterministic events. It
-models copying and residency bookkeeping only; no raw MIPS payload is called.
+This turns the header-derived hypotheses into deterministic events. It models
+copying and residency bookkeeping only; no raw MIPS payload is called. The
+``a408``/``a578`` variants are synthetic slot-layout cases and are not a claim
+that the similarly named M30 kernel helpers implement these operations.
 """
 
 from __future__ import annotations

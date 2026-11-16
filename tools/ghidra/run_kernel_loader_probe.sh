@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproduce the resident kernel-loader decompilation used by the emulator.
+# Reproduce the resident kernel-table helper decompilation.
 # This is a static Ghidra probe; it never writes firmware or a flash image.
 set -euo pipefail
 
@@ -35,4 +35,6 @@ set -e
 
 grep -q 'DumpAt: bfc0a408' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc0a578' "$WORK/ghidra.log"
-echo 'KERNEL LOADER PASS a408=0x4c a578=0x44'
+grep -Fq 'pcVar1 = _UNK_bfc0a480;' "$WORK/decomp.c"
+grep -Fq '*param_4 = param_1;' "$WORK/decomp.c"
+echo 'KERNEL RESIDENT TABLE PASS a408=helper a578=state-copy yqhx-loader=unresolved'

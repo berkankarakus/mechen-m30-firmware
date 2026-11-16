@@ -115,11 +115,12 @@ class LazyBankRuntime:
         """Return the conservative exception/load/retry boundary trace.
 
         The extracted ``ker_xsys`` image proves an exception handoff, while
-        the resident loader proves the YQHX copy contract; the fixed handler
-        that joins those pieces is not in the extracted files.  This method
-        therefore models the observable sequence without executing any raw
-        pointer.  An unvalidated entry stops after the load, which is the
-        important fail-closed behavior for the emulator.
+        the YQHX header/materializer provides the file-copy contract; the
+        fixed handler and actual bank-copy path that join those pieces are not
+        in the extracted files. This method therefore models the observable
+        envelope without executing any raw pointer. An unvalidated entry
+        stops after the load, which is the important fail-closed behavior for
+        the emulator.
         """
         result = self.dispatch(pointer)
         if result.candidate is None:

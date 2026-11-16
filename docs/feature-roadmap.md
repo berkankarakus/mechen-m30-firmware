@@ -19,7 +19,7 @@ PASS/FAIL koşuluyla kapatılacak.
 | P1 | MIPS16 `break 0` selector dispatch’ini resident exception yoluna bağla | callback zarfı çözüldü, fakat selector `0x10` servisinin kernel tarafındaki etkisi bilinmiyor | exception handler veya kernel kaynaklı dispatch tablosu selector ve dönüş sözleşmesini kanıtlar; PCM/DAC sonucu iddia edilmez |
 | P1 | `drv_dac.drv` gerçek byte-transfer fonksiyonlarını sentetik GPIO context ile çalıştır | DAC sürücüsü ortak ve küçük; register anlamı bilinmese de bit/byte transfer sınırı ölçülebilir | **DONE:** six corpus QEMU probe executes real 8-bit transmit, two-byte send, and all-high/all-low receive boundary; electrical/codec semantics remain unresolved |
 | P1 | `usound.drv` producer → consumer state zincirini tek guest’te birleştir | producer, consumer ve callback ayrı ayrı geçiyor; birleşik state henüz kanıtlanmadı | **DONE:** six corpus QEMU chain passes with producer=16, consumer=16, and real selector `0x10` callback trap; PCM/DAC ownership remains unresolved |
-| P2 | Kernel loader/overlay entry ve exception handoff probe’u | loader segment/BSS sözleşmesi biliniyor, sabit ROM handoff bilinmiyor | gerçek loader çağrısı sentetik segmentlerle çalışır ve giriş/çıkış CP0/stack sözleşmesi kaydedilir |
+| P2 | Kernel loader/overlay entry ve exception handoff probe’u | YQHX header/segment sözleşmesi biliniyor; `kernel.drv` içindeki adaylar resident-table helper, gerçek loader ve sabit ROM handoff bilinmiyor | gerçek loader çağrısı ve giriş/çıkış CP0/stack sözleşmesi kanıtlanır |
 | P3 | Tam ATJ2127 QEMU machine / boot | upstream model ve ROM/peripheral kodu yok; maliyeti yüksek, şu anki kanıtı az artırır | yalnızca ATJ2127 MMIO/ROM kaynağı veya cihaz dump’ı gelirse başlatılır; mevcut haliyle ertelenir |
 
 | Alan | Mevcut kanıt | Güvenli emulator kapsamı |
@@ -40,7 +40,7 @@ PASS/FAIL koşuluyla kapatılacak.
 | Decoder callback | community callback kesin `-1` döndürüyor | fail-closed boundary mevcut; PCM decoder yolu yok |
 | Artwork playback | metadata/JPEG fallback yolları statik olarak ayrıştırıldı | placeholder/render state; async decode veya ses gecikmesi modeli yok |
 | LCD transfer | `drv_lcd.drv` address-window commands `0x2a/0x2b/0x2c` | bounded RGB565 window-to-framebuffer sink and real-code QEMU window/orientation probe; controller timing, MMIO meanings and electrical behavior remain unresolved |
-| Resident driver loader | kernel `yqhx` copy/BSS contract | sparse host memory applies declared segments and BSS clearing; entry execution and fixed-ROM handoff remain unresolved |
+| YQHX header/materializer | kernel `yqhx` header, segment ve BSS alanları | sparse host memory applies declared segments and BSS clearing; gerçek resident loader, entry execution ve fixed-ROM handoff remain unresolved |
 
 ## MUSIC.LIB TODO
 

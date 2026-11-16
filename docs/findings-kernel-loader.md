@@ -33,49 +33,42 @@ The headless Ghidra dumps used for these findings are generated outside the
 repository under `/private/tmp/m30-kernel.c` and `/private/tmp/m30-kerinit.c`.
 The raw input files in the repository remain unchanged.
 
-## Resident driver-loader behavior
+## What the current `kernel.drv` actually proves
 
-The two decompiled resident routines use the same three-segment `yqhx`
-contract but have separate driver-state tables. The host-side parser and
-load-plan model is now in `tools/emu/yqhx.py`; `ResidentMemory` in
-`tools/emu/driver_loader.py` can apply the verified file copies and BSS zeroing
-without pretending to execute an unverified bank.
+`tools/emu/yqhx.py` provides a verified **file-format** parser: the extracted
+`kernel.drv` header has a `yqhx` marker, one resident segment at
+`0xbfc08000`, and the BSS range recorded in the header. The sparse host
+materializer in `tools/emu/driver_loader.py` applies those declared bytes and
+zeros without executing them. This is useful emulator input, but it is not
+proof of the resident kernel's copy routine.
 
-### `FUN_bfc0a408`
+The earlier interpretation of `FUN_bfc0a408` and `FUN_bfc0a578` as generic
+`yqhx` loaders was too strong. A fresh Ghidra 12.2 mapping of the current
+community/stock-identical `kernel.drv` payload (`file 0x200 -> runtime
+0xbfc08000`) gives these boundaries:
 
-`kernel.drv`, loaded at `0xbfc08000`, contains the routine
-`FUN_bfc0a408` at `0xbfc0a408`. The decompilation shows this sequence:
+- `FUN_bfc0a408` writes two resident-table entries, calls two indirect
+  helpers, clears a global, and returns;
+- `FUN_bfc0a578` copies one argument into three caller-provided locations and
+  calls two indirect helpers;
+- `FUN_bfc0a6a0` calls an indirect helper three times;
+- `FUN_bfc0a808` writes one value into several state locations;
+- `FUN_bfc0a944` stores one argument through an output pointer;
+- `FUN_bfc0ac98` terminates at bad instruction data in the mapped segment.
 
-1. Select a per-driver slot from the group/mode argument.
-2. Open the requested file.
-3. Read `0x4c` bytes from its beginning.
-4. Require the four-byte magic at header offset `+0x04` to be `yqhx`.
-5. Iterate three `(file_offset, length, destination)` triples beginning at
-   header offset `+0x08`; zero-length entries are skipped.
-6. Clear the BSS described by the header fields at `+0x38` and `+0x3c`.
-7. Save the installed handle/state and invoke the driver entry callback using
-   the header's trailing entry fields.
+None of those bodies contains the previously claimed file open, `0x4c`/`0x44`
+header read, segment-copy loop, or BSS-clear loop. The exact reproducible
+probe is:
 
-The routine is not itself the proof that every overlay bank is copied on every
-call. It does, however, establish that the UI driver header is consumed by a
-resident kernel loader and that the file is not simply executed at its flash
-file offset.
+```sh
+bash tools/ghidra/run_kernel_loader_probe.sh analysis/community/fw/kernel.drv
+```
 
-The same decompilation contains a mode-dependent slot calculation: modes 6
-and 7 use a four-byte slot stride, while other modes use a twelve-byte stride.
-This is exposed as `slot_layout()` in `tools/emu/yqhx.py`; it is a structural
-constraint for the emulator, not a claim that every mode has been identified.
-
-### `FUN_bfc0a578`
-
-The neighboring loader reads `0x44` bytes, uses a separate resident table,
-parses the same three segment triples at `+0x08`, clears BSS using `+0x38` and
-`+0x3c`, and stores the installed state plus a separate `+0x240` value. It
-does not call the header's entry/context callback. The shorter read means its
-surrounding ABI is not identical to `FUN_bfc0a408`, even though the copy/BSS
-portion is compatible with the `yqhx` model. We therefore model the common
-header and keep the two resident dispatch tables separate until their callers
-are mapped. The executable host model is `tools/emu/driver_loader.py`.
+It now reports these as resident-table helpers. The generic `a408`/`a578`
+slot variants retained in `tools/emu/driver_loader.py` are synthetic host
+model cases for the file-format hypothesis, not an M30-specific execution
+claim. They must not be used to justify a firmware patch or a complete boot
+model until their indirect callers or fixed-ROM implementation are recovered.
 
 Both function boundaries are reproducible with:
 
@@ -199,7 +192,7 @@ This currently finds zero copies of the A17/A19/B16 values in the other
 extracted members. The unfiltered scan is still useful because it records the
 consumer-side occurrences and their offsets.
 
-The raw-byte scan was also rerun for the six resident loader/mask addresses
+The raw-byte scan was also rerun for the six resident-table/mask candidate addresses
 and the `0xbfc06d6c` exception target across every extracted member. All seven
 values have zero little-endian occurrences in the local tree. This agrees
 with the Ghidra reference result and further narrows the missing call path to
@@ -429,18 +422,17 @@ bash tools/ghidra/run_kernel_loader_refs_probe.sh \
 ## Next investigation
 
 The remaining useful kernel-side target is the indirect bank-window lookup,
-not the already-understood resident driver installation path. We should map
+not an already-understood resident driver installation path. We should map
 the low-offset stub area for the A19/B2/B16-qualified entries and connect each
 stub to the corresponding `drv_ui` bank or shared UI module. Until then, the
 host emulator and Ghidra p-code probes remain the safe test surface.
 
 The host-side `LazyBankRuntime.boundary_trace()` now records the conservative
-sequence supported by the available evidence: an unloaded overlay produces an
-exception boundary, the resident loader copies the selected bank, and a
-validated entry is retried. Missing providers and unvalidated entry offsets
-stop in the trace; no raw far pointer is executed. This is an emulator
-contract, not a claim that the unavailable fixed exception handler has been
-recovered.
+exception/load/retry envelope as a host contract. It does not claim that the
+six resident-table helpers above are the bank loader: the fixed exception
+handler, its indirect tables, and the actual bank-copy implementation remain
+unresolved. Missing providers and unvalidated entry offsets stop in the trace;
+no raw far pointer is executed.
 
 ## Additional public sources checked
 
