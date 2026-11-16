@@ -19,6 +19,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | Artwork fallback | community JPEG fallback'in 0xff yolu, 150x150 RGB565 cache sınırı, component/block guard'ları ve `ALBUM.PIC` header'ı | bounded fallback policy ve cache record modeli mevcut; JPEG decode, SD/CPU timing ve UI render beklemede |
 | Decoder callback | community callback kesin `-1` döndürüyor | fail-closed boundary mevcut; PCM decoder yolu yok |
 | Artwork playback | metadata/JPEG fallback yolları statik olarak ayrıştırıldı | placeholder/render state; async decode veya ses gecikmesi modeli yok |
+| LCD transfer | `drv_lcd.drv` address-window commands `0x2a/0x2b/0x2c` | bounded RGB565 window-to-framebuffer sink modeled; controller timing, orientation and electrical behavior remain unresolved |
 
 ## Bilinçli olarak ertelenenler
 
