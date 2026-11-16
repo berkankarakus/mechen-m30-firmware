@@ -199,6 +199,22 @@ with the Ghidra reference result and further narrows the missing call path to
 indirect runtime tables or fixed ROM rather than an overlooked extracted
 literal.
 
+### `dec.bin` is not an extra ROM dump
+
+The decrypted AFI image at `analysis/community/dec.bin` is a container copy,
+not a second ROM source. Each of `kernel.drv`, `ker_text.bin`, `ker_init.bin`,
+`ker_xsys.bin`, `drv_ui.drv`, and `drv_dac.drv` occurs exactly once in it at
+the corresponding extracted-member offset. A direct scan also finds no
+little-endian `0xbfc06d6c` pointer in the container. The reproducible check is:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/dec_container_probe.py \
+  analysis/community
+```
+
+Therefore the missing exception handler cannot be recovered by remapping
+`dec.bin`; it is still outside the available M30 dump.
+
 The resident `kernel.drv` was also scanned at its established `0xbfc08000`
 base for constants relevant to the proposed far-pointer translation. It
 contains no literal `0x00009000` prefix and no literal `0x00025000` B-window
