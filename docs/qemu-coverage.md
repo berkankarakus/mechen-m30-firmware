@@ -131,6 +131,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + MIPS16 callback stub | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the callback twice on wrap, and resets its read pointer to zero; callback is intentionally no-op |
+| Real `usound.drv` callback syscall | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, and the four callback arguments survive the trap boundary; kernel service effect remains unresolved |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | Real `usound.drv` word-port execution | exact segment + relocated bfc3194c/bfc31950/bfc31954 pool | PASS; `FUN_bfc318cc` executes mode 1/2/4 and gate behavior in QEMU; the guest RAM ports are not physical MMIO |
@@ -280,6 +281,14 @@ alternate-port literal words. QEMU verifies mode 2 reads, mode 1 writes, mode
 4 alternate reads, and the gate byte that suppresses mode-2 reads. These are
 guest-RAM stand-ins for the original MMIO addresses; no claim is made about
 the physical USB controller, FIFO timing, or codec/DAC routing.
+
+`bash tools/emu/run_qemu_usound_callback_probe.sh` executes the real odd
+callback target `0xbfc326a9` (aligned MIPS16 entry `0xbfc326a8`). The guest
+redirects CP0 `EBase` to a RAM exception vector, catches the callback's
+`break 0`, and returns through the interrupted caller continuation. Across
+all six local `usound.drv` corpora, QEMU observes selector `v1=0x10` and the
+four arguments used by the ring consumer. This resolves the callback's
+syscall envelope, not the kernel service or eventual PCM/DAC side effect.
 
 `bash tools/emu/run_qemu_usound_producer_probe.sh` now executes the real
 `FUN_bfc30dc4` producer. Its QEMU guest supplies only the recovered state

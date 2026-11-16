@@ -102,10 +102,12 @@
   stream-buffer-shaped ABI. Its literal pool resolves the state to ring base
   `0x9fc34000`, read pointer `0x9fc33dec`, available-byte counter `0x9fc33df0`,
   short-read counter `0x9fc33df4`, reset signal `0x9fc33e13`, and callback entry
-  `0xbfc326a9` (odd MIPS16 pointer). The adjacent aligned stubs at
-  `0xbfc32680` and `0xbfc32694` decompile to zero-return functions, while the
-  odd target's callback semantics remain unresolved. Its producer and PCM
-  ownership are not proven;
+  `0xbfc326a9` (odd MIPS16 pointer). The aligned callback entry at
+  `0xbfc326a8` is the MIPS16 pair `li v1,0x10; break 0`; the adjacent
+  `0xbfc326ac` pair uses selector `0x0f`. A QEMU exception-vector probe
+  executes the `0x10` target across all six local corpora and verifies that
+  the ring consumer's four arguments survive the trap boundary. This resolves
+  the callback's syscall envelope, not the kernel service or PCM ownership;
   the host emulator therefore models the ring only as an explicitly generic
   boundary, not as the firmware's PCM/DMA implementation.
 - A second driver boundary is also verified: `FUN_bfc318cc` transfers whole
