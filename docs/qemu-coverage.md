@@ -136,6 +136,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Real `usound.drv` word-port execution | exact segment + relocated bfc3194c/bfc31950/bfc31954 pool | PASS; `FUN_bfc318cc` executes mode 1/2/4 and gate behavior in QEMU; the guest RAM ports are not physical MMIO |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
+| Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | LCD address-window transfer | `drv_lcd.drv` commands `0x36/0x2a/0x2b/0x2c` + host framebuffer sink | PASS; recovered raw orientation values and bounded RGB565 window writes modeled; orientation semantics/controller timing unresolved |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
@@ -279,3 +280,11 @@ alternate-port literal words. QEMU verifies mode 2 reads, mode 1 writes, mode
 4 alternate reads, and the gate byte that suppresses mode-2 reads. These are
 guest-RAM stand-ins for the original MMIO addresses; no claim is made about
 the physical USB controller, FIFO timing, or codec/DAC routing.
+
+`bash tools/emu/run_qemu_usound_producer_probe.sh` now executes the real
+`FUN_bfc30dc4` producer. Its QEMU guest supplies only the recovered state
+words, a no-op poll/fill/port callback, and the exact MIPS16 copy helpers. The
+probe passes a linear write, a write split at the `0x6e40` ring end, and the
+format-1 fixed-point `0xaaaaaaab` size path. This verifies the producer's
+control flow and state arithmetic, but not the USB polling callback, hardware
+FIFO, interrupt timing, or DAC/codec output.
