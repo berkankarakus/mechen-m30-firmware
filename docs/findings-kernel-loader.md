@@ -169,6 +169,21 @@ of those firmware bytes. The scan is reproducible with:
 PYTHONPATH=tools/emu python3 tools/emu/provider_scan.py analysis/community/fw
 ```
 
+This container-duplicate conclusion was checked more strictly across the nine
+dated extracted images from `2022-09-14` through `2025-06-26`. For every
+occurrence of each observed A17/A19/B02/B16 pointer in `afi/FWIMAGE.FW` and
+`dec.bin`, the surrounding 0x60-byte window (0x20 bytes before and 0x40 bytes
+after the pointer, clipped at file boundaries) occurs verbatim in that image's
+`fw/drv_ui.drv`. The result was 34 occurrences and 0 unmatched windows for
+each of the nine images. Thus the additional container offsets are alternate
+views of the known UI-driver consumer, not evidence of a second provider
+implementation.
+
+This window comparison is deliberately stronger than a pointer-presence
+scan: it preserves the surrounding literal/call-site bytes and avoids treating
+an unrelated ROM constant as a provider. It still says nothing about fixed
+ROM, which remains outside the extracted member set.
+
 The same scan widened to every extracted firmware member (`--all-files`)
 produces exactly the same 16 occurrences, all still in `drv_ui.drv`; no `.ap`,
 `.sty`, `.bin`, DSP, or other extracted file provides a second copy of any
