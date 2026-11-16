@@ -7,6 +7,15 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MENGINE=${1:-$ROOT/analysis/community/fw/mengine.ap}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 
+if [ -z "${JAVA_HOME:-}" ] && command -v brew >/dev/null 2>&1; then
+  JAVA_PREFIX=$(brew --prefix openjdk@25 2>/dev/null || true)
+  JAVA_HOME="$JAVA_PREFIX/libexec/openjdk.jdk/Contents/Home"
+fi
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  export JAVA_HOME
+fi
+
 [ -f "$MENGINE" ] || { echo "missing mengine.ap: $MENGINE" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 
@@ -14,7 +23,7 @@ WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-eq-chain.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home" "$WORK/project"
 
-GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
+JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:--Duser.home=$WORK/home}" \
   "$GHIDRA" "$WORK/project" m30eqchain \
   -import "$MENGINE" \
   -loader BinaryLoader \

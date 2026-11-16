@@ -9,7 +9,7 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - Dal: `main`; push yapılmadı.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Son teknik commit: `2c797ee feat: model SD sector transfers`.
-- Host-only suite: 105 sim, 123 emu ve 6 ROM testi başarılı.
+- Host-only suite: 106 sim, 123 emu ve 6 ROM testi başarılı.
 - Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
   `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
 
@@ -23,6 +23,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   USB Audio descriptor, 200-byte packet ve ring sınırları.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için
   fail-closed `-1`; bilinmeyen callback çalıştırılmaz.
+- `tools/sim/m30_model.py`: Ghidra ile doğrulanan EQ `0x303` mesaj zarfı,
+  `{eq_type, selector}` çifti ve selector kaynağı ofseti; opaque DSP çağrıları
+  çalıştırılmaz.
 - `tools/sim/sd_block_device.py`: kanıtlanmış 512-byte SD sektör sınırı,
   card presence ve bounds davranışı.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3

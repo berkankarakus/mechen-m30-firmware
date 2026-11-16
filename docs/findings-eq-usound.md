@@ -19,6 +19,11 @@
 - `tools/emu/eq_menu_probe.py` verifies the menu-side pointer topology in stock, community, V1.101.11, and V1.101.12: the seven built-in callback entry points occur once each in the `music.ap` table at file `0xdeec..0xdf64` with `0x14` (20-byte) spacing, and three repeated groups in `music.mcg` reference the same seven pointers at `0x2fea`, `0x3554`, and `0x3b90` with `0x2a` (42-byte) spacing. The Custom callback `FUN_403d4ed0` has no direct MCG pointer; its separate parameter-copy path is consistent with the producer decompilation. The probe deliberately does not assign language meaning to the three MCG groups.
 - `tools/sim/m30_model.py` now keeps an evidence-backed `FIRMWARE_EQ_PRESETS` contract separate from the older five-band UI proposal. It models the seven recovered centre frequencies, Q values, exact selector payloads (`Off = {0,0}`, built-ins `{7,1..6}`, `Custom = {7,7}`), and the seven signed-int8 gain rows. Custom curves require seven explicit values; the model does not silently treat the proposed UI curves as device coefficients.
 - `tools/emu/eq_binary_probe.py` cross-checks that contract against raw bytes: `mengine.ap` frequency/Q tables and all seven non-Custom gain rows, plus the default seven-value Custom row at `setting.ap` `0x5b04`. It passes against the four local firmware corpora, so the host model is now tied to binary evidence rather than duplicated documentation alone.
+- `run_eq_chain_probe.sh` verifies the message boundary: `0x303` dispatches to
+  `FUN_601d0f30`, which reaches the coefficient builder at `FUN_601d0d58`.
+  `music.ap` supplies the selector from `0x9fc15c88 + 0x41`; the host model
+  exposes this as `FirmwareEqCommand` while leaving the indirect DSP calls
+  unresolved.
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound

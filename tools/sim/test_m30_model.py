@@ -6,13 +6,16 @@ from m30_model import (
     EQ_PRESETS,
     FIRMWARE_EQ_BAND_HZ,
     FIRMWARE_EQ_CUSTOM_DEFAULT,
+    FIRMWARE_EQ_MESSAGE_ID,
     FIRMWARE_EQ_PRESETS,
     FIRMWARE_EQ_Q_X10,
+    FIRMWARE_EQ_SELECTOR_OFFSET,
     IndexState,
     IndexStatus,
     eq_names,
     find_eq,
     firmware_eq_gains,
+    firmware_eq_command,
     firmware_eq_payload,
     sort_filenames,
 )
@@ -78,6 +81,12 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(firmware_eq_payload("Rock"), (7, 1))
         self.assertEqual(firmware_eq_payload("Techno"), (7, 6))
         self.assertEqual(firmware_eq_payload("Custom"), (7, 7))
+
+    def test_command_matches_verified_engine_message_boundary(self):
+        command = firmware_eq_command("Custom")
+        self.assertEqual(command.message_id, FIRMWARE_EQ_MESSAGE_ID)
+        self.assertEqual((command.eq_type, command.selector), (7, 7))
+        self.assertEqual(command.selector_source_offset, FIRMWARE_EQ_SELECTOR_OFFSET)
 
     def test_recovered_gain_rows_match_mengine(self):
         self.assertEqual(firmware_eq_gains(0), (0, 0, 0, 0, 0, 0, 0))

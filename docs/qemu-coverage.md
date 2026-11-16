@@ -131,6 +131,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |
 | MCG/RU3 resource metadata | six-corpus byte-identical resource members | PASS; immutable node/group catalog, localized names unresolved |
 | Decoder write callback | community `mengine.ap` callback boundary | PASS; unconfigured/known callback returns `-1`, unknown pointer fail-closed |
+| EQ message/coefficient boundary | `mengine.ap` dispatcher and `music.ap` selector path | PASS; message `0x303`, `{eq_type, selector}` envelope, seven gain rows; DSP calls unresolved |
 | SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral

@@ -141,6 +141,8 @@ EQ_PRESETS: tuple[EqPreset, ...] = (
 # while this table describes what the shipped binary actually consumes.
 FIRMWARE_EQ_BAND_HZ: tuple[int, ...] = (80, 200, 480, 980, 4000, 8000, 16000)
 FIRMWARE_EQ_Q_X10: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
+FIRMWARE_EQ_MESSAGE_ID = 0x303
+FIRMWARE_EQ_SELECTOR_OFFSET = 0x41
 # Default Custom row recovered from setting.ap (file offset 0x5b04). Runtime
 # edits replace this row through the RAM-backed Custom path.
 FIRMWARE_EQ_CUSTOM_DEFAULT: tuple[int, ...] = (-9, 0, 0, 0, 0, 0, 6)
@@ -154,6 +156,16 @@ class FirmwareEqPreset:
     eq_type: int
     selector: int
     gains_db: tuple[int, ...] | None
+
+
+@dataclass(frozen=True)
+class FirmwareEqCommand:
+    """The proven EQ command envelope sent to the engine."""
+
+    message_id: int
+    eq_type: int
+    selector: int
+    selector_source_offset: int
 
 
 FIRMWARE_EQ_PRESETS: tuple[FirmwareEqPreset, ...] = (
@@ -184,8 +196,19 @@ def find_firmware_eq(name: str) -> FirmwareEqPreset:
 
 def firmware_eq_payload(name: str) -> tuple[int, int]:
     """Return the `{eq_type, selector}` bytes sent in message ``0x303``."""
+    command = firmware_eq_command(name)
+    return command.eq_type, command.selector
+
+
+def firmware_eq_command(name: str) -> FirmwareEqCommand:
+    """Build the proven message envelope without inventing DSP payload fields."""
     preset = find_firmware_eq(name)
-    return preset.eq_type, preset.selector
+    return FirmwareEqCommand(
+        FIRMWARE_EQ_MESSAGE_ID,
+        preset.eq_type,
+        preset.selector,
+        FIRMWARE_EQ_SELECTOR_OFFSET,
+    )
 
 
 def firmware_eq_gains(selector: int, custom: Sequence[int] | None = None) -> tuple[int, ...]:
