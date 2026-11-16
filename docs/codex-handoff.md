@@ -26,6 +26,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ve `kernel.drv` içinde sıfır MIPS16 `break` noktası doğrular. Selector
   dispatcher'ı bu extracted kernel üyelerinde yoktur; `break 0` etkisi fixed
   ROM sınırında kalır.
+- `tools/sim/usound_callback.py` doğrulanmış selector + dört argüman callback
+  zarfını kaydeder; fixed-ROM service etkisini ve bilinmeyen selector'ları
+  fail-closed bırakır.
 - DAC caller taraması da tekrar üretilebilir durumda:
   `tools/emu/dac_caller_scan.py`. Doğrudan helper pointer'ları yalnızca
   sürücü/container kopyalarında bulunur; codec register anlamı çözülmüş
