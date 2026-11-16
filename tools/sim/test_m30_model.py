@@ -5,8 +5,10 @@ from m30_model import (
     ArtworkSession,
     CardChangePolicy,
     EQ_PRESETS,
+    FIRMWARE_EQ_2024_04_PROFILE,
     FIRMWARE_EQ_BAND_HZ,
     FIRMWARE_EQ_CUSTOM_DEFAULT,
+    FIRMWARE_EQ_CURRENT_PROFILE,
     FIRMWARE_EQ_MESSAGE_ID,
     FIRMWARE_EQ_PRESETS,
     FIRMWARE_EQ_Q_X10,
@@ -18,6 +20,7 @@ from m30_model import (
     firmware_eq_gains,
     firmware_eq_command,
     firmware_eq_payload,
+    find_firmware_eq_profile,
     sort_filenames,
 )
 
@@ -90,6 +93,20 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(FIRMWARE_EQ_Q_X10, (10, 6, 4, 6, 10, 5, 8))
         self.assertEqual(len(FIRMWARE_EQ_PRESETS), 8)
 
+    def test_revision_profile_preserves_verified_2024_frequency_exception(self):
+        self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.band_hz[0], 80)
+        self.assertEqual(FIRMWARE_EQ_2024_04_PROFILE.band_hz[0], 50)
+        self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.q_x10, FIRMWARE_EQ_2024_04_PROFILE.q_x10)
+        self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.presets, FIRMWARE_EQ_2024_04_PROFILE.presets)
+
+    def test_revision_profile_lookup_is_case_insensitive(self):
+        self.assertIs(
+            find_firmware_eq_profile("2024-04"),
+            FIRMWARE_EQ_2024_04_PROFILE,
+        )
+        with self.assertRaises(KeyError):
+            find_firmware_eq_profile("unknown")
+
     def test_payload_matches_music_ap_selector_protocol(self):
         self.assertEqual(firmware_eq_payload("Off"), (0, 0))
         self.assertEqual(firmware_eq_payload("Rock"), (7, 1))
@@ -110,6 +127,14 @@ class FirmwareEqContractTests(unittest.TestCase):
     def test_custom_requires_exactly_seven_signed_int8_values(self):
         custom = FIRMWARE_EQ_CUSTOM_DEFAULT
         self.assertEqual(firmware_eq_gains(7, custom), custom)
+        self.assertEqual(
+            firmware_eq_gains(
+                7,
+                custom,
+                profile=FIRMWARE_EQ_2024_04_PROFILE,
+            ),
+            custom,
+        )
         with self.assertRaises(ValueError):
             firmware_eq_gains(7, (0, 0, 0))
         with self.assertRaises(ValueError):

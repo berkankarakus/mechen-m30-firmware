@@ -175,6 +175,17 @@ class FirmwareEqPreset:
 
 
 @dataclass(frozen=True)
+class FirmwareEqProfile:
+    """One verified firmware revision's seven-band EQ contract."""
+
+    name: str
+    band_hz: tuple[int, ...]
+    q_x10: tuple[int, ...]
+    presets: tuple[FirmwareEqPreset, ...]
+    custom_default: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class FirmwareEqCommand:
     """The proven EQ command envelope sent to the engine."""
 
@@ -195,6 +206,36 @@ FIRMWARE_EQ_PRESETS: tuple[FirmwareEqPreset, ...] = (
     # Custom gains are copied from RAM by music.ap before this payload is sent.
     FirmwareEqPreset("Custom", 7, 7, None),
 )
+
+
+FIRMWARE_EQ_CURRENT_PROFILE = FirmwareEqProfile(
+    name="current",
+    band_hz=FIRMWARE_EQ_BAND_HZ,
+    q_x10=FIRMWARE_EQ_Q_X10,
+    presets=FIRMWARE_EQ_PRESETS,
+    custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
+)
+FIRMWARE_EQ_2024_04_PROFILE = FirmwareEqProfile(
+    name="2024-04",
+    band_hz=(50, 200, 480, 980, 4000, 8000, 16000),
+    q_x10=FIRMWARE_EQ_Q_X10,
+    presets=FIRMWARE_EQ_PRESETS,
+    custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
+)
+FIRMWARE_EQ_PROFILES: dict[str, FirmwareEqProfile] = {
+    profile.name: profile
+    for profile in (FIRMWARE_EQ_CURRENT_PROFILE, FIRMWARE_EQ_2024_04_PROFILE)
+}
+
+
+def find_firmware_eq_profile(name: str) -> FirmwareEqProfile:
+    """Return a verified EQ profile by its case-insensitive name."""
+    normalized_name = name.casefold()
+    for profile in FIRMWARE_EQ_PROFILES.values():
+        if profile.name.casefold() == normalized_name:
+            return profile
+
+    raise KeyError(name)
 
 
 def firmware_eq_names() -> tuple[str, ...]:
@@ -227,17 +268,22 @@ def firmware_eq_command(name: str) -> FirmwareEqCommand:
     )
 
 
-def firmware_eq_gains(selector: int, custom: Sequence[int] | None = None) -> tuple[int, ...]:
+def firmware_eq_gains(
+    selector: int,
+    custom: Sequence[int] | None = None,
+    *,
+    profile: FirmwareEqProfile = FIRMWARE_EQ_CURRENT_PROFILE,
+) -> tuple[int, ...]:
     """Resolve the seven gain values used by the recovered engine path.
 
     Selector 7 is the RAM-backed Custom path.  It intentionally requires an
     explicit seven-value curve instead of silently inventing coefficients.
     """
-    if not 0 <= selector < len(FIRMWARE_EQ_PRESETS):
+    if not 0 <= selector < len(profile.presets):
         raise ValueError("firmware EQ selector must be in the range 0..7")
-    preset = FIRMWARE_EQ_PRESETS[selector]
+    preset = profile.presets[selector]
     if selector == 7:
-        if custom is None or len(custom) != len(FIRMWARE_EQ_BAND_HZ):
+        if custom is None or len(custom) != len(profile.band_hz):
             raise ValueError("Custom firmware EQ requires seven gain values")
         if any(not -128 <= value <= 127 for value in custom):
             raise ValueError("Custom firmware EQ gains must fit signed int8")
