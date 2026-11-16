@@ -92,6 +92,12 @@ Fallback body (all UI thread, music.ap banks, no DSP/engine involvement; VERIFIE
   Caveat: stock FUN_480546e8 also decodes in the UI thread (mmm_id), so large artwork cost exists in stock; the community
   adds a second, CPU-bound attempt only when mmm_id fails (status 0xFF), i.e. it makes the failure path slower, not the success path.
 
+The host emulator records the static fallback guard in
+`tools/sim/artwork_fallback.py`: the community path is attempted only for
+status `0xff`, accepts dimensions from 1 through 150, accepts one or three
+JPEG components, rejects `0x1000` blocks or more, and limits the RGB565 output
+to 45,000 bytes. JPEG decoding and UI timing remain outside the model.
+
 ## 3. Previous key
 
 - VERIFIED: bytes at mengine.ap 0x3A64 are 82f3 086a 4bea in BOTH stock and community (patch not pre-applied).
