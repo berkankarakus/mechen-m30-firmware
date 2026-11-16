@@ -79,8 +79,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   kapasite sınırı; `MUSIC.LIB` formatı veya experimental large-library yolu
   bu modelle birleştirilmez.
 - `tools/sim/library_file.py`: `MUSIC.LIB` 0x200 header, 256-byte record area,
-  four section directory ve raw sector references; node/location semantics
-  opaque tutulur.
+  four section directory ve raw sector references; caller-supplied SD
+  başlangıç sektöründen byte image okunabilir, node/location semantics opaque
+  tutulur.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3

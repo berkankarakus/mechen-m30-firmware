@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import struct
 
+from sd_block_device import SdCardBlockDevice
+
 
 SECTOR_SIZE = 512
 HEADER_SIZE = 0x200
@@ -81,3 +83,30 @@ def parse_library_layout(data: bytes) -> MusicLibraryLayout:
         record_area_sectors=record_area_sectors,
         sections=tuple(sections),
     )
+
+
+def read_library_image(
+    device: SdCardBlockDevice,
+    start_sector: int,
+) -> bytes:
+    """Read one ``MUSIC.LIB`` image from a caller-supplied start sector."""
+    if start_sector < 0:
+        raise ValueError("library start sector must be non-negative")
+
+    header = device.read_sector(start_sector)
+    record_count = struct.unpack_from("<H", header, 0x08)[0]
+    record_bytes = record_count * RECORD_SIZE
+    record_area_sectors = (record_bytes + SECTOR_SIZE - 1) // SECTOR_SIZE
+
+    return header + b"".join(
+        device.read_sector(start_sector + 1 + offset)
+        for offset in range(record_area_sectors)
+    )
+
+
+def read_library_layout(
+    device: SdCardBlockDevice,
+    start_sector: int,
+) -> MusicLibraryLayout:
+    """Parse a library image read from the SD block boundary."""
+    return parse_library_layout(read_library_image(device, start_sector))
