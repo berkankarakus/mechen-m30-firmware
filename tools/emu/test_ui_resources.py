@@ -24,6 +24,7 @@ class UiResourceMetadataTests(unittest.TestCase):
 
         self.assertEqual(tree.nodes_with_id(7)[0].layer, 2)
         self.assertEqual(tree.nodes[0].index, 1)
+        self.assertEqual(tree.nodes[0].raw_name, b"x")
 
     def test_ru3_resource_exposes_bounded_groups(self) -> None:
         data = bytearray(0x80)

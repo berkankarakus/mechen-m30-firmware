@@ -15,12 +15,13 @@ from ui_resource_probe import (
 
 @dataclass(frozen=True)
 class McgNode:
-    """One structurally verified MCG node record."""
+    """One structurally verified MCG node record with opaque name bytes."""
 
     record_number: int
     index: int
     node_id: int
     layer: int
+    raw_name: bytes
 
 
 @dataclass(frozen=True)

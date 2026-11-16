@@ -17,7 +17,7 @@ MCG_MAGIC = b"ACTMCGGM01"
 RU3_MAGIC = b"RU3\x19"
 NODE_RE = re.compile(
     rb"\[NODE(\d+)\]\s*\r?\n"
-    rb"name=.*?\r?\n"
+    rb"name=(.*?)\r?\n"
     rb"index=(\d+)\s*\r?\n"
     rb"id=(\d+)\s*\r?\n"
     rb"layer=(\d+)\s*\r?\n",
@@ -35,8 +35,8 @@ def parse_mcg(path: Path) -> tuple[int, str, tuple[tuple[int, int, int, int], ..
     if MCG_MAGIC not in data:
         raise AssertionError(f"{path} has no MCG marker")
     nodes = tuple(
-        (int(number), int(index), int(node_id), int(layer))
-        for number, index, node_id, layer in NODE_RE.findall(data)
+        (int(number), int(index), int(node_id), int(layer), raw_name)
+        for number, raw_name, index, node_id, layer in NODE_RE.findall(data)
     )
     info = INFO_RE.search(data)
     if info is None:

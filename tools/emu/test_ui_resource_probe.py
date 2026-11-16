@@ -24,7 +24,7 @@ class UiResourceProbeTests(unittest.TestCase):
             path.write_bytes(data)
             size, _, nodes = parse_mcg(path)
         self.assertEqual(size, len(data))
-        self.assertEqual(nodes, ((1, 1, 0, 1), (2, 2, 7, 2)))
+        self.assertEqual(nodes, ((1, 1, 0, 1, b"x"), (2, 2, 7, 2, b"y")))
 
     def test_ru3_groups_are_bounded(self):
         data = bytearray(0x80)

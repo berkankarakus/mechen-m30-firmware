@@ -31,9 +31,10 @@ node IDs, in index order, are:
 matching the parsed node count.
 
 This gives the emulator a deterministic menu-tree input and prevents a UI
-patch from silently changing node count/order. It does not identify the
-localized names, because those are resource strings in the corresponding STY
-members.
+patch from silently changing node count/order. The host catalog also preserves
+each node's raw `name=` bytes. Their encoding and user-facing localization are
+not assigned, because those semantics belong to the matching resource/AP
+lookup path.
 
 ## RU3 style members
 
@@ -55,10 +56,10 @@ resource-only patch is considered.
 
 ## Consequence for the emulator
 
-The emulator now loads the real MCG node list and RU3 group metadata as
-immutable `McgTree`/`Ru3Resource` fixtures through
+The emulator now loads the real MCG node list, opaque name bytes, and RU3 group
+metadata as immutable `McgTree`/`Ru3Resource` fixtures through
 `tools/emu/ui_resources.py`. The catalog exposes structural records to later
-rendering code but does not assign localized names or user-facing meaning to
-node IDs. Adding a new menu node or changing a style group is not yet safe: it
-would require proving the corresponding AP lookup and preserving the fixed
-member size/checksum contract.
+rendering code but does not decode localized names or assign user-facing
+meaning to node IDs. Adding a new menu node or changing a style group is not
+yet safe: it would require proving the corresponding AP lookup and preserving
+the fixed member size/checksum contract.
