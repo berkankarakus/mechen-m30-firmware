@@ -19,7 +19,7 @@ class UsbRingTests(unittest.TestCase):
 
         self.assertEqual(ring.consume(40, lambda offset, size: chunks.append((offset, size))), 40)
         self.assertEqual(chunks, [(RING_CAPACITY - 16, 16), (0, 24)])
-        self.assertEqual(ring.read_offset, 24)
+        self.assertEqual(ring.read_offset, 0)
 
     def test_consume_bytes_reads_wrapped_payload(self) -> None:
         source = bytearray(RING_CAPACITY)
@@ -31,7 +31,7 @@ class UsbRingTests(unittest.TestCase):
 
         self.assertEqual(payload, b"ABCDE")
         self.assertEqual(ring.available, 0)
-        self.assertEqual(ring.read_offset, 3)
+        self.assertEqual(ring.read_offset, 0)
 
     def test_consume_bytes_rejects_wrong_ring_size(self) -> None:
         ring = RingConsumer(available=0, read_offset=0)

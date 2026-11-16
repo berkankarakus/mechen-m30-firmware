@@ -71,7 +71,11 @@ class RingConsumer:
         if second:
             copy(0, second)
         self.available -= requested
-        self.read_offset = (self.read_offset + requested) % RING_CAPACITY
+        # FUN_bfc31654 does not retain the remainder after a wrap.  Its
+        # recovered branch is `if (read_offset > 0xfff) read_offset = 0`.
+        self.read_offset += requested
+        if self.read_offset >= RING_CAPACITY:
+            self.read_offset = 0
         return requested
 
     def consume_bytes(self, ring: bytes | bytearray, requested: int) -> bytes:

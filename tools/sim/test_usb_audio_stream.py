@@ -21,8 +21,7 @@ class UsbAudioStreamTests(unittest.TestCase):
         stream.submit_packet(packet)
 
         self.assertEqual(stream.read(200), packet)
-        expected_offset = (RING_CAPACITY - 40 + 200) % RING_CAPACITY
-        self.assertEqual(stream.ring.read_offset, expected_offset)
+        self.assertEqual(stream.ring.read_offset, 0)
 
     def test_short_read_does_not_consume_queued_audio(self) -> None:
         stream = UsbAudioStream()
