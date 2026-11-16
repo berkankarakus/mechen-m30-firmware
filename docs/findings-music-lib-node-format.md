@@ -79,6 +79,13 @@ indices to directories, or assume that `node_type=1` has a broader meaning
 than the observed builder contract. It also does not reuse the public sample
 to change sorting or grouping behavior.
 
+`validate_library_section_nodes()` checks only the recovered wire contract:
+non-zero node type/depth and song counts, record bounds, same-level
+previous/next sentinels, parent ranges, child ranges, and per-level song
+coverage. The public 251-record sample passes this check for all four
+sections. A multi-group M30 image is still required before these links are
+used as a user-facing hierarchy.
+
 ## Next evidence target
 
 Compare an M30-created `MUSIC.LIB` byte image against the existing raw reader

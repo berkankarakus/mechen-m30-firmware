@@ -4,6 +4,7 @@ import unittest
 from sd_block_device import SdCardBlockDevice
 from library_file import (
     HEADER_SIZE,
+    LibrarySectionNode,
     LibrarySectionTables,
     RECORD_SIZE,
     SECTION_NODE_SIZE,
@@ -18,6 +19,7 @@ from library_file import (
     read_library_section_nodes,
     read_library_section_words,
     validate_library_section_tables,
+    validate_library_section_nodes,
 )
 
 
@@ -174,6 +176,60 @@ class MusicLibraryLayoutTests(unittest.TestCase):
                 ),
                 3,
             )
+
+    def test_validates_section_node_links_and_coverage(self):
+        nodes = (
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=2,
+                    child_count=1,
+                    song_count=3,
+                    first_record_index=0,
+                    first_child_index=0,
+                    parent_index=0xFFFF,
+                    previous_index=0xFFFF,
+                    next_index=0xFFFF,
+                ),
+            ),
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=3,
+                    first_record_index=0,
+                    first_child_index=0xFFFF,
+                    parent_index=0,
+                    previous_index=0xFFFF,
+                    next_index=0xFFFF,
+                ),
+            ),
+            (),
+        )
+
+        validate_library_section_nodes(nodes, 3)
+
+        invalid_nodes = (
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=2,
+                    child_count=0,
+                    song_count=3,
+                    first_record_index=0,
+                    first_child_index=0xFFFF,
+                    parent_index=0xFFFF,
+                    previous_index=0xFFFF,
+                    next_index=0xFFFF,
+                ),
+            ),
+            nodes[1],
+            (),
+        )
+
+        with self.assertRaises(ValueError):
+            validate_library_section_nodes(invalid_nodes, 3)
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)

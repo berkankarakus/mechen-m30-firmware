@@ -17,6 +17,7 @@ RECORD_START_SECTOR = 1
 ORDER_TABLE_REFERENCE = 3
 INVERSE_TABLE_REFERENCE = 4
 NODE_INDEX_TABLE_REFERENCE = 5
+NULL_INDEX = 0xFFFF
 SECTION_HEADERS = (
     ("ALLSONG", 0x10),
     ("ALBUM", 0x2C),
@@ -282,6 +283,73 @@ def validate_library_section_tables(
     for position, record_index in enumerate(tables.order):
         if tables.inverse[record_index] != position:
             raise ValueError("library order and inverse tables disagree")
+
+
+def validate_library_section_nodes(
+    nodes_by_level: tuple[tuple[LibrarySectionNode, ...], ...],
+    record_count: int,
+) -> None:
+    """Reject node links that violate the recovered writer contract."""
+    if record_count < 0:
+        raise ValueError("library record count must be non-negative")
+
+    if len(nodes_by_level) != 3:
+        raise ValueError("library index must expose exactly three node levels")
+
+    for level, nodes in enumerate(nodes_by_level):
+        song_total = 0
+
+        for index, node in enumerate(nodes):
+            if node.node_type != 1:
+                raise ValueError("library node type is not the recovered value 1")
+
+            if node.depth == 0:
+                raise ValueError("library node depth must be non-zero")
+
+            if node.song_count == 0:
+                raise ValueError("library node must contain at least one record")
+
+            if node.first_record_index >= record_count:
+                raise ValueError("library node points outside the record area")
+
+            expected_previous = NULL_INDEX if index == 0 else index - 1
+            expected_next = NULL_INDEX if index == len(nodes) - 1 else index + 1
+            if node.previous_index != expected_previous:
+                raise ValueError("library node previous link is inconsistent")
+
+            if node.next_index != expected_next:
+                raise ValueError("library node next link is inconsistent")
+
+            if level == 0:
+                if node.parent_index != NULL_INDEX:
+                    raise ValueError("top-level library node has a parent link")
+
+            elif (
+                node.parent_index == NULL_INDEX
+                or node.parent_index >= len(nodes_by_level[level - 1])
+            ):
+                raise ValueError("library node parent link is outside the previous level")
+
+            has_child_level = (
+                level + 1 < len(nodes_by_level)
+                and bool(nodes_by_level[level + 1])
+            )
+            if not has_child_level:
+                if node.child_count != 0 or node.first_child_index != NULL_INDEX:
+                    raise ValueError("leaf library node has a child link")
+
+            else:
+                if node.child_count == 0 or node.first_child_index == NULL_INDEX:
+                    raise ValueError("library node with a child level has no child link")
+
+                child_end = node.first_child_index + node.child_count
+                if child_end > len(nodes_by_level[level + 1]):
+                    raise ValueError("library node child range is outside the next level")
+
+            song_total += node.song_count
+
+        if nodes and song_total != record_count:
+            raise ValueError("library node song counts do not cover the record area")
 
 
 def read_library_section_index(
