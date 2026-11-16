@@ -12,11 +12,15 @@ deterministic:
 4. `NowPlaying` replays the UI boundary as a trace and renders a 320x240 PPM
    framebuffer using the real textbox geometry, the real album-art bitmap,
    and RGB565 colors.
-5. `scroll_descriptor.py` models the verified state/event offsets used by
+5. `lcd_preview.py` sends that rendered frame through the recovered
+   `0x36/0x2a/0x2b/0x2c` LCD sink and writes a visible 320x240 PPM plus a
+   command/pixel trace. This is the hybrid screen preview; it is not a full
+   ATJ2127 boot or physical LCD emulation.
+6. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
-6. `ui_dispatcher.py` provides the conservative host shim for the verified
+7. `ui_dispatcher.py` provides the conservative host shim for the verified
    dispatcher target `0xbfc16405`.
-7. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
+8. `make_qemu_probe.py` prepares a non-firmware ELF probe that calls the real
    MIPS16 renderer with only the audited literal pointers redirected to test
    stubs. Its MIPS32-to-MIPS16 entry uses an architectural `JALX` trampoline,
    and its Linux-user stack/null shims reproduce the Ghidra harness without

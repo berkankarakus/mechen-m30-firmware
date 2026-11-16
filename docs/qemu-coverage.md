@@ -139,6 +139,7 @@ suite therefore no longer re-imports the same driver eight times.
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
 | Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
+| LCD-backed now-playing preview | real `music.ap`/`music.sty` host renderer + recovered LCD sink | PASS; visible 320x240 RGB565 round-trip with `0x36,0x2a,0x2b,0x2c` trace; hybrid preview, not full ATJ2127 boot |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | LCD address-window transfer | `drv_lcd.drv` commands `0x36/0x2a/0x2b/0x2c` + host framebuffer sink | PASS; recovered raw orientation values and bounded RGB565 window writes modeled; orientation semantics/controller timing unresolved |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
@@ -307,3 +308,20 @@ reaches the final `0x2c` memory-write command with row-end byte `7`, and
 orientation `2` reaches `0x36/0x48` with mode state `2`. This validates the
 framebuffer command boundary, not LCD electrical behavior, controller timing,
 or pixel visibility on the device.
+
+`tools/emu/lcd_preview.py` composes that boundary with the real-resource
+now-playing renderer:
+
+```sh
+python3 tools/emu/lcd_preview.py \
+  --music-ap build/qemu-minimal-safe/work/verify/fw/music.ap \
+  --music-sty build/qemu-minimal-safe/work/verify/fw/music.sty \
+  --out /private/tmp/m30-lcd-preview.ppm \
+  --trace /private/tmp/m30-lcd-preview.json
+```
+
+The resulting PPM is a user-visible 320x240 preview and the trace records the
+four recovered LCD commands and all 76,800 pixels. It is intentionally called
+a hybrid preview: the actual UI resource renderer is host-side until a
+MIPS-user-mode run of the bank path and an ATJ2127 LCD device model are
+available.
