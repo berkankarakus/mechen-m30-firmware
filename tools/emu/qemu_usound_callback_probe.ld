@@ -5,6 +5,8 @@ SECTIONS
     .text : { *(.text) }
     . = 0x80010180;
     .vectors : { *(.vectors) }
+    . = 0x80010300;
+    .text.hex : { *(.text.hex) }
     . = 0x80020000;
     .rodata : { *(.rodata) }
     . = 0x80030000;

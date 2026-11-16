@@ -114,6 +114,18 @@
   it records the selector and four trapped arguments, counts selector `0x10`,
   and refuses to execute either the fixed-ROM service or an unknown selector.
   This is a host observation model, not a PCM/DAC implementation.
+- The callback QEMU probe now records the CP0 exception envelope as well as the
+  arguments. The current run reports exception code `9` (breakpoint),
+  `EPC=0x800526ab` (the relocated odd MIPS16 callback entry), `BadVAddr=0`,
+  and `Status=0x2`, then returns through the interrupted continuation. This
+  proves that the synthetic vector receives a genuine MIPS breakpoint trap;
+  it does not identify the unavailable fixed-ROM service that the stock vector
+  would invoke. Re-run it with `bash tools/emu/run_qemu_usound_callback_probe.sh`.
+- `tools/emu/m30_preview_session.py` composes this callback observation with
+  the real-resource now-playing renderer, recovered LCD command sink, and the
+  bounded 200-byte USB-audio stream. Its JSON trace explicitly labels the
+  session as hybrid and keeps the fixed-ROM callback effect unexecuted; the
+  `--submit-packet` input is a framing test, not a claim of audible playback.
 - A second driver boundary is also verified: `FUN_bfc318cc` transfers whole
   words through MMIO data port `0xc0080084` (mode 2 read, mode 1 write) or
   alternate port `0xc0080088` (mode 4 read), gated by `0x9fc33e12`. Its caller

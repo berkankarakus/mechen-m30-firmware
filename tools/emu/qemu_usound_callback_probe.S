@@ -15,6 +15,14 @@ general_exception:
 	sw	$a2, 8($k0)
 	sw	$a3, 0xc($k0)
 	sw	$v1, 0x10($k0)
+	mfc0	$k1, $13
+	sw	$k1, 0x18($k0)
+	mfc0	$k1, $14
+	sw	$k1, 0x1c($k0)
+	mfc0	$k1, $8
+	sw	$k1, 0x20($k0)
+	mfc0	$k1, $12
+	sw	$k1, 0x24($k0)
 	li	$k1, 1
 	sw	$k1, 0x14($k0)
 	mtc0	$ra, $14
@@ -45,6 +53,10 @@ _start:
 	sw	$zero, 0xc($t0)
 	sw	$zero, 0x10($t0)
 	sw	$zero, 0x14($t0)
+	sw	$zero, 0x18($t0)
+	sw	$zero, 0x1c($t0)
+	sw	$zero, 0x20($t0)
+	sw	$zero, 0x24($t0)
 
 	/* Match the callback ABI used by FUN_bfc31654: buffer, destination,
 	 * byte count, and the fourth zero argument. */
@@ -81,9 +93,14 @@ _start:
 	lw	$t1, 0xc($t0)
 	bnez	$t1, fail
 	 nop
+	lw	$t1, 0x18($t0)
+	srl	$t1, $t1, 2
+	andi	$t1, $t1, 0x1f
+	li	$t2, 9
+	bne	$t1, $t2, fail
+	 nop
 
-	la	$a0, pass_text
-	jal	puts
+	jal	print_exception_trace
 	 nop
 	b	halt
 	 nop
@@ -98,6 +115,43 @@ halt:
 	b	1b
 	 nop
 	.end	_start
+
+	.section .text.hex,"ax"
+	.ent	print_exception_trace
+print_exception_trace:
+	lui	$s0, 0x8006
+	la	$a0, pass_text
+	jal	puts
+	 nop
+	lw	$a0, 0x18($s0)
+	srl	$a0, $a0, 2
+	andi	$a0, $a0, 0x1f
+	jal	put_hex
+	 nop
+	la	$a0, epc_text
+	jal	puts
+	 nop
+	lw	$a0, 0x1c($s0)
+	jal	put_hex
+	 nop
+	la	$a0, badvaddr_text
+	jal	puts
+	 nop
+	lw	$a0, 0x20($s0)
+	jal	put_hex
+	 nop
+	la	$a0, status_text
+	jal	puts
+	 nop
+	lw	$a0, 0x24($s0)
+	jal	put_hex
+	 nop
+	la	$a0, line_end
+	jal	puts
+	 nop
+	jr	$ra
+	 nop
+	.end	print_exception_trace
 
 	.ent	puts
 puts:
@@ -117,9 +171,44 @@ puts_done:
 	 nop
 	.end	puts
 
+	.ent	put_hex
+put_hex:
+	move	$t0, $a0
+	li	$t1, 8
+hex_loop:
+	srl	$t2, $t0, 28
+	andi	$t2, $t2, 0xf
+	sltiu	$t3, $t2, 10
+	bnez	$t3, hex_digit
+	 nop
+	addiu	$t2, $t2, 87
+	b	hex_emit
+	 nop
+hex_digit:
+	addiu	$t2, $t2, 48
+hex_emit:
+	lui	$t3, 0xbf00
+	ori	$t3, $t3, 0x0900
+	sb	$t2, 0($t3)
+	sll	$t0, $t0, 4
+	addiu	$t1, $t1, -1
+	bnez	$t1, hex_loop
+	 nop
+	jr	$ra
+	 nop
+	.end	put_hex
+
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND CALLBACK PASS selector=0x10 args=4\r\n"
+	.asciz	"REAL USOUND CALLBACK PASS selector=0x10 args=4 exc=0x"
+epc_text:
+	.asciz	" epc=0x"
+badvaddr_text:
+	.asciz	" badvaddr=0x"
+status_text:
+	.asciz	" status=0x"
+line_end:
+	.asciz	"\r\n"
 fail_text:
 	.asciz	"REAL USOUND CALLBACK FAIL\r\n"
 

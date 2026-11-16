@@ -131,7 +131,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 callback syscall | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the real `selector=0x10` callback twice on wrap, and resets its read pointer to zero; kernel service/DAC side effect remains unresolved |
-| Real `usound.drv` callback syscall | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, and the four callback arguments survive the trap boundary; kernel service effect remains unresolved |
+| Real `usound.drv` callback syscall | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, CP0 records exception code 9 with `EPC=0x800526ab`, and the four callback arguments survive the trap boundary; kernel service effect remains unresolved |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | Real `usound.drv` word-port execution | exact segment + relocated bfc3194c/bfc31950/bfc31954 pool | PASS; `FUN_bfc318cc` executes mode 1/2/4 and gate behavior in QEMU; the guest RAM ports are not physical MMIO |
@@ -142,6 +142,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
 | Real `drv_dac.drv` byte-transfer execution | exact resident segment + translated MIPS16 helper-call alias + synthetic RAM GPIO context | PASS across six corpora; real 8-bit transmit, two-byte public send, and all-high/all-low byte sampling execute; codec/GPIO electrical semantics remain unresolved |
 | LCD-backed now-playing preview | real `music.ap`/`music.sty` host renderer + recovered LCD sink | PASS; visible 320x240 RGB565 round-trip with `0x36,0x2a,0x2b,0x2c` trace; hybrid preview, not full ATJ2127 boot |
+| Combined visible preview session | `m30_preview_session.py` + LCD sink + usound callback/stream boundaries | PASS; one JSON trace joins 76,800 LCD pixels, UI calls, callback selector/args, and optional 200-byte stream framing; fixed-ROM/audio effects remain explicitly unresolved |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | LCD address-window transfer | `drv_lcd.drv` commands `0x36/0x2a/0x2b/0x2c` + host framebuffer sink | PASS; recovered raw orientation values and bounded RGB565 window writes modeled; orientation semantics/controller timing unresolved |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
@@ -289,10 +290,13 @@ the physical USB controller, FIFO timing, or codec/DAC routing.
 `bash tools/emu/run_qemu_usound_callback_probe.sh` executes the real odd
 callback target `0xbfc326a9` (aligned MIPS16 entry `0xbfc326a8`). The guest
 redirects CP0 `EBase` to a RAM exception vector, catches the callback's
-`break 0`, and returns through the interrupted caller continuation. Across
-all six local `usound.drv` corpora, QEMU observes selector `v1=0x10` and the
-four arguments used by the ring consumer. This resolves the callback's
-syscall envelope, not the kernel service or eventual PCM/DAC side effect.
+`break 0`, records CP0 `Cause`, `EPC`, `BadVAddr`, and `Status`, and returns
+through the interrupted caller continuation. Across all six local
+`usound.drv` corpora, QEMU observes exception code 9, selector `v1=0x10`, and
+the four arguments used by the ring consumer. This resolves the callback's
+exception envelope, not the kernel service or eventual PCM/DAC side effect.
+The observed `EPC` is the relocated odd MIPS16 callback entry; it is not
+evidence that the missing fixed-ROM handler is present in the extracted image.
 
 `bash tools/emu/run_qemu_usound_producer_probe.sh` now executes the real
 `FUN_bfc30dc4` producer. Its QEMU guest supplies only the recovered state
@@ -343,3 +347,15 @@ visible preview, use:
 ```sh
 bash tools/emu/run_lcd_preview.sh
 ```
+
+To run the LCD and callback probes first and then emit a single combined
+visible/session artifact, use:
+
+```sh
+bash tools/emu/run_m30_preview_session.sh
+```
+
+This writes `/private/tmp/m30-preview-session.ppm` and
+`/private/tmp/m30-preview-session.json` by default. The session is deliberately
+hybrid: it joins proven boundaries but does not invent the absent ROM service,
+codec, DMA, or audible playback semantics.
