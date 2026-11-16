@@ -4,6 +4,7 @@ import unittest
 from sd_block_device import SdCardBlockDevice
 from library_file import (
     HEADER_SIZE,
+    LibrarySectionTables,
     RECORD_SIZE,
     SECTION_NODE_SIZE,
     SECTOR_SIZE,
@@ -16,6 +17,7 @@ from library_file import (
     read_library_section_tables,
     read_library_section_nodes,
     read_library_section_words,
+    validate_library_section_tables,
 )
 
 
@@ -149,6 +151,29 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         self.assertEqual(index.nodes_by_level[0][0].first_record_index, 2)
         self.assertEqual(index.nodes_by_level[1], ())
         self.assertEqual(index.tables.order, (2, 0, 1))
+
+    def test_validates_order_and_inverse_tables(self):
+        image = make_library(3)
+        card = SdCardBlockDevice(sector_count=7)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE : 2 * SECTOR_SIZE])
+        card.write_sector(3, image[2 * SECTOR_SIZE : 3 * SECTOR_SIZE])
+        card.write_sector(5, struct.pack("<3H", 2, 0, 1).ljust(SECTOR_SIZE, b"\0"))
+        card.write_sector(6, struct.pack("<3H", 1, 2, 0).ljust(SECTOR_SIZE, b"\0"))
+
+        tables = read_library_section_tables(card, 1, "ALLSONG")
+
+        validate_library_section_tables(tables, 3)
+
+        with self.assertRaises(ValueError):
+            validate_library_section_tables(
+                LibrarySectionTables(
+                    order=tables.order,
+                    inverse=(0, 1, 2),
+                    node_indices=tables.node_indices,
+                ),
+                3,
+            )
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)

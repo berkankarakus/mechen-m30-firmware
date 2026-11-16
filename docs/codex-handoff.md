@@ -81,7 +81,7 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/sim/library_file.py`: `MUSIC.LIB` 0x200 header, 256-byte record area,
   four section directory ve raw sector references; caller-supplied SD
   başlangıç sektöründen byte image, bounded `LibraryRecord`, raw/typed section
-  `u16` table, typed section snapshot ve 16-byte section node kayıtları okunabilir.
+  `u16` table, typed section snapshot ve fail-closed table validation ile 16-byte section node kayıtları okunabilir.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; public örneğin grouping/sort çıktısı local modelden farklı olduğu için

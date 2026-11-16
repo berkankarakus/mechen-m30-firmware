@@ -261,6 +261,29 @@ def read_library_section_tables(
     )
 
 
+def validate_library_section_tables(
+    tables: LibrarySectionTables,
+    record_count: int,
+) -> None:
+    """Reject table data that cannot represent the recovered index contract."""
+    if record_count < 0:
+        raise ValueError("library record count must be non-negative")
+
+    expected_indices = list(range(record_count))
+    if sorted(tables.order) != expected_indices:
+        raise ValueError("library order table is not a record-index permutation")
+
+    if sorted(tables.inverse) != expected_indices:
+        raise ValueError("library inverse table is not a record-index permutation")
+
+    if len(tables.node_indices) not in (0, record_count):
+        raise ValueError("library node-index table has an unexpected length")
+
+    for position, record_index in enumerate(tables.order):
+        if tables.inverse[record_index] != position:
+            raise ValueError("library order and inverse tables disagree")
+
+
 def read_library_section_index(
     device: SdCardBlockDevice,
     start_sector: int,
