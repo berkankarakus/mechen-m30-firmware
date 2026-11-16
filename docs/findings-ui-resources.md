@@ -55,8 +55,10 @@ resource-only patch is considered.
 
 ## Consequence for the emulator
 
-The safe next emulator step is to load the real MCG node list and RU3 group
-metadata as immutable fixtures, then connect already-proven application IDs
-to those records. Adding a new menu node or changing a style group is not yet
-safe: it would require proving the corresponding AP lookup and preserving the
-fixed member size/checksum contract.
+The emulator now loads the real MCG node list and RU3 group metadata as
+immutable `McgTree`/`Ru3Resource` fixtures through
+`tools/emu/ui_resources.py`. The catalog exposes structural records to later
+rendering code but does not assign localized names or user-facing meaning to
+node IDs. Adding a new menu node or changing a style group is not yet safe: it
+would require proving the corresponding AP lookup and preserving the fixed
+member size/checksum contract.

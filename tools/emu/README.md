@@ -110,6 +110,10 @@ deterministic:
     navigation used by the host view. It accepts normalized key events and
     does not infer the physical key-driver sampling values.
 
+29. `ui_resources.py` loads the six-corpus-verified MCG node records and RU3
+    group metadata as immutable emulator inputs. It keeps node IDs and group
+    indices structural until an AP/resource lookup proves their UI meaning.
+
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
 `never-direct-call`, and A19/B16 candidates remain `lazy-only` because their
