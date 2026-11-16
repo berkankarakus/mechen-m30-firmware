@@ -61,7 +61,7 @@ class UiCallTests(unittest.TestCase):
         b08 = classify(0x26209401)
         self.assertEqual(b04.candidates, ("m30_b04_text_renderer",))
         self.assertEqual(b07.candidates, ("m30_b07_lookup_dispatch",))
-        self.assertEqual(b08.candidates, ("put_string_line_sdimage",))
+        self.assertEqual(b08.candidates, ("m30_b08_descriptor_renderer",))
         self.assertEqual((b04.bank.bank_type, b04.bank.bank_index), ("B", 4))
         self.assertEqual((b07.bank.bank_type, b07.bank.bank_index), ("B", 7))
         self.assertEqual((b08.bank.bank_type, b08.bank.bank_index), ("B", 8))

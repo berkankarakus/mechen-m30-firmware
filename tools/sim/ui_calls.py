@@ -86,9 +86,9 @@ OBSERVED_CALLS: dict[int, tuple[tuple[str, ...], str, str, str, str]] = {
         "lazy-load-then-call",
     ),
     0x26209401: (
-        ("put_string_line_sdimage",),
-        "high",
-        "B08 table entry; descriptor/line renderer with alignment and clipping",
+        ("m30_b08_descriptor_renderer",),
+        "medium",
+        "B08 table entry; local descriptor/line renderer with alignment and clipping",
         "validated-local-code-at-aligned-entry",
         "lazy-load-then-call",
     ),
