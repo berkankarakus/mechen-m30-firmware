@@ -161,6 +161,31 @@ comparison sample at
 exact block with the device's 6,056 blocks. This supports keeping M3U payload
 interpretation outside the current MUSIC.LIB emulator contract.
 
+### M3U writer ABI cross-check
+
+The Ghidra probe `tools/ghidra/run_m3u_writer_probe.sh` now checks the
+firmware-side writer rather than guessing from the payload. It confirms that
+the M3U scan performs a counting pass and a writing pass, builds the file
+location fields at `+0xa9` and `+0xf4`, writes predecessor/successor fields at
+`+0xfc` and `+0xfe`, and emits 0x100-byte blocks. Before the block write, the
+shared text path handles UTF-16LE and UTF-8 BOM cases and calls an unresolved
+runtime/import callback.
+
+The probe passed for every available dated `playlist.ap` corpus member from
+2022-09-14 through 2025-06-26. This makes the writer boundary a stable
+cross-version finding. It does not identify the runtime callback's transform,
+so the random-looking M3U payload must not be treated as proof of a specific
+compression or encryption format. The next useful test is to recover that
+callback's provider or obtain a matching plaintext/encoded playlist pair;
+blindly decoding the payload is low-value.
+
+Reproduce the static check with:
+
+```sh
+bash tools/ghidra/run_m3u_writer_probe.sh \
+  /path/to/analysis/community/fw/playlist.ap
+```
+
 `ALBUM.PIC` begins with `ALBUM`, has `NOA` at `0x10`, and is exactly 250
 sectors. The first payload begins at `0x200`; the next 45,000 bytes are the
 size of a 150x150 two-byte-per-pixel image, and all remaining 82,488 bytes are
