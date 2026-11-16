@@ -54,3 +54,9 @@ mass-storage transport, not a proven USB-audio transport. `usound.ap` is a
 separate application path and its activation/default configuration remains a
 separate, untested question. No flashable patch is proposed from this driver
 analysis.
+
+The host emulator now represents only the verified request boundary in
+`tools/sim/usb_mass_storage.py`: the `USBC` marker, READ(10)/WRITE(10), block
+address, and 512-byte transfer-unit conversion. WRITE(10)'s direction remains
+unset, and the model intentionally does not serialize a complete CBW, invent a
+CSW, interpret status codes, or emulate controller timing.

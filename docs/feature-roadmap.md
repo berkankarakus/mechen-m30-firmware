@@ -10,7 +10,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | FAT32/exFAT | 31 extension slotu, raw playlist maskeleri, reader-type seçimi, directory dispatch ve cluster/block sınırı | explicit-slot filtre, driver high-bit-first mask decoder, reader selector ve depth-8 walker modeli mevcut; callback ABI beklemede |
 | SD controller | 512-byte transfer, card detect/capacity yolları | sektör cihazı mevcut; register polling/IRQ beklemede |
 | MCG/RU3 UI | altı corpus'ta byte-identical node/group metadata | katalog mevcut; localized name ve node→app eşlemesi beklemede |
-| USB host | altı `USBC` CBW marker'ı, CSW yok | CBW/CSW emülasyonu için kanıt yetersiz |
+| USB host | altı `USBC` marker'ı, READ(10)/WRITE(10), 512-byte transfer birimi, CSW yok | block-request alanları modelleniyor; tam CBW/CSW framing, status ve controller davranışı beklemede |
 | Key driver | ADC threshold tablosu, normalized event/repeat sınırı | 7-bit threshold classifier, repeat event state ve uygulama key-filter mevcut; fiziksel ADC→key mapping ve timing beklemede |
 | ASRC/EOF | `music.ap` mode-3 advance branch'i, community/V1.101.11 mode-4 delta'sı | mode-3/mode-4 control-flow boundary modeli mevcut; gerçek ASRC/DAC drain ve audible tail ölçümü beklemede |
 | Metadata reader | community/V1.101.11 0x200 buffer boundary loop'u ve bounded caller'lar | boundary-split read planı mevcut; source callback, flush ABI ve metadata parser beklemede |

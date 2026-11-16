@@ -24,6 +24,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   doğrulanmış repeat/special event sınırı.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
   USB Audio descriptor, 200-byte packet ve ring sınırları.
+- `tools/sim/usb_mass_storage.py`: `uhost.drv` içindeki `USBC`, READ(10)/WRITE(10),
+  block address ve 512-byte transfer birimi; CBW/CSW framing ve controller
+  davranışı modellenmez.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için
   fail-closed `-1`; bilinmeyen callback çalıştırılmaz.
 - `tools/sim/m30_model.py`: Ghidra ile doğrulanan EQ `0x303` mesaj zarfı,
@@ -71,8 +74,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 - Tam ATJ2127 boot, bank loader'ın çözülmemiş exception yolu, gerçek LCD/DAC,
   fiziksel key ADC eşlemesi ve controller register/IRQ zamanlaması.
-- USB mass-storage CBW/CSW emülasyonu; mevcut kanıt CBW marker'larıyla sınırlı
-  ve CSW davranışı doğrulanmış değil.
+- Tam USB mass-storage CBW/CSW framing'i, status anlamları ve controller
+  timing'i; mevcut host modeli yalnızca doğrulanmış block-request alanlarını
+  taşır.
 - MCG localized-name ve node→application eşlemesi.
 - Decoder callback'i başarılı PCM yolu gibi kullanmak.
 - Cihazda doğrulanmamış firmware veya HEX üretimini release olarak sunmak.

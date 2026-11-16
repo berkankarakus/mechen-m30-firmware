@@ -126,6 +126,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrap and 100-short-read reset; decoder/PCM ownership remains separate |
+| USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; `USBC`, READ(10)/WRITE(10), block address and 512-byte transfer unit modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
