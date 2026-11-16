@@ -286,6 +286,11 @@ values until playback state is connected. Labels are limited to the literal
 `TITLE`, `ARTIST`, `ALBUM`, and `TRACK` strings observed in `music.ap`.
 Unresolved AP state still controls which optional icon/frame is selected.
 
+The transport frame mapping is explicit from the bitmap atlas: `music.sty`
+PicBox 4 uses play/pause/next/previous at frames 0..3, while PicBox 1 uses
+shuffle-off/shuffle-on at frames 0..1. Other top-row status frames remain
+labeled `unresolved` until an AP state branch selects them.
+
 ## Folder/list visualizer
 
 `folder_ui.py` renders the evidence-based browser/list layer separately from

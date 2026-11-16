@@ -60,6 +60,12 @@ small glyphs without inventing a font or placing the controls from the HTML
 prototype.  The values and optional PicBox frame choices still come from an
 explicit host state until the AP playback state machine is connected.
 
+Bitmap inspection also assigns the four transport frames without changing the
+resource member: PicBox 4 frames 0..3 are play, pause, next, and previous;
+PicBox 1 frames 0..1 are shuffle-off and shuffle-on. The preview defaults to
+the pause frame because its default state represents a currently playing
+track. The five PicBox 0 top-row frames remain intentionally unresolved.
+
 The extracted `new_m.fnt` is also an Actions sparse-index font: 1024 ten-byte
 presence entries begin at `0x10`, glyph records begin at `0x2810`, and this
 M30 member uses 61-byte records with a final advance-width byte.  ASCII glyph

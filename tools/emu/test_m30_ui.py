@@ -47,6 +47,14 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[0]["style_id"], f"0x{MAIN_PAINT_STYLE:04x}")
         self.assertEqual(calls[1]["style_id"], "0x2005")
 
+    def test_transport_frame_semantics_are_explicit(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
+        self.assertEqual(selected[4]["frame"], 1)
+        self.assertEqual(selected[4]["state_semantics"], "pause")
+        self.assertEqual(selected[1]["state_semantics"], "shuffle-off")
+        self.assertEqual(selected[0]["state_semantics"], "unresolved")
+
     def test_observed_dispatch_trace_has_real_call_order(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
         calls = ui.observed_dispatch_trace()

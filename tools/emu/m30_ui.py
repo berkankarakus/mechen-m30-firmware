@@ -27,6 +27,11 @@ MAIN_PAINT_STYLE = 0x2005
 SECONDARY_STYLE = 0x2004
 RU3_MAGIC = b"RU3\x19"
 
+PICBOX_FRAME_SEMANTICS = {
+    1: {0: "shuffle-off", 1: "shuffle-on"},
+    4: {0: "play", 1: "pause", 2: "next", 3: "previous"},
+}
+
 # Ghidra names these as _UNK_40d551xx because they are literal-pool function
 # pointers.  These are the exact addresses read from the real AP bank.
 DISPATCH_POINTERS = {
@@ -414,7 +419,7 @@ class NowPlaying:
     album: str = "ALBUM"
     filename: str = "FILE"
     scroll_offset: int = 0
-    transport_frame: int = 0
+    transport_frame: int = 1
     progress_frame: int = 0
     status_frame: int = 0
     elapsed: str = "00:18"
@@ -481,8 +486,25 @@ class NowPlaying:
             "y": picbox.y,
             "width": bitmap.width,
             "height": bitmap.height,
-            "state_semantics": "unresolved",
+            "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(frame_index, "unresolved"),
         }
+
+    def selected_picbox_trace(self) -> list[dict[str, object]]:
+        selections = (
+            (0, self.status_frame), (1, self.status_frame), (2, 0),
+            (3, self.progress_frame), (4, self.transport_frame),
+            (5, self.status_frame), (6, self.status_frame),
+            (7, self.status_frame), (8, self.status_frame),
+        )
+        return [
+            {
+                "picbox": picbox_index,
+                "frame": frame_index,
+                "resource": self.style.picboxes[picbox_index].frames[frame_index],
+                "state_semantics": PICBOX_FRAME_SEMANTICS.get(picbox_index, {}).get(frame_index, "unresolved"),
+            }
+            for picbox_index, frame_index in selections
+        ]
 
     def _draw_device_numeric(self, fb: Framebuffer, text: str, x: int, y: int, clip: tuple[int, int, int, int]) -> None:
         """Draw time/track strings from the real 8x12 RU3 glyph resources."""
@@ -598,7 +620,7 @@ def main() -> int:
     parser.add_argument("--album", default="ALBUM")
     parser.add_argument("--file", dest="filename", default="FILE")
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--transport-frame", type=int, default=0)
+    parser.add_argument("--transport-frame", type=int, default=1)
     parser.add_argument("--progress-frame", type=int, default=0)
     parser.add_argument("--status-frame", type=int, default=0)
     parser.add_argument("--elapsed", default="00:18")
@@ -626,6 +648,7 @@ def main() -> int:
             "firmware": trace.json(),
             "calls": ui.dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
+            "selected_picboxes": ui.selected_picbox_trace(),
             "resource_controls": {
                 "numbox": [list(control.words) for control in ui.style.numboxes],
                 "timebox": [list(control.words) for control in ui.style.timeboxes],
