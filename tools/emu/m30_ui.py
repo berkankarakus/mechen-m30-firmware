@@ -388,6 +388,9 @@ class NowPlaying:
     album: str = "ALBUM"
     filename: str = "FILE"
     scroll_offset: int = 0
+    transport_frame: int = 0
+    progress_frame: int = 0
+    status_frame: int = 0
 
     def dispatch_trace(self) -> list[dict[str, object]]:
         # This is the exact Ghidra-audited boundary that a future QEMU host
@@ -416,56 +419,84 @@ class NowPlaying:
             {"op": 0x03, "a2": 1, "style_id": f"0x{SECONDARY_STYLE:04x}", "text": self.title, "role": "draw_cleanup_text"},
         ]
 
+    def _draw_picbox_frame(self, fb: Framebuffer, picbox_index: int, frame_index: int) -> dict[str, object]:
+        """Draw one real PicBox frame and return its provenance.
+
+        The style records identify the pixels and their coordinates, but not
+        the application state that selects a frame.  Keeping that selection
+        explicit prevents the preview from presenting a guessed play/pause or
+        progress state as if it came from the firmware.
+        """
+        picbox = self.style.picboxes[picbox_index]
+        if not picbox.frames:
+            raise ValueError(f"music.sty PicBox {picbox_index} has no frames")
+        if not 0 <= frame_index < len(picbox.frames):
+            raise ValueError(
+                f"music.sty PicBox {picbox_index} frame {frame_index} is outside "
+                f"the {len(picbox.frames)}-frame record"
+            )
+        resource_index = picbox.frames[frame_index]
+        bitmap = self.style.bitmap(resource_index)
+        if bitmap.width <= 0 or bitmap.height <= 0:
+            raise ValueError(f"music.sty PicBox {picbox_index} has invalid bitmap dimensions")
+        for row in range(bitmap.height):
+            for column in range(bitmap.width):
+                pixel = bitmap.pixels[row * bitmap.width + column]
+                fb.pixel(picbox.x + column, picbox.y + row, rgb565(pixel))
+        return {
+            "picbox": picbox_index,
+            "frame": frame_index,
+            "resource": resource_index,
+            "x": picbox.x,
+            "y": picbox.y,
+            "width": bitmap.width,
+            "height": bitmap.height,
+            "state_semantics": "unresolved",
+        }
+
     def render(self) -> Framebuffer:
         fb = Framebuffer()
-        fb.fill((18, 19, 22))
-        red = (255, 24, 32)
-        dim = (80, 20, 24)
-        white = (235, 235, 235)
-        # Actual M30 screen bands observed in FUN_40154ddc.
-        fb.rect(0, 0, WIDTH, 28, (12, 13, 15))
-        fb.rect(0, 179, WIDTH, 61, (12, 13, 15))
-        # Album-art control comes from the first 150x150 textbox.
-        art = next(box for box in self.style.textboxes if box.x == 0 and box.y == 28 and box.width == 150)
-        art_bitmap = self.style.bitmap(0)
-        if (art_bitmap.width, art_bitmap.height) != (art.width, art.height):
-            raise ValueError("music.sty album-art resource does not match its style box")
-        for row in range(art_bitmap.height):
-            for column in range(art_bitmap.width):
-                pixel = art_bitmap.pixels[row * art_bitmap.width + column]
-                fb.pixel(art.x + column, art.y + row, rgb565(pixel))
-        # Metadata geometries are taken directly from textboxes 1..4.
+        # 0x18c3 is the background word observed in the real resource set and
+        # in the audited clear-background dispatch.  Do not add decorative
+        # bands or separators that are absent from the RU3 records.
+        fb.fill(rgb565(0x18C3))
+
+        # These are the actual music.sty PicBox coordinates/resources.  The
+        # frame choice is a host input because the AP state machine is not yet
+        # emulated; the bitmap bytes and geometry themselves are not guessed.
+        for picbox_index, frame_index in (
+            (0, self.status_frame),
+            (1, self.status_frame),
+            (2, 0),
+            (3, self.progress_frame),
+            (4, self.transport_frame),
+            (5, self.status_frame),
+            (6, self.status_frame),
+            (7, self.status_frame),
+            (8, self.status_frame),
+        ):
+            self._draw_picbox_frame(fb, picbox_index, frame_index)
+
+        # Metadata geometries are taken directly from textboxes 1..4.  A
+        # TextBox is a value viewport; labels were part of the old mockup, not
+        # a recovered resource record, so they are intentionally not painted.
         boxes = [box for box in self.style.textboxes if box.width == 129 and box.height == 20]
         values = (self.title, self.artist, self.album, self.filename)
-        labels = ("TITLE", "ARTIST", "ALBUM", "FILE")
-        for box, label, value in zip(boxes, labels, values):
+        for box, value in zip(boxes, values):
             color = self.style.color(box)
-            draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, box.width, box.height))
-            # Keep the value inside its own viewport.  The offset models the
-            # shared renderer's horizontal pass and repeats long text with
-            # the same bounded gap used by the host listbox model.
-            value_x = box.x + 42
-            value_width = box.width - 42
             draw_marquee(
                 fb,
                 value,
-                value_x,
-                box.y + 9,
-                value_width,
+                box.x,
+                box.y,
+                box.width,
                 box.height,
                 color,
                 offset=self.scroll_offset,
             )
-            fb.rect(box.x, box.y + box.height - 1, box.width, 1, dim)
-        # Transport/progress area: geometry is from the actual resource, not
-        # the HTML mockup.  It is intentionally schematic until picbox image
-        # decoding is added to the QEMU host shim.
-        draw_text(fb, "00:18", 70, 202, white, 2)
-        fb.rect(70, 220, 180, 4, dim)
-        fb.rect(70, 220, 72, 4, red)
-        draw_text(fb, "03/18", 250, 202, white, 1)
-        draw_text(fb, "<", 158, 188, red, 2)
-        draw_text(fb, ">", 180, 188, red, 2)
+        # Timing/counter strings are not PicBox/TextBox resources in this
+        # style.  Leaving them out is more faithful than placing invented
+        # glyphs over the real transport/progress bitmaps.
         return fb
 
 
@@ -480,9 +511,18 @@ def main() -> int:
     parser.add_argument("--album", default="ALBUM")
     parser.add_argument("--file", dest="filename", default="FILE")
     parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument("--transport-frame", type=int, default=0)
+    parser.add_argument("--progress-frame", type=int, default=0)
+    parser.add_argument("--status-frame", type=int, default=0)
     args = parser.parse_args()
     trace = FirmwareTrace.load(args.music_ap)
-    ui = NowPlaying(MusicStyle.load(args.music_sty), trace, args.title, args.artist, args.album, args.filename, args.offset)
+    ui = NowPlaying(
+        MusicStyle.load(args.music_sty), trace, args.title, args.artist,
+        args.album, args.filename, args.offset,
+        transport_frame=args.transport_frame,
+        progress_frame=args.progress_frame,
+        status_frame=args.status_frame,
+    )
     ui.render().ppm(args.out)
     if args.trace:
         args.trace.write_text(json.dumps({

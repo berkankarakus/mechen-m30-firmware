@@ -67,6 +67,22 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(bitmap.pixels[0], 0x8430)
         self.assertEqual(expected, bytes(rgb565(bitmap.pixels[0])))
 
+    def test_render_uses_real_status_transport_and_progress_bitmaps(self):
+        style = MusicStyle.load(STY)
+        ui = NowPlaying(
+            style,
+            FirmwareTrace.load(AP),
+            transport_frame=1,
+            progress_frame=1,
+            status_frame=0,
+        )
+        frame = ui.render()
+        for picbox_index, frame_index in ((0, 0), (1, 0), (3, 1), (4, 1), (5, 0), (6, 0), (7, 0), (8, 0)):
+            picbox = style.picboxes[picbox_index]
+            resource = style.bitmap(picbox.frames[frame_index])
+            offset = (picbox.y * frame.width + picbox.x) * 3
+            self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(resource.pixels[0])))
+
     def test_marquee_uses_pixel_positions_and_gap(self):
         self.assertEqual(text_pixel_width("AB", 1), 12)
         self.assertEqual(marquee_positions("AB", 99, 40), (0,))
@@ -74,7 +90,7 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(positions[0], -10)
         self.assertGreaterEqual(len(positions), 1)
 
-    def test_marquee_does_not_leak_into_field_label(self):
+    def test_marquee_stays_inside_real_textbox_viewport(self):
         ui = NowPlaying(
             MusicStyle.load(STY),
             FirmwareTrace.load(AP),
@@ -82,10 +98,13 @@ class M30UiTests(unittest.TestCase):
             scroll_offset=17,
         )
         frame = ui.render()
-        # The first metadata label begins at x=190.  The value viewport starts
-        # 42 pixels later; pixels before it must remain the label/background.
-        label_pixel = frame.pixels[(40 * 320 + 190) * 3 : (40 * 320 + 190) * 3 + 3]
-        self.assertEqual(label_pixel, bytes((255, 24, 32)))
+        # The real TextBox begins at x=190.  A long value may scroll inside
+        # that viewport, but cannot paint into the neighbouring art/status
+        # area or beyond the right edge.
+        left = frame.pixels[(40 * 320 + 189) * 3 : (40 * 320 + 189) * 3 + 3]
+        right = frame.pixels[(40 * 320 + 319) * 3 : (40 * 320 + 319) * 3 + 3]
+        self.assertEqual(left, bytes(rgb565(0x18C3)))
+        self.assertEqual(right, bytes(rgb565(0x18C3)))
 
 
 if __name__ == "__main__":

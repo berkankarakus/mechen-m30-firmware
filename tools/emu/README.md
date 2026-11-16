@@ -253,6 +253,31 @@ trace target for the next QEMU step. A complete ATJ2127 boot still needs the
 real bank loader, UI dispatcher, LCD, key, SD and decoder devices; those are
 not silently replaced by this renderer.
 
+## Static RU3 screen atlas
+
+The extracted card firmware contains several screen resource members. Their
+PicBox coordinates, direct RGB565 bitmap records, and TextBox rectangles can
+be previewed without writing the device or mounting a writable image:
+
+```sh
+bash tools/emu/render_style_atlas.sh \
+  /private/tmp/m30-card-inspect.sNixua/fw \
+  /private/tmp/m30-style-atlas
+```
+
+This produces one PPM/PNG and JSON provenance trace per `.sty` member,
+including `upgrade`, `mainmenu`, `common`, `music`, `playlist`, `udisk`, and
+`usound`. The bitmap placement is resource-backed; text uses the host test
+font and the AP-driven screen state is not inferred. In particular, a frame
+selection such as play/pause or an upgrade progress state remains an explicit
+preview input until the corresponding dispatcher state is recovered.
+
+The now-playing renderer follows the same rule. It draws the real `music.sty`
+PicBox resources at their recorded coordinates and uses the real TextBox
+viewports for metadata scrolling. It no longer adds mock labels, separators,
+timer strings, or ASCII transport arrows that are not present in the recovered
+RU3 records.
+
 ## Folder/list visualizer
 
 `folder_ui.py` renders the evidence-based browser/list layer separately from
