@@ -77,8 +77,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   alanları; `index.c`'nin gerçekten kullandığı text/track alanları ile
   file-location byte dizileri ayrıştırılır, location alanları opaque tutulur.
 - `tools/sim/library_index_sort.py`: `index.c` karşılaştırma sırasının raw
-  record üzerinde çalışan candidate order modeli; yazma veya M30 UI policy
-  iddiası yoktur.
+  record üzerinde çalışan candidate order modeli ile ALBUM→ARTIST→GENRE
+  nested run/group türetimi; yazma veya M30 UI policy iddiası yoktur.
 - `tools/sim/library_scan.py`: stock fixed-array scanının 4,000-record
   kapasite sınırı; `MUSIC.LIB` formatı veya experimental large-library yolu
   bu modelle birleştirilmez.

@@ -99,3 +99,100 @@ def sort_record_indices(
         return 0
 
     return tuple(sorted(range(len(records)), key=cmp_to_key(compare)))
+
+
+def group_indices_from_runs(
+    order: Sequence[int],
+    run_lengths: Sequence[int],
+) -> tuple[int, ...]:
+    """Map each record index to its zero-based group from sorted runs."""
+    if sorted(order) != list(range(len(order))):
+        raise ValueError("library sort order is not a record-index permutation")
+
+    if sum(run_lengths) != len(order):
+        raise ValueError("library run lengths do not cover the sort order")
+
+    groups = [0] * len(order)
+    position = 0
+    for group, run_length in enumerate(run_lengths):
+        if run_length <= 0:
+            raise ValueError("library run lengths must be positive")
+
+        for record_index in order[position : position + run_length]:
+            if not 0 <= record_index < len(order):
+                raise ValueError("library group contains an invalid record index")
+
+            groups[record_index] = group
+
+        position += run_length
+
+    return tuple(groups)
+
+
+def derive_section_run_lengths(
+    records: Sequence[bytes],
+    section_name: str,
+    order: Sequence[int],
+    *,
+    album_group_indices: Sequence[int] | None = None,
+    artist_group_indices: Sequence[int] | None = None,
+) -> tuple[tuple[int, ...], ...]:
+    """Derive the recovered nested group runs without writing index bytes."""
+    if section_name not in SECTION_SPECS:
+        raise ValueError(f"unsupported MUSIC.LIB section: {section_name}")
+
+    section_number, field_offset, field_width = SECTION_SPECS[section_name]
+    if len(order) != len(records):
+        raise ValueError("library sort order must contain every record")
+
+    if sorted(order) != list(range(len(records))):
+        raise ValueError("library sort order is not a record-index permutation")
+
+    if section_number >= 2:
+        if album_group_indices is None or len(album_group_indices) != len(records):
+            raise ValueError("artist and genre grouping require album groups")
+
+    if section_number == 3:
+        if artist_group_indices is None or len(artist_group_indices) != len(records):
+            raise ValueError("genre grouping requires artist groups")
+
+    if section_number == 0:
+        return ()
+
+    keys = tuple(
+        _convert_index_text(record, field_offset, field_width)
+        for record in records
+    )
+    level_count = section_number
+    run_lengths: list[list[int]] = [[] for _ in range(level_count)]
+    current_lengths = [0] * level_count
+
+    for position, record_index in enumerate(order):
+        if position:
+            previous_index = order[position - 1]
+            break_level = level_count
+            if _compare_text(keys[previous_index], keys[record_index]) != 0:
+                break_level = 0
+            elif level_count > 1:
+                if section_name == "ARTIST":
+                    if album_group_indices[previous_index] != album_group_indices[record_index]:
+                        break_level = 1
+                elif artist_group_indices[previous_index] != artist_group_indices[record_index]:
+                    break_level = 1
+                elif (
+                    section_name == "GENRE"
+                    and album_group_indices[previous_index] != album_group_indices[record_index]
+                ):
+                    break_level = 2
+
+            for level in range(break_level, level_count):
+                run_lengths[level].append(current_lengths[level])
+                current_lengths[level] = 0
+
+        for level in range(level_count):
+            current_lengths[level] += 1
+
+    for level in range(level_count):
+        run_lengths[level].append(current_lengths[level])
+
+    return tuple(tuple(lengths) for lengths in run_lengths)

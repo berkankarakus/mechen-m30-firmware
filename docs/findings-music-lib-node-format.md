@@ -87,6 +87,15 @@ M30 device's final UI policy. This separation is intentional because the
 public comparison file produces different grouping counts from the local
 model.
 
+The same module now derives the candidate nested run lengths that feed the
+three node levels in the local builder. `ALBUM` produces its album runs;
+`ARTIST` uses those album group indices as its child grouping; and `GENRE`
+uses artist groups as its first child level and album groups as its second.
+`group_indices_from_runs()` converts each run list to a per-record group
+index. The implementation validates permutation, coverage, and positive run
+lengths, but it remains a host-side reconstruction helper: it does not write
+node bytes, replace parsed tables, or assert that M30 creates the same groups.
+
 `validate_library_section_nodes()` checks only the recovered wire contract:
 non-zero node type/depth and song counts, record bounds, same-level
 previous/next sentinels, parent/child reciprocity, contiguous child ranges,
