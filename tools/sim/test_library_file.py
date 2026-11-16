@@ -11,6 +11,7 @@ from library_file import (
     SECTION_NODE_SIZE,
     SECTOR_SIZE,
     decode_library_section_node,
+    find_library_record_index,
     interpret_library_section_index,
     parse_library_layout,
     read_library_image,
@@ -109,6 +110,47 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         self.assertEqual(record.location_secondary, b"LOCATION")
         self.assertEqual(record.previous_index, 0xBEEF)
         self.assertEqual(record.next_index, 0xCAFE)
+
+    def test_finds_active_record_by_the_bounded_location_key(self):
+        image = make_library(3)
+        add_record(image, b"Inactive", record_index=0)
+        add_record(image, b"Match", record_index=1)
+        image[0x200 + 0xA8] = 0
+        image[0x300 + 0xA8] = 1
+        image[0x300 + 0xF4 : 0x300 + 0xFC] = b"MATCHKEY"
+
+        card = SdCardBlockDevice(sector_count=4)
+        for sector in range(len(image) // SECTOR_SIZE):
+            start = sector * SECTOR_SIZE
+            card.write_sector(sector, image[start : start + SECTOR_SIZE])
+
+        self.assertIsNone(find_library_record_index(card, 0, b"inactive"))
+        self.assertEqual(find_library_record_index(card, 0, b"MATCHKEY"), 1)
+        self.assertIsNone(find_library_record_index(card, 0, b"missing!"))
+
+    def test_location_lookup_stops_at_the_firmware_limit(self):
+        record_count = 4_001
+        image = make_library(record_count)
+        add_record(image, b"Beyond limit", record_index=4_000)
+        record_offset = HEADER_SIZE + 4_000 * RECORD_SIZE
+        image[record_offset + 0xA8] = 1
+        image[record_offset + 0xF4 : record_offset + 0xFC] = b"LIMITKEY"
+
+        card = SdCardBlockDevice(sector_count=len(image) // SECTOR_SIZE)
+        for sector in range(card.sector_count):
+            start = sector * SECTOR_SIZE
+            card.write_sector(sector, image[start : start + SECTOR_SIZE])
+
+        self.assertIsNone(find_library_record_index(card, 0, b"LIMITKEY"))
+
+    def test_location_lookup_requires_an_eight_byte_key(self):
+        image = make_library(1)
+        card = SdCardBlockDevice(sector_count=2)
+        card.write_sector(0, image[:SECTOR_SIZE])
+        card.write_sector(1, image[SECTOR_SIZE:])
+
+        with self.assertRaises(ValueError):
+            find_library_record_index(card, 0, b"short")
 
     def test_record_index_is_bounded_by_the_library_header(self):
         image = make_library(1)

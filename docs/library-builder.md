@@ -170,8 +170,10 @@ remains a separate path.
 
 The file-layout boundary is modeled in `tools/sim/library_file.py`: it parses
 the 0x200-byte header, the four section directories, the padded 256-byte
-record area, and the seven raw sector references per section. Node contents and
-filesystem location semantics remain opaque.
+record area, and the seven raw sector references per section. It also models
+the reader's active-record lookup by the bounded eight-byte
+`cluster_no`/`dir_entry` key; the primary location blob and record links remain
+opaque.
 
 The host emulator records only the selector boundary in
 `tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
@@ -194,8 +196,10 @@ The directory traversal contract is modeled in `tools/sim/library_walker.py`:
 pre-order depth-first folders, the eight-level limit, `RECORD` exclusion, and
 the target-count return convention. It does not access a card or implement the
 filesystem callback ABI.
-Location fields remain opaque byte slices; this codec does not parse filesystem
-clusters or reader metadata.
+The codec exposes `+0xf4..+0xfb` as the documented little-endian
+`cluster_no`/`dir_entry` pair and preserves the raw bytes. The primary
+location blob and record links remain opaque; reader metadata and filesystem
+callbacks are not parsed.
 
 ### Record format
 
@@ -211,9 +215,9 @@ Records start at file offset `0x200`, 256 bytes each:
 | `0xa3` | 1 | Tag-ok flag |
 | `0xa4` | 4 | Extension as packed text (`MP3\0`) |
 | `0xa8` | 1 | Always 1 |
-| `0xa9` | | File location: exFAT directory cluster and entry offset |
+| `0xa9` | 73 | Primary file-location/storage blob; preserved without assigning semantics |
 | `0xf2` | 2 | Track number, `0xffff` if none |
-| `0xf4` | 8 | File location, second part. The reader-side lookups compare these 8 bytes. |
+| `0xf4` | 8 | Little-endian `cluster_no` followed by `dir_entry`; reader-side lookups compare these 8 bytes. |
 | `0xfc` | 2 | Previous record index |
 | `0xfe` | 2 | Next record index |
 

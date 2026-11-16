@@ -9,6 +9,7 @@ import sys
 
 from library_file import (
     SECTOR_SIZE,
+    find_library_record_index,
     interpret_library_section_index,
     read_library_layout,
     read_library_record,
@@ -51,6 +52,7 @@ def inspect_music_library(
         )
     )
     location_key_samples: list[dict[str, int]] = []
+    location_lookup_samples: list[dict[str, int | None]] = []
     for index in sample_indices:
         record = read_library_record(card, 0, index)
         location_key_samples.append(
@@ -58,6 +60,17 @@ def inspect_music_library(
                 "index": index,
                 "cluster_no": record.cluster_no,
                 "dir_entry": record.dir_entry,
+            }
+        )
+        found_index = find_library_record_index(
+            card,
+            0,
+            record.location_secondary,
+        )
+        location_lookup_samples.append(
+            {
+                "index": index,
+                "found_index": found_index,
             }
         )
     section_summaries: dict[str, object] = {}
@@ -82,6 +95,7 @@ def inspect_music_library(
         "record_count": layout.record_count,
         "record_area_sectors": layout.record_area_sectors,
         "location_key_samples": tuple(location_key_samples),
+        "location_lookup_samples": tuple(location_lookup_samples),
         "sections": section_summaries,
     }
 
@@ -99,6 +113,7 @@ def main(path: Path, expected_sha256: str | None) -> None:
         f"sha256={summary['sha256']}"
     )
     print(f"location_key_samples={summary['location_key_samples']}")
+    print(f"location_lookup_samples={summary['location_lookup_samples']}")
     for name, section in summary["sections"].items():
         print(
             f"section={name} "

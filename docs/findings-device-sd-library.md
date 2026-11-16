@@ -34,6 +34,7 @@ Observed output:
 ```text
 MUSIC.LIB EVIDENCE PASS bytes=2625536 records=4000 record_area_sectors=2000 sha256=e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
 location_key_samples=({'index': 0, 'cluster_no': 1265055, 'dir_entry': 0}, {'index': 1, 'cluster_no': 1265055, 'dir_entry': 128}, {'index': 3999, 'cluster_no': 481882, 'dir_entry': 2112})
+location_lookup_samples=({'index': 0, 'found_index': 0}, {'index': 1, 'found_index': 1}, {'index': 3999, 'found_index': 3999})
 section=ALBUM node_counts=(549, 0, 0) spans=549 records_per_level=(4000, 0, 0)
 section=ARTIST node_counts=(363, 707, 0) spans=1070 records_per_level=(4000, 4000, 0)
 section=GENRE node_counts=(30, 439, 709) spans=1178 records_per_level=(4000, 4000, 4000)
@@ -92,7 +93,12 @@ reconstruction.
 
 `M3U.LIB` begins with `M3U` and contains the ASCII marker `ALLFILE` at
 `0x10`; the observed `u16` at `0x08` is zero. Its remaining bytes are not
-treated as entries without a traced reader or a known entry count.
+treated as entries without a traced reader or a known entry count. The public
+comparison sample at
+`https://raw.githubusercontent.com/xleph/MP3.LIB/main/M3U.LIB` is also
+512-byte-header-compatible, but its 5,800 256-byte payload blocks share no
+exact block with the device's 6,056 blocks. This supports keeping M3U payload
+interpretation outside the current MUSIC.LIB emulator contract.
 
 `ALBUM.PIC` begins with `ALBUM`, has `NOA` at `0x10`, and is exactly 250
 sectors. Its first payload sector is non-zero binary data, but it does not

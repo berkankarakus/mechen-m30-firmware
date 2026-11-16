@@ -27,6 +27,7 @@ class MusicLibraryEvidenceProbeTests(unittest.TestCase):
         self.assertEqual(summary["record_count"], 0)
         self.assertEqual(summary["record_area_sectors"], 0)
         self.assertEqual(summary["location_key_samples"], ())
+        self.assertEqual(summary["location_lookup_samples"], ())
         self.assertEqual(summary["sections"]["ALBUM"]["span_count"], 0)
 
     def test_rejects_a_non_sector_aligned_image(self):

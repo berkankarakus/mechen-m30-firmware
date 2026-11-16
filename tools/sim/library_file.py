@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import struct
 
 from library_record_codec import LibraryRecord, decode_record
+from library_scan import MAX_LIBRARY_RECORDS
 from sd_block_device import SdCardBlockDevice
 
 
@@ -211,6 +212,30 @@ def read_library_record(
         )
 
     return decode_record(record_bytes)
+
+
+def find_library_record_index(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    location_key: bytes,
+) -> int | None:
+    """Find an active record by the firmware's bounded eight-byte file key."""
+    if start_sector < 0:
+        raise ValueError("library start sector must be non-negative")
+
+    if len(location_key) != 8:
+        raise ValueError("library location key must contain exactly eight bytes")
+
+    header = device.read_sector(start_sector)
+    record_count = struct.unpack_from("<H", header, 0x08)[0]
+    search_count = min(record_count, MAX_LIBRARY_RECORDS)
+
+    for record_index in range(search_count):
+        record = read_library_record(device, start_sector, record_index)
+        if record.always_one == 1 and record.location_secondary == location_key:
+            return record_index
+
+    return None
 
 
 def read_library_section_words(

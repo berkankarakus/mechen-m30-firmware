@@ -14,6 +14,7 @@ date-named path, and verify the SHA-256 before decrypting or extracting it.
 | 2025-06-26 direct HEX | <https://drive.google.com/file/d/1lTyyP05toQHbcnmmiK3R9FFToj9RZfxC/view> | `MECHEN_M30.HEX`, stock V1.101.10 |
 | Independent 2023-02-20 folder | <https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW> | `MECHEN_M30.HEX` and `Modification.txt` |
 | Independent `MUSIC.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> | Public comparison library; not proven to be M30-generated |
+| Independent `M3U.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/M3U.LIB> | Public comparison library; 1,485,312 bytes, 5,800 opaque 256-byte blocks |
 | US212A application-design manual | <https://tchumim.com/assets/uploads/files/1622479367338-%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%9C%D7%AA%D7%9B%D7%A0%D7%95%D7%9F-%D7%90%D7%A4%D7%9C%D7%99%D7%A7%D7%A6%D7%99%D7%95%D7%AA-us212a.pdf> | Publicly mirrored SDK reference for `plist_f_info_t`, LIB section headers, and M3U list construction |
 | Community firmware source | <https://github.com/dev-zetta/mechen-m30-community-firmware> | V1.292.00 source/release corpus |
 | Actions unpacker | <https://github.com/Rockbox/rockbox/tree/master/utils/atj2137/atjboottool> | `atjboottool` build source |
@@ -115,6 +116,13 @@ and `ALBUM.PIC` (128,000 bytes, SHA-256
 read-only findings are recorded in
 [`findings-device-sd-library.md`](findings-device-sd-library.md).
 
+The public comparison `M3U.LIB` was also downloaded for a bounded comparison:
+its SHA-256 is
+`d40259567735f11f5969fa0e56e9ff7f05340d7da706caa4271cbd900111ab71`.
+Both M3U files have the same 512-byte `M3U`/`ALLFILE` header family, but their
+payloads contain no shared 256-byte block and do not expose a text record
+layout. They remain evidence boundaries rather than a host decoder contract.
+
 The US212A manual was downloaded outside Git into the persistent evidence
 root. Its SHA-256 is
 `c6795e5aaef95af5b9bd16d469086e4f69603db87409791f039315705d7d0b05`.
@@ -135,5 +143,6 @@ For the current index work, the important extracted member is `MUSIC.LIB`
 from a player-created card image, not a generic public sample. The emulator
 therefore models the confirmed `0x200` header, 256-byte records, section
 directories, 512-byte sector references, raw order/inverse/node-index tables,
-and decoded 16-byte nodes, while keeping filesystem-location bytes and
-M30-specific UI grouping semantics unresolved.
+and decoded 16-byte nodes. The reader's eight-byte location-key lookup is also
+modeled; the primary location blob, record links, and M30-specific UI grouping
+semantics remain unresolved.

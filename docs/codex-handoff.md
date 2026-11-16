@@ -95,8 +95,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `interpret_library_section_index()` doğrulanmış node run'larını raw record
   indekslerine read-only olarak eşler; UI albüm/sanatçı anlamı atamaz.
   `tools/emu/musiclib_evidence_probe.py` harici `MUSIC.LIB` örneğinin hash'ini,
-  SD sektör yolunu, örnek `cluster_no`/`dir_entry` değerlerini ve section span
-  coverage'ını tek komutta doğrular.
+  SD sektör yolunu, örnek `cluster_no`/`dir_entry` değerlerini, reader lookup
+  round-trip'lerini ve section span coverage'ını tek komutta doğrular.
+  `find_library_record_index()` aktif kayıtlar arasında firmware'in 4,000
+  kayıtlık bounded eight-byte key aramasını modeller.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; gerçek cihaz `MUSIC.LIB` görüntüsünde tüm section node/table coverage'ı
@@ -109,7 +111,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0xfc..0xff` alanları opaque kalır; `0xf4..0xfb`
   `cluster_no`/`dir_entry` olarak okunur. Section reference `5` deepest-level
   mapping'i gerçek M30 görüntüsünde doğrulanmıştır, fakat duplicate-key
-  tie-break ve primary location semantics açık kalır.
+  tie-break ve primary location semantics açık kalır; reader lookup'ın
+  doğrulanmış key boundary'si host'ta modellenmiştir.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`

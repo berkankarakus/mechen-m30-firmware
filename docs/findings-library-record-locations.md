@@ -39,6 +39,11 @@ secondary file key:
 | `0xf4..0xfb` | `location_secondary` | little-endian `cluster_no` + `dir_entry` file key; preserved as raw bytes too |
 | `0xfc..0xff` | `previous_index`, `next_index` | decoded record-link candidates; M30 consumer semantics still need tracing |
 
+The host `find_library_record_index()` helper now reproduces the reader-side
+lookup boundary: it compares the eight-byte key only on active records
+(`+0xa8 == 1`) and stops after the first 4,000 records. The real device image
+round-trips samples at indices `0`, `1`, and `3999` through this lookup.
+
 Changing an opaque location field while rebuilding the index is not currently
 justified by the decompile. A future editor must preserve those bytes unless
 a separate filesystem read/write trace proves their format.
