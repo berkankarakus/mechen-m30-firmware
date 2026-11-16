@@ -1,14 +1,15 @@
 /*
- * Scroll-wheel acceleration for the MECHEN M30 (Actions ATJ2127) folder view.
+ * Folder-list navigation acceleration for the MECHEN M30 (Actions ATJ2127).
  *
  * The shared dirlist control (bank 0x48714400 in browser.ap) moves the selection
- * one item per wheel detent via FUN_487144a8 (next) / FUN_487146cc (prev).  Their
- * first instruction is patched into a branch to accel_next / accel_prev here.
- * These time the detents with the kernel millisecond clock and, while the wheel
- * keeps turning, call the untouched stock one-step code several times per detent.
- * A multi-step move never wraps past either end of the list and forces a full
- * page reload (redraw mode 4, update 2), which the stock reloader handles for any
- * position.  A single step is exactly the stock code path.
+ * one item per next/previous event via FUN_487144a8 / FUN_487146cc.  Their first
+ * instruction is patched into a branch to accel_next / accel_prev here.  These
+ * time consecutive navigation events with the kernel millisecond clock and,
+ * while the user keeps moving through the list, call the untouched stock
+ * one-step code several times per event.  A multi-step move never wraps past
+ * either end of the list and forces a full page reload (redraw mode 4, update
+ * 2), which the stock reloader handles for any position.  A single step is
+ * exactly the stock code path.
  */
 typedef unsigned int u32;
 typedef unsigned short u16;
@@ -28,24 +29,25 @@ typedef unsigned char u8;
 
 /*
  * v2: v1 (400 ms gap, time-only ramp) never sped up on the player, so the gap is wider
- * and the ramp also counts detents, in case the player handles each detent slowly.
- * v3: two more gears (50, 100) for lists of thousands of files.
+ * and the ramp also counts navigation events, in case the key repeat interval
+ * is longer than the time thresholds.  v3: two more gears (50, 100) for lists
+ * of thousands of files.
  */
-#define GAP_MS      700     /* longer pause between detents ends a burst */
-#define FAST1_MS    1000    /* continuous turning before 5 items per detent ... */
-#define FAST1_N     6       /* ... or this many detents in the burst */
-#define FAST2_MS    2500    /* ... before 20 items per detent */
+#define GAP_MS      700     /* longer pause between events ends a burst */
+#define FAST1_MS    1000    /* continuous navigation before 5 items per event ... */
+#define FAST1_N     6       /* ... or this many events in the burst */
+#define FAST2_MS    2500    /* ... before 20 items per event */
 #define FAST2_N     16
-#define FAST3_MS    4000    /* ... before 50 */
+#define FAST3_MS    4000    /* ... before 50 items per event */
 #define FAST3_N     26
-#define FAST4_MS    6000    /* ... before 100 */
+#define FAST4_MS    6000    /* ... before 100 items per event */
 #define FAST4_N     40
 
 struct accel {
     u32 last;               /* time of the previous detent */
     u32 start;              /* time the current burst started */
     u16 dir;                /* direction of the current burst */
-    u16 count;              /* detents in the current burst */
+    u16 count;              /* navigation events in the current burst */
 };
 #define ACC         ((volatile struct accel *)ACC_RAM)
 

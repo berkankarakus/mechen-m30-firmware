@@ -125,12 +125,15 @@ index passes (`FUN_400d5290`).
 
 ### Extension mask
 
-The mask table at `0x40055220` (file `0x2a20`) holds `0x7e190ea0` for MUSIC.LIB and
-`0x00080400` for M3U.LIB. The mask selects entries of the file system driver's extension table
-(`exfatn.drv` file `0x7f4`, `fat_32n.drv` file `0x77c`): MP3, WMA, WAV, AAC, FLAC, APE, AVI, TXT,
-JPG, JPEG, DSF, DFF, LRC, ASF, OGG, TTA, ISO, AAX, AA, MP1, MP2, M4A, POS, ACT, BMK, AIF, and
-more. The MUSIC.LIB mask has 17 bits set, matching the 17 audio formats, and the sample library
-confirms M4A is included. The bit order inside the driver isn't decoded. The folder views in
+The mask table at `0x40055220` (file `0x2a20`) holds `0x7e190ea0` for MUSIC.LIB;
+the M3U.LIB mask is at file `0x2a28` and is `0x00080400`. The word at `0x2a24`
+is a separate pointer (`0xbfc166c8`), not a second mask. The raw values have 14
+and 2 bits set respectively; the repeatable check is
+`tools/emu/library_mask_probe.py`. The masks select entries of the file system
+driver's extension table (`exfatn.drv` file `0x7f4`, `fat_32n.drv` file `0x77c`).
+The driver matcher consumes the mask high-bit first: slot 0 is bit 31 and slot 30 is bit 1;
+bit 0 is not consumed. The host model exposes that driver slot order while keeping the
+caller-side product policy separate. The folder views in
 `browser.ap` and `music.ap` OR in the literal `0x00400000` separately.
 
 ### Scan: FUN_40095220 (bank 0x40094c00, file 0x3220)
@@ -158,6 +161,46 @@ file, stops at 4,000 (`0x400952c8`, file `0x32c8`):
 Pass 2 ends by flushing the partial staging buffer. The M3U scanner `FUN_40154ecc` has the same
 shape with a per-type limit table.
 
+The stock song scan limit is modeled separately in
+`tools/sim/library_scan.py`: the fixed-array path accepts at most 4,000
+candidate records and reports when the scan stops at that capacity. This is a
+scan boundary, not a claim that the 256-byte record format or `MUSIC.LIB`
+storage cannot represent more records; the experimental large-library builder
+remains a separate path.
+
+The file-layout boundary is modeled in `tools/sim/library_file.py`: it parses
+the 0x200-byte header, the four section directories, the padded 256-byte
+record area, and the seven raw sector references per section. It also models
+the reader's active-record lookup by the bounded eight-byte
+`cluster_no`/`dir_entry` key; the primary location blob and record links remain
+opaque.
+
+The host emulator records only the selector boundary in
+`tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
+or claim that type 8's fallback record is hardware-equivalent.
+The fixed fallback fields are represented separately by
+`tools/sim/library_record.py`. The track-number selector is modeled in
+`tools/sim/library_record_codec.py`: it reads at most four leading digits,
+stops at `/` or another non-digit, preserves an existing non-zero value, and
+uses `0xffff` when the parsed result is zero. `tag_ok=false` remains the
+separate zero-writing path.
+
+The byte layout itself is decoded by `tools/sim/library_record_codec.py`, and
+`tools/ghidra/run_library_record_probe.sh` verifies the corresponding
+`FUN_40094c8c`/`FUN_40094d60` boundary.
+The same model exposes the raw 8.3 formatter: eight-byte base name plus
+three-byte extension becomes `NAME.EXT`, with a trailing dot removed when the
+extension is empty.
+
+The directory traversal contract is modeled in `tools/sim/library_walker.py`:
+pre-order depth-first folders, the eight-level limit, `RECORD` exclusion, and
+the target-count return convention. It does not access a card or implement the
+filesystem callback ABI.
+The codec exposes `+0xf4..+0xfb` as the documented little-endian
+`cluster_no`/`dir_entry` pair and preserves the raw bytes. The primary
+location blob and record links remain opaque; reader metadata and filesystem
+callbacks are not parsed.
+
 ### Record format
 
 Records start at file offset `0x200`, 256 bytes each:
@@ -172,9 +215,9 @@ Records start at file offset `0x200`, 256 bytes each:
 | `0xa3` | 1 | Tag-ok flag |
 | `0xa4` | 4 | Extension as packed text (`MP3\0`) |
 | `0xa8` | 1 | Always 1 |
-| `0xa9` | | File location: exFAT directory cluster and entry offset |
+| `0xa9` | 73 | Primary file-location/storage blob; preserved without assigning semantics |
 | `0xf2` | 2 | Track number, `0xffff` if none |
-| `0xf4` | 8 | File location, second part. The reader-side lookups compare these 8 bytes. |
+| `0xf4` | 8 | Little-endian `cluster_no` followed by `dir_entry`; reader-side lookups compare these 8 bytes. |
 | `0xfc` | 2 | Previous record index |
 | `0xfe` | 2 | Next record index |
 
@@ -274,6 +317,16 @@ lengths (to count children per node), the parent level's run lengths (to compute
 index), and the depth byte. Node layout: `u8 1`, `u8 depth`, `u16 children`, `u16 songs`,
 `u16 first song record`, `u16 first child`, `u16 parent`, `u16 prev`, `u16 next`. `0xffff` means
 none. It returns the node count.
+
+The same contract was rechecked with Ghidra 12.2 against the 2025-06-26
+`playlist.ap` by `tools/ghidra/run_library_index_probe.sh`. The decompile shows
+the writer consuming a run-length entry for each node, advancing the first
+record pointer by that song count, accumulating child counts from the child
+run stream, and advancing the parent index from the parent run stream. It
+also writes adjacent-node links as `node_index - 1` and `node_index + 1`, then
+replaces the final next link with `0xffff`. This is direct evidence for the
+wire contract; it still does not give the nodes a user-facing album/artist
+meaning.
 
 ## MUSIC.LIB layout
 

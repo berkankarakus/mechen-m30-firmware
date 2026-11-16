@@ -2,6 +2,8 @@
 
 Unofficial firmware patches for the **MECHEN M30 HiFi MP3 player**. They fix the broken shuffle on large music libraries, add a shuffle-all-songs mode to the folder view, add scroll-wheel acceleration so you can move through thousands of folders quickly, and make the play, track, and volume buttons work while the screen is off. The patches apply to the official MECHEN M30 firmware release dated 2025-06-26 (`MECHEN_M30.HEX`) and install through the player's normal firmware update. You can download the patched firmware from a [release](#download-a-patched-release), [make it from the stock file](#make-the-patched-firmware-from-the-stock-file) with one Python command, or [build it from source](#build-the-firmware).
 
+The current integration work is documented in [`docs/community-integration.md`](docs/community-integration.md). It records the hardware-accepted V1.292.00 community fixes, the combined candidate, and the remaining play-counter and UI work.
+
 The MECHEN M30 is built on an Actions Semiconductor ATJ2127-family chip (USB ID `10d6:1101`). This repository also includes tools to decrypt, unpack, modify, and repack Actions ATJ2127 FWU firmware files, which can help with reverse engineering similar Actions-based MP3 players.
 
 > **Warning:** This is unofficial firmware built from reverse engineering. A bad flash can leave your player unable to boot. Before you install it, read [Recover a player](#recover-a-player). You use it at your own risk.
@@ -13,7 +15,7 @@ The patches change five things in the stock MECHEN M30 firmware:
 - **Shuffle fix.** On a large SD card, stock shuffle plays the same small part of the library, mostly artists that start with A, B, or C. The patch replaces the stock shuffle with one that reaches every track on the card.
 - **Shuffle all songs from folder view.** Stock firmware only shuffles inside the current folder. With **Repeat all** and **Shuffle** on, the patched player shuffles across every folder on the card, and prev steps back through the songs it already played.
 - **Scroll-wheel acceleration.** Stock firmware moves one item per wheel click. The patched folder view speeds up while you keep turning the wheel: 1, then 5, 20, 50, and 100 items per click. A pause of 0.7 seconds or a change of direction drops back to 1, and fast scrolling stops at the top and bottom of the list instead of wrapping.
-- **Whole-card music library.** The stock library builder stops at 4,000 songs, so on a big card **Music** > **All songs**, **Artists**, **Albums**, and **Genres** only cover the first artists alphabetically. The patched builder indexes up to 24,000 songs by sorting through a scratch file on the card instead of RAM. It has built a 15,991-song library on one player, checked table by table against a PC model. It also lists a name stored in two text encodings as one artist or album instead of two. **Experimental:** tested on one player and one card so far, and a full "filelist update" of a 16,000-song card takes 20 to 25 minutes (the stock scan reads every file's tags at about 0.1 s per file), which the player runs after every USB disconnect. Not recommended for most people until the unchanged-card check is in. `docs/library-builder.md` has the details and `./build.sh --no-library` leaves it out.
+- **Optional whole-card music library.** The stock library builder stops at 4,000 songs, while the experimental patch can index up to 24,000 songs through a scratch file on the card instead of RAM. It has been checked table by table against a PC model, but a full "filelist update" of a 16,000-song card takes 20 to 25 minutes and can restart after an interrupted update. The standard build leaves this experimental feature out; use `./build.sh --library` only if you explicitly want it. `docs/library-builder.md` has the details.
 - **Buttons work with the screen off.** With stock firmware, after the backlight timer turns the screen off, the first press of any button only turns the screen back on, and the press is lost. With the patch, the play/pause, prev, next, volume up, and volume down buttons act immediately and the screen stays off. The wheel, OK, and back buttons still turn the screen on, and the power button still turns it on or off.
 
 ## Supported players and firmware
@@ -119,6 +121,7 @@ The script writes `build/MECHEN_M30.HEX` and keeps intermediate files in `build/
 The script takes these options:
 
 - `--test`: runs the QEMU tests. They take a few minutes.
+- `--ui-emu`: after verification, renders a deterministic now-playing framebuffer and JSON UI trace under `OUTDIR/ui-emulator/` from the real extracted `music.ap` and `music.sty`.
 - `--no-playall`: leaves out shuffle-all mode.
 - `--no-keys`: leaves out the screen-off buttons patch.
 
@@ -195,6 +198,9 @@ The repository contains these files and folders:
 | `tools/scroll/` | Scroll acceleration (`accel.c`, `tramp.S`), the app patcher, and the harness. |
 | `tools/keys/` | Screen-off buttons (`keypass.S`), the app patcher, and the harness. |
 | `tools/library/` | Whole-card library: the file-backed index passes (`index.c`), their loader (`loader.c`), the app patcher (`patch_library.py`), the QEMU harness that runs the stock or the new passes (`harness.c`, `testbanks.py`, `test.sh`), a Python model of the new passes (`libmodel.py`), a synthetic library generator (`mklib.py`), and library comparison tools (`libdiff.py`, `libgroups.py`). See `docs/library-builder.md`. |
+| `tools/emu/` | Ghidra-guided host framebuffer/UI-dispatch trace and extracted-member candidate verification for the real `music.ap`/`music.sty` path. It is the first layer of the hybrid emulator; it is not a full ATJ2127 boot. |
+| `tools/sim/` | Host-side contracts and the register-level ATJ2127 peripheral model used by emulator harnesses. |
+| `docs/codegraph-workflow.md` | CodeGraph's scope and the repeatable impact checks used around the emulator and analysis tools. |
 | `tools/patch_mengine.py` | Applies the shuffle fix and shuffle-all code to `mengine.ap`. |
 | `tools/bps.py` | Creates and applies the BPS patches that releases use. |
 | `tools/repack_fw.py`, `tools/fwu_repack.py` | Rebuild the FWU, AFI, and FWIMAGE.FW layers with new checksums and encryption. |
