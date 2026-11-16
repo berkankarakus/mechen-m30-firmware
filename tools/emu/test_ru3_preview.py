@@ -2,12 +2,14 @@ import unittest
 from pathlib import Path
 
 from ru3_preview import render_style
+from m30_font import M30Font
 
 
 ROOT = Path(__file__).parents[2]
 FW = Path("/private/tmp/m30-card-inspect.sNixua/fw")
 UPGRADE = FW / "upgrade.sty"
 MUSIC = FW / "music.sty"
+FONT = FW / "new_m.fnt"
 
 
 @unittest.skipUnless(UPGRADE.exists() and MUSIC.exists(), "card-extracted RU3 fixtures are not present")
@@ -23,6 +25,14 @@ class Ru3PreviewTests(unittest.TestCase):
         self.assertEqual(preview.trace["picboxes"][2]["resource"], 0)
         self.assertEqual(preview.trace["picboxes"][2]["width"], 150)
         self.assertEqual(preview.trace["picboxes"][2]["height"], 150)
+
+    def test_upgrade_style_accepts_shipped_font(self) -> None:
+        preview = render_style(
+            UPGRADE,
+            text_values={0: "SELECT UPGRADE FILE:", 1: "CONFIRM UPGRADE"},
+            font=M30Font.load(FONT),
+        )
+        self.assertEqual(preview.trace["provenance"], "real RU3 PicBox/TextBox records; optional shipped font and host app state")
 
 
 if __name__ == "__main__":

@@ -270,10 +270,12 @@ bash tools/emu/render_style_atlas.sh \
 
 This produces one PPM/PNG and JSON provenance trace per `.sty` member,
 including `upgrade`, `mainmenu`, `common`, `music`, `playlist`, `udisk`, and
-`usound`. The bitmap placement is resource-backed; text uses the host test
-font and the AP-driven screen state is not inferred. In particular, a frame
-selection such as play/pause or an upgrade progress state remains an explicit
-preview input until the corresponding dispatcher state is recovered.
+`usound`. If `new_m.fnt` is present beside the styles, text uses the shipped
+font reader; otherwise it falls back to the host test font. The bitmap
+placement is resource-backed and the AP-driven screen state is not inferred.
+In particular, a frame selection such as play/pause or an upgrade progress
+state remains an explicit preview input until the corresponding dispatcher
+state is recovered.
 
 The now-playing renderer follows the same rule. It draws the real `music.sty`
 PicBox resources at their recorded coordinates, uses the real TextBox

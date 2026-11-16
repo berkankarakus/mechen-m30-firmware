@@ -16,6 +16,7 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
+from m30_font import M30Font
 from m30_ui import Framebuffer, draw_text, rgb565
 from music_bitmap import MusicBitmap, load_music_bitmap
 
@@ -72,6 +73,7 @@ def render_style(
     path: Path,
     *,
     text_values: dict[int, str] | None = None,
+    font: M30Font | None = None,
 ) -> Ru3Preview:
     picboxes, textboxes = _load_style(path)
     frame = Framebuffer()
@@ -110,15 +112,26 @@ def render_style(
     for index, textbox in enumerate(textboxes):
         value = text_values.get(index, f"TEXT {index}")
         color = rgb565(textbox.text_color)
-        draw_text(
-            frame,
-            value,
-            textbox.x,
-            textbox.y,
-            color,
-            scale=1,
-            clip=(textbox.x, textbox.y, textbox.width, textbox.height),
-        )
+        if font:
+            font.draw_text(
+                frame,
+                value,
+                textbox.x,
+                textbox.y + 2,
+                color,
+                clip=(textbox.x, textbox.y, textbox.width, textbox.height),
+                pixel_scale=2,
+            )
+        else:
+            draw_text(
+                frame,
+                value,
+                textbox.x,
+                textbox.y,
+                color,
+                scale=1,
+                clip=(textbox.x, textbox.y, textbox.width, textbox.height),
+            )
         rendered_texts.append(
             {
                 "textbox": index,
@@ -134,7 +147,7 @@ def render_style(
     trace = {
         "kind": "static-ru3-preview",
         "style": str(path),
-        "provenance": "real RU3 PicBox/TextBox records; host font and app state",
+        "provenance": "real RU3 PicBox/TextBox records; optional shipped font and host app state",
         "picboxes": rendered_pics,
         "skipped_picboxes": skipped_pics,
         "textboxes": rendered_texts,
@@ -160,8 +173,11 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--text", action="append", default=[], metavar="INDEX=VALUE")
+    parser.add_argument("--font", type=Path, help="M30 new_m.fnt; defaults to the style directory")
     args = parser.parse_args()
-    preview = render_style(args.style, text_values=_parse_text_values(args.text))
+    font_path = args.font or args.style.with_name("new_m.fnt")
+    font = M30Font.load(font_path) if font_path.exists() else None
+    preview = render_style(args.style, text_values=_parse_text_values(args.text), font=font)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     preview.framebuffer.ppm(args.out)
     args.trace.parent.mkdir(parents=True, exist_ok=True)

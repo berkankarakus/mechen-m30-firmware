@@ -16,6 +16,8 @@ for style in "$FW"/*.sty; do
   ppm="$OUT/$name.ppm"
   png="$OUT/$name.png"
   trace="$OUT/$name.json"
+  font_args=()
+  [ -f "$FW/new_m.fnt" ] && font_args+=(--font "$FW/new_m.fnt")
   text_args=()
   case "$name" in
     upgrade)
@@ -37,8 +39,10 @@ for style in "$FW"/*.sty; do
       text_args+=(--text '0=ROOT' --text '3=FOLDER')
       ;;
   esac
-  PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/ru3_preview.py" \
-    --style "$style" --out "$ppm" --trace "$trace" "${text_args[@]}"
+  command=(python3 "$ROOT/tools/emu/ru3_preview.py" --style "$style" --out "$ppm" --trace "$trace")
+  ((${#font_args[@]})) && command+=("${font_args[@]}")
+  ((${#text_args[@]})) && command+=("${text_args[@]}")
+  PYTHONPATH="$ROOT/tools/emu" "${command[@]}"
   sips -s format png "$ppm" --out "$png" >/dev/null
 done
 [ "$found" -eq 1 ] || { echo "no .sty files found in $FW" >&2; exit 1; }
