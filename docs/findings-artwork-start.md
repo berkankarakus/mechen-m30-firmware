@@ -100,6 +100,12 @@ JPEG components, accepts a positive block product up to and including
 decompile excerpt is [`evidence-artwork-fallback-community.c`](evidence-artwork-fallback-community.c).
 JPEG decoding and UI timing remain outside the model.
 
+The cache writer's observable record is modeled separately in
+`tools/sim/artwork_cache.py`: successful records use the six-byte `OK` plus
+`x,y,w,h` header followed by `w*h*2` RGB565 bytes; failed records use `NO`
+with zero geometry and no pixel payload. The byte order and color interpretation
+of the RGB565 payload remain opaque.
+
 ## 3. Previous key
 
 - VERIFIED: bytes at mengine.ap 0x3A64 are 82f3 086a 4bea in BOTH stock and community (patch not pre-applied).

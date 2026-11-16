@@ -44,6 +44,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   block sınırı; JPEG decoder ve UI zamanlaması çalıştırılmaz. Ham decompile
   [`docs/evidence-artwork-fallback-community.c`](evidence-artwork-fallback-community.c)
   içinde saklıdır.
+- `tools/sim/artwork_cache.py`: `ALBUM.PIC` için doğrulanmış `OK`/`NO`,
+  `x,y,w,h` ve RGB565 byte-payload sınırı; pixel renk sırası yorumlanmaz.
 - `tools/sim/filesystem_extension.py`: FAT32/exFAT için byte kanıtlı 31-slot
   extension sözlüğü, explicit-slot kabul filtresi ve driver high-bit-first mask
   decoder; caller product policy ve directory callback ABI modellenmez.
