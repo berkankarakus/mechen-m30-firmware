@@ -9,6 +9,7 @@ from library_file import (
     parse_library_layout,
     read_library_image,
     read_library_layout,
+    read_library_record,
 )
 
 
@@ -25,7 +26,36 @@ def make_library(record_count: int = 3) -> bytearray:
     return data
 
 
+def add_record(data: bytearray, title: bytes) -> None:
+    record = bytearray(RECORD_SIZE)
+    record[: len(title)] = title
+    record[0xA3] = 1
+    record[0xA4:0xA8] = b"MP3\0"
+    data[SECTOR_SIZE : SECTOR_SIZE + RECORD_SIZE] = record
+
+
 class MusicLibraryLayoutTests(unittest.TestCase):
+    def test_reads_and_decodes_one_record_from_sd_bytes(self):
+        image = make_library(1)
+        add_record(image, b"From SD")
+        card = SdCardBlockDevice(sector_count=3)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE:])
+
+        record = read_library_record(card, 1, 0)
+
+        self.assertEqual(record.title, "From SD")
+        self.assertEqual(record.extension, "MP3")
+
+    def test_record_index_is_bounded_by_the_library_header(self):
+        image = make_library(1)
+        card = SdCardBlockDevice(sector_count=3)
+        card.write_sector(1, image[:SECTOR_SIZE])
+        card.write_sector(2, image[SECTOR_SIZE:])
+
+        with self.assertRaises(IndexError):
+            read_library_record(card, 1, 1)
+
     def test_reads_library_image_from_caller_supplied_sd_sector(self):
         image = make_library()
         card = SdCardBlockDevice(sector_count=5)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import struct
 
+from library_record_codec import LibraryRecord, decode_record
 from sd_block_device import SdCardBlockDevice
 
 
@@ -110,3 +111,37 @@ def read_library_layout(
 ) -> MusicLibraryLayout:
     """Parse a library image read from the SD block boundary."""
     return parse_library_layout(read_library_image(device, start_sector))
+
+
+def read_library_record(
+    device: SdCardBlockDevice,
+    start_sector: int,
+    record_index: int,
+) -> LibraryRecord:
+    """Read and decode one bounded record from a caller-supplied SD image."""
+    if start_sector < 0:
+        raise ValueError("library start sector must be non-negative")
+
+    if record_index < 0:
+        raise ValueError("library record index must be non-negative")
+
+    header = device.read_sector(start_sector)
+    record_count = struct.unpack_from("<H", header, 0x08)[0]
+    if record_index >= record_count:
+        raise IndexError("library record index is outside the MUSIC.LIB record area")
+
+    record_offset = HEADER_SIZE + record_index * RECORD_SIZE
+    sector_offset, offset_in_sector = divmod(record_offset, SECTOR_SIZE)
+    first_sector = device.read_sector(start_sector + sector_offset)
+    record_end = offset_in_sector + RECORD_SIZE
+    if record_end <= SECTOR_SIZE:
+        record_bytes = first_sector[offset_in_sector:record_end]
+
+    else:
+        second_sector = device.read_sector(start_sector + sector_offset + 1)
+        record_bytes = (
+            first_sector[offset_in_sector:]
+            + second_sector[: record_end - SECTOR_SIZE]
+        )
+
+    return decode_record(record_bytes)
