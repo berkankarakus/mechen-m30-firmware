@@ -103,6 +103,7 @@ class M30UiTests(unittest.TestCase):
         self.assertTrue(selected[2]["active_on_now_playing_paint"])
         self.assertFalse(NowPlaying(style, FirmwareTrace.load(AP)).selected_picbox_trace()[4]["painted_in_preview"])
         self.assertTrue(selected[4]["painted_in_preview"])
+        self.assertTrue(NowPlaying(style, FirmwareTrace.load(AP)).selected_picbox_trace()[5]["painted_in_preview"])
         self.assertEqual(selected[3]["state_semantics"], "eq-visible")
         self.assertEqual(selected[7]["state_semantics"], "title-icon")
 

@@ -509,9 +509,9 @@ class NowPlaying:
         }
 
     def selected_picbox_trace(self) -> list[dict[str, object]]:
-        painted = {2, 3}
+        painted = {2, 3, 5, 6, 7, 8}
         if self.show_controls:
-            painted.update((4, 5, 6, 7, 8))
+            painted.add(4)
         selections = (
             (0, self.status_frame), (1, self.status_frame), (2, 0),
             (3, self.eq_frame), (4, self.transport_frame),
@@ -597,32 +597,27 @@ class NowPlaying:
         # These are the actual music.sty PicBox coordinates/resources.  The
         # frame choice is a host input because the AP state machine is not yet
         # emulated; the bitmap bytes and geometry themselves are not guessed.
-        controls = ((4, self.transport_frame), (5, self.status_frame),
-                    (6, self.status_frame), (7, self.status_frame),
-                    (8, self.status_frame)) if self.show_controls else ()
-        for picbox_index, frame_index in ((2, 0), (3, self.eq_frame), *controls):
+        controls = ((4, self.transport_frame),) if self.show_controls else ()
+        metadata_icons = ((5, 0), (6, 0), (7, 0), (8, 0))
+        for picbox_index, frame_index in ((2, 0), (3, self.eq_frame), *metadata_icons, *controls):
             self._draw_picbox_frame(fb, picbox_index, frame_index)
 
         # Metadata geometries are taken directly from textboxes 1..4.  The
-        # label literals TITLE/ARTIST/ALBUM/TRACK are present in music.ap;
-        # the fourth value remains a host placeholder until its runtime
-        # buffer is mapped.
+        # corresponding PicBoxes 5..8 supply the row icons, so the host
+        # preview starts each value at the shared x=190 viewport instead of
+        # inventing red TITLE/ARTIST/ALBUM/TRACK labels.
         boxes = [box for box in self.style.textboxes if box.width == 129 and box.height == 20]
         values = (self.title, self.artist, self.album, self.filename)
-        labels = ("TITLE", "ARTIST", "ALBUM", "TRACK")
-        red = rgb565(0xF800)
-        for box, label, value in zip(boxes, labels, values):
+        for box, value in zip(boxes, values):
             color = self.style.color(box)
             if self.font:
-                self.font.draw_text(fb, label, box.x, box.y + 2, red, (box.x, box.y, 42, box.height), pixel_scale=2)
                 self.font.draw_marquee(
-                    fb, value, box.x + 42, box.y + 2, box.width - 42,
+                    fb, value, box.x, box.y + 2, box.width,
                     box.height, color, offset=self.scroll_offset, pixel_scale=2,
                 )
             else:
-                draw_text(fb, label, box.x, box.y, red, 1, (box.x, box.y, 42, box.height))
                 draw_marquee(
-                    fb, value, box.x + 42, box.y + 9, box.width - 42,
+                    fb, value, box.x, box.y + 9, box.width,
                     box.height, color, offset=self.scroll_offset,
                 )
         self._draw_time_and_progress(fb)

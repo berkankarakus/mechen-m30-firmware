@@ -296,9 +296,10 @@ independent `progressbar[0]` record. PicBoxes 5..8 are fixed album, artist,
 title, and track glyphs, and their roles are included in the JSON trace.
 The now-playing refresh path selects controls `0x1002..0x1008`; PicBoxes 0 and
 1 are retained in the style atlas but are marked inactive in the now-playing
-trace and are not painted by the host screen preview. Transport and metadata
-controls are transient in the preview too; pass `--show-controls` to render
-the `0x1004..0x1008` branch explicitly.
+trace and are not painted by the host screen preview. PicBoxes 5..8 are
+painted as the aligned row icons, with values starting at the real `x=190`
+TextBox viewports. Only the transport control is transient; pass
+`--show-controls` to render its `0x1004` branch explicitly.
 
 ## Folder/list visualizer
 

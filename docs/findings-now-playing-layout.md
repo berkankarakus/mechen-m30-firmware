@@ -119,11 +119,12 @@ select their controls; the now-playing preview therefore leaves that header
 band empty, matching the supplied device screenshot instead of drawing the
 icons merely because their bitmaps exist in `music.sty`.
 
-The metadata and transport controls are also transient in the host model. The
-firmware emits them from the `param_1 & 0x8` / `param_1 & 0x20` refresh branches;
-the stable playback preview keeps them hidden by default and exposes the
-same state through `--show-controls`. This matches the supplied idle screen
-while retaining a way to inspect the real control bitmaps.
+The metadata glyphs are part of the stable row layout in the host model and
+replace the literal label text at a common x alignment; the value viewports
+remain the real `x=190` TextBoxes. The transport control is transient in the
+host model: the firmware emits it from the `param_1 & 0x8` / `param_1 & 0x20`
+refresh branches, so the stable playback preview keeps it hidden by default
+and exposes it through `--show-controls`.
 
 The first call-site candidate changed the `0x2005` literal in this paint path,
 but the device-visible marquee is emitted by the shared scroll renderer, not
