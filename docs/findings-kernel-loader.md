@@ -184,6 +184,17 @@ scan: it preserves the surrounding literal/call-site bytes and avoids treating
 an unrelated ROM constant as a provider. It still says nothing about fixed
 ROM, which remains outside the extracted member set.
 
+The comparison is reproducible without an ad-hoc script:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/provider_context_probe.py \
+  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26
+```
+
+The probe is intentionally limited to the known container views and returns a
+failure for any unmatched context; it does not classify arbitrary data as a
+provider.
+
 The same scan widened to every extracted firmware member (`--all-files`)
 produces exactly the same 16 occurrences, all still in `drv_ui.drv`; no `.ap`,
 `.sty`, `.bin`, DSP, or other extracted file provides a second copy of any
