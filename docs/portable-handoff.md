@@ -28,6 +28,9 @@ deponun ve bu kökün birlikte nasıl taşınacağını tanımlar.
   decompile/library-index-2025-06-26/
     index.c
     run.log
+  decompile/library-tie-2025-06-26/
+    tie.c
+    run.log
   references/us212a-app-design-guide-v2.pdf
 ```
 
