@@ -34,6 +34,30 @@ change map and remaining work.
 
 ## Verification
 
+For an extracted candidate, verify the member-level delta before repacking or
+staging it:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/candidate_delta_probe.py \
+  analysis/community/fw analysis/candidate/fw \
+  --changed music.sty --changed setting.sty
+```
+
+The probe fails if a member is added, removed, changed unexpectedly, or if a
+changed member has a different size. Use `--allow-size-change` only when the
+candidate design explicitly requires a size change and its container offsets
+have separate verification.
+
+The two safe resource patch scripts also have fixture-free regression tests:
+
+```sh
+python3 -m unittest tools/emu/test_candidate_patches.py
+```
+
+Those tests cover the fixed-width UTF-16 prompt replacement and the declared
+transport-icon resource boundaries. They do not replace the member-level
+comparison against the actual extracted candidate.
+
 - FWU trailer checksum: passed.
 - Resource size: unchanged.
 - Repacked FWU trailer checksum: passed.

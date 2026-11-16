@@ -23,6 +23,11 @@ the caller/resource path or from another image component.
   Therefore a name lost during list-item copying cannot be recovered by the
   marquee routine.
 
+The host contract for this preparation step is `prepare_marquee_utf16()` in
+`tools/sim/listbox.py`. Its tests preserve the byte-level boundary, leading
+BOM removal, and the two-space gap without implying that the proprietary
+font or LCD renderer has been emulated.
+
 The relevant instructions are at flat addresses `0x300090e0`–`0x3000914e`:
 the `sltiu ... 102` bound, the terminator test, and the three writes that add
 the two-space gap.

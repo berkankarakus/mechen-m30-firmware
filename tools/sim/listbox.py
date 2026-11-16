@@ -34,6 +34,7 @@ LIST_BUFFER_ADDR = 0x40CD4C00
 PATH_INFO_ADDR = 0x40CD4D90
 MAX_NON_OVERLAPPING_NAME_BYTES = (PATH_INFO_ADDR - LIST_BUFFER_ADDR) // LIST_SLOT_COUNT
 SCROLL_GAP_CHARS = 2
+MARQUEE_SCAN_BYTES = 0x66
 
 
 @dataclass(frozen=True)
@@ -135,6 +136,37 @@ def directory_slot_text(name: str) -> str:
         visible.append(char)
         used += len(encoded)
     return "".join(visible)
+
+
+def prepare_marquee_utf16(buffer: bytes) -> bytes:
+    """Prepare the bounded UTF-16 stream consumed by the marquee state.
+
+    The recovered driver scans at most 0x66 bytes for a UTF-16 terminator,
+    skips a leading BOM, and appends two spaces plus a terminator before the
+    scroll loop starts. Keep this byte-oriented because the bound is a
+    firmware buffer limit, not a Python character limit.
+    """
+    if len(buffer) % UTF16_UNIT_BYTES != 0:
+        raise ValueError("UTF-16 marquee input must contain complete code units")
+
+    scan_limit = min(len(buffer), MARQUEE_SCAN_BYTES)
+    terminator_offset = None
+    for offset in range(0, scan_limit, UTF16_UNIT_BYTES):
+        code_unit = buffer[offset : offset + UTF16_UNIT_BYTES]
+
+        if code_unit == b"\x00\x00":
+            terminator_offset = offset
+            break
+
+    if terminator_offset is None:
+        raise ValueError("UTF-16 marquee input has no terminator within 0x66 bytes")
+
+    content = buffer[:terminator_offset]
+    if content.startswith(b"\xff\xfe"):
+        content = content[UTF16_BOM_BYTES:]
+
+    gap = (" " * SCROLL_GAP_CHARS).encode("utf-16le")
+    return content + gap + b"\x00\x00"
 
 
 def experimental_name_layout() -> tuple[int, int]:

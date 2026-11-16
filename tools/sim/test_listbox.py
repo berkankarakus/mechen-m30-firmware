@@ -11,6 +11,7 @@ from listbox import (
     INFERRED_LIST_BUFFER_BYTES,
     LIST_BUFFER_ADDR,
     LIST_SLOT_COUNT,
+    MARQUEE_SCAN_BYTES,
     MAX_NON_OVERLAPPING_NAME_BYTES,
     PATH_INFO_ADDR,
     experimental_name_layout,
@@ -19,6 +20,7 @@ from listbox import (
     directory_slot_text,
     marquee_frame,
     needs_active_scroll,
+    prepare_marquee_utf16,
     scroll_window,
 )
 
@@ -80,6 +82,25 @@ class DirectoryListboxTests(unittest.TestCase):
         self.assertLess(frame.offset_px, len("abc  ") * M30_DIRECTORY_STYLE.glyph_width_px)
         self.assertEqual(frame.clear_width_px, 1)
         self.assertEqual(frame.restore_mode, "sdimage-tail")
+
+    def test_marquee_preparation_skips_bom_and_adds_two_spaces(self):
+        source = b"\xff\xfe" + "folder".encode("utf-16le") + b"\x00\x00"
+
+        prepared = prepare_marquee_utf16(source)
+
+        self.assertEqual(prepared, "folder  ".encode("utf-16le") + b"\x00\x00")
+
+    def test_marquee_preparation_accepts_terminator_inside_102_byte_scan(self):
+        source = b"\xff\xfe" + ("A" * 49).encode("utf-16le") + b"\x00\x00"
+
+        self.assertEqual(len(source), MARQUEE_SCAN_BYTES)
+        self.assertTrue(prepare_marquee_utf16(source).startswith(source[2:-2]))
+
+    def test_marquee_preparation_rejects_terminator_after_102_byte_scan(self):
+        source = b"\xff\xfe" + ("A" * 50).encode("utf-16le") + b"\x00\x00"
+
+        with self.assertRaises(ValueError):
+            prepare_marquee_utf16(source)
 
 
 if __name__ == "__main__":
