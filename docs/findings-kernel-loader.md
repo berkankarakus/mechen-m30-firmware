@@ -215,6 +215,19 @@ PYTHONPATH=tools/emu python3 tools/emu/dec_container_probe.py \
 Therefore the missing exception handler cannot be recovered by remapping
 `dec.bin`; it is still outside the available M30 dump.
 
+The extracted kernel-support scope adds the same boundary from another angle:
+MIPS16 binutils disassembly finds zero `break` instructions in `ker_text.bin`,
+`ker_init.bin`, and `kernel.drv`. The resident audio/UI `break 0` envelopes
+therefore have no extracted kernel-side dispatcher to call. This does not
+exclude an MIPS32 service path, but together with `ker_xsys`'s fixed jump it
+places the selector implementation outside the available members. Re-run it
+with:
+
+```sh
+PYTHONPATH=tools/emu python3 tools/emu/kernel_syscall_scope_probe.py \
+  analysis/community/fw
+```
+
 The resident `kernel.drv` was also scanned at its established `0xbfc08000`
 base for constants relevant to the proposed far-pointer translation. It
 contains no literal `0x00009000` prefix and no literal `0x00025000` B-window
