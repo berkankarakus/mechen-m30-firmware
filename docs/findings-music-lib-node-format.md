@@ -97,6 +97,9 @@ kept outside the repository at
 Passing this image through `SdCardBlockDevice`, `read_library_layout()`, and
 `interpret_library_section_index()` confirms the 251-record header/record
 boundary and the section node spans without copying the binary into Git.
+The reusable command-line check is
+`tools/emu/musiclib_evidence_probe.py`; it verifies the hash before parsing
+and prints the per-level record coverage for ALBUM, ARTIST, and GENRE.
 
 The comparison binary was used only as a temporary local hex reference. It is
 not stored in this repository.

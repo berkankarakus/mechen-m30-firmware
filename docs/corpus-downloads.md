@@ -88,6 +88,13 @@ Its verified SHA-256 is
 `cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe`.
 It is 1,536,000 bytes and contains 251 records. It is a layout/comparison
 sample only, not an M30 device dump; keep that provenance label when using it.
+Verify it through the same SD and index interpretation path with:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/musiclib_evidence_probe.py \
+  <persistent-evidence-root>/MUSIC.LIB
+```
 
 ## Interpretation boundary
 

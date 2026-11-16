@@ -92,6 +92,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ile 16-byte section node kayıtları okunabilir.
   `interpret_library_section_index()` doğrulanmış node run'larını raw record
   indekslerine read-only olarak eşler; UI albüm/sanatçı anlamı atamaz.
+  `tools/emu/musiclib_evidence_probe.py` harici `MUSIC.LIB` örneğinin hash'ini,
+  SD sektör yolunu ve section span coverage'ını tek komutta doğrular.
   `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
   açar; public örneğin grouping/sort çıktısı local modelden farklı olduğu için
