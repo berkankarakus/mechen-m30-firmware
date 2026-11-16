@@ -5,6 +5,23 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 ## Sıradaki uygulanabilir alanlar
 
+## Önceliklendirilmiş QEMU/exception TODO
+
+Bu sıra, gerçek firmware kontrol akışına en çok yaklaşan ve cihazı
+değiştirmeden ölçülebilen işlerden düşük getirili tam donanım emülasyonuna
+doğru gider. Her madde geçerli firmware corpus'unda tekrarlanabilir bir
+PASS/FAIL koşuluyla kapatılacak.
+
+| Öncelik | İş | Neden şimdi | Kapanış ölçütü |
+|---|---|---|---|
+| P0 | Gerçek `FUN_bfc31654` ring consumer’ını callback syscall ile çalıştır | `0xbfc326a9` artık QEMU’da `selector=0x10` olarak yakalanıyor; mevcut ring testi callback’i no-op bırakıyor | lineer ve wrap çağrılarında gerçek callback trap’i, iki callback sayısı ve dört argüman kaydı aynı anda doğrulanır |
+| P0 | LCD resident komut/data ve window akışını QEMU’da çalıştır | `drv_lcd.drv` fonksiyonları ve `0x2a/0x2b/0x2c/0x36` akışı biliniyor; ekran emülatörüne doğrudan çıktı verir | gerçek `FUN_bfc0a000`, `FUN_bfc0a02c`, `FUN_bfc0a378`, `FUN_bfc0a438` çağrılarıyla command/data/window/orientation izleri altı corpus’ta geçer |
+| P1 | MIPS16 `break 0` selector dispatch’ini resident exception yoluna bağla | callback zarfı çözüldü, fakat selector `0x10` servisinin kernel tarafındaki etkisi bilinmiyor | exception handler veya kernel kaynaklı dispatch tablosu selector ve dönüş sözleşmesini kanıtlar; PCM/DAC sonucu iddia edilmez |
+| P1 | `drv_dac.drv` gerçek byte-transfer fonksiyonlarını sentetik GPIO context ile çalıştır | DAC sürücüsü ortak ve küçük; register anlamı bilinmese de bit/byte transfer sınırı ölçülebilir | send/receive helper’ları QEMU’da çalışır, context register erişimleri ve bekleme dalları kaydedilir |
+| P1 | `usound.drv` producer → consumer state zincirini tek guest’te birleştir | producer, consumer ve callback ayrı ayrı geçiyor; birleşik state henüz kanıtlanmadı | iki gerçek fonksiyon aynı guest state’inde çalışır; callback syscall’i yakalanır; veri sahipliği açıkça PASS veya fail-closed olarak raporlanır |
+| P2 | Kernel loader/overlay entry ve exception handoff probe’u | loader segment/BSS sözleşmesi biliniyor, sabit ROM handoff bilinmiyor | gerçek loader çağrısı sentetik segmentlerle çalışır ve giriş/çıkış CP0/stack sözleşmesi kaydedilir |
+| P3 | Tam ATJ2127 QEMU machine / boot | upstream model ve ROM/peripheral kodu yok; maliyeti yüksek, şu anki kanıtı az artırır | yalnızca ATJ2127 MMIO/ROM kaynağı veya cihaz dump’ı gelirse başlatılır; mevcut haliyle ertelenir |
+
 | Alan | Mevcut kanıt | Güvenli emulator kapsamı |
 |---|---|---|
 | FAT32/exFAT | 31 extension slotu, raw playlist maskeleri, reader-type seçimi, directory dispatch ve cluster/block sınırı | explicit-slot filtre, driver high-bit-first mask decoder, reader selector ve depth-8 walker modeli mevcut; callback ABI beklemede |
