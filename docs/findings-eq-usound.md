@@ -110,6 +110,10 @@
   the callback's syscall envelope, not the kernel service or PCM ownership;
   the host emulator therefore models the ring only as an explicitly generic
   boundary, not as the firmware's PCM/DMA implementation.
+- `tools/sim/usound_callback.py` now mirrors the proven part of that boundary:
+  it records the selector and four trapped arguments, counts selector `0x10`,
+  and refuses to execute either the fixed-ROM service or an unknown selector.
+  This is a host observation model, not a PCM/DAC implementation.
 - A second driver boundary is also verified: `FUN_bfc318cc` transfers whole
   words through MMIO data port `0xc0080084` (mode 2 read, mode 1 write) or
   alternate port `0xc0080088` (mode 4 read), gated by `0x9fc33e12`. Its caller
