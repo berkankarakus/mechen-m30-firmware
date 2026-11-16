@@ -54,7 +54,10 @@ def plan_community_jpeg_fallback(
     if components not in SUPPORTED_JPEG_COMPONENTS:
         return ArtworkFallbackPlan(True, False, None, "unsupported-component-count")
 
-    if block_count >= MAX_JPEG_BLOCKS:
+    if block_count == 0:
+        return ArtworkFallbackPlan(True, False, None, "empty-JPEG-block-count")
+
+    if block_count > MAX_JPEG_BLOCKS:
         return ArtworkFallbackPlan(True, False, None, "JPEG-block-limit-exceeded")
 
     output_bytes = width * height * 2

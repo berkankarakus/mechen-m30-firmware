@@ -40,8 +40,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   doğrulanmış 0x200 buffer boundary split planı; source callback, parser ve
   trailing skip helper ABI'si modellenmez.
 - `tools/sim/artwork_fallback.py`: community JPEG fallback için doğrulanmış
-  `0xff` tetikleyici, 150x150, 1/3-component ve 0x1000-block sınırları;
-  JPEG decoder ve UI zamanlaması çalıştırılmaz.
+  `0xff` tetikleyici, 150x150, 1/3-component ve pozitif `0x1000`-inclusive
+  block sınırı; JPEG decoder ve UI zamanlaması çalıştırılmaz. Ham decompile
+  [`docs/evidence-artwork-fallback-community.c`](evidence-artwork-fallback-community.c)
+  içinde saklıdır.
 - `tools/sim/filesystem_extension.py`: FAT32/exFAT için byte kanıtlı 31-slot
   extension sözlüğü, explicit-slot kabul filtresi ve driver high-bit-first mask
   decoder; caller product policy ve directory callback ABI modellenmez.
@@ -93,6 +95,8 @@ Yeni bir davranış ancak şu sırayla eklenir:
 - [`findings-ui-resources.md`](findings-ui-resources.md)
 - [`findings-decoder-callback.md`](findings-decoder-callback.md)
 - [`findings-cards-driver.md`](findings-cards-driver.md)
+- [`provenance-risk.md`](provenance-risk.md): public/private reverse-engineering
+  artifact ayrımı ve MIT lisansının kapsam sınırı.
 - [`discovery-environment.md`](discovery-environment.md)
 - [`../tools/rom/README.md`](../tools/rom/README.md)
 

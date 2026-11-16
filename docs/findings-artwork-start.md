@@ -95,8 +95,10 @@ Fallback body (all UI thread, music.ap banks, no DSP/engine involvement; VERIFIE
 The host emulator records the static fallback guard in
 `tools/sim/artwork_fallback.py`: the community path is attempted only for
 status `0xff`, accepts dimensions from 1 through 150, accepts one or three
-JPEG components, rejects `0x1000` blocks or more, and limits the RGB565 output
-to 45,000 bytes. JPEG decoding and UI timing remain outside the model.
+JPEG components, accepts a positive block product up to and including
+`0x1000`, and limits the RGB565 output to 45,000 bytes. The preserved
+decompile excerpt is [`evidence-artwork-fallback-community.c`](evidence-artwork-fallback-community.c).
+JPEG decoding and UI timing remain outside the model.
 
 ## 3. Previous key
 

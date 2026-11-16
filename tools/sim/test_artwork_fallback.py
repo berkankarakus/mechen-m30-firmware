@@ -27,9 +27,15 @@ class ArtworkFallbackTests(unittest.TestCase):
             "unsupported-component-count",
         )
         self.assertEqual(
-            plan_community_jpeg_fallback(0xFF, 150, 150, 3, 0x1000).reason,
+            plan_community_jpeg_fallback(0xFF, 150, 150, 3, 0).reason,
+            "empty-JPEG-block-count",
+        )
+        self.assertEqual(
+            plan_community_jpeg_fallback(0xFF, 150, 150, 3, 0x1001).reason,
             "JPEG-block-limit-exceeded",
         )
+
+        self.assertTrue(plan_community_jpeg_fallback(0xFF, 150, 150, 3, 0x1000).accepted)
 
 
 if __name__ == "__main__":
