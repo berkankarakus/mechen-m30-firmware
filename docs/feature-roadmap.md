@@ -32,8 +32,10 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 - `tools/library/edit_library.py` yalnızca offline aday üretir: değişikliksiz
   düzenleme gerçek M30 görüntüsünü byte-byte kopyalar; metadata değişikliğinde
   mevcut section sıralarını tie-break olarak korur ama yeniden kurulan düğüm ve
-  grup tabloları henüz cihazla eşdeğer kabul edilmez. Çıktı `libdiff.py` ile
-  incelenmeden flash adayı değildir.
+  grup tabloları henüz cihazla eşdeğer kabul edilmez. Başlık, sanatçı, albüm ve
+  tür alanları taşma/NUL kontrolüyle düzenlenir; location/link tail korunur ve
+  dört section yapısı doğrulanır. Çıktı `libdiff.py` ile incelenmeden flash
+  adayı değildir.
 - `0xa9..0xf1` primary location blob'unu source path/cluster değişimleriyle
   çöz; decoded `cluster_no`/`dir_entry` çiftini gerçek directory dump ile
   bağımsız doğrula.

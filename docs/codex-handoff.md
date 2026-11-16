@@ -139,6 +139,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   Bu, gerçek metadata değişikliklerinin indeks farklarını azaltmak için yüksek
   getirili bir model düzeltmesidir; yine de cihaz üzerinde yeniden indeksleme
   ile doğrulanmadığı için edit çıktısını release/flash adayı yapmaz.
+- `8d5c75a` (`feat: validate metadata library candidates`) ile editor; title,
+  artist, album ve genre değerlerinde taşma/NUL girişini reddediyor, UTF-16/
+  Latin-1 temsilini koruyor, unresolved location/link tail'i değiştirmiyor ve
+  rebuilt section tabloları ile node bağlantılarını doğrulamadan çıktı
+  üretmiyor. Kullanım: `python3 tools/library/edit_library.py INPUT OUTPUT
+  --set RECORD.FIELD=VALUE`. OUTPUT `/Volumes` altında olamaz.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
