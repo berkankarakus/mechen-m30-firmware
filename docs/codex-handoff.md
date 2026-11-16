@@ -27,8 +27,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   gerçek 0x1000-byte kaynak üzerinden wrap-aware bytes okuyabilir.
 - `tools/sim/usb_mass_storage.py`: `uhost.drv` içindeki `USBC`, READ(10)/WRITE(10),
   block address ve 512-byte transfer birimi; request bytes'ları
-  `SdCardBlockDevice` sektörlerine taşınabilir. CBW/CSW framing ve controller
-  davranışı modellenmez.
+  `SdCardBlockDevice` sektörlerine taşınabilir; raw `0x1f`/`0x80`–`0x88`
+  transport event'leri de anlam atanmadan korunur. CBW/CSW framing ve
+  controller davranışı modellenmez.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için
   fail-closed `-1`; bilinmeyen callback çalıştırılmaz.
 - `tools/sim/m30_model.py`: Ghidra ile doğrulanan EQ `0x303` mesaj zarfı,

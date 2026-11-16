@@ -18,6 +18,26 @@ READ10_OPCODE = 0x28
 WRITE10_OPCODE = 0x2A
 READ_DIRECTION = 0x80
 BLOCK_SIZE = 512
+CONTROL_OPERATION = 0x1F
+OBSERVED_STATUS_CODES = frozenset(range(0x80, 0x89))
+
+
+@dataclass(frozen=True)
+class UsbMassStorageTransportEvent:
+    """One raw controller event observed around the block transport."""
+
+    operation: int
+    status: int
+
+    def __post_init__(self) -> None:
+        if self.operation != CONTROL_OPERATION:
+            raise ValueError("operation is not the observed USB control operation")
+
+        if not 0 <= self.status <= 0xFF:
+            raise ValueError("status must fit one byte")
+
+        if self.status not in OBSERVED_STATUS_CODES:
+            raise ValueError("status is outside the observed USB status range")
 
 
 @dataclass(frozen=True)

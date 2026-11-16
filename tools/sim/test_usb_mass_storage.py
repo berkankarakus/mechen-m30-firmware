@@ -3,14 +3,35 @@ import unittest
 from sd_block_device import SdCardBlockDevice
 from usb_mass_storage import (
     BLOCK_SIZE,
+    CONTROL_OPERATION,
+    OBSERVED_STATUS_CODES,
     READ10_OPCODE,
     READ_DIRECTION,
     WRITE10_OPCODE,
     UsbMassStorageBlockRequest,
+    UsbMassStorageTransportEvent,
 )
 
 
 class UsbMassStorageBlockRequestTests(unittest.TestCase):
+    def test_transport_event_preserves_observed_raw_bytes(self):
+        events = tuple(
+            UsbMassStorageTransportEvent(CONTROL_OPERATION, status)
+            for status in sorted(OBSERVED_STATUS_CODES)
+        )
+
+        self.assertEqual(
+            tuple(event.status for event in events),
+            tuple(sorted(OBSERVED_STATUS_CODES)),
+        )
+
+    def test_transport_event_rejects_unobserved_operation_or_status(self):
+        with self.assertRaises(ValueError):
+            UsbMassStorageTransportEvent(0x00, 0x80)
+
+        with self.assertRaises(ValueError):
+            UsbMassStorageTransportEvent(CONTROL_OPERATION, 0x89)
+
     def test_read10_preserves_observed_fields_and_block_size(self):
         request = UsbMassStorageBlockRequest.read10(0x1234, 3)
         self.assertEqual(request.opcode, READ10_OPCODE)
