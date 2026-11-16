@@ -119,6 +119,10 @@ deterministic:
     return `-1`; unknown callback pointers are fail-closed and no rejected
     payload is counted as PCM.
 
+31. `tools/sim/sd_block_device.py` provides the evidence-backed 512-byte SD
+    sector boundary with explicit card presence and bounds checks. It does not
+    claim to emulate the controller's register polling or filesystem walker.
+
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is
 `never-direct-call`, and A19/B16 candidates remain `lazy-only` because their

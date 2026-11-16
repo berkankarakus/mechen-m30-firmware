@@ -47,7 +47,11 @@ filename comparison, or library-index sorting logic.
 ## Consequence
 
 This closes the low-level SD-controller gap needed before a more realistic
-QEMU storage model can be attempted. It does not by itself explain the
+QEMU storage model can be attempted. The host emulator now exposes the
+controller's evidence-backed 512-byte transfer boundary through
+`tools/sim/sd_block_device.py`, including explicit card insertion/removal and
+sector bounds. It is a storage boundary, not an emulation of the controller's
+register polling, IRQ timing, or automatic-index trigger. It does not by itself explain the
 automatic-index trigger: that decision remains in the application/library
 call chain documented in `findings-index-guards.md` and `library-builder.md`.
 No flashable patch is proposed from this analysis.
