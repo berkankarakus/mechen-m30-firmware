@@ -163,6 +163,8 @@ shape with a per-type limit table.
 The host emulator records only the selector boundary in
 `tools/sim/library_tag_reader.py`. It does not execute a reader, parse metadata,
 or claim that type 8's fallback record is hardware-equivalent.
+The fixed fallback fields are represented separately by
+`tools/sim/library_record.py`; track-number extraction remains unresolved.
 
 ### Record format
 

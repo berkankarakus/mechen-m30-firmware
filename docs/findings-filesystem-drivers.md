@@ -77,6 +77,11 @@ The application-level extension-to-reader selector is modeled separately in
 `M4A/AAX`, `APE`, `FLAC`, `MP1/2/3`, `OGG`, `WMA/ASF/WMV`, and type-8
 fallback. Reader ABI and metadata parsing remain outside the model.
 
+The proven fallback record shape is modeled in
+`tools/sim/library_record.py`: the 8.3 short name becomes the title,
+`No Artist`/`No Album`/`No Genre` are used for the other text fields, and the
+tag-success flag remains false. Track-number parsing is intentionally omitted.
+
 ## Directory enumeration
 
 The dispatch functions are:

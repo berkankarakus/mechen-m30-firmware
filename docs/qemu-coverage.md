@@ -135,6 +135,7 @@ suite therefore no longer re-imports the same driver eight times.
 | FAT32/exFAT extension boundary | six-corpus resident driver table | PASS; shared 31-slot vocabulary and explicit-slot host filter; caller mask/walker unresolved |
 | Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); bit-to-slot order unresolved |
 | Library tag-reader selector | `playlist.ap` `FUN_40094f2c` mapping | PASS; types 0–7 plus type-8 fallback; reader ABI/metadata parsing unresolved |
+| Library fallback record | `playlist.ap` type-8/tag-failure path | PASS; short-name title and fixed fallback fields; track parsing unresolved |
 | SD sector boundary | `cards.drv` 512-byte transfer path | PASS; host sector device with card presence and bounds checks |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
