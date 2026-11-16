@@ -11,6 +11,7 @@ yeniden üretilir.
 |---|---|---|
 | Stock V1.101.10 | `<local-workspace>/m30-inputs/stock/MECHEN_M30.HEX` (README'deki Google Drive linkinden) | `6c7e27c8c90c4942664d66a0d6c9f9e48f8d3bc7d2d24223568255e233551258` |
 | Community V1.292.00 | `<local-workspace>/m30-inputs/community/MECHEN_M30.HEX` (`dev-zetta/mechen-m30-community-firmware` release `v1.292.00`) | `5e17d883f697a67d4face6f624ddc30952c5542c918b219be974bf380383ed2c` |
+| Public M30 update, AFI date 20/02/2023 | temporary `/private/tmp/MECHEN_M30.HEX` (Drive folder `1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW`) | `ee164011fb1fe30f552348613f832c5cb0f2aee271834f891aad22be6674e6da` |
 | Actions SDK kaynağı | `<local-workspace>/m30-inputs/ref/PD196` (`Suber/PD196_ATJ2127`, GBK kodlu; `iconv -f gbk -t utf-8 -c`) | - |
 
 Not: Google Drive indirmesi ve GitHub release indirmesi bu oturumda
@@ -101,17 +102,20 @@ Eksik historical corpus'ları community kopyasına bağlamak geçerli değildir:
 
 ### Corpus gate
 
-Bu çalışma alanındaki son kontrol sırasında beklenen altı dizin
+Repo checkout'undaki beklenen altı dizin
 (`analysis/community`, `analysis/first-pass-verify`, `analysis/stock`,
 `analysis/v1.101.11`, `analysis/v1.101.12`, `analysis/v5`) mevcut olsa da
-hepsi boştur. `m30-inputs` kökü de mevcut değildir ve firmware binary'leri
-repo içinde tracked değildir.
+hepsi hâlâ boştur. `m30-inputs` kökü de mevcut değildir ve firmware
+binary'leri repo içinde tracked değildir. Buna ek olarak, 2023 public update
+geçici olarak `/private/tmp/m30-corpus/2023-02-20/fw` altında açılmış ve
+`docs/findings-version-corpus.md` içindeki probe sonuçları bu extraction ile
+doğrulanmıştır.
 
-Bu nedenle corpus bağımlı karşılaştırma, Ghidra yeniden-dekompilasyonu veya
-provider araması çalıştırılmamalıdır. Mevcut kaynak kodu, kayıtlı decompile
-çıktıları, sentetik fixture'lar ve host-only testler kullanılabilir; gerçek
-corpus isteyen bir iş, ilgili dosyalar yerel olarak sağlanana kadar TODO olarak
-kalır. Boş dizinleri community kopyasına bağlamak kanıt üretmez.
+Repo içindeki altı historical corpus hazır olmadığı sürece bunlara dayanan tam
+suite, Ghidra yeniden-dekompilasyonu veya sürüm karşılaştırmaları çalıştırılmamalıdır.
+2023 extraction gibi dışarıda tutulan bir corpus, yalnızca açıkça belirtilen
+tekil probe'lar için kullanılabilir. Boş dizinleri community kopyasına
+bağlamak kanıt üretmez.
 
 ## Üyeleri açma
 

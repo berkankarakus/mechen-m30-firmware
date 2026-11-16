@@ -46,6 +46,45 @@ The application overlays do change between release lines, as expected; this
 comparison therefore does not use an application hash as evidence about the
 resident UI provider.
 
+## Independent 2023 firmware check
+
+An additional public M30 update was downloaded from the linked Drive folder:
+
+```text
+MECHEN_M30.HEX
+source: https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW
+sha256: ee164011fb1fe30f552348613f832c5cb0f2aee271834f891aad22be6674e6da
+release date in AFI: 20/02/2023
+```
+
+Rockbox `atjboottool` decrypted the HEX, unpacked the AFI, and unpacked
+`FWIMAGE.FW` successfully. The AFI and all 99 extracted firmware members
+passed their embedded checksums. The extracted firmware was kept outside the
+repository; no binary was added to Git.
+
+The following stable members are byte-identical to the existing stock and
+community corpus:
+
+```text
+kernel.drv  58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6
+card.drv    fc355c17258fe6fca184e5a616ec4c0b151a566caa99feba9b14981a046063bf
+cards.drv   3c7fb89cf2e8e2f8bdb2311b386e7047f17c35b5846e71139a105255b88462c1
+fat_32n.drv bed63d62aff4df62254b758050abd4ee72f3a829dc39ba374485e64875c75b6b
+exfatn.drv  6c6b724a86f371cf4cbca7ab5f1b0c970d27ecebd502d3c7edb1e5e895d3c0b5
+```
+
+The existing host probes all passed against this independent extraction:
+key, LCD, DAC, audio-device, USB-host, USB-audio, SD-card, filesystem,
+configuration, UI/EQ, and library-mask probes. The provider comparison also
+passed with zero observed provider occurrences outside the known `drv_ui.drv`
+consumer. A full scan still finds the same six pointer values inside that
+consumer, which is expected and does not identify a new provider.
+
+The 2023 overlay hashes differ from the existing application overlays, while
+the stable driver hashes do not. This makes the new corpus useful as a
+cross-version behavioral confirmation, but not as evidence that the missing
+resident UI provider exists in flash.
+
 ## Provider result
 
 The observed UI pointer set was scanned in every extracted `fw/` directory,
