@@ -166,6 +166,10 @@ or claim that type 8's fallback record is hardware-equivalent.
 The fixed fallback fields are represented separately by
 `tools/sim/library_record.py`; track-number extraction remains unresolved.
 
+The byte layout itself is decoded by `tools/sim/library_record_codec.py`.
+Location fields remain opaque byte slices; this codec does not parse filesystem
+clusters or reader metadata.
+
 ### Record format
 
 Records start at file offset `0x200`, 256 bytes each:

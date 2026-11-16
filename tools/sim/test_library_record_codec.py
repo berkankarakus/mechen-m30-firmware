@@ -1,0 +1,41 @@
+import struct
+import unittest
+
+from library_record_codec import RECORD_SIZE, decode_record
+
+
+class LibraryRecordCodecTests(unittest.TestCase):
+    def test_decodes_bom_text_and_fixed_record_fields(self):
+        data = bytearray(RECORD_SIZE)
+        data[0x00:0x40] = b"\xff\xfeT\x00i\x00t\x00l\x00e\x00\0\0".ljust(0x40, b"\0")
+        data[0x40:0x58] = b"Artist\0".ljust(0x18, b"\0")
+        data[0x58:0x88] = b"Album\0".ljust(0x30, b"\0")
+        data[0x88:0xA0] = b"Genre\0".ljust(0x18, b"\0")
+        data[0xA0:0xA3] = b"07\0"
+        data[0xA3] = 1
+        data[0xA4:0xA8] = b"MP3\0"
+        data[0xA8] = 1
+        data[0xA9:0xF2] = bytes(range(0x49))
+        struct.pack_into("<H", data, 0xF2, 7)
+        data[0xF4:0xFC] = b"LOCATION"
+        struct.pack_into("<HH", data, 0xFC, 3, 5)
+
+        record = decode_record(bytes(data))
+
+        self.assertEqual(record.title, "Title")
+        self.assertEqual(record.artist, "Artist")
+        self.assertEqual(record.track_text, "07")
+        self.assertTrue(record.tag_ok)
+        self.assertEqual(record.extension, "MP3")
+        self.assertEqual(record.track_number, 7)
+        self.assertEqual(record.previous_index, 3)
+        self.assertEqual(record.next_index, 5)
+        self.assertEqual(record.location_secondary, b"LOCATION")
+
+    def test_requires_one_complete_record(self):
+        with self.assertRaises(ValueError):
+            decode_record(bytes(RECORD_SIZE - 1))
+
+
+if __name__ == "__main__":
+    unittest.main()

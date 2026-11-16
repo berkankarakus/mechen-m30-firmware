@@ -9,7 +9,7 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - Dal: `main`; push yapılmadı.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Son teknik commit: `2c797ee feat: model SD sector transfers`.
-- Host-only suite: 114 sim, 126 emu ve 6 ROM testi başarılı.
+- Host-only suite command: `bash tools/emu/run_static_suite.sh --host-only`.
 - Tam suite, eksik historical corpus'lar (`first-pass-verify`, `v1.101.11`,
   `v1.101.12`, `v5`) nedeniyle preflight aşamasında duruyor.
 
@@ -39,6 +39,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   seçimi; reader ABI ve metadata parsing çalıştırılmaz.
 - `tools/sim/library_record.py`: tag başarısızlığında short-name title ve sabit
   fallback text alanları; track-number parsing bilinçli olarak yok.
+- `tools/sim/library_record_codec.py`: documented 256-byte `MUSIC.LIB` record
+  alanları; file-location byte dizileri opaque tutulur.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
 - `tools/emu/build_safe_ui_members.py`: yalnızca `music.sty` ve `setting.sty`

@@ -82,6 +82,11 @@ The proven fallback record shape is modeled in
 `No Artist`/`No Album`/`No Genre` are used for the other text fields, and the
 tag-success flag remains false. Track-number parsing is intentionally omitted.
 
+The 256-byte record layout is exposed by
+`tools/sim/library_record_codec.py`, including BOM/ASCII text, track fields,
+extension, link indexes, and opaque location slices. It is a byte codec, not a
+filesystem or metadata-reader implementation.
+
 ## Directory enumeration
 
 The dispatch functions are:
