@@ -20,6 +20,13 @@ repository.
   reports dated firmware behavior changes, including sorting and lock-screen
   controls. These reports are useful hypotheses only; they are not accepted
   as binary proof without a matching local corpus.
+- [MECHEN product information](https://themechen.com/): identifies the M30
+  as using a WM8965 DAC with a Texas Instruments amplifier.
+- [M30 manual copy with component claims](https://manuals.plus/ae/3256806653844578)
+  and [another M30 manual copy](https://manuals.plus/ae/1005006840066890):
+  repeat WM8965/TPA6530 in one place, while another listing adds AK4376 and
+  JuLi2167. These are mutually inconsistent secondary claims, not a board
+  photo or schematic.
 
 ## What these sources change
 
@@ -44,7 +51,10 @@ repository.
 
 No public source checked here supplied a reliable M30 schematic, LCD
 controller identity, ADC ladder, or M30-specific ROM dump. The external
-research therefore does not justify a new boot, panel, key, or DAC emulator
+research also does not establish one codec part number: the public claims
+conflict. The local `drv_dac.drv` evidence proves only a masked GPIO/serial
+byte bus and eight-bit send/receive helpers. It therefore does not justify a
+codec register map, audio volume model, or new boot, panel, or key emulator
 implementation.
 
 ## Scope and safety
