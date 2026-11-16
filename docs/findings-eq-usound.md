@@ -52,6 +52,13 @@
   corpora (`community`, `first-pass-verify`, `stock`, `v1.101.11`,
   `v1.101.12`, and `v5`; SHA-256
   `e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc`).
+- V A dated-corpus extension of that check covered nine additional extracted
+  releases (2022-09-14, 2022-11-17, 2023-02-20, 2023-07-26, 2024-02-28,
+  2024-03-19, 2024-04-24, 2025-02-17, and 2025-06-26). Every `usound.drv`
+  has the same SHA-256 and passes `usound_binary_probe.py` with the same
+  UAC1/HID descriptor contract. This strengthens the cross-version stability
+  of the driver boundary, but still does not prove PCM ownership or OTG
+  hardware behavior.
 - V Ghidra maps 9,904 payload bytes into 46 functions. The decompiled
   initialization writes the 200-byte streaming packet size and `0x84` control
   value; the request handler has standard/interface control branches and
