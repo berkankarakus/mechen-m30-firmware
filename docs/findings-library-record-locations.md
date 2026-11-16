@@ -20,6 +20,15 @@ nodes to the index tail. It does not assign a filesystem or path meaning to
 the record location slices. Reading a 256-byte window is not evidence that
 every byte in that window is interpreted.
 
+The decompiled `extract()` makes this boundary explicit. For section zero it
+loads records in batches, calls `CONVERT()` only for the four text ranges, and
+appends `rec[0xf2]` plus a zero pad to the later section keys. For later
+sections it reads only those scratch keys, the previous-section rank, and the
+group scratch tables. The temporary key layout is documented in the source as
+`name[W] | track u8 | pad | rank u16 | group1 u16 | group2 u16 | song u16`;
+none of the record-tail location bytes are copied into it. The `0xa8`
+`always_one` byte is likewise not consumed by this pass.
+
 The host codec therefore exposes, but does not decode, these regions:
 
 | Range | Host field | Status |
@@ -32,6 +41,12 @@ The host codec therefore exposes, but does not decode, these regions:
 Changing an opaque location field while rebuilding the index is not currently
 justified by the decompile. A future editor must preserve those bytes unless
 a separate filesystem read/write trace proves their format.
+
+This is stronger negative evidence than a missing symbol reference: the
+indexer has a bounded record reader and an explicit scratch-key construction,
+yet the location slices never enter either path. Any location interpretation
+must therefore come from a different firmware consumer or from controlled
+M30-generated card images, not from the index builder itself.
 
 ## Why the public comparison file is not enough
 
