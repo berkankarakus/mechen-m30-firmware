@@ -81,3 +81,15 @@ closed.
 The model intentionally does not assign meanings to the controller registers,
 orientation values, status polling, IRQ timing, or the 15-bit higher-level
 transfer length beyond the recovered command/window boundary.
+
+## Real-code QEMU boundary
+
+`bash tools/emu/run_qemu_lcd_probe.sh` executes the resident MIPS16 helpers
+with only the command/data literal-pool words relocated to guest RAM. The
+setup and transfer callbacks are explicit no-op shims; the window and
+orientation functions remain byte-identical. Across stock, community,
+first-pass, V1.101.11, V1.101.12, and V5, a synthetic window
+`(2,3,4,5)` reaches the final `0x2c` command and row-end byte `7`, while
+orientation `2` emits `0x36` followed by `0x48` and stores mode `2`. This is
+stronger than a host-only command model, but it still does not identify the
+physical MMIO register meanings, panel timing, or electrical output.

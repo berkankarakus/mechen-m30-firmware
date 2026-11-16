@@ -138,6 +138,7 @@ suite therefore no longer re-imports the same driver eight times.
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
+| Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | LCD address-window transfer | `drv_lcd.drv` commands `0x36/0x2a/0x2b/0x2c` + host framebuffer sink | PASS; recovered raw orientation values and bounded RGB565 window writes modeled; orientation semantics/controller timing unresolved |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
@@ -297,3 +298,12 @@ probe passes a linear write, a write split at the `0x6e40` ring end, and the
 format-1 fixed-point `0xaaaaaaab` size path. This verifies the producer's
 control flow and state arithmetic, but not the USB polling callback, hardware
 FIFO, interrupt timing, or DAC/codec output.
+
+`bash tools/emu/run_qemu_lcd_probe.sh` executes the real LCD resident helpers
+`FUN_bfc0a378` and `FUN_bfc0a438`. The guest relocates only the driver's
+command/data literal words and replaces setup/transfer callbacks with no-op
+MIPS16 shims. Across all six local LCD corpora, a window `(x=2,y=3,w=4,h=5)`
+reaches the final `0x2c` memory-write command with row-end byte `7`, and
+orientation `2` reaches `0x36/0x48` with mode state `2`. This validates the
+framebuffer command boundary, not LCD electrical behavior, controller timing,
+or pixel visibility on the device.
