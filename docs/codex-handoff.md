@@ -83,7 +83,8 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   başlangıç sektöründen byte image, bounded `LibraryRecord`, raw section
   `u16` table ve 16-byte section node kayıtları okunabilir. `decode_library_section_node()`
   local builder ve bağımsız public hex örneğiyle örtüşen little-endian alanları
-  açar; M30-specific node link/location semantics hâlâ doğrulanmamıştır.
+  açar; public örneğin grouping/sort çıktısı local modelden farklı olduğu için
+  M30-specific node link/location/sort semantics hâlâ doğrulanmamıştır.
 - `tools/sim/library_walker.py`: stock walker’ın DFS, depth-8, `RECORD` skip ve
   target-count sözleşmesi; filesystem callback ABI’si modellenmez.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3

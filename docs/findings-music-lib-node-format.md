@@ -37,6 +37,15 @@ also decode cleanly with the layout above: `node_type=1`, the expected depth,
 `song_count=251`, `first_record_index=23`, and `0xffff` link sentinels where
 the group has no corresponding link.
 
+The comparison is not a byte-identical reproduction of the local builder.
+Running `libmodel.py` and `libdiff.py` against the public file keeps the
+record count and section locations compatible, but reports different sort and
+group results: the public `ARTIST` directory has counts `(1, 1, 0)` while the
+local model derives `(2, 2, 0)`, and the public `GENRE` directory has
+`(1, 1, 1)` while the model derives `(1, 2, 2)`. This is evidence that the
+wire layout is shared while grouping/tie-breaking behavior may vary by
+firmware or by the source library's contents.
+
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public
 [MUSIC.LIB member](https://github.com/xleph/MP3.LIB/blob/main/MUSIC.LIB).
@@ -52,13 +61,15 @@ This preserves unknown bytes and lets callers opt into the recovered fields.
 
 Confidence is high for the byte order, field widths, and offsets because the
 local builder and the independent hex sample agree. Confidence is medium for
-the product-specific meaning of each link and index, because the comparison
-file is not proven to be from an M30 and no M30 `MUSIC.LIB` image is in the
-local corpus.
+the product-specific meaning of each link and index, and low for assuming the
+local sort/group implementation applies to every player, because the
+comparison file is not proven to be from an M30 and its derived directory
+counts differ from the local model.
 
 The emulator therefore does not yet infer a user-facing tree, resolve node
 indices to directories, or assume that `node_type=1` has a broader meaning
-than the observed builder contract.
+than the observed builder contract. It also does not reuse the public sample
+to change sorting or grouping behavior.
 
 ## Next evidence target
 
