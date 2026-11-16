@@ -372,6 +372,61 @@ def validate_library_section_nodes(
             raise ValueError("library child ranges do not cover the next level")
 
 
+def validate_library_section_node_indices(
+    nodes_by_level: tuple[tuple[LibrarySectionNode, ...], ...],
+    tables: LibrarySectionTables,
+    record_count: int,
+) -> None:
+    """Validate reference 5 against the deepest node level's record runs."""
+    validate_library_section_tables(tables, record_count)
+
+    if len(nodes_by_level) != 3:
+        raise ValueError("library index must expose exactly three node levels")
+
+    deepest_nodes: tuple[LibrarySectionNode, ...] = ()
+    for nodes in reversed(nodes_by_level):
+        if nodes:
+            deepest_nodes = nodes
+            break
+
+    if not deepest_nodes:
+        if tables.node_indices:
+            raise ValueError("library node-index table has no corresponding nodes")
+
+        return
+
+    if len(tables.node_indices) != record_count:
+        raise ValueError("deepest library node-index table must cover every record")
+
+    expected_indices: list[int | None] = [None] * record_count
+    position = 0
+    for node_index, node in enumerate(deepest_nodes):
+        if node.song_count <= 0:
+            raise ValueError("deepest library node must contain at least one record")
+
+        end = position + node.song_count
+        if end > len(tables.order):
+            raise ValueError("deepest library nodes exceed the sort order")
+
+        first_record_index = tables.order[position]
+        if node.first_record_index != first_record_index:
+            raise ValueError("deepest node first record disagrees with the sort order")
+
+        for record_index in tables.order[position:end]:
+            expected_indices[record_index] = node_index
+
+        position = end
+
+    if position != record_count:
+        raise ValueError("deepest library nodes do not cover the record area")
+
+    if any(index is None for index in expected_indices):
+        raise ValueError("deepest library nodes leave records unassigned")
+
+    if tuple(expected_indices) != tables.node_indices:
+        raise ValueError("library node-index table disagrees with deepest nodes")
+
+
 def read_library_section_index(
     device: SdCardBlockDevice,
     start_sector: int,

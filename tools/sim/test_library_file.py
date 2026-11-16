@@ -19,6 +19,7 @@ from library_file import (
     read_library_section_nodes,
     read_library_section_words,
     validate_library_section_tables,
+    validate_library_section_node_indices,
     validate_library_section_nodes,
 )
 
@@ -284,6 +285,88 @@ class MusicLibraryLayoutTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             validate_library_section_nodes(invalid_nodes, 5)
+
+    def test_validates_deepest_node_indices_against_order(self):
+        nodes = (
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=2,
+                    child_count=2,
+                    song_count=3,
+                    first_record_index=0,
+                    first_child_index=0,
+                    parent_index=0xFFFF,
+                    previous_index=0xFFFF,
+                    next_index=1,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=2,
+                    child_count=1,
+                    song_count=2,
+                    first_record_index=3,
+                    first_child_index=2,
+                    parent_index=0xFFFF,
+                    previous_index=0,
+                    next_index=0xFFFF,
+                ),
+            ),
+            (
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=1,
+                    first_record_index=0,
+                    first_child_index=0xFFFF,
+                    parent_index=0,
+                    previous_index=0xFFFF,
+                    next_index=1,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=2,
+                    first_record_index=1,
+                    first_child_index=0xFFFF,
+                    parent_index=0,
+                    previous_index=0,
+                    next_index=2,
+                ),
+                LibrarySectionNode(
+                    node_type=1,
+                    depth=1,
+                    child_count=0,
+                    song_count=2,
+                    first_record_index=3,
+                    first_child_index=0xFFFF,
+                    parent_index=1,
+                    previous_index=1,
+                    next_index=0xFFFF,
+                ),
+            ),
+            (),
+        )
+        tables = LibrarySectionTables(
+            order=(0, 1, 2, 3, 4),
+            inverse=(0, 1, 2, 3, 4),
+            node_indices=(0, 1, 1, 2, 2),
+        )
+
+        validate_library_section_node_indices(nodes, tables, 5)
+
+        with self.assertRaises(ValueError):
+            validate_library_section_node_indices(
+                nodes,
+                LibrarySectionTables(
+                    order=tables.order,
+                    inverse=tables.inverse,
+                    node_indices=(0, 1, 2, 2, 2),
+                ),
+                5,
+            )
 
     def test_zero_section_reference_returns_no_words(self):
         card = SdCardBlockDevice(sector_count=2)
