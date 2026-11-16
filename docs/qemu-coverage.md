@@ -133,6 +133,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + MIPS16 callback stub | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the callback twice on wrap, and resets its read pointer to zero; callback is intentionally no-op |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
+| Real `usound.drv` word-port execution | exact segment + relocated bfc3194c/bfc31950/bfc31954 pool | PASS; `FUN_bfc318cc` executes mode 1/2/4 and gate behavior in QEMU; the guest RAM ports are not physical MMIO |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
@@ -271,3 +272,10 @@ firmware stores zero rather than retaining the remainder. `tools/sim/usb_ring.py
 and its tests now follow that observed behavior. The callback remains a
 no-op, so this still proves state and control flow—not PCM delivery or DAC
 output.
+
+`bash tools/emu/run_qemu_usound_port_probe.sh` executes the real
+`FUN_bfc318cc` helper after relocating only its recovered gate, data-port, and
+alternate-port literal words. QEMU verifies mode 2 reads, mode 1 writes, mode
+4 alternate reads, and the gate byte that suppresses mode-2 reads. These are
+guest-RAM stand-ins for the original MMIO addresses; no claim is made about
+the physical USB controller, FIFO timing, or codec/DAC routing.
