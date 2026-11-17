@@ -199,6 +199,23 @@ static decompile exposed. It does **not** yet prove which value the physical
 directory scene places in that context field; that requires driving the outer
 `FUN_40cd4e00` state machine or observing the real scene state.
 
+That outer caller boundary is now dynamically measured as well by
+`tools/ghidra/run_browser_scene_caller_probe.sh`. The resident
+`FUN_bfc16600` path calls the extracted GUI entry `0x40cd4e01` with
+`a0=0x6000`, the fixed fsel pointer `0x9fc15408`, and `a2=state+8`. Before
+the call, its `t8=0` initialization stores `state+24` at `state+16`; because
+`a2+8 == state+16`, the actual `path_info+8` value is nonzero. The dynamic
+probe catches this call at a RAM stub and verifies that the context word is
+exactly the initialized state pointer. The result is identical in community,
+stock, and V1.101.11 browser members.
+
+This proves that the refresh branch is reachable from this extracted browser
+scene caller. It still does not identify the semantic type of the fixed fsel
+object at `0x9fc15408` by itself, so the 20-byte record source must not yet be
+called a long-folder-name store. The remaining high-value step is to execute
+the real row callback with the caller's state layout and trace the provider's
+record/key fields before considering a name-source patch.
+
 The result is therefore a useful boundary, not a folder-scroll patch: the
 directory fix still needs the runtime directory-context value and a proven
 full-name source before changing the 50-byte slot.
