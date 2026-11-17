@@ -187,6 +187,7 @@ bash "$ROOT/tools/ghidra/run_decoder_callback_probe.sh"
 bash "$ROOT/tools/ghidra/run_mmm_bp_fade_probe.sh" "$ROOT/analysis/community/fw/mmm_bp.al"
 
 echo "[3/3] real MIPS16 scroll and folder-navigation probes"
+bash "$ROOT/tools/ghidra/run_now_playing_paint_probe.sh" "$ROOT/analysis/community/fw/music.ap"
 for mode in next previous redraw; do
   bash "$ROOT/tools/ghidra/run_scroll_probe.sh" "$AP" "$mode"
 done

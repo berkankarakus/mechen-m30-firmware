@@ -181,3 +181,23 @@ It changes one byte in `music.ap` and carries the already-tested now-playing
 `music.sty` artwork/icon resources; it does not modify `mengine.ap`, browser,
 indexer, or settings code.  The earlier paint-path-only candidate did not
 affect the visible marquee and is retained as an offline comparison only.
+
+## Dynamic paint boundary
+
+`tools/ghidra/run_now_playing_paint_probe.sh` executes the real MIPS16
+`FUN_40154ddc` from `music.ap` in Ghidra's p-code emulator. It redirects only
+the verified UI-dispatch literal at `0x40155324` and the zeroed state-flags
+pointer at `0x40155334` to temporary RAM; the AP bytes are not modified and no
+device image is produced.
+
+The minimal initial-paint case (`flags = 0x1`) reaches the UI dispatcher seven
+times and passes the real return path. This is the first dynamic contract for
+the UI work: three fixed-band/clear operations followed by the artwork control
+`0x1002` under the default state. It separates the now-playing geometry path
+from metadata scrolling, playback state, and artwork decoding.
+
+This is deliberately not a full LCD emulator. It does not claim that a font,
+resource, or artwork decode succeeded; it proves only the real paint entry's
+control-dispatch sequence and return boundary. The next high-value extension
+is to feed synthetic metadata/artwork state and trace the `0x100`, `0x200`,
+`0x400`, `0x800`, and `0x20` branches one at a time.
