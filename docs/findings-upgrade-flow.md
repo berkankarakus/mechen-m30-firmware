@@ -71,11 +71,23 @@ resource-name literals. It does not execute the overlay or write a candidate.
   path to the updater app. The five-option picker is a separate path:
   `FUN_40014d54` draws controls `0x2001`/`0x2000` and iterates the five option
   resources. This supports a separate confirmation window in the same update
-  flow, not a second label on the five-option screen. Its actual text-draw
-  API arguments, rectangle, and event/caller chain are still unresolved; no
-  corresponding RU3 TextBox geometry was found in `setting.sty`. The preview
-  trace labels text origin so example wording cannot be mistaken for device
-  output.
+  flow, not a second label on the five-option screen. Static decompilation
+  shows `FUN_489146e8` stores the text ID through `FUN_489149c8`; it prepares
+  control `0x1009` with state byte `1`, and a later path prepares `0x100a`
+  with a 250-byte field. `FUN_489149a8` calls through the pointer at
+  `0xbfc16589` with raw argument tuples `(0x18c3,0,0,0x14)` and
+  `(0,0,0,0x12)` on its observed call sites. `FUN_489149b0` calls through
+  `0x48a14601` with the `0x100a` record and another structure. The resident UI
+  API implementations are not in the extracted AP. The validation path
+  `FUN_40294cf8` calls `FUN_40294c00`, which
+  places `0x85` in a text-format structure and passes structures through
+  pointer slots `0x48614601` and `0x48ad47b1` (the latter receives control
+  `0x8001`). These raw values narrow the API boundary but do not establish
+  display coordinates or reliable API names. A p-code attempt did not run:
+  Ghidra could not locate the temporary `RunSettingConfirmProbe.java` script.
+  No corresponding RU3 TextBox geometry was found in `setting.sty`, so the
+  prompt rectangle and event/caller chain remain unresolved. The preview trace
+  labels text origin so example wording cannot be mistaken for device output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
