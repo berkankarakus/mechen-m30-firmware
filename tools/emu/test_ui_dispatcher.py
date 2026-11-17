@@ -46,9 +46,7 @@ class UiDispatcherTests(unittest.TestCase):
             {
                 "table_value": 0x8027,
                 "state_byte": 0x5A,
-                "byte_at_three": 0,
-                "reserved_word": 0,
-                "word_at_eight": 0,
+                "word_at_four": 0,
                 "semantics": "opaque metadata payload",
             },
         )

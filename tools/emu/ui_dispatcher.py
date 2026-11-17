@@ -55,17 +55,13 @@ class OpaqueMetadataPayload:
 
     table_value: int
     state_byte: int
-    byte_at_three: int = 0
-    reserved_word: int = 0
-    word_at_eight: int = 0
+    word_at_four: int = 0
 
     def trace(self) -> dict[str, int | str]:
         return {
             "table_value": self.table_value & 0xFFFF,
             "state_byte": self.state_byte & 0xFF,
-            "byte_at_three": self.byte_at_three & 0xFF,
-            "reserved_word": self.reserved_word & 0xFFFFFFFF,
-            "word_at_eight": self.word_at_eight & 0xFFFFFFFF,
+            "word_at_four": self.word_at_four & 0xFFFFFFFF,
             "semantics": "opaque metadata payload",
         }
 

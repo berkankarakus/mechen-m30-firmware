@@ -25,6 +25,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
     private static final long UI_STATE = RAM + 0x200;
     private static final long PLAY_STATE = RAM + 0x300;
     private static final long STACK = RAM + 0x3000;
+    private static final int STACK_SENTINEL = 0xa5;
 
     private Address addr(long value) throws Exception {
         return currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(value);
@@ -42,6 +43,12 @@ public class RunNowPlayingStateProbe extends GhidraScript {
 
     private void putByte(Memory memory, long address, int value) throws Exception {
         memory.setBytes(addr(address), new byte[] {(byte)value});
+    }
+
+    private void fill(Memory memory, long address, int length, int value) throws Exception {
+        byte[] bytes = new byte[length];
+        Arrays.fill(bytes, (byte)value);
+        memory.setBytes(addr(address), bytes);
     }
 
     private void expectWord(Memory memory, long address, long expected) throws Exception {
@@ -184,9 +191,9 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         if (a1 != a0 + 0x10
             || actualTableValue != expectedTableValue
             || actualMetadataByte != (metadataByte & 0xffL)
-            || actualByteAtThree != 0
+            || actualByteAtThree != STACK_SENTINEL
             || actualWordAtFour != 0
-            || actualWordAtEight != 0) {
+            || actualWordAtEight != 0xa5a5a5a5L) {
             throw new Exception(String.format(
                 "metadata payload mismatch index=%d a0=%s a1=%s table=%s/%s byte=%s byte3=%s word4=%s word8=%s",
                 metadataIndex,
@@ -232,6 +239,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         int metadataByte
     ) throws Exception {
         memory.setBytes(addr(RAM), new byte[0x4000]);
+        fill(memory, STACK - 0x100, 0x200, STACK_SENTINEL);
         int flag = flagFor(mode);
         putWord(memory, FLAGS, flag);
         putByte(memory, UI_STATE + 0x19, metadataIndex);

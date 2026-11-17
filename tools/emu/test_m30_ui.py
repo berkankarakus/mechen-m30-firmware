@@ -65,9 +65,8 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(payload["payload_pointer_offset"], 0x10)
         self.assertEqual(payload["state_byte"], 0x5A)
         self.assertEqual(payload["state_byte_source"], "state+0x0e")
-        self.assertEqual(payload["byte_at_three"], 0)
+        self.assertEqual(payload["word_at_four"], 0)
         self.assertEqual(payload["semantics"], "opaque metadata payload")
-        self.assertEqual(payload["word_at_eight"], 0)
 
     def test_metadata_trace_keeps_full_value_until_renderer_clip(self):
         ui = NowPlaying(

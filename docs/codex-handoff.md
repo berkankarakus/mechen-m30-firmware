@@ -72,10 +72,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   probe'u bu iki payload farkını üretiyor. Host değerleri AP'den okuyor,
   sabit anlam atamıyor.
 - Community, stock ve 2024-04-24 AP'lerinde metadata payload'ın ilk 12 byte'ı
-  ayrıca assertion ile kontrol ediliyor: `+0x03`, `+0x04` ve `+0x08` alanları
-  sıfır. Bu desen public SDK `textbox_private_t` yapısıyla güçlü bir yapısal
-  eşleşme gösteriyor; pointer/color semantiği kanıtlanmadığı için host'ta
-  opaque kalıyor.
+  sentinel-backed assertion ile kontrol ediliyor: firmware `+0x00`, `+0x02` ve
+  `+0x04` alanlarını yazıyor; `+0x03` ve `+0x08` probe sentinel'ını koruyor.
+  Bu, public SDK `textbox_private_t` yapısıyla sınırlı bir yapısal
+  karşılaştırma sağlıyor; pointer/color semantiği kanıtlanmadığı için host'ta
+  yalnızca yazıldığı kanıtlanan alanlar taşınıyor.
 - `tools/ghidra/run_now_playing_corpus_probe.sh <evidence-root>` aynı kontrolü
   dated corpus'taki tüm `music.ap` dosyalarına uygular. Son tam tarama 12/12
   imajda 8/8 metadata index'i geçti. Ghidra 12.2 için Java seçimi

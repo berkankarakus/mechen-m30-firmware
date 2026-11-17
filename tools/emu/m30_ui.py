@@ -567,9 +567,7 @@ class NowPlaying:
             "payload_pointer_offset": 0x10,
             "state_byte": state_byte & 0xFF,
             "state_byte_source": "state+0x0e",
-            "byte_at_three": 0,
-            "reserved_word": 0,
-            "word_at_eight": 0,
+            "word_at_four": 0,
             "semantics": "opaque metadata payload",
             "role": "draw_active_text",
         }

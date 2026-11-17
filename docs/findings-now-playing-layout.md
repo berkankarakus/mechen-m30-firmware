@@ -146,11 +146,12 @@ revisit it.
 
 The public SDK's `textbox_private_t` is a closer structural comparison:
 `uint16 str_id`, `int8 lang_id`, `uint8 reserve`, a pointer-sized word, and a
-color word.  The M30 p-code probe now checks the corresponding first 12 payload
-bytes in three corpora (community, stock, and 2024-04-24): the table halfword
-and copied byte vary as expected, while the byte at payload `+0x03` and words
-at `+0x04` and `+0x08` are zero in every case.  This is a strong layout
-correspondence, not proof that M30 uses the SDK type: the zero words have not
+color word.  A sentinel-backed M30 p-code probe now checks the corresponding
+first 12 payload bytes in the community, stock, and 2024-04-24 corpora.  The
+firmware writes the table halfword at `+0x00`, the copied byte at `+0x02`, and
+zero at `+0x04`.  The byte at `+0x03` and word at `+0x08` retain the probe's
+`0xa5` sentinel, so they are not initialized by this path.  This is useful
+layout evidence, not proof that M30 uses the SDK type: the zero word has not
 been observed at a renderer sink and cannot yet be called a string pointer or
 color.
 
@@ -286,12 +287,13 @@ value:  8027    004e    0024    0026    0028    0017    005d    001a
 ```
 
 `state + 0x19` selects one of these values for the metadata payload at
-`a0 + 0x10`; `state + 0x0e` is copied to `a0 + 0x12`, and `a0 + 0x14` remains
-zero in the isolated path. The `metadata-table` p-code case walks all eight
-indices and injects `0x5a` into `state + 0x0e`. The reusable
+`a0 + 0x10`; `state + 0x0e` is copied to `a0 + 0x12`, and `a0 + 0x14` is
+explicitly written as zero in the isolated path. The `metadata-table` p-code
+case walks all eight indices and injects `0x5a` into `state + 0x0e`. The reusable
 `tools/ghidra/run_now_playing_corpus_probe.sh` wrapper now runs that check
 against all twelve dated `music.ap` images; all twelve images pass all eight
-indices and the zero-field assertions. A corpus scan found the standard table
+indices, including the initialized-field and sentinel-preservation assertions.
+A corpus scan found the standard table
 in ten images. The `2024-04-24` AP is a real revision boundary:
 indices 1 and 6 are `0x004f` and `0x005e` instead of `0x004e` and `0x005d`, and
 the p-code probe emits those changed values. The host model therefore reads
