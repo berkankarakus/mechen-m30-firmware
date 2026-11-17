@@ -195,9 +195,15 @@ The paint branch's control sequence is also useful for the host preview:
 resource still contains PicBoxes 0 and 1, but this refresh function does not
 select their controls. The host preview models the observed global header
 overlay separately, using those two real `music.sty` frames and TextBox 5 for
-the EQ label. The speaker, storage, play, and battery icons are also real
-RGB565 resources from `common.sty` (resources 3, 18, 2, and 27); they are not
-hand-drawn and their exact AP status-selection path remains unresolved.
+the EQ label. Header status assets are real RGB565 resources from `common.sty`:
+the speaker is resource 3 at `(3,2)`. The supplied device photo's card/play/
+battery state matches PicBox/frame pairs `(2,2)`, `(3,2)`, and `(1,6)`, which
+resolve to resources `35`, `2`, and `31` at their recorded PicBox positions
+`(247,0)`, `(267,0)`, and `(287,0)`. These replace the earlier manually
+selected resources/positions in the host preview. The resource references
+carry a high-bit flag, which the host strips before bitmap lookup. The
+photo-backed frame choices are now explicit host inputs; the exact AP status
+selection path remains unresolved.
 
 The metadata glyphs are part of the stable row layout in the host model and
 replace the literal label text at a common x alignment; the value viewports
