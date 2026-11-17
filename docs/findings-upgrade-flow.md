@@ -1,16 +1,45 @@
 # M30 upgrade-screen and updater boundary
 
 This note separates what is proven from the remaining updater state machine.
-All six local extracted corpora have the same `upgrade.ap` SHA-256
-(`fdcf3a4facf1321b2727614dc6be4340adf0b555428af1fc274dde084d1876d7`), and
-also share the same `upgrade.sty` and `common.sty`. The evidence below is
-therefore not specific to the community build only.
+The six historical local corpora share one `upgrade.ap` SHA-256
+(`fdcf3a4facf1321b2727614dc6be4340adf0b555428af1fc274dde084d1876d7`), but
+the dated twelve-image corpus contains eight distinct `upgrade.ap` hashes.
+The probe below passes against all twelve dated images, so the structural
+screen boundary is not specific to one community build or one AP variant.
+The dated images also share the same `upgrade.sty` and `common.sty` boundary
+used by the host preview.
+
+The dated hash groups are recorded here so a future corpus refresh can detect
+which AP variant changed without retaining temporary decompiler projects:
+
+| dated images | `upgrade.ap` SHA-256 prefix |
+|---|---|
+| 2022-08-05 | `d6376e11cbbf6c05...` |
+| 2022-08-16 | `1e0c40e2c380aa6f...` |
+| 2022-09-14 | `1cd17d9c572609a0...` |
+| 2022-11-17 | `5071cdfc78449f56...` |
+| 2022-12-16, 2023-02-20, 2025-02-17 | `1d5f7c93658da21...` |
+| 2023-07-26, 2024-03-19, 2025-06-26 | `fdcf3a4facf1321...` |
+| 2024-02-28 | `d29f7d33f7b31210...` |
+| 2024-04-24 | `7a9bc6d64442e76c...` |
 
 ## Reproduce the static boundary
 
 ```sh
 bash tools/ghidra/run_upgrade_ap_probe.sh analysis/community/fw/upgrade.ap
 ```
+
+To repeat the cross-version check without retaining temporary Ghidra projects:
+
+```sh
+bash tools/ghidra/run_upgrade_ap_corpus_probe.sh \
+  /Users/berkan/Projects/mechen-m30-evidence
+```
+
+The current run reports `UPGRADE CORPUS PASS images=12`. It verifies the same
+entry point, five-iteration screen loop, and `upgrade.sty`/`common.sty`
+resource-name literals in every dated image; it does not claim that the
+unresolved indirect selectors have the same kernel meaning.
 
 The probe maps the real AP bank table with `LoadAP.java`, decompiles only the
 small set of upgrade entry/screen/file-boundary functions, and checks the
@@ -40,7 +69,7 @@ resource-name literals. It does not execute the overlay or write a candidate.
   raw offsets and rules without invoking the callback or inventing a
   progress-bar resource.
 
-## Proven updater boundary, not yet modeled as behavior
+## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
   `0x10`, `0x33`, and `0x4a`; its failure path issues selectors `0x11` and
@@ -65,10 +94,10 @@ the indirect calls have not proved. Its trace includes explicit provenance and
 forbids `flash`, `reboot`, and `successful-update` events; it is therefore a
 testable boundary model rather than an updater emulator.
 
-## Emulator boundary
+## Trace-only emulator boundary
 
-The next implementation step is a trace-only state model for the verified
-screen loop and preflight outcomes. It may expose `select`, `confirm-request`,
-`decrypt-error`, and `search-complete` only after the corresponding indirect
-call return values are mapped. It must not emulate a successful flash, power
-off, or reboot from these strings alone.
+`tools/emu/upgrade_flow.py` is the deliberately limited state model for the
+verified screen/preflight boundary. It exposes `select`, `confirm-request`,
+`decrypt-error`, and `search-complete`, plus raw known/unknown selector events,
+without enforcing an unproven AP event order. It must not emulate a successful
+flash, power-off, or reboot from these strings alone.

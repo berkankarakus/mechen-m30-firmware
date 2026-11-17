@@ -167,6 +167,7 @@ bash "$ROOT/tools/ghidra/run_browser_refresh_pcode_probe.sh" "$ROOT/analysis/com
 bash "$ROOT/tools/ghidra/run_browser_scene_caller_probe.sh" "$ROOT/analysis/community/fw/browser.ap"
 bash "$ROOT/tools/ghidra/run_browser_row_provider_probe.sh" "$ROOT/analysis/community/fw/browser.ap"
 bash "$ROOT/tools/ghidra/run_folder_nav_probe.sh"
+bash "$ROOT/tools/ghidra/run_upgrade_ap_probe.sh" "$ROOT/analysis/community/fw/upgrade.ap"
 bash "$ROOT/tools/ghidra/run_kernel_bank_boundary_probe.sh" "$FW/kernel.drv"
 bash "$ROOT/tools/ghidra/run_kernel_loader_probe.sh" "$FW/kernel.drv"
 bash "$ROOT/tools/ghidra/run_kernel_loader_refs_probe.sh" "$FW/kernel.drv"

@@ -27,6 +27,13 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ve `kernel.drv` içinde sıfır MIPS16 `break` noktası doğrular. Selector
   dispatcher'ı bu extracted kernel üyelerinde yoktur; `break 0` etkisi fixed
   ROM sınırında kalır.
+- Upgrade sınırı da artık on iki dated `upgrade.ap` imajında tekrarlandı:
+  `0x40014c30` entry, beş iterasyonlu screen loop'u ve `upgrade.sty`/
+  `common.sty` resource-name literal'ları bütün corpus'ta aynı kaldı.
+  `tools/ghidra/run_upgrade_ap_corpus_probe.sh` bunu geçici Ghidra çıktısını
+  saklamadan yeniden üretir. `tools/emu/upgrade_flow.py` selector ve
+  decrypt/search olaylarını trace-only taşır; fixed-ROM anlamı çözülmeden
+  flash/reboot/success iddiası üretmez.
 - `tools/sim/usound_callback.py` doğrulanmış selector + dört argüman callback
   zarfını kaydeder; fixed-ROM service etkisini ve bilinmeyen selector'ları
   fail-closed bırakır.

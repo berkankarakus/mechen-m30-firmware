@@ -28,7 +28,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
 | P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
 | P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | selector `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
-| P1 | Upgrade | `upgrade.ap` state machine’ini input/progress/search/decrypt callback’leriyle trace-only yürüt | ekran olayları ve rollback sınırı; flash/reboot çağrısı bilinçli olarak stub kalır |
+| P1 | Upgrade | trace-only screen/preflight sınırı tamamlandı; sırada indirect callback return'leri | ekran olayları ve rollback sınırı host'ta var; flash/reboot çağrısı bilinçli olarak stub kalır |
 | P1 | MUSIC.LIB metadata | gerçek writer/reader fonksiyonlarını RAM-backed `MUSIC.LIB` üzerinde yürüt | record alanları, tie-break ve sayaç için güvenli kalıcı alan adayı |
 | P2 | Key/screen-off | gerçek key/common-filter path’ine event dizileri enjekte et | wake/media-key ayrımı, debounce/repeat state ve ekran açılma nedeni |
 | P2 | SD/index trigger | card/USB/file-system callback’lerini gerçek scan caller’larına bağla | indekslemenin kart takma, boot ve USB event’lerinden hangisiyle tetiklendiği |
@@ -44,12 +44,13 @@ denemesi anlamına gelmez.
    salt-okunur cihaz gözlemi olmadan tamamlanmış kabul etme. Önce yeni bir
    extracted üye içinde handler/provider kopyası var mı tekrar doğrula; yoksa
    `selector=0x10` etkisini fail-closed bırak.
-2. **Upgrade akışını trace-only modelle:** doğrulanmış beş seçenekli ekran,
-   `FUN_40014c30` selector'ları, decrypt/search metinleri ve
-   `FUN_bfc37408` ilerleme normalizer'ı üzerinden `select`,
-   `confirm-request`, `decrypt-error`, `search-complete` olaylarını ekle.
-   Indirect return değerleri çözülmeden `flash`, `reboot` veya başarılı update
-   olayı üretme.
+2. **DONE — upgrade akışını trace-only modelle:** doğrulanmış beş seçenekli
+   ekran, `FUN_40014c30` selector'ları, decrypt/search metinleri ve
+   `FUN_bfc37408` ilerleme normalizer'ı `tools/emu/upgrade_flow.py` ve
+   `tools/emu/upgrade_ui.py` içinde sınırlandırılmış olarak taşınıyor.
+   `run_upgrade_ap_corpus_probe.sh` bu ekran/selector sınırını on iki dated
+   imajda doğruluyor. Indirect return değerleri çözülmeden `flash`, `reboot`
+   veya başarılı update olayı üretilmiyor.
 3. **Now-playing UI adayını paketlemeden önce delta kapısını güçlendir:**
    initial paint ve `0x100`/`0x20`/`0x200`/`0x800` state dalları üç firmware
    ailesinde dinamik doğrulandı. Sıradaki iş gerçek resource/font/LCD sink

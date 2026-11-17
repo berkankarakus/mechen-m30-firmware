@@ -31,6 +31,10 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
+if grep -q 'ERROR REPORT SCRIPT ERROR' "$WORK/ghidra.log"; then
+  echo "Ghidra script reported an error; upgrade probe is not considered a pass" >&2
+  exit 1
+fi
 
 # These checks are deliberately narrow: they assert the screen loop and
 # resource names, but do not assign meanings to unresolved indirect calls.
