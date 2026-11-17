@@ -12,6 +12,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | P1 | MUSIC.LIB sort/index | stock MIPS/QEMU sıralama, refinement ve node yazımı cihaz sırasını seeded-rank koşusunda üretiyor; converter stub'ı ve seedless zincir açık. Kalan tek node-count sapması Indelible/Indelible’ eşitlik kuralı; scratchpad koşusunu repo içinde yeniden üretilebilir yapıp bu tek çifti sınamak |
 | P1 | USB-DAC | UAC1 descriptor yaması host modelinde doğrulandı; EP0 p-code çalıştı. Sırada descriptor-patch p-code koşusunu repo içine almak, FW-info yolunu çözmek ve modül `0x10` sonrasında PCM/DAC sahipliğini ayırmak |
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
+| P1 | EQ'nin duyulabilir yolu | Deneysel Custom eğri cihazda Off'tan farklı duyulmadı; `aud_dev` bank-5 girişi 16 adet 8-byte band kaydını çalışma yapısına taşıyor, fakat ROM dispatch ve son DSP/DAC kullanımı belirsiz. Sabit eğriyi değiştirmeden önce message → shared structure → `aud_dev` → DSP/DAC sınırını bağla |
 | P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |
 | P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
 | P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |

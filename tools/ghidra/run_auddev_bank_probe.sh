@@ -52,7 +52,9 @@ grep -q 'DumpAt: 00009400 -> FUN_00009400 @ 00009400' "$WORK/run.log"
 grep -q 'undefined4 FUN_00009400(uint param_1,int \*param_2)' "$WORK/bank5.c"
 grep -q 'param_2 + 4' "$WORK/bank5.c"
 grep -q 'iStack_24 < 0x10' "$WORK/bank5.c"
+grep -Fq '(*_UNK_000098fc)(_UNK_000098f8 + iStack_24 * 2 + 0x25,piStack_14,8,0);' "$WORK/bank5.c"
+grep -Fq 'piStack_14 = piStack_14 + 2;' "$WORK/bank5.c"
 grep -q 'param_2 + 0x31' "$WORK/bank5.c"
 grep -q 'iVar9 = 0xac44' "$WORK/bank5.c"
 
-echo 'AUDDEV BANK5 GHIDRA PASS file=0x1f00+0x600 entry=0x9400 module-slot=0x0c bank=5 bands=16 rate-fix=44000-to-44100'
+echo 'AUDDEV BANK5 GHIDRA PASS file=0x1f00+0x600 entry=0x9400 module-slot=0x0c bank=5 bands=16 source=param+0x10/stride8 destination=state+0x94/stride8 copy-flag=0 rate-fix=44000-to-44100'

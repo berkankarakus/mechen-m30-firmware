@@ -63,16 +63,36 @@
   inference because the fixed-ROM dispatcher is unavailable. Therefore this
   is evidence that the EQ structure reaches an aud_dev consumer, but it does
   not prove the ROM dispatch rule or audible DSP effect.
+- Dynamic-reanalysis detail: `run_auddev_bank_probe.sh` maps the real bank-5
+  entry at file `0x1f00`, VA `0x9400`, and confirms its `param_1 == 1` path
+  iterates over 16 records. For each record, it calls the indirect helper at
+  `0x98fc` with source `param_2 + 0x10 + 8*i`, destination
+  `_UNK_98f8 + 0x94 + 8*i`, length 8, and flag 0. This is structurally
+  consistent with copying the engine's 8-byte band records into an
+  audio-device working structure. The helper's ROM implementation, dispatch
+  into this entry, later hardware/DSP use, and audible effect remain
+  unresolved. Do not treat the copy boundary as proof of playback.
+- Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
+  the user reported no audible difference between `Custom` and `Off`; a
+  supplied EQ-screen photo shows all seven displayed sliders at the 0 dB
+  line. The exact listening conditions and a controlled built-in-preset
+  comparison were not recorded. The image patch redirects the music producer's
+  source pointer but does not change the separate settings/UI data path, so
+  flat displayed sliders are compatible with the patched producer sending a
+  different fixed curve. This does not establish whether the candidate was
+  active at playback or whether its coefficients reached the audible output.
+  Treat the device result as a negative report, not a verified DSP failure;
+  resolve the message-to-aud_dev/DSP/hardware path before tuning gains again.
 - Data-only preset tuning is the lowest-risk firmware experiment currently
   identified, but it is not validated as safe. Existing gain values are signed
   bytes and the builder scales them by 10; interpreting them as dB is an
-  inference. Keep candidate values within the range already present in the
-  vendor's presets/custom default, change one byte first, preserve the original
-  image, and verify repackaging checksums before any device test. No such image
-  patch or flash test has been performed. The Q table's physical units and the
-  DSP's clipping limits remain unknown. The 50 Hz first-band value in the
-  2024-04-24 image proves that value was shipped in that image, not that it is
-  safe on another revision or hardware path.
+  inference. The experimental Custom curve was packaged and reportedly tried,
+  but produced no perceived difference from Off; its test conditions are not
+  sufficiently controlled to locate the failure. Do not tune another curve
+  before resolving the producer-to-audio-consumer path. The Q table's physical
+  units and the DSP's clipping limits remain unknown. The 50 Hz first-band
+  value in the 2024-04-24 image proves that value was shipped in that image,
+  not that it is safe on another revision or hardware path.
 - V Negative corpus scan: the module 0x42 stub, command 0x1f, and EQ shared
   structure references are present in `mengine.ap`; the code that receives
   module 0x42 is absent from the scanned AP/driver/DSP corpus and is expected
