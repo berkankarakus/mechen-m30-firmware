@@ -216,6 +216,26 @@ called a long-folder-name store. The remaining high-value step is to execute
 the real row callback with the caller's state layout and trace the provider's
 record/key fields before considering a name-source patch.
 
+The row callback/provider boundary is now executed by
+`tools/ghidra/run_browser_row_provider_probe.sh`. It runs the real
+`FUN_48714a20` and `FUN_48594510` functions while stubbing only the resident
+file helper and fixed-ROM converter. For row `2`, the observed calls are:
+
+| Stage | Runtime observation |
+|---|---|
+| provider seek | offset `2 * 0x14 = 0x28` |
+| provider record read | length `0x14`, mode `0x11` |
+| converter destination | `entry+8+2`, after the callback writes `FF FE` |
+| converter bound | `0x1c` |
+
+The same chain passes in community, stock, and V1.101.11. This proves that
+the conditional refresh path can overwrite the directory entry's visible
+name slot from a 20-byte row record before the UI marquee sees it. It does
+not prove that the record is a long filename: the fixed fsel/list-state
+object and the record fields still need semantic identification. Enlarging
+the slot or changing the converter bound remains unsafe until that ownership
+question is closed.
+
 The result is therefore a useful boundary, not a folder-scroll patch: the
 directory fix still needs the runtime directory-context value and a proven
 full-name source before changing the 50-byte slot.
