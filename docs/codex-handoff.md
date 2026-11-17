@@ -67,7 +67,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `a1=0` biçimini community/stock AP'lerinde doğruluyor. `metadata-table`
   dalı `state+0x19` ile seçilen sekiz op-`0x03` payload değerini ve
   `state+0x0e` byte kopyasını aynı corpus'larda doğruluyor; değerler host'ta
-  opaque tutuluyor.
+  opaque tutuluyor. 12-image taramasında 10 tablo aynı; `2024-04-24` sürümü
+  indeks 1 ve 6'yı `0x004f`/`0x005e` olarak değiştiriyor ve gerçek p-code
+  probe'u bu iki payload farkını üretiyor. Host değerleri AP'den okuyor,
+  sabit anlam atamıyor.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan
