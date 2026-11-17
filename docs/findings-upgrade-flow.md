@@ -83,11 +83,14 @@ resource-name literals. It does not execute the overlay or write a candidate.
   places `0x85` in a text-format structure and passes structures through
   pointer slots `0x48614601` and `0x48ad47b1` (the latter receives control
   `0x8001`). These raw values narrow the API boundary but do not establish
-  display coordinates or reliable API names. A p-code attempt did not run:
-  Ghidra could not locate the temporary `RunSettingConfirmProbe.java` script.
-  No corresponding RU3 TextBox geometry was found in `setting.sty`, so the
-  prompt rectangle and event/caller chain remain unresolved. The preview trace
-  labels text origin so example wording cannot be mistaken for device output.
+  display coordinates or reliable API names. The first p-code attempt could
+  not locate its temporary script. After moving the probe into Ghidra's
+  configured script path, execution entered `FUN_489146e8` and returned from
+  the local mode helper, then stopped with an MIPS16 decode failure at
+  `0x48914709`, before any UI API call was captured. No corresponding RU3
+  TextBox geometry was found in `setting.sty`, so the prompt rectangle and
+  event/caller chain remain unresolved. The preview trace labels text origin
+  so example wording cannot be mistaken for device output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
