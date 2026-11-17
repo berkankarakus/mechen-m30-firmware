@@ -2,6 +2,7 @@ import struct
 import unittest
 
 from library_index_sort import (
+    INDEX_TEXT_CONVERSION_STOP_ZERO,
     derive_section_run_lengths,
     deepest_group_indices_from_runs,
     group_indices_from_runs,
@@ -68,6 +69,24 @@ class LibraryIndexSortTests(unittest.TestCase):
         self.assertEqual(
             refine_sort_record_indices(records, "ALLSONG"),
             (5, 1, 2, 3, 4, 0, 6, 7, 8, 9),
+        )
+
+    def test_stop_zero_conversion_is_explicitly_opt_in(self):
+        records = (
+            make_record(
+                title=b"\xff\xfe" + "03. Şiraze".encode("utf-16-le")
+            ),
+            make_record(title=b"03. '94 Ghost\0"),
+        )
+
+        self.assertEqual(refine_sort_record_indices(records, "ALLSONG"), (1, 0))
+        self.assertEqual(
+            refine_sort_record_indices(
+                records,
+                "ALLSONG",
+                conversion_mode=INDEX_TEXT_CONVERSION_STOP_ZERO,
+            ),
+            (0, 1),
         )
 
     def test_non_first_section_requires_previous_rank(self):

@@ -150,6 +150,24 @@ file, while the candidate conversion puts the latter group first. This is
 still isolated to the unresolved U+0308/UTF-16 conversion edge case, not the
 album comparator or track ordering.
 
+An explicitly experimental `stop-zero` conversion mode is available for this
+edge case:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_tie_refinement_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88 \
+  stop-zero
+```
+
+On the 4,000-record SD image it produces `ALLSONG` 3,994/4,000 and `ALBUM`
+4,000/4,000, while `ARTIST` and `GENRE` stay at 3,944/4,000 and 4,000/4,000.
+The 251-record public sample is unchanged by the mode. This is stronger
+corpus evidence for a cleared conversion tail, but it remains opt-in until a
+stock harness or another independent player-built image confirms the kernel
+behavior; the default model continues to use `stale-tail`.
+
 This is still a differential probe, not a firmware writer or a replacement
 for QEMU execution. The existing QEMU MIPS probe scripts remain the next
 machine-local validation step when QEMU user-mode is available.

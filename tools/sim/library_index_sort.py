@@ -18,6 +18,8 @@ SECTION_SPECS = {
 MAX_REFINEMENT_SLICE = 100
 REFINEMENT_BUDGET = 0x10000
 STOCK_INSERTION_LIMIT = 8
+INDEX_TEXT_CONVERSION_STALE_TAIL = "stale-tail"
+INDEX_TEXT_CONVERSION_STOP_ZERO = "stop-zero"
 
 
 def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
@@ -38,6 +40,51 @@ def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
             break
 
     return bytes(buffer[:width])
+
+
+def _convert_index_text_stop_zero(record: bytes, offset: int, width: int) -> bytes:
+    """Try the observed alternative: stop at a non-byte UTF-16 character.
+
+    This mode is experimental. It is kept separate because the decompiled
+    kernel call does not expose whether the destination tail is cleared before
+    conversion, while the device order strongly favors a cleared tail for a
+    few U+0100-and-above names.
+    """
+    field = record[offset : offset + width]
+    if field[:2] != b"\xff\xfe":
+        return bytes(field)
+
+    source = record[offset + 2 : offset + 2 + 2 * width]
+    converted = bytearray(width)
+
+    for index in range(width):
+        character_bytes = source[2 * index : 2 * index + 2].ljust(2, b"\0")
+        character = character_bytes[0] | (character_bytes[1] << 8)
+
+        if character >= 256:
+            break
+
+        converted[index] = character
+
+        if character == 0:
+            break
+
+    return bytes(converted)
+
+
+def _select_index_text_converter(
+    conversion_mode: str,
+) -> Callable[[bytes, int, int], bytes]:
+    if conversion_mode == INDEX_TEXT_CONVERSION_STALE_TAIL:
+        return _convert_index_text
+
+    if conversion_mode == INDEX_TEXT_CONVERSION_STOP_ZERO:
+        return _convert_index_text_stop_zero
+
+    raise ValueError(
+        "unsupported MUSIC.LIB index text conversion mode: "
+        f"{conversion_mode}"
+    )
 
 
 def _compare_text(left: bytes, right: bytes) -> int:
@@ -213,6 +260,8 @@ def refine_sort_record_indices(
     records: Sequence[bytes],
     section_name: str,
     previous_rank: Sequence[int] | None = None,
+    *,
+    conversion_mode: str = INDEX_TEXT_CONVERSION_STALE_TAIL,
 ) -> tuple[int, ...]:
     """Apply the recovered stock sort and bounded tie refinement.
 
@@ -232,8 +281,9 @@ def refine_sort_record_indices(
     if section_number and (previous_rank is None or len(previous_rank) != len(records)):
         raise ValueError("non-first section sorting requires one previous rank per record")
 
+    convert_index_text = _select_index_text_converter(conversion_mode)
     keys = tuple(
-        _convert_index_text(record, field_offset, field_width)
+        convert_index_text(record, field_offset, field_width)
         for record in records
     )
 

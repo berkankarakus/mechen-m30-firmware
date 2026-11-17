@@ -20,6 +20,7 @@ TOOLS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_ROOT / "sim"))
 
 from library_index_sort import (
+    INDEX_TEXT_CONVERSION_STALE_TAIL,
     SECTION_SPECS,
     refine_sort_record_indices,
 )
@@ -48,6 +49,7 @@ def _inverse_rank(order: Sequence[int], record_count: int) -> tuple[int, ...]:
 def compare_library(
     data: bytes,
     expected_sha256: str | None = None,
+    conversion_mode: str = INDEX_TEXT_CONVERSION_STALE_TAIL,
 ) -> dict[str, object]:
     actual_sha256 = hashlib.sha256(data).hexdigest()
 
@@ -70,6 +72,7 @@ def compare_library(
             records,
             section_name,
             previous_rank=previous_rank,
+            conversion_mode=conversion_mode,
         )
         matching_entries = sum(
             actual_index == candidate_index
@@ -96,16 +99,25 @@ def compare_library(
         "bytes": len(data),
         "sha256": actual_sha256,
         "record_count": record_count,
+        "conversion_mode": conversion_mode,
         "sections": sections,
     }
 
 
-def main(path: Path, expected_sha256: str | None) -> None:
-    summary = compare_library(path.read_bytes(), expected_sha256)
+def main(
+    path: Path,
+    expected_sha256: str | None,
+    conversion_mode: str,
+) -> None:
+    summary = compare_library(
+        path.read_bytes(),
+        expected_sha256,
+        conversion_mode,
+    )
     print(
         "MUSIC.LIB TIE REFINEMENT PROBE PASS "
         f"bytes={summary['bytes']} records={summary['record_count']} "
-        f"sha256={summary['sha256']}"
+        f"sha256={summary['sha256']} conversion={summary['conversion_mode']}"
     )
 
     for section_name, section in summary["sections"].items():
@@ -117,13 +129,18 @@ def main(path: Path, expected_sha256: str | None) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (2, 3):
+    if len(sys.argv) not in (2, 3, 4):
         raise SystemExit(
-            "usage: library_tie_refinement_probe.py MUSIC.LIB [EXPECTED_SHA256| -]"
+            "usage: library_tie_refinement_probe.py MUSIC.LIB "
+            "[EXPECTED_SHA256| -] [stale-tail|stop-zero]"
         )
 
     expected_sha256 = None
     if len(sys.argv) == 3 and sys.argv[2] != "-":
         expected_sha256 = sys.argv[2]
 
-    main(Path(sys.argv[1]), expected_sha256)
+    conversion_mode = INDEX_TEXT_CONVERSION_STALE_TAIL
+    if len(sys.argv) == 4:
+        conversion_mode = sys.argv[3]
+
+    main(Path(sys.argv[1]), expected_sha256, conversion_mode)
