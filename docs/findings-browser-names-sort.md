@@ -236,6 +236,34 @@ The result is therefore a useful dynamic boundary, not a folder-scroll patch:
 the directory fix still needs a proven full-name source and ownership of the
 fsel/list-state record before changing the 50-byte slot.
 
+### Directory callback runtime boundary
+
+`tools/ghidra/run_browser_directory_name_probe.sh` now executes the real
+`FUN_71352820` directory callback with only its filesystem/provider pointers
+redirected to RAM stubs. A three-case matrix covers the callback's before,
+inside, and after current-index branches:
+
+```text
+case    current start rows provider-db-calls
+before        0     5    1                6
+inside        5     4    3                7
+after         8     5    1                6
+```
+
+All three cases pass the same `row-stride=0xc`, `slot=0x32`, `fs-length=25`,
+`fs-mode=2`, and `converter-limit=0x4` checks.
+
+The callback consumes one 12-byte row descriptor, reads the name into the
+row's destination with a 25-UTF-16-unit filesystem request (`0x32 >> 1`),
+then runs the in-AP `FUN_71352ab0` 8.3 formatter before calling the final
+converter with a four-byte limit. With a synthetic `FILE    TXT` response,
+the exact fixed-buffer bytes are `FILE.TXT\0TXT`: the visible C string is
+converted, while bytes after its terminator remain in the 12-byte slot.
+The host helper `format_directory_83_name()` preserves this byte-level
+boundary and leaves BOM-prefixed names unchanged. This confirms the
+directory-side name preparation path without claiming that the missing
+resident filesystem provider returns long filenames.
+
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
   (`FUN_71352820` + fsel enter-dir/count code at 0x71352500 bank) plus an index map from sorted position to FS entry

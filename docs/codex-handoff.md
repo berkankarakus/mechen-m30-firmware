@@ -48,6 +48,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x200`/`0x800` dalları üç firmware ailesinde gerçek kodla çalıştırıldı.
   Sıra sırasıyla `0x2005`, `0x1004`/`0x1003`, `0x1000`/`0x1001` kontrol
   kimlikleriyle doğrulandı; decoder/DAC çağrısı bu sınırda yok.
+- Directory callback matrix probe'u `FUN_71352820` için before/inside/after
+  current-index dallarını çalıştırdı. Üç dalda da 0x0c row stride, 0x32-byte
+  slot, 25-unit FS çağrısı, mode 2 ve 0x4 converter limiti aynı kaldı; yalnızca
+  provider preflight çağrı sayısı dal konumuna göre değişti.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan

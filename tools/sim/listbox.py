@@ -140,6 +140,43 @@ def directory_slot_text(name: str) -> str:
     return "".join(visible)
 
 
+def format_directory_83_name(raw_name: bytes) -> bytes:
+    """Apply the recovered M30 8.3 display conversion to one 12-byte slot.
+
+    ``FUN_71352ab0`` leaves BOM-prefixed names untouched. For a plain 8.3
+    result it inserts a dot after the space-trimmed eight-byte stem and
+    terminates the visible string, while preserving the fixed 12-byte
+    destination. The bytes after the terminator are intentionally retained.
+    """
+    if len(raw_name) != 12:
+        raise ValueError("directory 8.3 names must occupy exactly 12 bytes")
+
+    if raw_name[:2] == b"\xff\xfe":
+        return bytes(raw_name)
+
+    converted = bytearray(raw_name)
+    for index in range(11, 8, -1):
+        converted[index] = converted[index - 1]
+
+    stem_end = 7
+    while stem_end > 0 and converted[stem_end] == 0x20:
+        stem_end -= 1
+
+    output_end = stem_end + 1
+    converted[output_end] = 0x2E
+
+    for index in range(9, 12):
+        if converted[index] != 0x20:
+            output_end += 1
+            converted[output_end] = converted[index]
+
+    if converted[output_end] != 0x2E:
+        output_end += 1
+
+    converted[output_end] = 0
+    return bytes(converted)
+
+
 def prepare_marquee_utf16(buffer: bytes) -> bytes:
     """Prepare the bounded UTF-16 stream consumed by the marquee state.
 

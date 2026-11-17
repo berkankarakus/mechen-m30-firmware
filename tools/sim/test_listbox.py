@@ -18,6 +18,7 @@ from listbox import (
     firmware_name_capacity_bytes,
     firmware_name_payload_bytes,
     directory_slot_text,
+    format_directory_83_name,
     marquee_frame,
     needs_active_scroll,
     prepare_marquee_utf16,
@@ -52,6 +53,17 @@ class DirectoryListboxTests(unittest.TestCase):
     def test_directory_slot_does_not_split_non_bmp_character(self):
         prepared = directory_slot_text("A" * 22 + "😀B")
         self.assertEqual(prepared, "A" * 22)
+
+    def test_directory_83_name_conversion_matches_the_runtime_boundary(self):
+        converted = format_directory_83_name(b"FILE    TXT\0")
+
+        self.assertEqual(converted[:9], b"FILE.TXT\0")
+        self.assertEqual(converted, b"FILE.TXT\0TXT")
+
+    def test_directory_83_name_keeps_bom_prefixed_payload_unchanged(self):
+        raw_name = b"\xff\xfe\x41\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+        self.assertEqual(format_directory_83_name(raw_name), raw_name)
 
     def test_experimental_64_byte_layout_fits_the_page_but_overlaps_path_info(self):
         slot_bytes, used = experimental_name_layout()
