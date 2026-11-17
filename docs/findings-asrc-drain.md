@@ -47,3 +47,12 @@ an audibility-neutral model, not an audible playback pass.
 The other V1.101.11 `music.ap` changes at offsets around `0x1150c` and
 `0x120e0` are not yet assigned a playback meaning. They remain outside this
 probe until their callers and device-facing effects are identified.
+
+## Dinamik probe sınırı
+
+`FUN_40494e94` çevresindeki callback havuzu, bank sonundaki kod/veri
+örtüşmesi nedeniyle doğrudan RAM callback'lerine güvenle yönlendirilemedi:
+Ghidra, bazı literal görünen adresleri aynı zamanda tanımlı instruction/function
+olarak işaretliyor ve yazma denemesi gerçek kodla çakışıyor. Bu nedenle mode-4
+dinamik yürütme sonucu üretilmedi; statik altı-byte delta ve host control-flow
+modeli geçerli kanıt sınırı olarak korunuyor.

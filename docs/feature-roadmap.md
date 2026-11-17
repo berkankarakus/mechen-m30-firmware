@@ -51,16 +51,22 @@ denemesi anlamına gelmez.
    Indirect return değerleri çözülmeden `flash`, `reboot` veya başarılı update
    olayı üretme.
 3. **Now-playing UI adayını paketlemeden önce delta kapısını güçlendir:**
-   yalnızca `music.sty`/gerçek kaynak üyeleri üzerinde değişen byte'ları,
-   boyutları, checksum'ları ve rollback kaynağını karşılaştır; host PNG'sini
-   firmware çalışması gibi raporlama.
+   initial paint ve `0x100`/`0x20`/`0x200`/`0x800` state dalları üç firmware
+   ailesinde dinamik doğrulandı. Sıradaki iş gerçek resource/font/LCD sink
+   çağrılarını bağlamak; yalnızca `music.sty`/gerçek kaynak üyeleri üzerinde
+   değişen byte'ları, boyutları, checksum'ları ve rollback kaynağını
+   karşılaştır; host PNG'sini firmware çalışması gibi raporlama.
 4. **QEMU kapsamını gerçekçi şekilde genişlet:** sabit exception handler veya
    ROM kanıtı gelirse CP0/stack handoff ve overlay-entry probe'u ekle; bu kanıt
    yokken tam ATJ2127 boot/machine modeline yatırım yapma.
 5. **Ses tarafını sınırda tut:** `usound` producer/consumer ve DAC byte
    transferi geçişlerini birlikte trace et; decoder/DSP/ASRC/DAC'ın audible
    etkisi kanıtlanmadan USB-DAC, gapless veya fade-out sonucu çıkarma.
-6. **Düşük öncelikli işler:** MUSIC.LIB metadata yeniden kurma/tie-break,
+6. **EOF dinamik probe sınırı:** `FUN_40494e94` çevresindeki bank sonu
+   kod/veri örtüşmesi nedeniyle callback literal'lerini güvenle RAM'e
+   yönlendiren bir p-code probe kurulamadı. Mode-4 sonucu bu nedenle mevcut
+   statik delta ile sınırlı; yanlış patch üretme.
+7. **Düşük öncelikli işler:** MUSIC.LIB metadata yeniden kurma/tie-break,
    sayaç kalıcılığı, yeni EQ presetleri ve filename sıralama değişikliği;
    bunlar mevcut kanıtla cihaz eşdeğeri kabul edilemez.
 

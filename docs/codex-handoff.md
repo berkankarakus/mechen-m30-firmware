@@ -4,10 +4,11 @@ Bu belge yalnızca güncel çalışma durumunu ve değişmez güvenlik kurallar�
 tutar. Ayrıntılı kanıtlar ilgili `findings-*.md` belgelerinde, emulator
 kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
-## Güncel durum — 2026-11-16
+## Güncel durum — 2026-11-17
 
 - Dal: `main`; çalışma ağacı temiz. Son anlamlı commit'leri görmek için
-  `git log --oneline -6` kullanılır. Push yapılmadı.
+  `git log --oneline -6` kullanılır. Bu checkpoint commit'leri fork remote'una
+  push edilmek üzere hazırlanmıştır.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Host-only ve tam statik suite son doğrulamada başarılıdır:
   `bash tools/emu/run_static_suite.sh --host-only` ve
@@ -37,6 +38,20 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ve `python3 tools/verify_persistent_evidence.py <evidence-root>` kullanılır;
   firmware, cihaz SD dosyaları ve Ghidra çıktıları Git dışında kalıcı kanıt
   kökünde tutulur.
+
+## Son dinamik kanıt checkpoint'i
+
+- `9da84ad` ile `FUN_40154ddc` initial paint girişi gerçek MIPS16 p-code'da
+  çalıştırıldı; üç firmware ailesinde 7 dispatcher çağrısı ve gerçek return
+  sınırı aynı kaldı.
+- `3ed9368` ile aynı girişin metadata `0x100`, transport/EQ `0x20` ve status
+  `0x200`/`0x800` dalları üç firmware ailesinde gerçek kodla çalıştırıldı.
+  Sıra sırasıyla `0x2005`, `0x1004`/`0x1003`, `0x1000`/`0x1001` kontrol
+  kimlikleriyle doğrulandı; decoder/DAC çağrısı bu sınırda yok.
+- Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
+  bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
+  kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan
+  mevcut statik delta ile fail-closed tutuluyor.
 
 ## Kanıt → emulator karşılıkları
 
