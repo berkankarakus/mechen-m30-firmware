@@ -121,6 +121,15 @@
   proves that the synthetic vector receives a genuine MIPS breakpoint trap;
   it does not identify the unavailable fixed-ROM service that the stock vector
   would invoke. Re-run it with `bash tools/emu/run_qemu_usound_callback_probe.sh`.
+- `m30_preview_session.py` can now carry an explicitly supplied exception frame
+  into its JSON trace with `--callback-exception CODE EPC BADVADDR STATUS`.
+  The values are optional and the field is omitted when no context is supplied.
+  The trace labels its input as caller-provided; the preview does not synthesize
+  CP0 state or execute the missing fixed-ROM service. An optional
+  `--callback-ra` adds a separately labeled `ker_xsys_entry_candidate` with
+  the proven EPC/RA stores and jump target. This candidate does not claim the
+  captured callback traversed that entry unless runtime evidence supplies the
+  connection.
 - `tools/emu/m30_preview_session.py` composes this callback observation with
   the real-resource now-playing renderer, recovered LCD command sink, and the
   bounded 200-byte USB-audio stream. Its JSON trace explicitly labels the

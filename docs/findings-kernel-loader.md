@@ -91,6 +91,31 @@ byte at `0x9fc1a495`, indexes a four-byte table beginning at `0xbfc19974`,
 and compares the result with `SP & 0x3ffff` before selecting an alternate
 exception stack.
 
+The first entry was checked against both the extracted member and its
+`FWIMAGE.FW` copy. At member offset `0x74` (container offset `0x9274`), the
+little-endian MIPS32 instructions are:
+
+```text
+0xbfc34074  mfc0   k0,$14
+0xbfc34078  lui    k1,0x0001
+0xbfc3407c  addiu  k1,k1,0x3dd8
+0xbfc34080  sw     k0,0(k1)       # EPC -> 0x00013dd8
+0xbfc34084  move   k0,ra
+0xbfc34088  lui    k1,0x0001
+0xbfc3408c  addiu  k1,k1,0x3ddc
+0xbfc34090  sw     k0,0(k1)       # RA -> 0x00013ddc
+0xbfc34094  lui    k1,0xbfc0
+0xbfc34098  addiu  k1,k1,0x6d6c
+0xbfc3409c  jr     k1             # 0xbfc06d6c
+0xbfc340a0  nop                   # delay slot
+```
+
+The preview trace can optionally represent these two pre-handler stores when
+the caller supplies EPC and RA. It labels them as a `ker_xsys` entry candidate:
+the values are input observations, and the available evidence does not prove
+that every `break 0` callback or lazy-bank miss takes this specific entry.
+Nothing after the jump is modeled.
+
 This is relevant to far calls because it proves that an exception/dispatch
 path exists outside the extracted UI driver. It does **not** yet prove that
 the `0x3ffff` comparison performs bank loading: the same code can be an

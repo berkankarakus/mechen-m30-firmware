@@ -77,11 +77,20 @@ class M30PreviewSession:
         return cls(sink=sink, ui=ui, callback=callback, audio=audio)
 
     def observe_callback(
-        self, selector: int, args: tuple[int, int, int, int]
+        self,
+        selector: int,
+        args: tuple[int, int, int, int],
+        *,
+        exception: Any | None = None,
     ) -> Any:
-        """Record a callback trap without guessing its fixed-ROM effect."""
+        """Record the callback envelope and any supplied exception context."""
 
-        return self.callback.trap(selector, args)
+        if exception is None:
+            return self.callback.trap(selector, args)
+
+        trap_with_exception = getattr(self.callback, "trap")
+
+        return trap_with_exception(selector, args, exception=exception)
 
     def submit_audio_packet(self, payload: bytes) -> int:
         """Queue one observed USB packet and retain only framing statistics."""
@@ -97,12 +106,43 @@ class M30PreviewSession:
         window = self.sink.window
         callbacks = []
         for call in self.callback.calls:
-            callbacks.append(
-                {
-                    "selector": f"0x{int(call.selector):08x}",
-                    "args": [f"0x{int(value):08x}" for value in call.args],
+            exception = None
+            exception_context = getattr(call, "exception", None)
+
+            if exception_context is not None:
+                exception = {
+                    "code": f"0x{int(exception_context.exception_code):08x}",
+                    "epc": f"0x{int(exception_context.epc):08x}",
+                    "bad_vaddr": f"0x{int(exception_context.bad_vaddr):08x}",
+                    "status": f"0x{int(exception_context.status):08x}",
+                    "provenance": "caller-provided",
                 }
-            )
+                handoff_trace = getattr(exception_context, "handoff_trace", None)
+                handoff = handoff_trace() if callable(handoff_trace) else None
+
+                if handoff is not None:
+                    stores = [
+                        {
+                            "address": f"0x{int(store['address']):08x}",
+                            "value": f"0x{int(store['value']):08x}",
+                        }
+                        for store in handoff["stores"]
+                    ]
+                    exception["ker_xsys_entry_candidate"] = {
+                        "handler_target": f"0x{int(handoff['handler_target']):08x}",
+                        "stores": stores,
+                        "provenance": handoff["provenance"],
+                    }
+
+            call_trace = {
+                "selector": f"0x{int(call.selector):08x}",
+                "args": [f"0x{int(value):08x}" for value in call.args],
+            }
+
+            if exception is not None:
+                call_trace["exception"] = exception
+
+            callbacks.append(call_trace)
         return {
             "provenance": {
                 "kind": "hybrid-host-session",
@@ -161,11 +201,26 @@ def main() -> int:
         help="four test inputs for the observed callback envelope",
     )
     parser.add_argument(
+        "--callback-exception",
+        type=_parse_int,
+        nargs=4,
+        metavar=("CODE", "EPC", "BADVADDR", "STATUS"),
+        help="optional captured CP0 exception context for the callback trace",
+    )
+    parser.add_argument(
+        "--callback-ra",
+        type=_parse_int,
+        help="optional caller-provided RA for the extracted exception-handoff trace",
+    )
+    parser.add_argument(
         "--submit-packet",
         action="store_true",
         help="submit one deterministic 200-byte USB-audio test packet",
     )
     args = parser.parse_args()
+
+    if args.callback_ra is not None and args.callback_exception is None:
+        parser.error("--callback-ra requires --callback-exception")
 
     # The emulator directories intentionally use direct-module imports.  Add
     # the simulation directory only at this CLI boundary so the shared host
@@ -173,7 +228,7 @@ def main() -> int:
     # package with import-time side effects.
     sim_dir = Path(__file__).resolve().parents[1] / "sim"
     sys.path.insert(0, str(sim_dir))
-    from usound_callback import UsoundCallbackBoundary
+    from usound_callback import Break0ExceptionContext, UsoundCallbackBoundary
     from usb_audio_stream import UsbAudioStream
 
     session = M30PreviewSession.create(
@@ -187,7 +242,19 @@ def main() -> int:
         filename=args.filename,
         scroll_offset=args.offset,
     )
-    session.observe_callback(args.callback_selector, tuple(args.callback_args))
+    exception = None
+
+    if args.callback_exception is not None:
+        exception = Break0ExceptionContext(
+            *args.callback_exception,
+            ra=args.callback_ra,
+        )
+
+    session.observe_callback(
+        args.callback_selector,
+        tuple(args.callback_args),
+        exception=exception,
+    )
     if args.submit_packet:
         packet_bytes = getattr(session.audio, "contract").packet_bytes
         session.submit_audio_packet(bytes(range(packet_bytes)))
