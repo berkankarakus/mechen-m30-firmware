@@ -10,10 +10,11 @@ again until no run remains or the field is exhausted.
 from __future__ import annotations
 
 import hashlib
+from itertools import product
 from pathlib import Path
 import struct
 import sys
-from typing import Sequence
+from typing import Mapping, Sequence
 
 
 TOOLS_ROOT = Path(__file__).resolve().parents[1]
@@ -51,12 +52,36 @@ def compare_library(
     expected_sha256: str | None = None,
     conversion_mode: str = INDEX_TEXT_CONVERSION_STALE_TAIL,
 ) -> dict[str, object]:
+    conversion_modes = {
+        section_name: conversion_mode
+        for section_name in SECTION_SPECS
+    }
+    summary = compare_library_section_modes(
+        data,
+        conversion_modes,
+        expected_sha256,
+    )
+    summary["conversion_mode"] = conversion_mode
+
+    return summary
+
+
+def compare_library_section_modes(
+    data: bytes,
+    conversion_modes: Mapping[str, str],
+    expected_sha256: str | None = None,
+    *,
+    candidate_rank_chaining: bool = False,
+) -> dict[str, object]:
     actual_sha256 = hashlib.sha256(data).hexdigest()
 
     if expected_sha256 is not None and actual_sha256 != expected_sha256:
         raise ValueError(
             f"MUSIC.LIB SHA-256 {actual_sha256} does not match {expected_sha256}"
         )
+
+    if set(conversion_modes) != set(SECTION_SPECS):
+        raise ValueError("conversion modes must name all four MUSIC.LIB sections")
 
     record_count = struct.unpack_from("<H", data, 8)[0]
     records = tuple(
@@ -72,7 +97,7 @@ def compare_library(
             records,
             section_name,
             previous_rank=previous_rank,
-            conversion_mode=conversion_mode,
+            conversion_mode=conversion_modes[section_name],
         )
         matching_entries = sum(
             actual_index == candidate_index
@@ -93,15 +118,46 @@ def compare_library(
             "record_count": record_count,
             "first_mismatch": first_mismatch,
         }
-        previous_rank = _inverse_rank(actual_order, record_count)
+        rank_order = candidate_order if candidate_rank_chaining else actual_order
+        previous_rank = _inverse_rank(rank_order, record_count)
 
     return {
         "bytes": len(data),
         "sha256": actual_sha256,
         "record_count": record_count,
-        "conversion_mode": conversion_mode,
+        "conversion_mode": "per-section",
+        "conversion_modes": dict(conversion_modes),
+        "rank_source": (
+            "candidate-previous-section"
+            if candidate_rank_chaining
+            else "device-previous-section"
+        ),
         "sections": sections,
     }
+
+
+def compare_library_conversion_matrix(
+    data: bytes,
+    expected_sha256: str | None = None,
+    *,
+    candidate_rank_chaining: bool = False,
+) -> tuple[dict[str, object], ...]:
+    modes = ("stale-tail", "stop-zero")
+    section_names = tuple(SECTION_SPECS)
+    results = []
+
+    for mode_selection in product(modes, repeat=len(section_names)):
+        conversion_modes = dict(zip(section_names, mode_selection))
+        results.append(
+            compare_library_section_modes(
+                data,
+                conversion_modes,
+                expected_sha256,
+                candidate_rank_chaining=candidate_rank_chaining,
+            )
+        )
+
+    return tuple(results)
 
 
 def main(
@@ -109,8 +165,40 @@ def main(
     expected_sha256: str | None,
     conversion_mode: str,
 ) -> None:
+    data = path.read_bytes()
+
+    if conversion_mode in ("matrix", "chain-matrix"):
+        candidate_rank_chaining = conversion_mode == "chain-matrix"
+        matrix = compare_library_conversion_matrix(
+            data,
+            expected_sha256,
+            candidate_rank_chaining=candidate_rank_chaining,
+        )
+        record_count = struct.unpack_from("<H", data, 8)[0]
+        print(
+            "MUSIC.LIB CONVERSION MATRIX PASS "
+            f"bytes={len(data)} records={record_count} "
+            f"sha256={hashlib.sha256(data).hexdigest()} candidates={len(matrix)} "
+            f"rank_source={matrix[0]['rank_source']}"
+        )
+
+        for summary in matrix:
+            modes = summary["conversion_modes"]
+            sections = summary["sections"]
+            mode_label = ",".join(
+                f"{section_name}={modes[section_name]}"
+                for section_name in SECTION_SPECS
+            )
+            scores = ",".join(
+                f"{section_name}={sections[section_name]['matching_entries']}"
+                for section_name in SECTION_SPECS
+            )
+            print(f"modes={mode_label} matches={scores}")
+
+        return
+
     summary = compare_library(
-        path.read_bytes(),
+        data,
         expected_sha256,
         conversion_mode,
     )
@@ -132,7 +220,7 @@ if __name__ == "__main__":
     if len(sys.argv) not in (2, 3, 4):
         raise SystemExit(
             "usage: library_tie_refinement_probe.py MUSIC.LIB "
-            "[EXPECTED_SHA256| -] [stale-tail|stop-zero]"
+            "[EXPECTED_SHA256| -] [stale-tail|stop-zero|matrix|chain-matrix]"
         )
 
     expected_sha256 = None

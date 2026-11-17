@@ -290,21 +290,89 @@ songs.
 
 `FUN_480145dc` (bank `0x48014400`, file `0x75dc`) normalizes a field: UTF-16 with BOM is copied
 (twice the field width in bytes, so the copy runs past the field into stale read-buffer bytes)
-to `0x9fc15538` and converted in place by module 6 function `0x1a` (UTF-16 to multibyte), UTF-8
-with BOM goes through `0x1d` then `0x1a`, and plain ASCII is copied as is. `FUN_48014694` then
-copies the first `keylen` bytes of the result into the key slot. Keys are therefore one byte per
-character for ASCII text, and the compare upper-cases them.
+to `0x9fc15538`, then passed to helper `FUN_48014534`; UTF-8 with BOM is copied to the same
+scratch area and passed to `FUN_48014588`; without a BOM, the field is copied as bytes.
 
-The conversion isn't decompiled (it lives in the kernel), but the sort order of a player-built
-library pins most of it down. Characters up to U+00FF become their byte value, so "Déjà vu" sorts
-after "Dross Glop" and "02 Qué Onda" after "02 Queen". The first character above U+00FF stops the
-conversion without writing anything, so the rest of the buffer keeps the UTF-16 input bytes: that
-is why "“Awaken, My Love!”" (U+201C, bytes `1c 20`) and "…And You Will Know Us" (U+2026, bytes
-`26 20`) are the first two albums, before "13". Three cases don't fit any per-string rule tried
-(the all-Greek album "Ἀποκάλυψις" sorts third instead of first, "We’ve Come for You All" sorts
-before "We Got It From Here", and "D’Angelo" and "DāM‐FunK" are separate artists), so the
-player's handling right after such a character has state this sample doesn't reveal. It affects
-only names with characters above U+00FF.
+Raw MIPS16 disassembly resolves the helper-side calls into the module 6 resident envelope
+`0xbfc16bb5`:
+
+| Helper | Service call sequence | Caller-side ABI |
+|---|---|---|
+| `FUN_48014534` (file `0x7534`) | one module 6 call, selector `0x1a` | passes `a0`, `a1`, `a2` through; sets `a3=0x1a`; indirect `jalrc` target is `0xbfc16bb5` |
+| `FUN_48014588` (file `0x7588`) | module 6 selector `0x1d`, then selector `0x1a` | first call: `a0=a1=scratch`, `a2=&output_length`, `a3=0x1d`; second: `a0=scratch`, `a1=output_length`, `a2=saved input width`, `a3=0x1a`; then copies the result back through module `0x10` at `0xbfc16409` |
+
+`FUN_480145dc` supplies `2 × field_width` as the UTF-16 helper input length and `3 ×
+field_width` as the UTF-8 helper capacity. The 168-byte caller/literal range `0x7534..0x75dc`
+is byte-identical across all twelve dated `playlist.ap` copies from 2022-08-05 through
+2025-06-26 (SHA-256 `55d80e3d51e534bf2222784e4a805740403d292cdd158be6e0b43e81dddab699`). This
+establishes the call selectors and caller ABI, not the fixed-ROM service's output semantics.
+
+Neither inspected MUSIC.LIB contains a UTF-8 BOM in its four text fields. In the 4,000-record
+M30 dump, every title is UTF-16LE; album, artist, and genre fields are a mix of UTF-16LE and
+plain bytes. The 251-record public sample has UTF-16LE titles and plain-byte album/artist/genre
+fields. Thus selector `0x1d` is proven in the firmware caller but is not exercised by these two
+player-built libraries.
+
+The saved decompile does not include `FUN_48014694`'s body, but raw MIPS16 disassembly proves
+its direct call to `FUN_480145dc` and the subsequent copy through module `0x10` at
+`0xbfc16409`. The wrapper passes the original field pointer in `a1`, field width in the low byte
+of `a2`, and key length in the low byte of `a3`; the normalized result is copied from scratch
+to the key slot in original `a0` for that key length. This establishes the caller-side buffer
+flow, not the resident service's character mapping or scratch-tail initialization. The stock
+comparator upper-cases ASCII bytes.
+
+#### Call chain and the unmodeled kernel boundary
+
+The evidence-backed path from scanned records to section indexes is:
+
+1. The playlist scan creates title keys with `FUN_48014694` (`p_key` in the QEMU harness).
+2. `FUN_400d5290` runs the stock ALLSONG, ALBUM, ARTIST, and GENRE passes. The later three
+   passes extract their name fields through `FUN_40114c00`; that helper reads each record field
+   and calls `FUN_48014694` to build its sort key.
+3. `FUN_480145dc` normalizes BOM-tagged input and calls `FUN_48014534` or `FUN_48014588`.
+   Raw MIPS16 disassembly proves the helper selectors and register arguments: UTF-16 calls
+   module `0x06` function `0x1a`; UTF-8 calls `0x1d` to obtain UTF-16 output and length, then
+   calls `0x1a`. The calls use the resident envelope at `0xbfc16bb5`. Raw disassembly proves
+   `FUN_48014694` calls the normalizer and copies its result through module `0x10`; the saved
+   decompile omits that wrapper body, and the resident service effects remain unknown.
+4. `FUN_71812874` sorts the keys with `FUN_71812548`; `FUN_40114d54` re-extracts and refines
+   equal-key runs. The stock pass helpers then build grouping runs, nodes, order, inverse, and
+   per-song node tables.
+
+The QEMU harness executes the stock pass and helper banks, but it redirects references to the
+resident module envelope `0xbfc16bb5` to `stub_text()` in `tools/library/harness.c`. Its `0x1a`
+behavior is an educated guess: it copies UTF-16 code points through U+00FF to one-byte output,
+then stops without clearing the remaining bytes. The `0x1d` path is also a harness implementation. The
+harness separately calls the stock `FUN_48014694` to seed title keys, so that call reaches the
+same conversion stub. Consequently, these QEMU runs validate the stock sorting/refinement and
+index-writing code under the supplied key bytes; they do not validate the resident converter or
+prove exact stock ordering for names affected by that converter.
+
+The fixed exception handler at `0xbfc06d6c` is absent from the available extracted corpus, and
+work must proceed without a ROM dump. Keep the service effect fail-closed. The productive
+ROM-free path is to use the now-known selectors/arguments to enumerate candidate conversion
+outputs, predict their sort-order consequences, and reject them against the captured M30 orders
+and the existing QEMU stock-pass results. Promote a conversion rule only when it explains
+independent Unicode cases without breaking the verified ASCII and node/table results. See
+`docs/findings-kernel-loader.md` for the exception-vector evidence and the unavailable-handler
+boundary.
+
+The conversion isn't decompiled (it lives in the kernel). Player-built orders
+constrain its output, but they do not yet identify one rule for every section.
+For byte-range characters, mapping U+0000..U+00FF to one byte fits cases such
+as "Déjà vu" after "Dross Glop" and "02 Qué Onda" after "02 Queen". At the
+first character above U+00FF, two output-tail hypotheses remain relevant:
+preserve the unconverted UTF-16 bytes or clear the rest of the output. The
+4,000-record M30 ALBUM table favors the cleared-tail candidate for the exact
+`Du` + U+0308 versus `Duality` boundary: it matches all 4,000 album positions,
+while the preserved-tail candidate misses those 19 positions. The same
+cleared-tail candidate still misses 6 ALLSONG and 56 ARTIST positions, so it
+cannot yet be promoted as the shared converter behavior. The stock QEMU harness
+uses the preserved-tail guess and redirects the resident conversion call; its
+results validate the sort and grouping passes for supplied key bytes, not the
+kernel's output buffer semantics. The all-Greek album "Ἀποκάλυψις", "We’ve
+Come for You All" before "We Got It From Here", and the separate "D’Angelo"
+and "DāM‐FunK" artist groups remain unresolved conversion/pass-boundary cases.
 
 The record field for a 23-character UTF-16 name has no terminating zero, and the tag reader seems
 to limit names to 22 characters plus the terminator.
@@ -610,10 +678,12 @@ buffers (see the loader section). The build with the pieces in the `0x48` bank t
 (2026-11-03) is clean: 15,991 songs, 803 artists, 1,711 albums, no junk names, the same
 tables as before. The player browses all of it.
 
-The kernel itself is in the firmware image (`kernel.drv`, `ker_*.bin`, `exfatn.drv`,
-`fat_32n.drv` and the `drv_*.drv` modules in `build/work/stock/fw/`). Running it under QEMU
-with a card image would make the text converter and the file-system behavior observable
-without a flash cycle per experiment; nobody has tried yet.
+The firmware corpus includes `kernel.drv`, `ker_*.bin`, `exfatn.drv`, `fat_32n.drv`, and
+the `drv_*.drv` modules. The MIPS user-mode QEMU harness now runs the stock index banks,
+but substitutes the module `0x06` text-conversion entry with `stub_text()`; it does not
+execute the resident kernel. The fixed exception handler is outside the extracted corpus, so
+the current work models only the verified caller envelope and leaves the service effect
+unresolved.
 
 ## Test plan
 
@@ -622,12 +692,14 @@ without a flash cycle per experiment; nobody has tried yet.
    their real addresses, with every RAM and resident pointer in their literal pools moved by
    `tools/library/testbanks.py` to harness memory (the scan of 4-byte aligned words for pointer
    values matches the decompile's literal-pool list exactly for all six banks), and implements
-   the file system ops (two files, `MUSIC.LIB` and `MUSIC.TMP`, each with its own position),
-   the text conversions, the append write, and the message pump in C, counting the calls. The
-   harness sets up the app state as the scan leaves it, generates the title keys with the stock
-   key routine, calls `FUN_400d5290` and the header finalize `FUN_4019502c`, and compares the
-   result with the player-built file. `tools/library/test.sh STOCK_PLAYLIST.AP MUSIC.LIB` builds
-   and runs it, then `tools/library/libdiff.py` compares the two files section by section.
+   the file operations (two files, `MUSIC.LIB` and `MUSIC.TMP`, each with its own position),
+   inferred text-conversion behavior, append write, and message pump in C,
+   counting the calls. The harness redirects module `0x06` to `stub_text()`; the `0x1a`
+   conversion is an order-derived guess, not the resident implementation. It sets up app state
+   as the scan leaves it, generates title keys with the stock key wrapper, calls
+   `FUN_400d5290` and header finalize `FUN_4019502c`, and compares the result with the
+   player-built file. `tools/library/test.sh STOCK_PLAYLIST.AP MUSIC.LIB` builds and runs it,
+   then `tools/library/libdiff.py` compares the files section by section.
 
    Against `notes/MUSIC.LIB.stock-4000` the All songs and Genre sections come out byte for byte
    identical, including the tie refinement, and the Album and Artist sections match except for

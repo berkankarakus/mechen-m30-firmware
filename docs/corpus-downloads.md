@@ -15,6 +15,7 @@ date-named path, and verify the SHA-256 before decrypting or extracting it.
 | Independent 2023-02-20 folder | <https://drive.google.com/drive/folders/1VuQF4jk-yfDUBSTfQorGSsXtDUdvYcEW> | `MECHEN_M30.HEX` and `Modification.txt` |
 | Independent `MUSIC.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/MUSIC.LIB> | Public comparison library; not proven to be M30-generated |
 | Independent `M3U.LIB` sample | <https://raw.githubusercontent.com/xleph/MP3.LIB/main/M3U.LIB> | Public comparison library; 1,485,312 bytes, 5,800 opaque 256-byte blocks |
+| Independent disk-location signatures | <https://github.com/xleph/MP3.LIB/blob/main/literalLocations> | 302 packed 8-byte signatures, SHA-256 `63e909421a6e32fe545ae4ddd965e720e6eba8de3ab6028512b22c9c5b15627e`; tested as described in [`findings-device-sd-library.md`](findings-device-sd-library.md), no exact matches |
 | US212A application-design manual | <https://tchumim.com/assets/uploads/files/1622479367338-%D7%9E%D7%93%D7%A8%D7%99%D7%9A-%D7%9C%D7%AA%D7%9B%D7%A0%D7%95%D7%9F-%D7%90%D7%A4%D7%9C%D7%99%D7%A7%D7%A6%D7%99%D7%95%D7%AA-us212a.pdf> | Publicly mirrored SDK reference for `plist_f_info_t`, LIB section headers, and M3U list construction |
 | Community firmware source | <https://github.com/dev-zetta/mechen-m30-community-firmware> | V1.292.00 source/release corpus |
 | Actions unpacker | <https://github.com/Rockbox/rockbox/tree/master/utils/atj2137/atjboottool> | `atjboottool` build source |

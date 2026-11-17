@@ -146,9 +146,12 @@ The remaining `ALLSONG` differences are 37 entries in small equal-visible-title
 blocks such as FLAC/WAV pairs and repeated `Instrumental`/`Vocal` titles. The
 19 `ALBUM` differences remain one contiguous boundary: three
 `Dünya'dan Kovuldu` records precede sixteen `Duality` records in the device
-file, while the candidate conversion puts the latter group first. This is
-still isolated to the unresolved U+0308/UTF-16 conversion edge case, not the
-album comparator or track ordering.
+file, while the candidate conversion puts the latter group first. The stock
+MIPS code has now been executed under QEMU on the same M30 corpus; with the
+device's preceding ALLSONG rank supplied, it reproduces the same 19-record
+boundary. The remaining discriminator is how output bytes after the first
+non-byte UTF-16 character are initialized; the corpus comparison below tests
+that hypothesis but does not observe the resident service directly.
 
 An explicitly experimental `stop-zero` conversion mode is available for this
 edge case:
@@ -163,10 +166,62 @@ PYTHONPATH=tools/sim:tools/emu \
 
 On the 4,000-record SD image it produces `ALLSONG` 3,994/4,000 and `ALBUM`
 4,000/4,000, while `ARTIST` and `GENRE` stay at 3,944/4,000 and 4,000/4,000.
-The 251-record public sample is unchanged by the mode. This is stronger
-corpus evidence for a cleared conversion tail, but it remains opt-in until a
-stock harness or another independent player-built image confirms the kernel
-behavior; the default model continues to use `stale-tail`.
+The 251-record public sample is unchanged by the mode. Examining the 19 album
+positions shows why: they are the three UTF-16LE `Dü...` records and sixteen
+ASCII `Duality` records. The three UTF-16LE fields contain U+0308 immediately
+after `Du`. In the host `stale-tail` conversion, the unconverted low byte from
+the UTF-16 `u` remains at key byte 2, producing a `Duu...` prefix that sorts
+after `Duality`; the zero-filled candidate produces `Du\0`, which matches the
+device's order. Thus the captured ALBUM table strongly favors a cleared output
+tail for this specific conversion case.
+
+This does not establish one conversion rule for every section. On the same
+image, `stop-zero` leaves 6 ALLSONG positions and 56 ARTIST positions
+unmatched, and ARTIST's captured encoding-correlated blocks remain unexplained.
+The QEMU pass does not test either resident output behavior: its conversion
+entry is redirected to `stub_text()`, and the title-rank-seeded run still
+reproduces the 19-record ALBUM boundary with the stale-tail stub. Keep
+`stop-zero` experimental and `stale-tail` as the default until one model
+explains the independent section orders.
+
+The probe now accepts `matrix` to vary `stale-tail` and `stop-zero`
+independently for each section while seeding each later section with the
+device's preceding rank:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_tie_refinement_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88 \
+  matrix
+```
+
+All 16 combinations leave the `ARTIST` score at 3,944/4,000 and `GENRE` at
+4,000/4,000. The best order-only combination is `stop-zero` for ALLSONG and
+ALBUM, with either mode for ARTIST and GENRE: 3,994, 4,000, 3,944, and 4,000
+matches respectively. This isolates each section using the device's actual
+preceding rank; it is not a full simulated build.
+
+`chain-matrix` runs the same 16 combinations but feeds each candidate section
+rank into the next section, as a library rebuild does:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_tie_refinement_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88 \
+  chain-matrix
+```
+
+The best chained candidate is `stop-zero` for ALLSONG and ALBUM, with either
+mode for ARTIST and GENRE: 3,994, 3,998, 3,942, and 3,998 matches. Uniform
+`stale-tail` gives 3,963, 3,973, 3,936, and 3,992. The QEMU stock MIPS pass
+with the title-rank-seeded input produced 4,000, 3,981, 4,000, and 4,000.
+Thus the ARTIST difference is not explained by choosing device ranks versus
+candidate ranks alone; the Python candidate still differs from the stock MIPS
+result. The QEMU harness redirects text conversion to `stub_text()`, so the
+remaining comparison must separate key bytes from sort/refinement behavior
+before either model is promoted.
 
 The six remaining `ALLSONG` positions reduce to three pairs whose visible
 titles differ only after conversion reaches a character above U+00FF:
@@ -185,9 +240,60 @@ to an unresolved conversion/group boundary in the artist pass; the current
 evidence does not yet establish whether the split comes from converted key
 bytes, stale converter state, or another pass-local rule.
 
-This is still a differential probe, not a firmware writer or a replacement
-for QEMU execution. The existing QEMU MIPS probe scripts remain the next
-machine-local validation step when QEMU user-mode is available.
+### Stock MIPS passes executed under QEMU
+
+The stock passes were run through `tools/library/test.sh` in a temporary
+Debian 13 arm64 container with `gcc-mipsel-linux-gnu` 14.2.0 and
+`qemu-user-static` 10.0.13. The input firmware member was the extracted
+2025-06-26 `playlist.ap` (SHA-256
+`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`); the
+M30 library hash was
+`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`.
+The repo and evidence mounts were read-only; QEMU outputs stayed inside the
+temporary container. The reusable local tool image is
+`m30-qemu-tools:debian-stable`.
+
+This executes the stock sort, tie-refinement, grouping, and index-writing
+banks, but the run is not fully stock: `testbanks.py` redirects resident text
+conversion at `0xbfc16bb5` to `harness.c::stub_text`. Its function `0x1a`
+behavior is inferred, not recovered from the kernel. The harness also calls
+the stock key wrapper for scan-created title keys, so those use the same
+inferred converter. These runs validate stock pass logic for the supplied key
+bytes; Unicode-sensitive mismatches remain evidence about the converter and
+its input state, not a direct test of the resident routine. See the call-chain
+notes in `docs/library-builder.md`.
+
+With the unmodified device library, the full stock pass sequence matched the
+stored orders at `ALLSONG=3963/4000`, `ALBUM=3973/4000`, `ARTIST=3992/4000`,
+and `GENRE=3992/4000`. ALBUM had 547/549 identical nodes; all ARTIST and GENRE
+nodes matched. Their reference-5 tables also matched completely. Later passes
+consume ranks generated by earlier passes, so these full-sequence scores mix
+the section comparator with preceding-order differences.
+
+To isolate that dependency, a temporary copy of the library had only its
+64-byte title fields replaced with zero-padded decimal ranks from the captured
+ALLSONG order. This makes the stock title pass reproduce the captured order
+exactly while leaving ALBUM, ARTIST, GENRE fields and stored index tables
+unchanged. The resulting stock pass matched `ALLSONG=4000/4000`,
+`ALBUM=3981/4000`, `ARTIST=4000/4000`, and `GENRE=4000/4000`. ARTIST's 363 and
+707 nodes, GENRE's 30, 439, and 709 nodes, and both sections' reference-5
+tables matched exactly. ALBUM retained only the 19-record `Dünya'dan
+Kovuldu`/`Duality` boundary, including its two differing nodes. This confirms
+the stock ARTIST and GENRE ordering and node construction against the M30
+image once the ALLSONG rank is controlled; it does not prove the remaining
+ALBUM conversion behavior.
+
+The harness's whole-file byte comparison reports about 1.44 million differing
+bytes, but this is mostly the preallocated file tail: the device image is 5128
+sectors while generated index data ends at sector 2268, and the 1,464,320-byte
+tail contains 1,444,243 nonzero bytes. The harness starts that unused region
+as zero. Use the per-section `libdiff.py` counts above for index comparison;
+the whole-file failure is not evidence of 1.44 million bad index bytes.
+
+`QUIRK=2` and `QUIRK=3` produced the same section results as the default
+harness; `QUIRK=1` severely corrupted the generated tables. These sector-I/O
+variants do not explain the remaining ALBUM boundary. No experimental
+conversion mode has been promoted into the emulator.
 
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public
@@ -240,8 +346,25 @@ These are investigation targets, not emulator contracts:
 | `0xa9..0xf1` | A fixed-width primary file-location or storage-metadata blob. Its size and position between tag metadata and the track field make a path, cluster, or locator representation plausible, but no current consumer decodes it. | Low | An M30-created record paired with its source path and a second record whose path differs in only one component. |
 | `0xf4..0xfb` | A little-endian `cluster_no` followed by a little-endian `dir_entry`, matching the US212A `plist_f_info_t` documentation and the firmware's eight-byte lookup key. | Medium–high | A paired M30 directory dump or relocation experiment that independently reproduces both words. |
 | `0xfc..0xff` | Per-record predecessor/successor links for source or scan order, separate from section-node links. The placement at the record tail and 16-bit width support this, but no reader has been traced. | Low–medium | Records reordered on disk while preserving metadata, or a traced playback/browser consumer reading these fields. |
-| Section table reference `5` | A per-record index into the deepest node level for the section. The recovered `tables()` comment and code use the final run level: album groups for `ALBUM`, the deepest album groups for `ARTIST`, and genre groups for `GENRE`. The level-zero artist group is separately carried through scratch state for the next pass. | High for the local writer | A multi-group M30 image where table values match the deepest node ranges; the UI-facing meaning may still differ. |
-| Nested run model | ALBUM, then ARTIST, then GENRE nodes are hierarchical runs rather than independent flat groups. This follows the recovered builder and is the strongest current behavioral guess. | Medium–high | A real M30 image with duplicate artists/albums/genres and matching node counts, child counts, and table values. |
+| Section table reference `5` | A per-record index into the deepest node level for the section. The recovered `tables()` comment and code use the final run level: album groups for `ALBUM`, the deepest album groups for `ARTIST`, and genre groups for `GENRE`. The level-zero artist group is separately carried through scratch state for the next pass. | High; validated against the captured M30 image | The 4,000-record M30 image's `ALBUM`, `ARTIST`, and `GENRE` values match the deepest-node spans exactly. UI-facing meaning may still differ. |
+| Nested run model | ALBUM, then ARTIST, then GENRE nodes are hierarchical runs rather than independent flat groups. The recovered builder and the captured M30 node links, song counts, and table values agree. | High for serialized structure | The captured image validates all child ranges, parent links, level depths, node spans, and per-record deepest-node indices. |
+
+### Captured M30 index validation
+
+The read-only `interpret_library_section_index()` checks were run against
+`<persistent-evidence-root>/device-sd/MUSIC.LIB` (SHA-256
+`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`). All
+four sections passed order-permutation and inverse-table checks. `ALBUM`,
+`ARTIST`, and `GENRE` also passed node sibling/parent/child-link checks, node
+song-span coverage, and reference-5 mapping to the deepest node indicated by
+the serialized runs. `ALLSONG` has no nodes or reference-5 table, so those
+structural checks do not apply to it.
+
+Observed node counts are `ALLSONG=(0,0,0)`, `ALBUM=(549,0,0)`,
+`ARTIST=(363,707,0)`, and `GENRE=(30,439,709)`. `ALLSONG` has valid order and
+inverse tables but no node-index table. This confirms the serialized hierarchy
+and table roles on an actual M30 library; it does not establish how the UI
+labels or navigates those nodes.
 
 The next evidence pass should therefore pair the decoded
 `cluster_no`/`dir_entry` values with an M30 directory dump. The primary

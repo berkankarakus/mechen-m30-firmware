@@ -175,6 +175,8 @@ comparison sample at
 exact block with the device's 6,056 blocks. This supports keeping M3U payload
 interpretation outside the current MUSIC.LIB emulator contract.
 
+The same public repository provides [`literalLocations`](https://github.com/xleph/MP3.LIB/blob/main/literalLocations), a packed list of 302 8-byte disk-location signatures, and [`readbloc.c`](https://github.com/xleph/MP3.LIB/blob/main/readbloc.c), which searches for them in library files. Interpreting each 8-byte value as little-endian, none of its 296 unique signatures occurs in the public M3U.LIB sample, the supplied M30 M3U.LIB or MUSIC.LIB, or the independent MUSIC.LIB sample. This negative cross-device comparison identifies no M30 payload fields and supplies no M30 decoding rule.
+
 ### M3U writer ABI cross-check
 
 The Ghidra probe `tools/ghidra/run_m3u_writer_probe.sh` now checks the
