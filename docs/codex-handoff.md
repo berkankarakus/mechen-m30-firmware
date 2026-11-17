@@ -253,6 +253,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/emu/ui_dispatcher.py`: now-playing op-`0x03` payload'ındaki doğrulanmış
   halfword, byte ve zero-word alanlarını `OpaqueMetadataPayload` olarak trace'e
   taşır; payload framebuffer'a çizilmez ve semantik atanmaz.
+- `tools/emu/ui_dispatcher.py`, public SDK ile yapılan operation cross-check
+  sayesinde `0x14` değerini arka plan rengi setter'ı, `0x12` değerini mevcut
+  arka planla rectangle clear olarak modelliyor. M30 resident consumer ABI'si
+  doğrudan çözülmediği için bu eşleme host'ta açıkça cross-build hypothesis
+  olarak tutuluyor; M30 color/rectangle byte kanıtı ayrıdır.
 - `NowPlaying.paint_dispatch_trace()` gerçek paint sınırını shared scroll
   trace'inden ayırır: üç doğrulanmış `(x,y,w,h)` clear rectangle'ı ve
   `0x1002` artwork control'ü yedi çağrılık sırayla taşır. Rectangle header'ı

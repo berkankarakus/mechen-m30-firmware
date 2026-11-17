@@ -321,6 +321,14 @@ those bytes are adjacent stack locals, not established rectangle fields.
 `tools/ghidra/run_now_playing_paint_decompile_probe.sh` keeps this decompiler
 shape as a narrow, reproducible guard.
 
+The public SDK gives a useful operation cross-check: its UI enum assigns
+`0x12` to `UI_CLEARSCREEN` and `0x14` to `UI_SET_BACKGD_COLOR`, and both macros
+use the same four-argument dispatcher envelope. The M30 host model therefore
+applies `0x18c3`, `0x39e7`, and `0x18c3` as the three band colors before their
+respective rectangle clears. This remains a cross-build ABI hypothesis until
+the M30 resident consumer is directly decompiled; the color words and band
+geometry themselves are recorded from the M30 call trace.
+
 This is deliberately not a full LCD emulator. It does not claim that a font,
 resource, or artwork decode succeeded; it proves only the real paint entry's
 control-dispatch sequence and return boundary. The next high-value extension

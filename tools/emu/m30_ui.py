@@ -57,6 +57,16 @@ HEADER_EQ_TEXTBOX = 5
 NOW_PLAYING_PICBOXES = (2, 3, 4, 5, 6, 7, 8)
 PICBOX_CONTROL_IDS = {index: 0x1000 + index for index in range(9)}
 
+# The real paint path sets a background color, then clears each of these
+# rectangle regions. The color values are M30 RGB565 words observed in the
+# MIPS16 call envelope; the public SDK independently names operation 0x14 as
+# UI_SET_BACKGD_COLOR and operation 0x12 as UI_CLEARSCREEN.
+NOW_PLAYING_CLEAR_BANDS = (
+    (0, 0, 320, 28, 0x18C3),
+    (0, 28, 320, 151, 0x39E7),
+    (0, 179, 320, 61, 0x18C3),
+)
+
 # Ghidra names these as _UNK_40d551xx because they are literal-pool function
 # pointers.  These are the exact addresses read from the real AP bank.
 DISPATCH_POINTERS = {
@@ -558,14 +568,8 @@ class NowPlaying:
         scalar arguments, rectangle geometry, and final artwork control ID are
         stable across all twelve dated ``music.ap`` images.
         """
-        clear_rects = (
-            (0, 0, 320, 28),
-            (0, 28, 320, 151),
-            (0, 179, 320, 61),
-        )
         calls: list[dict[str, object]] = []
-        for index, rectangle in enumerate(clear_rects):
-            background = 0x39E7 if index == 1 else 0x18C3
+        for x, y, width, height, background in NOW_PLAYING_CLEAR_BANDS:
             calls.append({
                 "op": 0x14,
                 "a0": background,
@@ -581,13 +585,14 @@ class NowPlaying:
                 "a2": 0,
                 "a3": 0x12,
                 "rectangle": {
-                    "x": rectangle[0],
-                    "y": rectangle[1],
-                    "width": rectangle[2],
-                    "height": rectangle[3],
+                    "x": x,
+                    "y": y,
+                    "width": width,
+                    "height": height,
                 },
                 "payload_tail": "opaque",
-                "semantics": "verified rectangle header; opaque payload tail",
+                "background_color": background,
+                "semantics": "verified color and rectangle header; opaque payload tail",
                 "role": "clear_content",
             })
 
@@ -821,10 +826,10 @@ class NowPlaying:
         if not 0.0 <= self.progress_fraction <= 1.0:
             raise ValueError("progress_fraction must be between 0 and 1")
         fb = Framebuffer()
-        # 0x18c3 is the background word observed in the real resource set and
-        # in the audited clear-background dispatch.  Do not add decorative
-        # bands or separators that are absent from the RU3 records.
-        fb.fill(rgb565(0x18C3))
+        # These are the three real clear regions emitted by FUN_40154ddc. The
+        # middle band uses its own observed RGB565 background word.
+        for x, y, width, height, color in NOW_PLAYING_CLEAR_BANDS:
+            fb.rect(x, y, width, height, rgb565(color))
 
         self._draw_header_overlay(fb)
 

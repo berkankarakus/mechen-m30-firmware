@@ -161,6 +161,18 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[1]["payload_tail"], "opaque")
         self.assertEqual(calls[-1]["control_id"], 0x1002)
         self.assertEqual(calls[-1]["role"], "draw_artwork")
+        self.assertEqual(calls[3]["background_color"], 0x39E7)
+
+    def test_render_uses_verified_clear_band_colors(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
+        frame = ui.render()
+
+        top = frame.pixels[10 * 320 * 3 : 10 * 320 * 3 + 3]
+        middle = frame.pixels[(100 * 320 + 319) * 3 : (100 * 320 + 319) * 3 + 3]
+        bottom = frame.pixels[220 * 320 * 3 : 220 * 320 * 3 + 3]
+        self.assertEqual(top, bytes(rgb565(0x18C3)))
+        self.assertEqual(middle, bytes(rgb565(0x39E7)))
+        self.assertEqual(bottom, bytes(rgb565(0x18C3)))
 
     def test_render_is_320x240_ppm(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
@@ -302,8 +314,8 @@ class M30UiTests(unittest.TestCase):
         # area or beyond the right edge.
         left = frame.pixels[(40 * 320 + 189) * 3 : (40 * 320 + 189) * 3 + 3]
         right = frame.pixels[(40 * 320 + 319) * 3 : (40 * 320 + 319) * 3 + 3]
-        self.assertEqual(left, bytes(rgb565(0x18C3)))
-        self.assertEqual(right, bytes(rgb565(0x18C3)))
+        self.assertEqual(left, bytes(rgb565(0x39E7)))
+        self.assertEqual(right, bytes(rgb565(0x39E7)))
 
     def test_metadata_textboxes_share_icon_row_geometry(self):
         style = MusicStyle.load(STY)

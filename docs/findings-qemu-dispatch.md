@@ -139,9 +139,9 @@ proven opcode consumed by the resident wrapper.
 
 | `a0` / payload | `a1` | `a2` | `a3` call-site value | observed role |
 |---|---:|---:|---:|---|
-| `0x18c3` | `0` | `0` | `0x14` | clear background/resource |
+| `0x18c3` | `0` | `0` | `0x14` | set background color, then clear next region |
 | `0` | `0` | `0` | `0x12` | clear content region |
-| `0x18c3` | `0` | `0` | `0x14` | redraw background on initial pass |
+| `0x39e7` | `0` | `0` | `0x14` | set second background color |
 | `0` | `0` | `0` | `0x12` | redraw content region |
 | stack payload | `0` | `0` | `0x02` | draw control/icon payload |
 | stack payload | `0` | `0` | `0x02` | second control/icon payload |
@@ -149,9 +149,13 @@ proven opcode consumed by the resident wrapper.
 | dynamic payload | dynamic metadata | `6` | `0x06` | measured/dynamic text path |
 | text payload | text metadata | `1` | `0x03` | draw cleanup/secondary text |
 
-This is enough to make the host dispatcher trace structurally faithful. It is
-not enough to infer the proprietary resource decoder or LCD pixel semantics;
-those remain explicit host-side stubs.
+The public PD196 SDK independently places `UI_CLEARSCREEN` at `0x12` and
+`UI_SET_BACKGD_COLOR` at `0x14`; its macros pass a `region_t *` and a
+`COLORREF` through the same four-argument `ui_op_entry` envelope. This is a
+strong structural cross-check for treating `0x18c3` and `0x39e7` as color
+words and the following stack payload as a region. It is not proof of the
+proprietary M30 resident implementation, so the host keeps the M30 operation
+mapping explicitly evidence-backed and does not claim full LCD pixel ABI.
 
 The next boundary is consequently the message-`0x0d` consumer/resident UI
 service, not the low-level LCD driver. The low-level LCD resident code was

@@ -1,13 +1,15 @@
 import unittest
 
-from m30_ui import MAIN_PAINT_STYLE, SECONDARY_STYLE
+from m30_ui import MAIN_PAINT_STYLE, SECONDARY_STYLE, rgb565
 from ui_dispatcher import (
     OP_CLEAR_COLOR,
     OP_DRAW_TEXT,
+    OP_SET_BACKGROUND_COLOR,
     Rect,
     OpaqueMetadataPayload,
     TextPayload,
     UiDispatcher,
+    replay_now_playing_paint_dispatcher,
     replay_now_playing_dispatcher,
 )
 
@@ -20,6 +22,26 @@ class UiDispatcherTests(unittest.TestCase):
         self.assertEqual(len(dispatcher.calls), 2)
         self.assertTrue(all(call.rendered for call in dispatcher.calls))
         self.assertEqual(dispatcher.calls[1].style_id, MAIN_PAINT_STYLE)
+
+    def test_background_color_is_applied_by_the_following_clear_rect(self):
+        dispatcher = UiDispatcher()
+        dispatcher.call(0x39E7, 0, 0, OP_SET_BACKGROUND_COLOR)
+        dispatcher.call(Rect(0, 10, 320, 20), 0, 0, 0x12)
+        pixel = bytes(dispatcher.framebuffer.pixels[10 * 320 * 3 : 10 * 320 * 3 + 3])
+        self.assertEqual(pixel, bytes((57, 60, 57)))
+
+    def test_paint_replay_preserves_color_and_rectangle_sequence(self):
+        dispatcher = replay_now_playing_paint_dispatcher()
+        trace = dispatcher.trace()
+
+        self.assertEqual(
+            [call["op"] for call in trace],
+            [0x14, 0x12, 0x14, 0x12, 0x14, 0x12, 0x02],
+        )
+        self.assertEqual(trace[1]["arg0_type"], "Rect")
+        self.assertEqual(trace[5]["arg0_type"], "Rect")
+        middle_pixel = bytes(dispatcher.framebuffer.pixels[100 * 320 * 3 : 100 * 320 * 3 + 3])
+        self.assertEqual(middle_pixel, bytes((57, 60, 57)))
 
     def test_unknown_operation_is_trace_only(self):
         dispatcher = UiDispatcher()
@@ -85,7 +107,10 @@ class UiDispatcherTests(unittest.TestCase):
         # The dynamic viewport starts at x=190 and is clipped to 87 pixels;
         # drawing must not write into the neighboring column.
         for y in range(40, 60):
-            self.assertEqual(bytes(dispatcher.framebuffer.pixels[(y * 320 + 277) * 3 : (y * 320 + 277) * 3 + 3]), bytes((18, 19, 22)))
+            self.assertEqual(
+                bytes(dispatcher.framebuffer.pixels[(y * 320 + 277) * 3 : (y * 320 + 277) * 3 + 3]),
+                bytes(rgb565(0x18C3)),
+            )
 
 
 if __name__ == "__main__":
