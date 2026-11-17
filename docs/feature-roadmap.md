@@ -105,7 +105,7 @@ PASS/FAIL koşuluyla kapatılacak.
 | Metadata reader | community/V1.101.11 0x200 buffer boundary loop'u ve bounded caller'lar | boundary-split source-byte read ve trailing-skip aritmetiği mevcut; source/skip callback ABI'si ve metadata parser beklemede |
 | Artwork fallback | community JPEG fallback'in 0xff yolu, 150x150 RGB565 cache sınırı, component/block guard'ları ve cihazdaki sabit 250-sektör `ALBUM.PIC` container'ı | bounded fallback policy, `OK`/`NO` cache record modeli ve ayrı `ALBUM.PIC` container decoder mevcut; JPEG decode, SD/CPU timing ve UI render beklemede |
 | Decoder callback | community callback kesin `-1` döndürüyor | fail-closed boundary mevcut; PCM decoder yolu yok |
-| Artwork playback | metadata/JPEG fallback yolları statik olarak ayrıştırıldı | placeholder/render state; async decode veya ses gecikmesi modeli yok |
+| Artwork playback | `FUN_40154ddc` koşullu dalında artwork wrapper'ı, `0x311 PLAY` wrapper'ından önce çalışabiliyor; gerçek p-code koşusunda ayrı event/player flag'leriyle sıra doğrulandı | flag producer/ilk-play ilişkisi, gerçek decode süresi ve ses çıktısına etkisi hâlâ bilinmiyor; tam çağrı-tetikleyici zinciri gerekli |
 | LCD transfer | `drv_lcd.drv` address-window commands `0x2a/0x2b/0x2c` | bounded RGB565 window-to-framebuffer sink and real-code QEMU window/orientation probe; controller timing, MMIO meanings and electrical behavior remain unresolved |
 | YQHX header/materializer | kernel `yqhx` header, segment ve BSS alanları | sparse host memory applies declared segments and BSS clearing; gerçek resident loader, entry execution ve fixed-ROM handoff remain unresolved |
 

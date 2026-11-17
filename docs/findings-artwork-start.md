@@ -18,8 +18,8 @@ Mapper script used: scratchpad map.py (same rule as tools/ghidra/LoadAP.java).
   0x2a, 0x13 MEDIA_INFO; then cmd 0x19 PLAY (M:1507); only then reply (FUN_600911b0 -> 0xbfc1197c).
   Same order as SDK mengine_play_deal.c _set_file/_get_file_info/_play and mengine_message_done.c mengine_play
   (reply after _play). The UI send_sync_msg blocks until that reply.
-- VERIFIED: music.ap sends the play message BEFORE entering the paint loop (SDK music_scene_playing.c _scene_play_init:
-  music_set_filepath + music_play(), then _playing_loop_deal). Artwork cannot be painted before the play reply.
+- SDK reference only (not M30-binary proof): `music_scene_playing.c::_scene_play_init` calls `music_play()` before
+  `_playing_loop_deal`. Do not use this SDK order alone to claim that every M30 `0x311` handoff precedes artwork.
 - VERIFIED: engine has no tag/artwork code of its own: no "APIC", "ID3", "PICTURE", "image/jpeg", "ALBUM.PIC",
   "mmm_id.al" strings in mengine.ap (only "mmm_mp.al"). mmm_mp.al and mmm_id.al are byte-identical to stock
   (sha256 57b541ad.. and 04fa4563..). Any ID3 skipping inside SET_FILE/MEDIA_INFO is stock behaviour in the
@@ -31,7 +31,7 @@ Mapper script used: scratchpad map.py (same rule as tools/ghidra/LoadAP.java).
   i.e. a table loader, not tag parsing. HYPOTHESIS: DSP/EQ/frequency table work.
 - Conclusion (b) engine-side artwork scan: not present in community diff. Any engine-side delay is identical to stock.
 
-### UI side (music.ap) - runs AFTER the reply, in the UI thread
+### UI side (music.ap) - scene loop and conditional play handoff
 - VERIFIED chain per track (UI thread):
   FUN_4011508c playing loop (U:1158): flag 0x200 -> FUN_400d4edc (engine status) -> flag 1 -> FUN_400951e4 (U:681)
   -> FUN_401d51b8 = play_scene_getid3 (U:2222) -> get_id3_info = FUN_781db200 (U:27153, ptr at 0x401d52cc = 0x781db201)
@@ -44,14 +44,26 @@ Mapper script used: scratchpad map.py (same rule as tools/ghidra/LoadAP.java).
   mmm_id_cmd in the UI thread. Result goes to a cache file ALBUM.PIC (string 0x48054a28; header 'O','K'+x,y,w,h,
   then RGB565 w*h*2, limit 45000 B = 150x150 test at FUN_4805447c U:9077), which FUN_4805447c re-reads and blits.
   The ALBUM.PIC cache already exists in stock (same strings/pointers).
+- VERIFIED conditional order in `FUN_40154ddc`: at `0x401551d6`, global flag `0x10` enters the refresh block; if flag
+  `0x04` is also set, it calls `FUN_40154c00`, which synchronously calls `FUN_480546e8`. At `0x401551e6`, flag
+  `0x800` controls whether the following call is skipped. When `0x800` is clear, the call at `0x401551ea` reaches
+  pointer `0x40155348 = 0xbfc16589` (`FUN_bfc16588`), whose body sends message `0x311`. Thus this reachable branch
+  orders artwork decode before that `0x311` send. When `0x800` is set, this `0x311` call is skipped; a later,
+  separate `0x800` branch calls `FUN_40614f9c`, which sends `0x337`, not `0x311`.
+- The checked-in `tools/ghidra/run_artwork_play_order_probe.sh` executes the real `FUN_40154ddc` with separate,
+  synthetic UI-event and player-state flags (`0x08` and `0x14`). It confirms the wrapper event order
+  `FUN_40154c00 -> FUN_bfc16588 -> post-play 0x32d wrapper -> artwork blit`. The probe stubs the artwork wrapper,
+  play wrapper, and surrounding boundaries; it proves conditional control-flow reachability, not decode duration,
+  real message delivery, or that these flags occur on first play.
 - VERIFIED ID3/FLAC artwork locating (UI thread, music.ap banks, not mmm_mp): 
   FUN_71412a9c (U:19762) ID3v2 header; FUN_714125ac (v2.2 frames, U:19574) and FUN_714127dc (v2.3/2.4, U:19666) stop after
   <7 text frames; for APIC they read at most 0x80 bytes of the frame and look for FFD8 with FUN_71412790 (U:19641,
   max 128-byte window), then seek-skip with FUN_781db4d8 (U:27273; seek + 512-byte read). FLAC: FUN_714d284c (U:20706) reads
   PICTURE block, 128-byte window search (FUN_714d2800), block walker FUN_714d266c (U:20602). ID3v1: FUN_713d25b0 (U:19455).
   So the APIC scan is bounded and cheap (a handful of 512-byte SD reads); it does not read the whole picture.
-- Answer to "where": (a) UI-thread work after the play reply: getid3 + mmm_id decode + optional CPU fallback + ALBUM.PIC
-  write/read. It cannot delay the engine's reply to PLAY/NEXT/PREV. Audio output normally already runs when it starts.
+- Handoff conclusion: on the conditional path above, the blocking decode is called before the `0x311` wrapper, so its
+  runtime can delay that particular message handoff. The flag producer/caller that makes this the first-play path
+  has not been identified; this does not prove that artwork delays every initial start or that it starves audio.
 - HYPOTHESIS (not measured): perceived "start delay" = UI frozen (no repaint, time stuck at 0:00, keys unserviced) for the
   whole decode, plus possible CPU/SD (FS lock 0x33/0x34 pairs) contention starving the engine thread and the DSP feed.
   Needs on-device timing (log sys time before/after FUN_480546e8) to separate these.
