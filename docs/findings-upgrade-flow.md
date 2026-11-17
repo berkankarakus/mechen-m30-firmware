@@ -83,14 +83,19 @@ resource-name literals. It does not execute the overlay or write a candidate.
   places `0x85` in a text-format structure and passes structures through
   pointer slots `0x48614601` and `0x48ad47b1` (the latter receives control
   `0x8001`). These raw values narrow the API boundary but do not establish
-  display coordinates or reliable API names. The first p-code attempt could
-  not locate its temporary script. After moving the probe into Ghidra's
-  configured script path, execution entered `FUN_489146e8` and returned from
-  the local mode helper, then stopped with an MIPS16 decode failure at
-  `0x48914709`, before any UI API call was captured. No corresponding RU3
-  TextBox geometry was found in `setting.sty`, so the prompt rectangle and
-  event/caller chain remain unresolved. The preview trace labels text origin
-  so example wording cannot be mistaken for device output.
+  display coordinates or reliable API names. The
+  `bash tools/ghidra/run_setting_confirm_probe.sh` harness now executes the real
+  `FUN_489146e8` path to the confirmation request in 155 steps, with external
+  services stubbed. It observes the `0x85` text-ID call, then captures the
+  request through `0x48a14601`: the control record is
+  `0a 10 01 00 ...` (`id=0x100a`, status `1`), and the data record is
+  `fa 00 01 01 80 46 55 48 ...` (capacity `250`, two flag bytes `1`, payload
+  pointer `0x48554680`). This is a reproducible AP-to-UI boundary capture, not
+  a rendered-frame trace; one earlier state read remains uninitialized in the
+  host setup. No corresponding RU3 TextBox geometry was found in `setting.sty`,
+  so the prompt rectangle and event/caller chain remain unresolved. The preview
+  trace labels text origin so example wording cannot be mistaken for device
+  output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
