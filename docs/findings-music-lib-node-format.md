@@ -223,6 +223,47 @@ result. The QEMU harness redirects text conversion to `stub_text()`, so the
 remaining comparison must separate key bytes from sort/refinement behavior
 before either model is promoted.
 
+The probe also accepts `rank-source-matrix`. It runs all eight per-transition
+choices (device or candidate rank for ALBUM, ARTIST, and GENRE) under each
+uniform conversion mode. The file is read once for the complete 16-case sweep:
+
+```sh
+PYTHONPATH=tools/sim:tools/emu \
+  python3 tools/emu/library_tie_refinement_probe.py \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88 \
+  rank-source-matrix
+```
+
+For `stale-tail`, using candidate ALLSONG rank for ALBUM lowers ALBUM from
+3,981 to 3,973 matches. When ARTIST also consumes that candidate ALBUM rank,
+ARTIST falls from 3,944 to 3,936. With `stop-zero`, device ranks give
+3,994/4,000/3,944/4,000; candidate ALLSONG rank lowers ALBUM to 3,998, and
+the all-candidate path gives 3,942 ARTIST and 3,998 GENRE matches. None of the
+eight rank-source choices raises ARTIST above 3,944 for either uniform
+conversion mode. The remaining ARTIST error is not explained by choosing a
+different predecessor rank alone.
+
+A focused record-level crossover isolates six ARTIST entries in the
+`Curren$y &` / `Continuance` group. The chained `stale-tail` candidate reverses
+three duplicate-title pairs at the ALBUM pass; substituting the device's
+ALLSONG rank for those records restores the stored ALBUM ranks and their
+ARTIST positions:
+
+| Records | Stored ARTIST positions | Stored ALBUM ranks | Candidate ALBUM ranks |
+|---|---:|---:|---:|
+| 1804 / 1817, “04. Obsession.flac” | 1464 / 1465 | 663 / 664 | 664 / 663 |
+| 1807 / 1820, “07. The Tonight Show.flac” | 1470 / 1471 | 669 / 670 | 670 / 669 |
+| 1810 / 1823, “10. The Final Board.flac” | 1477 / 1476 | 676 / 675 | 675 / 676 |
+
+All six records carry identical raw ARTIST bytes
+`fffe430075007200720065006e0024007900200026000000`; the two modeled
+conversions also agree through the NUL terminator. These six reversals
+therefore arise upstream in the candidate ALLSONG-to-ALBUM rank chain, not
+from ARTIST text conversion. This is a corpus crossover, not a claim about
+the resident converter. The still-unexplained ARTIST differences are in the
+separate `9th Wonder` block.
+
 The six remaining `ALLSONG` positions reduce to three pairs whose visible
 titles differ only after conversion reaches a character above U+00FF:
 `Dokunmayarayaparsın.flac`/`.wav`, `Şaraba Sarılı Gazete`/`Şevket Hamdi Tan`,
@@ -282,6 +323,38 @@ Kovuldu`/`Duality` boundary, including its two differing nodes. This confirms
 the stock ARTIST and GENRE ordering and node construction against the M30
 image once the ALLSONG rank is controlled; it does not prove the remaining
 ALBUM conversion behavior.
+
+#### QEMU stop-zero converter comparison
+
+The QEMU harness now supports a diagnostic `TEXT_CONVERSION_STOP_ZERO`
+compile-time option. The default still preserves bytes after the first
+non-byte UTF-16 character or NUL; the option clears the output tail in those
+cases. Both variants were run against the same `playlist.ap` and M30
+`MUSIC.LIB`, with evidence mounts read-only:
+
+```sh
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+  tools/library/test.sh <playlist.ap> <MUSIC.LIB> <workdir> stock
+
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+  HEXTRA=-DTEXT_CONVERSION_STOP_ZERO \
+  tools/library/test.sh <playlist.ap> <MUSIC.LIB> <workdir> stock
+```
+
+The default run reproduced the previously recorded order scores
+`3963/3973/3992/3992`; ARTIST and GENRE node counts and nodes matched the
+device. The cleared-tail run scored `3994/3998/3942/3998`, but emitted only
+548 ALBUM nodes, 362/706 ARTIST nodes, and 30/438/708 GENRE nodes, versus the
+device's 549, 363/707, and 30/439/709. In the `9th Wonder` run, the device has
+a 15-song node starting at record 27, while the cleared-tail run joins the
+visible-name blocks into an 81-song node starting at record 67. Thus the
+order-only score improves while the observed grouping structure gets worse.
+
+This is direct execution of the stock MIPS passes with two different harness
+stubs; it is not execution of the resident text service. It rules out
+`stop-zero` as a sufficient global behavior for the observed node structure,
+but does not prove the service always preserves stale bytes. Keep both modes
+experimental until the scratch-buffer state or resident output is observed.
 
 The harness's whole-file byte comparison reports about 1.44 million differing
 bytes, but this is mostly the preallocated file tail: the device image is 5128

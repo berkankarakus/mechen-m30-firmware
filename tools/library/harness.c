@@ -157,12 +157,23 @@ u32 stub_text(u32 a, u32 b, u32 c, u32 fn)
          * their byte, in place, and the first character above U+00FF stops the conversion
          * without writing anything, so the rest of the buffer keeps the UTF-16 input.  This
          * reproduces the player's order for every name except a few whose bytes right after
-         * such a character decide the order (see docs/library-builder.md). */
+         * such a character decide the order (see docs/library-builder.md).  Compile with
+         * TEXT_CONVERSION_STOP_ZERO to test the competing cleared-tail hypothesis. */
         for (i = 0; i + 1 < b; i += 2) {
             u32 ch = p[i] | (p[i + 1] << 8);
-            if (ch >= 256) break;
+            if (ch >= 256) {
+#ifdef TEXT_CONVERSION_STOP_ZERO
+                for (n = i / 2; n < b; n++) p[n] = 0;
+#endif
+                break;
+            }
             p[i / 2] = ch;
-            if (!ch) break;
+            if (!ch) {
+#ifdef TEXT_CONVERSION_STOP_ZERO
+                for (n = i / 2 + 1; n < b; n++) p[n] = 0;
+#endif
+                break;
+            }
         }
         return 1;
     }
