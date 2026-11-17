@@ -219,3 +219,10 @@ the word reached through `a1`. These are payload-layout facts only; the words
 at the pointed-to offsets are not yet assigned palette, bitmap, or text
 pointer semantics. They are intentionally kept separate from the shared
 scroll renderer's `0x1012`/`0x1013` payload trace.
+
+The dynamically observed paint IDs `0x1000` through `0x1004` also match the
+host resource convention `0x1000 + PicBox index`: status-low/high, artwork,
+transport, and EQ each select the corresponding `music.sty` PicBox. The
+static `0x1005..0x1008` metadata-glyph calls follow the same table convention.
+The `0x2005` text style remains a separate opaque dispatcher style; it is not
+being equated with a `music.sty` TextBox index.

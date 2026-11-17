@@ -47,6 +47,9 @@ OBSERVED_HEADER_FRAMES = ((1, 1), (0, 2))  # shuffle-on, repeat glyph
 HEADER_EQ_TEXTBOX = 5
 
 # FUN_40154ddc emits controls 0x1002..0x1008 on the now-playing refresh path.
+# The p-code state probe dynamically confirms the 0x1000 + PicBox-index
+# relationship for controls 0x1000..0x1004; the remaining metadata glyph
+# controls retain the same resource-table convention from the static path.
 # PicBoxes 0 and 1 are present in music.sty, but no call-site in that paint
 # function selects them; drawing them here made the host preview show a pair
 # of header icons that is absent from the device screenshot.

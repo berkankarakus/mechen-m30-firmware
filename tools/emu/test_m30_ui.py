@@ -73,6 +73,19 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(selected[1]["state_semantics"], "shuffle-off")
         self.assertEqual(selected[0]["state_semantics"], "unresolved")
 
+    def test_dynamic_paint_control_ids_bind_to_picbox_indices(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
+        selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
+
+        for control_id, picbox_index in (
+            (0x1000, 0),
+            (0x1001, 1),
+            (0x1002, 2),
+            (0x1003, 3),
+            (0x1004, 4),
+        ):
+            self.assertEqual(selected[picbox_index]["control_id"], f"0x{control_id:04x}")
+
     def test_observed_dispatch_trace_has_real_call_order(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
         calls = ui.observed_dispatch_trace()
