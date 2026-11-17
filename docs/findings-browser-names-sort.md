@@ -127,6 +127,36 @@ operation 2. Therefore LFN-versus-8.3 behavior on the M30 remains
 
 ## 3. What a filename-natural sort would need (no patch written)
 
+## 4. Screen updater: second boundary, unresolved source provider
+
+The directory callback is not the only place that touches the visible name.
+The browser screen refresh path `FUN_40cd5218` walks the same 12-byte entry
+table and calls `0x48714a21` (`FUN_48714a20` in the aligned bank) for each
+visible row. The recovered function:
+
+- writes the UTF-16 BOM directly to `entry + 8`, the same name destination
+  populated by `FUN_71352820`;
+- obtains a small intermediate value through the unresolved provider
+  `0x48594511` using the list state and row index;
+- hands that value to the resident converter `0xbfc16a29`, with a bounded
+  `0x1c` argument, to produce the displayed entry text.
+
+This is useful evidence but not yet a safe patch recipe. It shows that the
+screen updater has a second name-production boundary, while the actual source
+semantics of `0x48594511` and the converter's units remain outside the
+extracted AP. We therefore cannot claim that the original long filesystem
+name is still available at this point, nor can we safely enlarge `entry + 8`.
+The finding is reproducible with:
+
+```sh
+bash tools/ghidra/run_browser_screen_name_probe.sh analysis/community/fw/browser.ap
+```
+
+The probe checks the entry-table pointer, the aligned screen updater, the
+unresolved provider/converter pointers, and the `entry + 8`/`0x1c` bounded
+destination contract. The next high-value static step is to identify the
+record format consumed by `0x48594511` in another AP or ROM-facing call site.
+
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
   (`FUN_71352820` + fsel enter-dir/count code at 0x71352500 bank) plus an index map from sorted position to FS entry
