@@ -144,7 +144,17 @@ The emulator continues to expose `table_value` as opaque, while this section
 records the strongest current semantic hypothesis and the evidence needed to
 revisit it.
 
-`tools/emu/ui_dispatcher.py` now carries the three verified payload fields as
+The public SDK's `textbox_private_t` is a closer structural comparison:
+`uint16 str_id`, `int8 lang_id`, `uint8 reserve`, a pointer-sized word, and a
+color word.  The M30 p-code probe now checks the corresponding first 12 payload
+bytes in three corpora (community, stock, and 2024-04-24): the table halfword
+and copied byte vary as expected, while the byte at payload `+0x03` and words
+at `+0x04` and `+0x08` are zero in every case.  This is a strong layout
+correspondence, not proof that M30 uses the SDK type: the zero words have not
+been observed at a renderer sink and cannot yet be called a string pointer or
+color.
+
+`tools/emu/ui_dispatcher.py` now carries the verified payload fields as
 `OpaqueMetadataPayload` in its trace.  The host dispatcher deliberately does
 not render this payload or mutate the framebuffer; this preserves the observed
 ABI boundary until the real metadata renderer or LCD sink is identified.

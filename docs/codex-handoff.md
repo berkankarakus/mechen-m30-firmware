@@ -71,6 +71,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   indeks 1 ve 6'yı `0x004f`/`0x005e` olarak değiştiriyor ve gerçek p-code
   probe'u bu iki payload farkını üretiyor. Host değerleri AP'den okuyor,
   sabit anlam atamıyor.
+- Community, stock ve 2024-04-24 AP'lerinde metadata payload'ın ilk 12 byte'ı
+  ayrıca assertion ile kontrol ediliyor: `+0x03`, `+0x04` ve `+0x08` alanları
+  sıfır. Bu desen public SDK `textbox_private_t` yapısıyla güçlü bir yapısal
+  eşleşme gösteriyor; pointer/color semantiği kanıtlanmadığı için host'ta
+  opaque kalıyor.
 - Dış PD196 SDK referansındaki `common_res.h` ve `music_res.h`, standart M30
   metadata tablosundaki sekiz halfword'ün tamamını string resource ID olarak
   adlandırıyor (`S_SECOND`, `S_SET_MENU`, `S_GENRE`,

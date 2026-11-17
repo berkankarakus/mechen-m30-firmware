@@ -177,21 +177,27 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         long expectedTableValue = half(emu, tableBase + metadataIndex * 2L);
         long actualTableValue = half(emu, a1);
         long actualMetadataByte = byteValue(emu, a1 + 2);
-        long actualReservedWord = word(emu, a1 + 4);
+        long actualByteAtThree = byteValue(emu, a1 + 3);
+        long actualWordAtFour = word(emu, a1 + 4);
+        long actualWordAtEight = word(emu, a1 + 8);
 
         if (a1 != a0 + 0x10
             || actualTableValue != expectedTableValue
             || actualMetadataByte != (metadataByte & 0xffL)
-            || actualReservedWord != 0) {
+            || actualByteAtThree != 0
+            || actualWordAtFour != 0
+            || actualWordAtEight != 0) {
             throw new Exception(String.format(
-                "metadata payload mismatch index=%d a0=%s a1=%s table=%s/%s byte=%s reserved=%s",
+                "metadata payload mismatch index=%d a0=%s a1=%s table=%s/%s byte=%s byte3=%s word4=%s word8=%s",
                 metadataIndex,
                 hex(a0),
                 hex(a1),
                 hex(actualTableValue),
                 hex(expectedTableValue),
                 hex(actualMetadataByte),
-                hex(actualReservedWord)
+                hex(actualByteAtThree),
+                hex(actualWordAtFour),
+                hex(actualWordAtEight)
             ));
         }
     }
@@ -329,17 +335,20 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         stubBlock.setRead(true); stubBlock.setWrite(false); stubBlock.setExecute(true);
         ramBlock(memory);
         List<String> modes = new ArrayList<>();
-        if (getScriptArgs().length == 1 || "all".equals(getScriptArgs()[1])) {
+        boolean runAllModes = getScriptArgs().length == 1 || "all".equals(getScriptArgs()[1]);
+        boolean runMetadataTable = runAllModes
+            || "metadata-table".equals(getScriptArgs()[1]);
+        if (runAllModes) {
             modes.addAll(Arrays.asList(
                 "initial", "metadata", "transport", "status-low", "status-high", "controls"
             ));
-        } else {
+        } else if (!runMetadataTable) {
             modes.addAll(Arrays.asList(getScriptArgs()).subList(1, getScriptArgs().length));
         }
         for (String mode : modes) {
             runCase(memory, mode, stubs, 0, 0);
         }
-        if (getScriptArgs().length == 1 || "all".equals(getScriptArgs()[1])) {
+        if (runMetadataTable) {
             runMetadataTable(memory, stubs);
         }
     }
