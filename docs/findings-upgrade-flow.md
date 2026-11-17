@@ -61,6 +61,12 @@ resource-name literals. It does not execute the overlay or write a candidate.
 - `upgrade.sty` supplies the five real radio-like PicBoxes and two real text
   viewports. `tools/emu/upgrade_ui.py` renders those resources with a
   host-selected option and records the boundary explicitly.
+- The preview's `SELECT UPGRADE FILE:` and `CONFIRM UPGRADE` values are host
+  examples, not literals recovered from the screen entry in `upgrade.ap`.
+  The distinct `Confirm upgrade file: [%s]` replacement is stored in
+  `setting.sty`; its `setting.ap` caller and rendered geometry are not yet
+  mapped to this five-option screen. The preview trace labels text origin so
+  example wording cannot be mistaken for device output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw

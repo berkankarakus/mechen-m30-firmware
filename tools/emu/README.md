@@ -212,8 +212,12 @@ PYTHONPATH=tools/emu python3 tools/emu/upgrade_ui.py \
 ```
 
 This is a resource-backed screen preview, not an updater implementation. The
-AP's file search, validation, confirmation, and power-off transitions remain a
-separate reverse-engineering boundary.
+two visible text values are host examples; `upgrade.ap` does not provide them
+as literals in the recovered screen entry. The separate
+`Confirm upgrade file: [%s]` string belongs to `setting.sty`, and its caller
+and on-screen geometry have not been connected to this screen. File search,
+validation, confirmation, and power-off transitions remain a separate
+reverse-engineering boundary.
 
 The verified part of that boundary can be recorded without inventing updater
 behavior:

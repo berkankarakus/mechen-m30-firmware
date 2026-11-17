@@ -2,9 +2,9 @@
 
 The upgrade style contains five 16x16 radio-like PicBoxes.  Their frame 0 and
 frame 1 bitmaps are real ``upgrade.sty`` resources; this module only supplies
-the host-side selected-index state that the AP dispatcher has not yet been
-recovered for.  It does not claim to execute the firmware updater or write a
-card/device.
+the host-side selected-index state and example text values. The AP dispatcher
+and the source of these screen strings have not yet been recovered. It does
+not claim to execute the firmware updater or write a card/device.
 """
 
 from __future__ import annotations
@@ -105,13 +105,14 @@ class UpgradeScreen:
         )
         preview.trace["kind"] = "upgrade-screen-preview"
         preview.trace["provenance"] = (
-            "real upgrade.sty PicBox/TextBox records; host-selected option state"
+            "real upgrade.sty PicBox/TextBox records; host-selected option and text"
         )
         preview.trace["selected_option"] = self.selected_option
         preview.trace["state_boundary"] = (
             "AP input/upgrade state machine is not executed; selected index is host input"
         )
         for textbox in preview.trace["textboxes"]:
+            textbox["text_origin"] = "host-supplied example; not recovered from upgrade.ap"
             measured_width = (
                 self.font.text_width(str(textbox["text"]))
                 if self.font

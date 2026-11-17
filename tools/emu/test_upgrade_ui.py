@@ -56,6 +56,10 @@ class UpgradeScreenTests(unittest.TestCase):
             [(entry["x"], entry["y"], entry["width"], entry["height"]) for entry in preview.trace["textboxes"]],
             [(35, 110, 250, 48), (85, 40, 150, 16)],
         )
+        self.assertTrue(all(
+            entry["text_origin"] == "host-supplied example; not recovered from upgrade.ap"
+            for entry in preview.trace["textboxes"]
+        ))
 
     def test_upgrade_preview_reports_host_font_text_clipping(self):
         preview = UpgradeScreen(STYLE, font=M30Font.load(FONT)).render()

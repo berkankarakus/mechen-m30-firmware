@@ -8,7 +8,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | Öncelik | Alan | Bir sonraki kanıt/çıktı |
 |---|---|---|
 | P0 | Klasör marquee veri akışı | 50-byte slot, nonzero browser context, gerçek `0x14` row-provider → `0x1c` converter zinciri ve directory callback'in üç dalı dinamik doğrulandı; row kaydının `+0x02` little-endian alanının converter'a gittiği kanıtlandı; sırada bu alanın fsel/list-state içindeki semantik türünü ayırmak var |
-| P0 | Now-playing UI | initial + metadata/transport/status state branch'leri dinamik doğrulandı; sırada resource/font/LCD sink bağlantısı |
+| P0 | Now-playing UI | initial + metadata/transport/status state branch'leri dinamik doğrulandı; host resource renderer → LCD command/pixel sink hibriti mevcut; sırada gerçek AP payload'larının resource/font consumer'larına bağlandığını kanıtlamak var |
 | P1 | MUSIC.LIB sort/index | stock MIPS/QEMU sıralama, refinement ve node yazımı cihaz sırasını seeded-rank koşusunda üretiyor; converter stub'ı ve seedless zincir açık. Kalan tek node-count sapması Indelible/Indelible’ eşitlik kuralı; scratchpad koşusunu repo içinde yeniden üretilebilir yapıp bu tek çifti sınamak |
 | P1 | USB-DAC | UAC1 descriptor yaması host modelinde doğrulandı; EP0 p-code çalıştı. Sırada descriptor-patch p-code koşusunu repo içine almak, FW-info yolunu çözmek ve modül `0x10` sonrasında PCM/DAC sahipliğini ayırmak |
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
@@ -29,7 +29,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
 | P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
 | P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | module `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
-| P1 | Upgrade | trace-only screen/preflight sınırı tamamlandı; sırada indirect callback return'leri | ekran olayları ve rollback sınırı host'ta var; flash/reboot çağrısı bilinçli olarak stub kalır |
+| P1 | Upgrade | beş seçenekli `upgrade.sty` geometrisi doğrulandı; host preview metinleri örnektir. `setting.sty` içindeki gerçek onay prompt'unu `setting.ap` caller'ına ve ekrandaki geometriye bağla | screen selection ve preflight trace-only; flash/reboot ve indirect callback dönüşleri çözülmemiş kalır |
 | P1 | MUSIC.LIB metadata | gerçek writer/reader fonksiyonlarını RAM-backed `MUSIC.LIB` üzerinde yürüt | record alanları, tie-break ve sayaç için güvenli kalıcı alan adayı |
 | P2 | Key/screen-off | gerçek key/common-filter path’ine event dizileri enjekte et | wake/media-key ayrımı, debounce/repeat state ve ekran açılma nedeni |
 | P2 | SD/index trigger | card/USB/file-system callback’lerini gerçek scan caller’larına bağla | indekslemenin kart takma, boot ve USB event’lerinden hangisiyle tetiklendiği |
