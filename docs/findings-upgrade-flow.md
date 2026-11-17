@@ -90,12 +90,17 @@ resource-name literals. It does not execute the overlay or write a candidate.
   request through `0x48a14601`: the control record is
   `0a 10 01 00 ...` (`id=0x100a`, status `1`), and the data record is
   `fa 00 01 01 80 46 55 48 ...` (capacity `250`, two flag bytes `1`, payload
-  pointer `0x48554680`). This is a reproducible AP-to-UI boundary capture, not
-  a rendered-frame trace; one earlier state read remains uninitialized in the
-  host setup. No corresponding RU3 TextBox geometry was found in `setting.sty`,
-  so the prompt rectangle and event/caller chain remain unresolved. The preview
-  trace labels text origin so example wording cannot be mistaken for device
-  output.
+  pointer `0x48554680`). The AP bank map places `0x48554600..0x48554bff` at
+  file offset `0xe100`, so this pointer addresses file offset `0xe180` inside
+  `setting.ap`. The 250-byte target disassembles as MIPS16e-like instructions
+  but is not a recognized function start or an identifiable RU3 geometry
+  record. The same pointer value also occurs at file offset `0x127c0` / mapped
+  address `0x489146c0`; that reference's role is unknown. This is a reproducible
+  AP-to-UI boundary capture, not a rendered-frame trace; one earlier state read
+  remains uninitialized in the host setup. No corresponding RU3 TextBox
+  geometry was found in `setting.sty`, so the prompt rectangle and event/caller
+  chain remain unresolved. The preview trace labels text origin so example
+  wording cannot be mistaken for device output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
