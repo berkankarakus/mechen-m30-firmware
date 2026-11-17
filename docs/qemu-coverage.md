@@ -363,3 +363,16 @@ This writes `/private/tmp/m30-preview-session.ppm` and
 `/private/tmp/m30-preview-session.json` by default. The session is deliberately
 hybrid: it joins proven boundaries but does not invent the absent ROM service,
 codec, DMA, or audible playback semantics.
+
+For a repeatable CPU/RAM-only regression pass over the recovered LCD, DAC,
+USB Audio, producer/consumer, module-call, and exception boundaries, use:
+
+```sh
+bash tools/emu/run_qemu_boundary_suite.sh
+```
+
+The suite is intentionally separate from the static/Ghidra suite: it requires
+`qemu-system-mipsel` and MIPS binutils, and every probe uses explicit synthetic
+RAM or exception shims. A green result proves the recovered boundary and
+argument/state contract only; it does not prove ATJ2127 hardware behavior or
+USB-DAC audible output.

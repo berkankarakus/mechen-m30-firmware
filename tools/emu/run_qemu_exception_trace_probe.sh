@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+DRIVER=${1:-$ROOT/analysis/community/fw/usound.drv}
 CC=${CC:-cc}
 QEMU_PLUGIN_INCLUDE=${QEMU_PLUGIN_INCLUDE:-/opt/homebrew/include}
 GLIB_PREFIX=${GLIB_PREFIX:-$(brew --prefix glib 2>/dev/null || true)}
@@ -37,7 +38,7 @@ fi
 
 set +e
 OUTPUT=$(QEMU_PLUGIN="$OUT/libm30_exception_trace.so" \
-  bash "$ROOT/tools/emu/run_qemu_usound_callback_probe.sh" 2>&1)
+  bash "$ROOT/tools/emu/run_qemu_usound_callback_probe.sh" "$DRIVER" 2>&1)
 STATUS=$?
 set -e
 printf '%s\n' "$OUTPUT"
