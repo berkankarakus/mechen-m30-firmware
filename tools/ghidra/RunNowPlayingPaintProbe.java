@@ -58,12 +58,38 @@ public class RunNowPlayingPaintProbe extends GhidraScript {
         return String.format("0x%08x", value & 0xffffffffL);
     }
 
+    private String bytes(EmulatorHelper emu, long address, int length) throws Exception {
+        byte[] values = emu.readMemory(addr(address), length);
+        StringBuilder result = new StringBuilder();
+        for (byte value : values) {
+            result.append(String.format("%02x", value & 0xff));
+        }
+        return result.toString();
+    }
+
+    private boolean isStackAddress(long address) {
+        return address >= STACK - 0x100 && address < STACK + 0x100;
+    }
+
     private String dispatchSummary(EmulatorHelper emu) throws Exception {
         long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
         long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
         long a2 = emu.readRegister("a2").longValue() & 0xffffffffL;
         long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
-        return String.format("a0=%s a1=%s a2=%s a3=%s", hex(a0), hex(a1), hex(a2), hex(a3));
+        StringBuilder result = new StringBuilder(String.format(
+            "a0=%s a1=%s a2=%s a3=%s",
+            hex(a0),
+            hex(a1),
+            hex(a2),
+            hex(a3)
+        ));
+        if (isStackAddress(a0)) {
+            result.append(" a0-bytes=").append(bytes(emu, a0, 0x20));
+        }
+        if (isStackAddress(a1)) {
+            result.append(" a1-bytes=").append(bytes(emu, a1, 0x20));
+        }
+        return result.toString();
     }
 
     @Override

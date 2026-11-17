@@ -66,6 +66,32 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         return String.format("0x%08x", value & 0xffffffffL);
     }
 
+    private String bytes(EmulatorHelper emu, long address, int length) throws Exception {
+        byte[] values = emu.readMemory(addr(address), length);
+        StringBuilder result = new StringBuilder();
+        for (byte value : values) {
+            result.append(String.format("%02x", value & 0xff));
+        }
+        return result.toString();
+    }
+
+    private long word(EmulatorHelper emu, long address) throws Exception {
+        byte[] values = emu.readMemory(addr(address), 4);
+        return (values[0] & 0xffL)
+            | ((values[1] & 0xffL) << 8)
+            | ((values[2] & 0xffL) << 16)
+            | ((values[3] & 0xffL) << 24);
+    }
+
+    private long half(EmulatorHelper emu, long address) throws Exception {
+        byte[] values = emu.readMemory(addr(address), 2);
+        return (values[0] & 0xffL) | ((values[1] & 0xffL) << 8);
+    }
+
+    private boolean isStackAddress(long address) {
+        return address >= STACK - 0x100 && address < STACK + 0x100;
+    }
+
     private int dispatchId(EmulatorHelper emu) throws Exception {
         long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
         if (a0 < STACK - 0x100 || a0 >= STACK + 0x100) return (int)(a0 & 0xffff);
@@ -78,8 +104,54 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
         long a2 = emu.readRegister("a2").longValue() & 0xffffffffL;
         long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
-        return String.format("id=%s a0=%s a1=%s a2=%s a3=%s",
-            hex(dispatchId(emu)), hex(a0), hex(a1), hex(a2), hex(a3));
+        StringBuilder result = new StringBuilder(String.format(
+            "id=%s a0=%s a1=%s a2=%s a3=%s",
+            hex(dispatchId(emu)),
+            hex(a0),
+            hex(a1),
+            hex(a2),
+            hex(a3)
+        ));
+        if (isStackAddress(a0)) {
+            result.append(" a0-bytes=").append(bytes(emu, a0, 0x20));
+        }
+        if (isStackAddress(a1)) {
+            result.append(" a1-bytes=").append(bytes(emu, a1, 0x20));
+        }
+        return result.toString();
+    }
+
+    private void verifyPayloadLayout(EmulatorHelper emu) throws Exception {
+        long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+        long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
+        long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
+
+        if (!isStackAddress(a0)) {
+            return;
+        }
+
+        long id = dispatchId(emu);
+        if (a3 == 0x02L) {
+            if (a1 != a0 + 8 || half(emu, a0 + 0) != id) {
+                throw new Exception(String.format(
+                    "control payload layout mismatch id=%s a0=%s a1=%s",
+                    hex(id),
+                    hex(a0),
+                    hex(a1)
+                ));
+            }
+        }
+
+        if (a3 == 0x03L) {
+            if (a1 != a0 + 0x10 || word(emu, a1) != word(emu, a0 + 0x10)) {
+                throw new Exception(String.format(
+                    "text payload layout mismatch id=%s a0=%s a1=%s",
+                    hex(id),
+                    hex(a0),
+                    hex(a1)
+                ));
+            }
+        }
     }
 
     private int[] expectedIds(String mode) {
@@ -162,6 +234,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
                     return;
                 }
                 if (base == STUBS) {
+                    verifyPayloadLayout(emu);
                     ids.add(dispatchId(emu));
                     events.add(dispatchSummary(emu));
                     emu.writeRegister("v0", 1);

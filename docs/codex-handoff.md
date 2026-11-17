@@ -58,6 +58,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   değer `0xa3a2`; community ve stock AP'lerinde aynı. Bu alanın playlist
   anahtarı, directory kimliği veya başka bir fsel semantiği olduğu henüz
   adlandırılmadı; emulator'a yeni semantik eklenmedi.
+- `RunNowPlayingStateProbe.java`, paint dispatcher payload'larında operation
+  `0x02` için `a1 = a0 + 0x08`, operation `0x03` için `a1 = a0 + 0x10`
+  ilişkisini gerçek stack bytes ile assertion olarak kontrol ediyor. Kontrol
+  ID'si payload `+0x00` halfword'unda; bu, shared scroll renderer'daki
+  `0x1012/0x1013` trace'inden ayrı bir paint sınırı.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan

@@ -209,3 +209,13 @@ stable across the stock, community, and V1.101.11 `music.ap` corpora. This
 does not prove that the final pixels are correct, but it proves that the
 candidate UI work can be isolated at the dispatcher boundary without
 entering the decoder or DAC path.
+
+The same probe now dumps the real stack payload bytes and asserts their
+pointer layout in the community and stock APs. For operation `0x02`, the
+payload's first little-endian halfword is the control ID and the `a1` argument
+points to payload offset `+0x08`. For the metadata operation `0x03`, `a1`
+points to payload offset `+0x10`, and the word at that offset is identical to
+the word reached through `a1`. These are payload-layout facts only; the words
+at the pointed-to offsets are not yet assigned palette, bitmap, or text
+pointer semantics. They are intentionally kept separate from the shared
+scroll renderer's `0x1012`/`0x1013` payload trace.
