@@ -168,6 +168,14 @@ corpus evidence for a cleared conversion tail, but it remains opt-in until a
 stock harness or another independent player-built image confirms the kernel
 behavior; the default model continues to use `stale-tail`.
 
+The six remaining `ALLSONG` positions reduce to three pairs whose visible
+titles differ only after conversion reaches a character above U+00FF:
+`Dokunmayarayaparsın.flac`/`.wav`, `Şaraba Sarılı Gazete`/`Şevket Hamdi Tan`,
+and `Yangın I`/`Yangın III`. Under `stop-zero`, each pair has identical
+converted keys, and the recorded order differs only within that equal-key
+pair. This supports a bounded single-byte conversion limit as the source of
+these residuals; it does not support general Unicode collation behavior.
+
 This is still a differential probe, not a firmware writer or a replacement
 for QEMU execution. The existing QEMU MIPS probe scripts remain the next
 machine-local validation step when QEMU user-mode is available.
