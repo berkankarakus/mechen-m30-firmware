@@ -15,6 +15,24 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
 | P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |
 
+## Dinamik inceleme havuzu
+
+Statik decompile’dan ayrılan bu işler, gerçek AP/driver fonksiyonlarını
+Ghidra p-code veya mevcut QEMU leaf harness’lerinde yürütür. Her satırda
+resident/ROM/peripheral sınırı stub’lanır ve gözlenen callback/byte/state
+değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
+
+| Öncelik | Alan | Dinamik deney | Beklenen yüksek getirili çıktı |
+|---|---|---|---|
+| P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın playlist mi, directory mi olduğunun ayrılması; güvenli isim patch noktası |
+| P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
+| P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
+| P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | selector `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
+| P1 | Upgrade | `upgrade.ap` state machine’ini input/progress/search/decrypt callback’leriyle trace-only yürüt | ekran olayları ve rollback sınırı; flash/reboot çağrısı bilinçli olarak stub kalır |
+| P1 | MUSIC.LIB metadata | gerçek writer/reader fonksiyonlarını RAM-backed `MUSIC.LIB` üzerinde yürüt | record alanları, tie-break ve sayaç için güvenli kalıcı alan adayı |
+| P2 | Key/screen-off | gerçek key/common-filter path’ine event dizileri enjekte et | wake/media-key ayrımı, debounce/repeat state ve ekran açılma nedeni |
+| P2 | SD/index trigger | card/USB/file-system callback’lerini gerçek scan caller’larına bağla | indekslemenin kart takma, boot ve USB event’lerinden hangisiyle tetiklendiği |
+
 ## Ara verilen noktadaki TODO
 
 Bu liste bir sonraki oturumun başlangıç noktasıdır. Sıra, getirisi ve kanıt

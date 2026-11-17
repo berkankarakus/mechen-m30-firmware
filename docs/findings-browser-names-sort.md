@@ -167,7 +167,7 @@ shows a conditional playlist/library name-production boundary and a separate
 20-byte row-record source. We must not treat that record as the directory's
 long-name buffer: the folder callback still reads into the fixed 50-byte slot
 through `FUN_71352820`. We also cannot safely enlarge `entry + 8` without
-decoding the mode condition and proving destination ownership.
+proving which screen owns the fsel/list-state object.
 The finding is reproducible with:
 
 ```sh
@@ -176,10 +176,9 @@ bash tools/ghidra/run_browser_screen_name_probe.sh analysis/community/fw/browser
 
 The probe checks the entry-table pointer, the aligned conditional screen
 updater, the provider/converter pointers, the 20-byte record stride, and the
-`entry + 8`/`0x1c` bounded destination contract. The next high-value static
-step is to identify the state/context condition and confirm whether the
-directory mode ever enters this playlist-record path; only then should the
-20-byte fields be compared with the folder-name symptom.
+`entry + 8`/`0x1c` bounded destination contract. The dynamic probes below
+close the control-flow and call-argument part of this question; only the
+semantic ownership of the fsel/list-state object remains open.
 
 The same probe passes against the stock and V1.101.11 browser members. The
 provider boundary is therefore not a community-only change; version selection
@@ -195,9 +194,8 @@ the function emits zero row-provider callbacks and takes one fallback update
 callback. With that pointer nonzero, it emits seven row-provider callbacks for
 the seven visible entries, with row indices `0..6`, and no fallback update.
 This dynamically verifies the branch and callback argument contract that the
-static decompile exposed. It does **not** yet prove which value the physical
-directory scene places in that context field; that requires driving the outer
-`FUN_40cd4e00` state machine or observing the real scene state.
+static decompile exposed. By itself it uses synthetic context values, so it
+does not identify the screen type that owns the state.
 
 That outer caller boundary is now dynamically measured as well by
 `tools/ghidra/run_browser_scene_caller_probe.sh`. The resident
@@ -211,10 +209,8 @@ stock, and V1.101.11 browser members.
 
 This proves that the refresh branch is reachable from this extracted browser
 scene caller. It still does not identify the semantic type of the fixed fsel
-object at `0x9fc15408` by itself, so the 20-byte record source must not yet be
-called a long-folder-name store. The remaining high-value step is to execute
-the real row callback with the caller's state layout and trace the provider's
-record/key fields before considering a name-source patch.
+object at `0x9fc15408`, so the 20-byte record source must not be called a
+long-folder-name store.
 
 The row callback/provider boundary is now executed by
 `tools/ghidra/run_browser_row_provider_probe.sh`. It runs the real
@@ -229,16 +225,16 @@ file helper and fixed-ROM converter. For row `2`, the observed calls are:
 | converter bound | `0x1c` |
 
 The same chain passes in community, stock, and V1.101.11. This proves that
-the conditional refresh path can overwrite the directory entry's visible
-name slot from a 20-byte row record before the UI marquee sees it. It does
-not prove that the record is a long filename: the fixed fsel/list-state
-object and the record fields still need semantic identification. Enlarging
-the slot or changing the converter bound remains unsafe until that ownership
-question is closed.
+the conditional refresh path can overwrite an entry's visible name slot from
+a 20-byte row record before the UI marquee sees it. The provider bank is also
+the browser's identified user-playlist file-helper bank, so this is stronger
+evidence for a playlist-record path than for a filesystem long filename. The
+fixed fsel/list-state object and record fields still need semantic
+identification before this can be connected to the folder symptom.
 
-The result is therefore a useful boundary, not a folder-scroll patch: the
-directory fix still needs the runtime directory-context value and a proven
-full-name source before changing the 50-byte slot.
+The result is therefore a useful dynamic boundary, not a folder-scroll patch:
+the directory fix still needs a proven full-name source and ownership of the
+fsel/list-state record before changing the 50-byte slot.
 
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
