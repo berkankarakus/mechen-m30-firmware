@@ -127,18 +127,19 @@ operation 2. Therefore LFN-versus-8.3 behavior on the M30 remains
 
 ## 3. What a filename-natural sort would need (no patch written)
 
-## 4. Screen updater: second boundary, unresolved source provider
+## 4. Conditional screen updater: playlist record path, not folder proof
 
-The directory callback is not the only place that touches the visible name.
-The browser screen refresh path `FUN_40cd5218` walks the same 12-byte entry
-table and calls `0x48714a21` (`FUN_48714a20` in the aligned bank) for each
-visible row. The recovered function:
+The directory callback is not the only place that can touch a visible name.
+The browser refresh path `FUN_40cd5218` conditionally walks the same 12-byte
+entry table and calls `0x48714a21` (`FUN_48714a20` in the aligned bank) when
+its state/context pointer is present. The recovered function:
 
 - writes the UTF-16 BOM directly to `entry + 8`, the same name destination
   populated by `FUN_71352820`;
 - obtains a small intermediate value through the now-located provider
   `0x48594511` using the list state and row index. The provider is in the
-  browser's `0x48594400` bank, not in fixed ROM;
+  browser's `0x48594400` bank, not in fixed ROM. That bank is also identified
+  by the library analysis as the user-playlist file-helper bank;
 - reads a record at `list_state + 4 + row_index * 0x14` through the resident
   helper `0xbfc16a25`. This proves a separate 20-byte row-record table exists,
   although the record fields and whether one field is a long filename are
@@ -146,22 +147,24 @@ visible row. The recovered function:
 - hands that value to the resident converter `0xbfc16a29`, with a bounded
   `0x1c` argument, to produce the displayed entry text.
 
-This is useful evidence but not yet a safe patch recipe. It shows that the
-screen updater has a second name-production boundary and a separate 20-byte
-row-record source. We still cannot claim that the original long filesystem
-name is stored in that record, nor can we safely enlarge `entry + 8` without
-decoding the record fields and proving the destination ownership.
+This is useful evidence but not yet a safe patch recipe for folder names. It
+shows a conditional playlist/library name-production boundary and a separate
+20-byte row-record source. We must not treat that record as the directory's
+long-name buffer: the folder callback still reads into the fixed 50-byte slot
+through `FUN_71352820`. We also cannot safely enlarge `entry + 8` without
+decoding the mode condition and proving destination ownership.
 The finding is reproducible with:
 
 ```sh
 bash tools/ghidra/run_browser_screen_name_probe.sh analysis/community/fw/browser.ap
 ```
 
-The probe checks the entry-table pointer, the aligned screen updater, the
-provider/converter pointers, the 20-byte record stride, and the
+The probe checks the entry-table pointer, the aligned conditional screen
+updater, the provider/converter pointers, the 20-byte record stride, and the
 `entry + 8`/`0x1c` bounded destination contract. The next high-value static
-step is to decode the 20-byte row-record fields and find the writer that
-populates the table.
+step is to identify the state/context condition and confirm whether the
+directory mode ever enters this playlist-record path; only then should the
+20-byte fields be compared with the folder-name symptom.
 
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
