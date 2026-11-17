@@ -22,6 +22,21 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(len(row.slot_text), 23)
         self.assertNotIn("long", row.slot_text)
 
+    def test_trace_distinguishes_slot_clipping_from_renderer_clipping(self):
+        view = FolderList(
+            (FolderRow("Music"), FolderRow("A very long folder name that should scroll smoothly")),
+            selected_index=1,
+            scroll_offset_px=32,
+        )
+        _, trace = view.render()
+        clipping = trace[1]["clipping"]
+        self.assertEqual(clipping["clip_stage"], "filesystem-slot")
+        self.assertTrue(clipping["source_clipped"])
+        self.assertFalse(clipping["renderer_clipped"])
+        self.assertFalse(clipping["scroll_eligible"])
+        self.assertGreater(clipping["source_text_width_px"], clipping["slot_text_width_px"])
+        self.assertLess(clipping["slot_text_width_px"], clipping["viewport_width_px"])
+
     def test_short_name_stays_stationary(self):
         self.assertEqual(directory_marquee_positions("Music", 73), (0,))
 

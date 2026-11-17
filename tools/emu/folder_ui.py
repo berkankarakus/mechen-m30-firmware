@@ -64,6 +64,34 @@ def directory_text_width(text: str) -> int:
     return len(text) * FOLDER_GLYPH_WIDTH_PX
 
 
+def directory_clipping_trace(
+    name: str,
+    slot_text: str,
+    viewport_width: int = DIRECTORY_TEXT_WIDTH,
+) -> dict[str, object]:
+    """Describe where a directory name is lost before it reaches the LCD."""
+    source_width = directory_text_width(name)
+    slot_width = directory_text_width(slot_text)
+    source_clipped = slot_text != name
+    renderer_clipped = slot_width > viewport_width
+    if source_clipped:
+        clip_stage = "filesystem-slot"
+    elif renderer_clipped:
+        clip_stage = "renderer-viewport"
+    else:
+        clip_stage = "none"
+    return {
+        "source_text_width_px": source_width,
+        "slot_text_width_px": slot_width,
+        "viewport_width_px": viewport_width,
+        "source_clipped": source_clipped,
+        "renderer_clipped": renderer_clipped,
+        "clip_stage": clip_stage,
+        "scroll_input": "slot-text",
+        "scroll_eligible": renderer_clipped,
+    }
+
+
 def directory_marquee_positions(
     text: str,
     offset_px: int,
@@ -291,6 +319,7 @@ class FolderList:
                 self.scroll_offset_px > 0
                 or directory_text_width(slot_text) > DIRECTORY_TEXT_WIDTH
             )
+            clipping = directory_clipping_trace(row.name, slot_text)
             trace.append({
                 "slot": slot,
                 "index": row_index,
@@ -312,6 +341,7 @@ class FolderList:
                     if marquee_active
                     else solid_selection_label if selected else "solid-list-background"
                 ),
+                "clipping": clipping,
             })
         return fb, trace
 

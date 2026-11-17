@@ -463,6 +463,37 @@ class NowPlaying:
             {"kind": "ui_dispatch", "style_id": f"0x{self.trace.scroll_style_id:04x}", "source": self.trace.source, "text": self.title, "scroll_offset": self.scroll_offset},
         ]
 
+    def metadata_clip_trace(self) -> list[dict[str, object]]:
+        """Report clipping at each real metadata TextBox.
+
+        Now-playing receives the complete value and lets the text renderer
+        clip it to the 129px TextBox.  Use the same font measurement as the
+        draw path when the extracted display font is available; the fixed-cell
+        fallback remains explicit for resource-only host runs.
+        """
+        boxes = [box for box in self.style.textboxes if box.width == 129 and box.height == 20]
+        values = (self.title, self.artist, self.album, self.filename)
+        labels = ("title", "artist", "album", "file")
+        result: list[dict[str, object]] = []
+        for label, box, value in zip(labels, boxes, values):
+            width = self.font.text_width(value, pixel_scale=1) if self.font else text_pixel_width(value)
+            clipped = width > box.width
+            result.append({
+                "field": label,
+                "text": value,
+                "input_source": "full-value",
+                "input_width_px": width,
+                "viewport_width_px": box.width,
+                "x": box.x,
+                "y": box.y,
+                "renderer_clipped": clipped,
+                "clip_stage": "renderer-viewport" if clipped else "none",
+                "scroll_input": "full-value",
+                "scroll_eligible": clipped,
+                "scroll_offset_px": self.scroll_offset,
+            })
+        return result
+
     def observed_dispatch_trace(self) -> list[dict[str, object]]:
         """Return the observed dispatcher envelope from the real-bank probe.
 
@@ -746,6 +777,10 @@ def main() -> int:
             "calls": ui.dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
             "selected_picboxes": ui.selected_picbox_trace(),
+            "clipping": {
+                "directory_input_contract": "fixed 50-byte UTF-16 slot before marquee",
+                "metadata": ui.metadata_clip_trace(),
+            },
             "resource_controls": {
                 "numbox": [list(control.words) for control in ui.style.numboxes],
                 "timebox": [list(control.words) for control in ui.style.timeboxes],

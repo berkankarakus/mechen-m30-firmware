@@ -165,6 +165,22 @@ the folder-name truncation.
 
 ## Current conclusion
 
+### Host clipping comparison
+
+The host model now records the two clipping boundaries separately. A
+directory name is first copied into the browser's 50-byte UTF-16 slot and
+only then passed to the marquee renderer. In the reproduced long-name case,
+the source string is wider than the slot, but the resulting 23-character
+slot text is only 184px wide against the 205px directory viewport. The
+marquee therefore has no eligible scroll stream: the loss is at the
+`filesystem-slot` stage, not at the red-row renderer.
+
+Now-playing uses the full metadata value and clips it at the real 129px
+TextBox. The same long value is therefore marked `renderer-viewport` and
+remains eligible for scrolling. The comparison can be reproduced without a
+device using the existing folder and now-playing renderers; their JSON traces
+now expose `clip_stage`, both measured widths, and the scroll input source.
+
 The lowest-risk fix is not to change the four `50 -> 52` length immediates.
 The browser's shared buffer is still only statically proven to be 50-byte
 slots, and enlarging the lengths without moving the buffer can overwrite the

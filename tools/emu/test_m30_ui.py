@@ -48,6 +48,23 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[0]["style_id"], f"0x{MAIN_PAINT_STYLE:04x}")
         self.assertEqual(calls[1]["style_id"], "0x2005")
 
+    def test_metadata_trace_keeps_full_value_until_renderer_clip(self):
+        ui = NowPlaying(
+            MusicStyle.load(STY),
+            FirmwareTrace.load(AP),
+            title="A very long folder name that should scroll smoothly",
+            artist="Artist",
+            album="Album",
+            filename="FILE",
+            scroll_offset=32,
+        )
+        title = ui.metadata_clip_trace()[0]
+        self.assertEqual(title["clip_stage"], "renderer-viewport")
+        self.assertEqual(title["input_source"], "full-value")
+        self.assertTrue(title["renderer_clipped"])
+        self.assertTrue(title["scroll_eligible"])
+        self.assertEqual(title["scroll_offset_px"], 32)
+
     def test_transport_frame_semantics_are_explicit(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
         selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}
