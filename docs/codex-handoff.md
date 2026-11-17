@@ -76,6 +76,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   sıfır. Bu desen public SDK `textbox_private_t` yapısıyla güçlü bir yapısal
   eşleşme gösteriyor; pointer/color semantiği kanıtlanmadığı için host'ta
   opaque kalıyor.
+- `tools/ghidra/run_now_playing_corpus_probe.sh <evidence-root>` aynı kontrolü
+  dated corpus'taki tüm `music.ap` dosyalarına uygular. Son tam tarama 12/12
+  imajda 8/8 metadata index'i geçti. Ghidra 12.2 için Java seçimi
+  `JAVA_HOME`/`JAVA_HOME_OVERRIDE` üzerinden yapılır.
 - Dış PD196 SDK referansındaki `common_res.h` ve `music_res.h`, standart M30
   metadata tablosundaki sekiz halfword'ün tamamını string resource ID olarak
   adlandırıyor (`S_SECOND`, `S_SET_MENU`, `S_GENRE`,

@@ -8,11 +8,15 @@ AP=${1:-$ROOT/analysis/community/fw/music.ap}
 shift || true
 MODES=("$@")
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
-JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-${JAVA_HOME:-}}
 PYTHON=${PYTHON:-python3}
 CROSS=${CROSS:-mipsel-linux-gnu-}
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-now-playing-state.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
+
+if [ -n "$JAVA_HOME_OVERRIDE" ]; then
+  export JAVA_HOME="$JAVA_HOME_OVERRIDE"
+fi
 
 [ -f "$AP" ] || { echo "missing music.ap: $AP" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }

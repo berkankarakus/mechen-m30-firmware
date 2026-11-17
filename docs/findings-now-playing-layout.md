@@ -287,10 +287,12 @@ value:  8027    004e    0024    0026    0028    0017    005d    001a
 
 `state + 0x19` selects one of these values for the metadata payload at
 `a0 + 0x10`; `state + 0x0e` is copied to `a0 + 0x12`, and `a0 + 0x14` remains
-zero in the isolated path. The new `metadata-table` p-code case walks all
-eight indices and injects `0x5a` into `state + 0x0e`; community and stock APs
-reproduce the table and the copied byte. A twelve-image corpus scan found the
-same table in ten images. The `2024-04-24` AP is a real revision boundary:
+zero in the isolated path. The `metadata-table` p-code case walks all eight
+indices and injects `0x5a` into `state + 0x0e`. The reusable
+`tools/ghidra/run_now_playing_corpus_probe.sh` wrapper now runs that check
+against all twelve dated `music.ap` images; all twelve images pass all eight
+indices and the zero-field assertions. A corpus scan found the standard table
+in ten images. The `2024-04-24` AP is a real revision boundary:
 indices 1 and 6 are `0x004f` and `0x005e` instead of `0x004e` and `0x005d`, and
 the p-code probe emits those changed values. The host model therefore reads
 `metadata_table_values` from each AP and exposes `table_value` with opaque
