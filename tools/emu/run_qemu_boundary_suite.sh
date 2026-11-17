@@ -5,6 +5,20 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+if [ "${1:-}" = "--all-corpora" ]; then
+  COUNT=0
+  for FW in "$ROOT"/analysis/*/fw; do
+    [ -f "$FW/drv_lcd.drv" ] && [ -f "$FW/drv_dac.drv" ] \
+      && [ -f "$FW/usound.drv" ] || continue
+    COUNT=$((COUNT + 1))
+    echo "=== QEMU boundary corpus: ${FW#"$ROOT/analysis/"} ==="
+    bash "$ROOT/tools/emu/run_qemu_boundary_suite.sh" "$FW"
+  done
+  [ "$COUNT" -gt 0 ] || { echo "no complete firmware corpora found" >&2; exit 1; }
+  echo "QEMU BOUNDARY CORPUS MATRIX PASS corpora=$COUNT"
+  exit 0
+fi
+
 FW=${1:-$ROOT/analysis/community/fw}
 
 [ -d "$FW" ] || { echo "missing firmware directory: $FW" >&2; exit 1; }
