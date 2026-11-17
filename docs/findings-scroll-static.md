@@ -181,6 +181,12 @@ remains eligible for scrolling. The comparison can be reproduced without a
 device using the existing folder and now-playing renderers; their JSON traces
 now expose `clip_stage`, both measured widths, and the scroll input source.
 
+The folder renderer also has an explicitly labelled host-only comparison mode:
+`--scroll-source full-name`. It bypasses the proven slot boundary only in the
+visualizer, allowing the expected fix to be seen without implying that the
+firmware already has such a buffer. The default remains
+`--scroll-source firmware-slot`.
+
 The lowest-risk fix is not to change the four `50 -> 52` length immediates.
 The browser's shared buffer is still only statically proven to be 50-byte
 slots, and enlarging the lengths without moving the buffer can overwrite the

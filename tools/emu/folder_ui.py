@@ -37,6 +37,8 @@ FOLDER_ICON_SIZE = 22
 FOLDER_GLYPH_WIDTH_PX = M30_DIRECTORY_STYLE.glyph_width_px
 SCROLL_GAP_CHARS = 2
 VISIBLE_DIRECTORY_ROWS = LIST_SLOT_COUNT - 1  # one allocated slot is the title
+SCROLL_SOURCE_SLOT = "firmware-slot"
+SCROLL_SOURCE_FULL_NAME = "full-name"
 
 BACKGROUND = (18, 19, 22)
 HEADER_BACKGROUND = (12, 13, 15)
@@ -68,13 +70,19 @@ def directory_clipping_trace(
     name: str,
     slot_text: str,
     viewport_width: int = DIRECTORY_TEXT_WIDTH,
+    *,
+    scroll_text: str | None = None,
+    scroll_source: str = SCROLL_SOURCE_SLOT,
 ) -> dict[str, object]:
     """Describe where a directory name is lost before it reaches the LCD."""
+    if scroll_text is None:
+        scroll_text = slot_text
     source_width = directory_text_width(name)
     slot_width = directory_text_width(slot_text)
+    scroll_input_width = directory_text_width(scroll_text)
     source_clipped = slot_text != name
-    renderer_clipped = slot_width > viewport_width
-    if source_clipped:
+    renderer_clipped = scroll_input_width > viewport_width
+    if scroll_source == SCROLL_SOURCE_SLOT and source_clipped:
         clip_stage = "filesystem-slot"
     elif renderer_clipped:
         clip_stage = "renderer-viewport"
@@ -83,11 +91,13 @@ def directory_clipping_trace(
     return {
         "source_text_width_px": source_width,
         "slot_text_width_px": slot_width,
+        "scroll_input_width_px": scroll_input_width,
         "viewport_width_px": viewport_width,
         "source_clipped": source_clipped,
         "renderer_clipped": renderer_clipped,
         "clip_stage": clip_stage,
-        "scroll_input": "slot-text",
+        "scroll_input": scroll_source,
+        "scroll_input_text": scroll_text,
         "scroll_eligible": renderer_clipped,
     }
 
@@ -159,6 +169,7 @@ class FolderList:
     top_y: int = LIST_TOP_Y
     accelerator: ScrollAccelerator = field(default_factory=ScrollAccelerator, repr=False)
     common_style: CommonStyle | None = field(default=None, repr=False)
+    scroll_source: str = SCROLL_SOURCE_SLOT
 
     def __post_init__(self) -> None:
         if not self.rows:
@@ -167,6 +178,8 @@ class FolderList:
             raise ValueError("selected_index is outside the folder list")
         if not 0 <= self.top_y < HEIGHT:
             raise ValueError("top_y must be inside the framebuffer")
+        if self.scroll_source not in (SCROLL_SOURCE_SLOT, SCROLL_SOURCE_FULL_NAME):
+            raise ValueError(f"unsupported scroll source: {self.scroll_source}")
 
     @property
     def first_visible_index(self) -> int:
@@ -306,9 +319,12 @@ class FolderList:
                 fb.rect(0, row_y, WIDTH, DIRECTORY_ROW_HEIGHT, selection_color)
             draw_folder_icon(fb, FOLDER_ICON_X, row_y + 4, RED if selected else DIM)
             slot_text = row.slot_text
+            scroll_text = (
+                row.name if self.scroll_source == SCROLL_SOURCE_FULL_NAME else slot_text
+            )
             positions = draw_directory_text(
                 fb,
-                slot_text,
+                scroll_text,
                 DIRECTORY_TEXT_X,
                 row_y + 6,
                 DIRECTORY_TEXT_WIDTH,
@@ -317,14 +333,21 @@ class FolderList:
             )
             marquee_active = selected and (
                 self.scroll_offset_px > 0
-                or directory_text_width(slot_text) > DIRECTORY_TEXT_WIDTH
+                or directory_text_width(scroll_text) > DIRECTORY_TEXT_WIDTH
             )
-            clipping = directory_clipping_trace(row.name, slot_text)
+            clipping = directory_clipping_trace(
+                row.name,
+                slot_text,
+                scroll_text=scroll_text,
+                scroll_source=self.scroll_source,
+            )
             trace.append({
                 "slot": slot,
                 "index": row_index,
                 "name": row.name,
                 "slot_text": slot_text,
+                "scroll_text": scroll_text,
+                "scroll_source": self.scroll_source,
                 "truncated": row.truncated,
                 "selected": selected,
                 "x": DIRECTORY_TEXT_X,
@@ -373,6 +396,12 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="PPM framebuffer output")
     parser.add_argument("--trace", type=Path, help="write folder layout trace as JSON")
     parser.add_argument("--common-sty", type=Path, help="load geometry/colors from an extracted common.sty")
+    parser.add_argument(
+        "--scroll-source",
+        choices=(SCROLL_SOURCE_SLOT, SCROLL_SOURCE_FULL_NAME),
+        default=SCROLL_SOURCE_SLOT,
+        help="host comparison mode; full-name is an unverified candidate",
+    )
     parser.add_argument("--selected", type=int, default=0)
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("names", nargs="*", default=["Music", "Podcasts", "Long folder name"])
@@ -383,6 +412,7 @@ def main() -> int:
         args.selected,
         args.offset,
         common_style=style,
+        scroll_source=args.scroll_source,
     )
     frame, _ = view.render()
     frame.ppm(args.out)

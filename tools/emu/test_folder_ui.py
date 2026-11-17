@@ -4,6 +4,7 @@ from pathlib import Path
 
 from folder_ui import (
     DIRECTORY_TEXT_WIDTH,
+    SCROLL_SOURCE_FULL_NAME,
     SELECTION_BACKGROUND,
     VISIBLE_DIRECTORY_ROWS,
     FolderList,
@@ -36,6 +37,21 @@ class FolderUiTests(unittest.TestCase):
         self.assertFalse(clipping["scroll_eligible"])
         self.assertGreater(clipping["source_text_width_px"], clipping["slot_text_width_px"])
         self.assertLess(clipping["slot_text_width_px"], clipping["viewport_width_px"])
+
+    def test_full_name_candidate_makes_the_missing_scroll_eligible(self):
+        view = FolderList(
+            (FolderRow("A very long folder name that should scroll smoothly"),),
+            scroll_offset_px=32,
+            scroll_source=SCROLL_SOURCE_FULL_NAME,
+        )
+        _, trace = view.render()
+        clipping = trace[0]["clipping"]
+        self.assertEqual(clipping["clip_stage"], "renderer-viewport")
+        self.assertTrue(clipping["source_clipped"])
+        self.assertTrue(clipping["renderer_clipped"])
+        self.assertTrue(clipping["scroll_eligible"])
+        self.assertEqual(clipping["scroll_input"], "full-name")
+        self.assertEqual(trace[0]["positions"][0], -32)
 
     def test_short_name_stays_stationary(self):
         self.assertEqual(directory_marquee_positions("Music", 73), (0,))
