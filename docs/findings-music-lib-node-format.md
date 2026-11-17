@@ -176,6 +176,15 @@ converted keys, and the recorded order differs only within that equal-key
 pair. This supports a bounded single-byte conversion limit as the source of
 these residuals; it does not support general Unicode collation behavior.
 
+The same `stop-zero` comparison leaves 56 `ARTIST` positions unmatched. All
+are inside the 81-record `9th Wonder` run. The captured order groups records
+with identical visible artist text into encoding-correlated blocks, while the
+candidate treats them as one key and sorts the full block by the preceding
+ALBUM rank. The source records mix plain-byte and UTF-16LE forms. This points
+to an unresolved conversion/group boundary in the artist pass; the current
+evidence does not yet establish whether the split comes from converted key
+bytes, stale converter state, or another pass-local rule.
+
 This is still a differential probe, not a firmware writer or a replacement
 for QEMU execution. The existing QEMU MIPS probe scripts remain the next
 machine-local validation step when QEMU user-mode is available.
