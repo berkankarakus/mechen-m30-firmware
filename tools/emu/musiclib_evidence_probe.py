@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import struct
 import sys
 
 from library_file import (
@@ -22,6 +23,47 @@ EXPECTED_PUBLIC_SAMPLE_SHA256 = (
     "cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe"
 )
 INDEXED_SECTIONS = ("ALBUM", "ARTIST", "GENRE")
+
+
+def _summarize_record_links(
+    data: bytes,
+    record_count: int,
+) -> tuple[tuple[dict[str, int], ...], dict[str, int]]:
+    samples: list[dict[str, int]] = []
+    previous_linear_matches = 0
+    next_one_past_matches = 0
+    out_of_range_values = 0
+
+    for index in range(record_count):
+        offset = 0x200 + index * 0x100 + 0xFC
+        previous_index, next_index = struct.unpack_from("<HH", data, offset)
+
+        if previous_index == (0xFFFF if index == 0 else index - 1):
+            previous_linear_matches += 1
+
+        if next_index == index + 1:
+            next_one_past_matches += 1
+
+        if previous_index >= record_count:
+            out_of_range_values += 1
+
+        if next_index >= record_count:
+            out_of_range_values += 1
+
+        if index == 0 or index == record_count - 1:
+            samples.append(
+                {
+                    "index": index,
+                    "previous_index": previous_index,
+                    "next_index": next_index,
+                }
+            )
+
+    return tuple(samples), {
+        "previous_linear_matches": previous_linear_matches,
+        "next_one_past_matches": next_one_past_matches,
+        "out_of_range_values": out_of_range_values,
+    }
 
 
 def inspect_music_library(
@@ -73,6 +115,11 @@ def inspect_music_library(
                 "found_index": found_index,
             }
         )
+
+    record_link_samples, record_link_summary = _summarize_record_links(
+        data,
+        layout.record_count,
+    )
     section_summaries: dict[str, object] = {}
     for section_name in INDEXED_SECTIONS:
         section_index = read_library_section_index(card, 0, section_name)
@@ -96,6 +143,8 @@ def inspect_music_library(
         "record_area_sectors": layout.record_area_sectors,
         "location_key_samples": tuple(location_key_samples),
         "location_lookup_samples": tuple(location_lookup_samples),
+        "record_link_samples": record_link_samples,
+        "record_link_summary": record_link_summary,
         "sections": section_summaries,
     }
 
@@ -114,6 +163,8 @@ def main(path: Path, expected_sha256: str | None) -> None:
     )
     print(f"location_key_samples={summary['location_key_samples']}")
     print(f"location_lookup_samples={summary['location_lookup_samples']}")
+    print(f"record_link_samples={summary['record_link_samples']}")
+    print(f"record_link_summary={summary['record_link_summary']}")
     for name, section in summary["sections"].items():
         print(
             f"section={name} "
