@@ -155,6 +155,18 @@ layout evidence, not proof that M30 uses the SDK type: the zero word has not
 been observed at a renderer sink and cannot yet be called a string pointer or
 color.
 
+The same public header also defines `style_infor_t` (`uint16 style_id` plus a
+resource type) and `picbox_private_t` (`uint16 pic_id`, `uint8 frame_id`, and a
+reserve byte).  This gives the control payload a useful structural hypothesis:
+the M30 `op=0x02` `a0` bytes look like a style record, while `a1=a0+0x08`
+looks like a PicBox-private record.  The observed `0xffff`/`0xff00` halfwords
+and `0`/`1` bytes fit that shape, but their exact `pic_id` and frame semantics
+are not assigned.  Likewise, the `op=0x03` `a1=a0+0x10` payload resembles the
+public `textbox_private_t`: the table value could be `str_id`, the copied byte
+could be a language-like field, and the zero word could be a null string
+pointer.  The untouched `+0x08` word prevents promoting the whole record to
+that SDK type; these remain structural hypotheses only.
+
 `tools/emu/ui_dispatcher.py` now carries the verified payload fields as
 `OpaqueMetadataPayload` in its trace.  The host dispatcher deliberately does
 not render this payload or mutate the framebuffer; this preserves the observed
@@ -201,6 +213,13 @@ it is `0xffff`. The following byte is `1` only for `0x1003` and `0x1004`, and
 `0` for the other three. The next byte and following word retain the `0xa5`
 sentinel. The host records these bytes through `control_payload_trace()` but
 does not assign them palette, bitmap, or state semantics.
+
+The style record's byte at `a0 + 0x02` stays within the public SDK's
+`UI_AP=0` / `UI_COM=1` enum range, but it is not stable across the dated M30
+images: for example, community `0x1004` uses `1` while at least one dated image
+uses `0`. The probe therefore asserts only the enum-sized range and the
+sentinel-preserved reserve byte; the host does not promote this byte to a
+resource-type semantic.
 
 The first call-site candidate changed the `0x2005` literal in this paint path,
 but the device-visible marquee is emitted by the shared scroll renderer, not

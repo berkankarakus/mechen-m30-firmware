@@ -51,4 +51,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
 STATUS=${PIPESTATUS[0]}
 set -e
 if [ "$STATUS" -ne 0 ]; then exit "$STATUS"; fi
+if grep -q 'ERROR REPORT SCRIPT ERROR' "$LOG"; then
+  echo "Ghidra script reported an error; probe is not considered a pass" >&2
+  exit 1
+fi
 grep -q 'NOW PLAYING STATE DYNAMIC PASS' "$LOG"

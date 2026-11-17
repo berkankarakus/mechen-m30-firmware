@@ -129,6 +129,9 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         if (isStackAddress(a1)) {
             result.append(" a1-bytes=").append(bytes(emu, a1, 0x20));
         }
+        if (a3 == 0x02L || a3 == 0x03L) {
+            result.append(" style-type=").append(hex(byteValue(emu, a0 + 2)));
+        }
         return result.toString();
     }
 
@@ -142,6 +145,18 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         }
 
         long id = dispatchId(emu);
+        if ((a3 == 0x02L || a3 == 0x03L)
+            && (byteValue(emu, a0 + 2) > 1
+                || byteValue(emu, a0 + 3) != STACK_SENTINEL)) {
+            throw new Exception(String.format(
+                "style payload layout mismatch id=%s a0=%s type=%s reserve=%s",
+                hex(id),
+                hex(a0),
+                hex(byteValue(emu, a0 + 2)),
+                hex(byteValue(emu, a0 + 3))
+            ));
+        }
+
         if (a3 == 0x02L) {
             boolean hasSecondaryPayload = a1 != 0;
             boolean pointerMatches = !hasSecondaryPayload || a1 == a0 + 8;

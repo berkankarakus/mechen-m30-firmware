@@ -81,6 +81,15 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x1000/0x1001` için word `0xff00`, `0x1002..0x1004` için `0xffff`; sonraki
   byte yalnızca `0x1003/0x1004` için `1`. Host bunu
   `NowPlaying.control_payload_trace()` ile opaque trace olarak taşır.
+- Public PD196 header'ındaki `style_infor_t` + `picbox_private_t` ve
+  `style_infor_t` + `textbox_private_t` düzenleri M30 payload'larıyla yapısal
+  olarak eşleşiyor: `a0` style ID/type, `a1` ise op'a göre PicBox/TextBox
+  adayı. Bu henüz ABI/semantic kanıt değil; özellikle `0xff00`, language ve
+  color alanları bilinçli olarak opaque bırakılıyor.
+- Style type byte'ı public SDK `UI_AP/UI_COM` aralığında kalıyor, ancak dated
+  image'lar arasında sabit değil; bu yüzden host'a semantic alan olarak
+  taşınmıyor. Probe yalnızca aralık ve sentinel reserve byte'ını assertion ile
+  kontrol ediyor.
 - `tools/ghidra/run_now_playing_corpus_probe.sh <evidence-root>` aynı kontrolü
   dated corpus'taki tüm `music.ap` dosyalarına uygular. Son tam tarama 12/12
   imajda 8/8 metadata index'i geçti. Ghidra 12.2 için Java seçimi
