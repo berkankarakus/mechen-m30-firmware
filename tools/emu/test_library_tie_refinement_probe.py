@@ -15,6 +15,7 @@ from library_index_sort import INDEX_TEXT_CONVERSION_STOP_ZERO, SECTION_SPECS
 from library_tie_refinement_probe import (
     compare_library,
     compare_library_conversion_matrix,
+    compare_library_replacement_matrix,
     compare_library_rank_source_matrix,
     compare_library_section_modes,
 )
@@ -44,6 +45,9 @@ class LibraryTieRefinementProbeTests(unittest.TestCase):
     def test_cli_rejects_hash_mismatch_for_rank_source_matrix_mode(self) -> None:
         self.assert_cli_rejects_hash_mismatch("rank-source-matrix")
 
+    def test_cli_rejects_hash_mismatch_for_replacement_matrix_mode(self) -> None:
+        self.assert_cli_rejects_hash_mismatch("replace-matrix")
+
     def test_global_mode_comparison_preserves_existing_summary_shape(self) -> None:
         summary = compare_library(
             make_single_record_library(),
@@ -70,6 +74,20 @@ class LibraryTieRefinementProbeTests(unittest.TestCase):
 
         self.assertEqual(16, len(results))
         self.assertEqual(16, len(selections))
+
+        for result in results:
+            for section in result["sections"].values():
+                self.assertEqual(1, section["matching_entries"])
+                self.assertIsNone(section["first_mismatch"])
+
+    def test_replacement_matrix_covers_each_candidate_byte(self) -> None:
+        results = compare_library_replacement_matrix(make_single_record_library())
+
+        self.assertEqual(0x25, len(results))
+        self.assertEqual(
+            [f"replace-continue:{value:02x}" for value in range(1, 0x26)],
+            [result["conversion_mode"] for result in results],
+        )
 
         for result in results:
             for section in result["sections"].values():

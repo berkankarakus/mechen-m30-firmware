@@ -264,22 +264,67 @@ from ARTIST text conversion. This is a corpus crossover, not a claim about
 the resident converter. The still-unexplained ARTIST differences are in the
 separate `9th Wonder` block.
 
-The six remaining `ALLSONG` positions reduce to three pairs whose visible
-titles differ only after conversion reaches a character above U+00FF:
+The six `ALLSONG` residual positions reduce to three pairs whose visible
+titles differ after a character above U+00FF:
 `Dokunmayarayaparsın.flac`/`.wav`, `Şaraba Sarılı Gazete`/`Şevket Hamdi Tan`,
-and `Yangın I`/`Yangın III`. Under `stop-zero`, each pair has identical
-converted keys, and the recorded order differs only within that equal-key
-pair. This supports a bounded single-byte conversion limit as the source of
-these residuals; it does not support general Unicode collation behavior.
+and `Yangın I`/`Yangın III`. The old `stop-zero` hypothesis makes each pair's
+keys equal and cannot order their suffixes. A newer scratchpad experiment
+tests a different inferred converter: emit single-byte characters normally,
+replace each out-of-byte-range UTF-16 code unit with one constant byte, and
+continue converting the remainder. This lets the suffix determine the order;
+it is not general Unicode collation and is not yet a recovered service
+implementation.
 
-The same `stop-zero` comparison leaves 56 `ARTIST` positions unmatched. All
-are inside the 81-record `9th Wonder` run. The captured order groups records
-with identical visible artist text into encoding-correlated blocks, while the
-candidate treats them as one key and sorts the full block by the preceding
-ALBUM rank. The source records mix plain-byte and UTF-16LE forms. This points
-to an unresolved conversion/group boundary in the artist pass; the current
-evidence does not yet establish whether the split comes from converted key
-bytes, stale converter state, or another pass-local rule.
+Against the hash-verified 4,000-record M30 image, replacement bytes `0x01` and
+`0x20` both reproduce ALLSONG, ALBUM, and GENRE exactly; ARTIST remains
+3944/4000. The same section scores hold whether later passes use device ranks
+or candidate ranks. A sweep of all replacement bytes `0x01..0x25` found exact
+section orders for `0x01..0x23`; `0x24` and `0x25` each produce 32 ALLSONG
+differences, first at rank 896. That first group consists of duplicate visible
+`03. LP Version.mp3` titles and is sensitive to equal-key quicksort order, so
+the sweep constrains values only under the current sorter/refinement model; it
+does not establish the actual replacement byte. A simpler adjacent-order test
+alone accepts the broader `0x01..0x25` range.
+
+The full replacement-byte sweep is reproducible with the opt-in
+`replace-matrix` mode. For the captured device image, run
+`python3 tools/emu/library_tie_refinement_probe.py <MUSIC.LIB> e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88 replace-matrix`.
+It verifies the input hash and evaluates all 37 values from `0x01` through
+`0x25`; the default conversion mode and emulator output are unchanged.
+
+The stale-tail model's first mismatch is at ALLSONG rank 65: device records
+3038 then 3274, candidate records 3274 then 3038. Their UTF-16LE title fields
+contain U+0131 (`31 01`) before `.flac`/`.wav`. The old model stops at that
+code unit and treats the suffixes as equal; the replace-and-continue model
+orders the suffixes and matches the device. A prior stable-sort experiment
+restored this pair only under the stale-tail comparator, while reducing that
+model's total ALLSONG score from 3963/4000 to 3803/4000. It is therefore not a
+valid general fix and does not explain the newer converter result. No sorting
+behavior was changed in the emulator.
+
+The replace-and-continue model leaves 56 ARTIST positions unmatched, all at
+positions 83–138. The device places 15 plain-byte `9th Wonder` records first,
+then 41 UTF-16LE records; each block is internally ordered by ALBUM rank. The
+candidate treats the representations as one key and sorts the combined block
+by ALBUM rank. On the captured corpus, an added group rule that separates
+same-visible-name plain/UTF-16 records at lengths 8, 9, or 10 (but merges them
+at lengths 7 and below) reproduces all observed node boundaries. There are no
+8- or 9-character mixed-encoding examples to choose among those thresholds;
+this is a corpus-fitting hypothesis, not a recovered comparison rule.
+
+Node grouping is not explained by simply using `stop-zero` for equality while
+using replace-and-continue for sorting. On device order, that combination
+predicts 548 ALBUM nodes and 362/707 ARTIST nodes, versus 549 and 363/707 on
+device; GENRE counts match at 30/439/709. With the candidate section orders,
+the same two-converter model predicts 548 ALBUM, 362/706 ARTIST, and
+30/438/708 GENRE nodes. ARTIST records 3924 (`Indelible`) and 3925
+(`Indelible’`) illustrate the split: stop-zero gives equal keys and the device
+places both in outer ARTIST node 238, while replace-and-continue distinguishes
+them. Their deepest reference-5 indices differ because they belong to
+different child runs. The device also separates plain and UTF-16 `9th Wonder`
+into distinct outer nodes, which stop-zero alone would merge. Node equality
+therefore needs an encoding-sensitive rule in addition to the candidate sort
+key; its exact rule remains unknown.
 
 ### Stock MIPS passes executed under QEMU
 

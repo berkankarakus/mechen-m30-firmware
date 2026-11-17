@@ -21,6 +21,7 @@ TOOLS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLS_ROOT / "sim"))
 
 from library_index_sort import (
+    INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX,
     INDEX_TEXT_CONVERSION_STALE_TAIL,
     SECTION_SPECS,
     refine_sort_record_indices,
@@ -225,6 +226,21 @@ def compare_library_rank_source_matrix(
     return tuple(results)
 
 
+def compare_library_replacement_matrix(
+    data: bytes,
+    expected_sha256: str | None = None,
+) -> tuple[dict[str, object], ...]:
+    results = []
+
+    for replacement_byte in range(1, 0x26):
+        conversion_mode = (
+            f"{INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX}{replacement_byte:02x}"
+        )
+        results.append(compare_library(data, expected_sha256, conversion_mode))
+
+    return tuple(results)
+
+
 def main(
     path: Path,
     expected_sha256: str | None,
@@ -256,6 +272,26 @@ def main(
                 f"conversion={summary['uniform_conversion_mode']} "
                 f"ranks={rank_label} matches={scores}"
             )
+
+        return
+
+    if conversion_mode == "replace-matrix":
+        matrix = compare_library_replacement_matrix(data, expected_sha256)
+        record_count = struct.unpack_from("<H", data, 8)[0]
+        print(
+            "MUSIC.LIB REPLACEMENT BYTE MATRIX PASS "
+            f"bytes={len(data)} records={record_count} "
+            f"sha256={hashlib.sha256(data).hexdigest()} candidates={len(matrix)}"
+        )
+
+        for summary in matrix:
+            sections = summary["sections"]
+            scores = ",".join(
+                f"{section_name}={sections[section_name]['matching_entries']}"
+                for section_name in SECTION_SPECS
+            )
+            replacement_byte = summary["conversion_mode"].split(":", 1)[1]
+            print(f"replacement=0x{replacement_byte} matches={scores}")
 
         return
 
@@ -313,7 +349,7 @@ if __name__ == "__main__":
         raise SystemExit(
             "usage: library_tie_refinement_probe.py MUSIC.LIB "
             "[EXPECTED_SHA256| -] "
-            "[stale-tail|stop-zero|matrix|chain-matrix|rank-source-matrix]"
+            "[stale-tail|stop-zero|matrix|chain-matrix|rank-source-matrix|replace-matrix]"
         )
 
     expected_sha256 = None

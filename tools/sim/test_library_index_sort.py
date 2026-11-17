@@ -3,6 +3,7 @@ import unittest
 
 from library_index_sort import (
     INDEX_TEXT_CONVERSION_STOP_ZERO,
+    _select_index_text_converter,
     derive_section_run_lengths,
     deepest_group_indices_from_runs,
     group_indices_from_runs,
@@ -88,6 +89,18 @@ class LibraryIndexSortTests(unittest.TestCase):
             ),
             (0, 1),
         )
+
+    def test_replace_continue_conversion_is_experimental_and_keeps_suffix(self):
+        record = make_record(
+            title=b"\xff\xfe" + "AıB".encode("utf-16-le") + b"\0\0"
+        )
+        convert = _select_index_text_converter("replace-continue:20")
+
+        self.assertEqual(convert(record, 0, 0x40)[:5], b"A B\0\0")
+
+    def test_replace_continue_conversion_rejects_invalid_replacement_byte(self):
+        with self.assertRaises(ValueError):
+            _select_index_text_converter("replace-continue:100")
 
     def test_non_first_section_requires_previous_rank(self):
         records = (make_record(artist=b"Artist\0"),)

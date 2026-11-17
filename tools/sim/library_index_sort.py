@@ -20,6 +20,7 @@ REFINEMENT_BUDGET = 0x10000
 STOCK_INSERTION_LIMIT = 8
 INDEX_TEXT_CONVERSION_STALE_TAIL = "stale-tail"
 INDEX_TEXT_CONVERSION_STOP_ZERO = "stop-zero"
+INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX = "replace-continue:"
 
 
 def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
@@ -72,6 +73,36 @@ def _convert_index_text_stop_zero(record: bytes, offset: int, width: int) -> byt
     return bytes(converted)
 
 
+def _convert_index_text_replace_continue(
+    record: bytes,
+    offset: int,
+    width: int,
+    replacement_byte: int,
+) -> bytes:
+    """Experimental single-byte projection that continues after wide UTF-16."""
+
+    field = record[offset : offset + width]
+    if field[:2] != b"\xff\xfe":
+        return bytes(field)
+
+    source = record[offset + 2 : offset + 2 + 2 * width]
+    converted = bytearray(width)
+
+    for index in range(width):
+        character_bytes = source[2 * index : 2 * index + 2].ljust(2, b"\0")
+        character = character_bytes[0] | (character_bytes[1] << 8)
+
+        if character >= 256:
+            converted[index] = replacement_byte
+            continue
+
+        converted[index] = character
+        if character == 0:
+            break
+
+    return bytes(converted)
+
+
 def _select_index_text_converter(
     conversion_mode: str,
 ) -> Callable[[bytes, int, int], bytes]:
@@ -80,6 +111,23 @@ def _select_index_text_converter(
 
     if conversion_mode == INDEX_TEXT_CONVERSION_STOP_ZERO:
         return _convert_index_text_stop_zero
+
+    if conversion_mode.startswith(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX):
+        replacement_text = conversion_mode[len(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX) :]
+        try:
+            replacement_byte = int(replacement_text, 16)
+        except ValueError as error:
+            raise ValueError("replace-continue mode needs a hexadecimal byte") from error
+
+        if not 0 <= replacement_byte <= 0xFF:
+            raise ValueError("replace-continue replacement must fit one byte")
+
+        return lambda record, offset, width: _convert_index_text_replace_continue(
+            record,
+            offset,
+            width,
+            replacement_byte,
+        )
 
     raise ValueError(
         "unsupported MUSIC.LIB index text conversion mode: "
