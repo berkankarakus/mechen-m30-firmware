@@ -381,6 +381,23 @@ selection RGB565 `0x22f6`; the archived community baseline yields the original
 red `0xd000`. This affects only the host preview and never rewrites the
 resource.
 
+If `new_m.fnt` is beside `common.sty`, the preview loads it automatically and
+uses the host display rasterizer's per-glyph advances for painting and
+marquee timing. These describe the preview renderer, not recovered firmware
+font metrics. To compare the untruncated source name against the fixed-width
+firmware slot, pass `--scroll-source full-name`; this is a diagnostic
+candidate, not a proven device behavior.
+
+```sh
+PYTHONPATH=. python3 tools/emu/folder_ui.py \
+  --common-sty analysis/community/fw/common.sty \
+  --selected 1 --offset 64 \
+  --scroll-source full-name \
+  --out /private/tmp/m30-browser.ppm \
+  --trace /private/tmp/m30-browser.json \
+  Music "A very long folder name that should scroll continuously" Podcasts
+```
+
 `python3 tools/emu/compare_folder_nav_host.py` executes the 28-case real
 browser/music p-code matrix and compares the recovered
 `start/end/active/previous/status/update` tuple plus redraw/reset helper hits

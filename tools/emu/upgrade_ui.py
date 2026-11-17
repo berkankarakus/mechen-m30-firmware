@@ -111,6 +111,17 @@ class UpgradeScreen:
         preview.trace["state_boundary"] = (
             "AP input/upgrade state machine is not executed; selected index is host input"
         )
+        for textbox in preview.trace["textboxes"]:
+            measured_width = (
+                self.font.text_width(str(textbox["text"]))
+                if self.font
+                else len(str(textbox["text"])) * 8
+            )
+            textbox["measured_text_width_px"] = measured_width
+            textbox["renderer_clipped"] = measured_width > int(textbox["width"])
+            textbox["measurement_source"] = (
+                "host display glyph advances" if self.font else "8px fixed-cell fallback"
+            )
         return preview
 
 

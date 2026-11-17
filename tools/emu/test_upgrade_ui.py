@@ -12,6 +12,23 @@ FONT = FW / "new_m.fnt"
 
 
 class UpgradeScreenTests(unittest.TestCase):
+    def test_each_upgrade_option_selects_exactly_its_own_real_picbox_frame(self):
+        font = M30Font.load(FONT)
+        for selected_option in range(5):
+            with self.subTest(selected_option=selected_option):
+                preview = UpgradeScreen(
+                    STYLE,
+                    selected_option=selected_option,
+                    font=font,
+                ).render()
+
+                frames = [entry["frame"] for entry in preview.trace["picboxes"]]
+                self.assertEqual(frames, [
+                    1 if index == selected_option else 0
+                    for index in range(5)
+                ])
+                self.assertEqual(sum(frame == 1 for frame in frames), 1)
+
     def test_selected_option_uses_real_selected_frame_only(self):
         preview = UpgradeScreen(STYLE, selected_option=2, font=M30Font.load(FONT)).render()
 
@@ -38,6 +55,18 @@ class UpgradeScreenTests(unittest.TestCase):
         self.assertEqual(
             [(entry["x"], entry["y"], entry["width"], entry["height"]) for entry in preview.trace["textboxes"]],
             [(35, 110, 250, 48), (85, 40, 150, 16)],
+        )
+
+    def test_upgrade_preview_reports_host_font_text_clipping(self):
+        preview = UpgradeScreen(STYLE, font=M30Font.load(FONT)).render()
+
+        self.assertFalse(preview.trace["textboxes"][0]["renderer_clipped"])
+        self.assertEqual(preview.trace["textboxes"][0]["measured_text_width_px"], 218)
+        self.assertTrue(preview.trace["textboxes"][1]["renderer_clipped"])
+        self.assertEqual(preview.trace["textboxes"][1]["measured_text_width_px"], 170)
+        self.assertEqual(
+            preview.trace["textboxes"][1]["measurement_source"],
+            "host display glyph advances",
         )
 
     def test_upgrade_screen_rejects_a_sixth_option(self):

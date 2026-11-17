@@ -9,9 +9,11 @@ from folder_ui import (
     VISIBLE_DIRECTORY_ROWS,
     FolderList,
     FolderRow,
+    FONT_MEASUREMENT_DISPLAY,
     draw_directory_text,
     directory_marquee_positions,
 )
+from m30_font import M30Font
 from m30_ui import Framebuffer
 from scroll_accel import NEXT, PREVIOUS
 
@@ -61,6 +63,24 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual(positions[0], -1)
         self.assertGreaterEqual(len(positions), 1)
         self.assertLessEqual(max(positions), DIRECTORY_TEXT_WIDTH)
+
+    def test_display_glyph_advances_drive_folder_marquee_measurement(self):
+        font = M30Font.load(Path(__file__).parents[2] / "analysis/community/fw/new_m.fnt")
+        text = "MMMMMMMMMMMMMMMMMMMMMMMM"
+        measured = font.text_width(text)
+        self.assertNotEqual(measured, len(text) * 8)
+        view = FolderList((FolderRow(text),), selected_index=0, font=font)
+        _, trace = view.render()
+        self.assertEqual(trace[0]["measured_text_width"], font.text_width(view.rows[0].slot_text))
+        self.assertEqual(
+            trace[0]["clipping"]["scroll_input_width_px"],
+            font.text_width(view.rows[0].slot_text),
+        )
+        self.assertEqual(
+            view.json()["geometry"]["text_measurement"],
+            FONT_MEASUREMENT_DISPLAY,
+        )
+        self.assertEqual(view.json()["font"], "new_m.fnt")
 
     def test_render_trace_records_selected_redraw_contract(self):
         view = FolderList(

@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from common_sty import CommonStyle
+from m30_font import M30Font
 from m30_ui import Framebuffer, draw_text
 from scroll_accel import NEXT, PREVIOUS, ScrollAccelerator
 from tools.sim.listbox import (
@@ -39,6 +40,8 @@ SCROLL_GAP_CHARS = 2
 VISIBLE_DIRECTORY_ROWS = LIST_SLOT_COUNT - 1  # one allocated slot is the title
 SCROLL_SOURCE_SLOT = "firmware-slot"
 SCROLL_SOURCE_FULL_NAME = "full-name"
+FONT_MEASUREMENT_DISPLAY = "host display glyph advances"
+FONT_MEASUREMENT_FALLBACK = "fixed-cell fallback"
 
 BACKGROUND = (18, 19, 22)
 HEADER_BACKGROUND = (12, 13, 15)
@@ -66,6 +69,10 @@ def directory_text_width(text: str) -> int:
     return len(text) * FOLDER_GLYPH_WIDTH_PX
 
 
+def _measured_text_width(text: str, font: M30Font | None) -> int:
+    return font.text_width(text, pixel_scale=1) if font else directory_text_width(text)
+
+
 def directory_clipping_trace(
     name: str,
     slot_text: str,
@@ -73,13 +80,14 @@ def directory_clipping_trace(
     *,
     scroll_text: str | None = None,
     scroll_source: str = SCROLL_SOURCE_SLOT,
+    font: M30Font | None = None,
 ) -> dict[str, object]:
     """Describe where a directory name is lost before it reaches the LCD."""
     if scroll_text is None:
         scroll_text = slot_text
-    source_width = directory_text_width(name)
-    slot_width = directory_text_width(slot_text)
-    scroll_input_width = directory_text_width(scroll_text)
+    source_width = _measured_text_width(name, font)
+    slot_width = _measured_text_width(slot_text, font)
+    scroll_input_width = _measured_text_width(scroll_text, font)
     source_clipped = slot_text != name
     renderer_clipped = scroll_input_width > viewport_width
     if scroll_source == SCROLL_SOURCE_SLOT and source_clipped:
@@ -108,16 +116,22 @@ def directory_marquee_positions(
     viewport_width: int = DIRECTORY_TEXT_WIDTH,
     *,
     gap_chars: int = SCROLL_GAP_CHARS,
+    font: M30Font | None = None,
 ) -> tuple[int, ...]:
     """Return relative pixel positions for the repeated directory name."""
     if viewport_width <= 0:
         raise ValueError("viewport_width must be positive")
     if gap_chars < 0:
         raise ValueError("gap_chars must be non-negative")
-    width = directory_text_width(text)
+    width = _measured_text_width(text, font)
     if not text or width <= viewport_width:
         return (0,) if text else ()
-    cycle = width + gap_chars * FOLDER_GLYPH_WIDTH_PX
+    gap_width = (
+        font.text_width(" " * gap_chars, pixel_scale=1)
+        if font
+        else gap_chars * FOLDER_GLYPH_WIDTH_PX
+    )
+    cycle = width + gap_width
     normalized = offset_px % cycle
     positions: list[int] = []
     position = -normalized
@@ -144,20 +158,24 @@ def draw_directory_text(
     color: tuple[int, int, int],
     *,
     offset_px: int,
+    font: M30Font | None = None,
 ) -> tuple[int, ...]:
-    positions = directory_marquee_positions(text, offset_px, viewport_width)
+    positions = directory_marquee_positions(text, offset_px, viewport_width, font=font)
     clip = (x, y, viewport_width, DIRECTORY_TEXT_HEIGHT)
     for relative_x in positions:
-        draw_text(
-            fb,
-            text,
-            x + relative_x,
-            y,
-            color,
-            scale=1,
-            clip=clip,
-            cell_width=FOLDER_GLYPH_WIDTH_PX,
-        )
+        if font:
+            font.draw_text(fb, text, x + relative_x, y, color, clip=clip)
+        else:
+            draw_text(
+                fb,
+                text,
+                x + relative_x,
+                y,
+                color,
+                scale=1,
+                clip=clip,
+                cell_width=FOLDER_GLYPH_WIDTH_PX,
+            )
     return positions
 
 
@@ -170,6 +188,7 @@ class FolderList:
     accelerator: ScrollAccelerator = field(default_factory=ScrollAccelerator, repr=False)
     common_style: CommonStyle | None = field(default=None, repr=False)
     scroll_source: str = SCROLL_SOURCE_SLOT
+    font: M30Font | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.rows:
@@ -330,16 +349,18 @@ class FolderList:
                 DIRECTORY_TEXT_WIDTH,
                 selected_text_color if selected else unselected_text_color,
                 offset_px=self.scroll_offset_px if selected else 0,
+                font=self.font,
             )
             marquee_active = selected and (
                 self.scroll_offset_px > 0
-                or directory_text_width(scroll_text) > DIRECTORY_TEXT_WIDTH
+                or _measured_text_width(scroll_text, self.font) > DIRECTORY_TEXT_WIDTH
             )
             clipping = directory_clipping_trace(
                 row.name,
                 slot_text,
                 scroll_text=scroll_text,
                 scroll_source=self.scroll_source,
+                font=self.font,
             )
             trace.append({
                 "slot": slot,
@@ -354,6 +375,7 @@ class FolderList:
                 "y": row_y + 6,
                 "width": DIRECTORY_TEXT_WIDTH,
                 "height": DIRECTORY_TEXT_HEIGHT,
+                "measured_text_width": _measured_text_width(scroll_text, self.font),
                 "offset_px": self.scroll_offset_px if selected else 0,
                 "positions": list(positions),
                 "refresh_period_ms": DIRECTORY_SCROLL_PERIOD_MS,
@@ -382,11 +404,15 @@ class FolderList:
                 "visible_directory_rows": VISIBLE_DIRECTORY_ROWS,
                 "name_slot_bytes": 50,
                 "name_payload_bytes": firmware_name_payload_bytes(),
+                "text_measurement": (
+                    FONT_MEASUREMENT_DISPLAY if self.font else FONT_MEASUREMENT_FALLBACK
+                ),
             },
             "selected_index": self.selected_index,
             "first_visible_index": self.first_visible_index,
             "navigation": self.navigation_snapshot(),
             "scroll_offset_px": self.scroll_offset_px,
+            "font": self.font.path.name if self.font else "fixed-cell-fallback",
             "rows": rows,
         }
 
@@ -396,6 +422,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="PPM framebuffer output")
     parser.add_argument("--trace", type=Path, help="write folder layout trace as JSON")
     parser.add_argument("--common-sty", type=Path, help="load geometry/colors from an extracted common.sty")
+    parser.add_argument("--font", type=Path, help="load the extracted M30 new_m.fnt font")
     parser.add_argument(
         "--scroll-source",
         choices=(SCROLL_SOURCE_SLOT, SCROLL_SOURCE_FULL_NAME),
@@ -407,11 +434,17 @@ def main() -> int:
     parser.add_argument("names", nargs="*", default=["Music", "Podcasts", "Long folder name"])
     args = parser.parse_args()
     style = CommonStyle.load(args.common_sty) if args.common_sty else None
+    font_path = args.font
+    if font_path is None and args.common_sty:
+        candidate = args.common_sty.with_name("new_m.fnt")
+        font_path = candidate if candidate.exists() else None
+    font = M30Font.load(font_path) if font_path and font_path.exists() else None
     view = FolderList(
         tuple(FolderRow(name) for name in args.names),
         args.selected,
         args.offset,
         common_style=style,
+        font=font,
         scroll_source=args.scroll_source,
     )
     frame, _ = view.render()
