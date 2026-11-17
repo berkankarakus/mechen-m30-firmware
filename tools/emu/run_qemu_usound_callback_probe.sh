@@ -61,11 +61,11 @@ except subprocess.TimeoutExpired as exc:
     if isinstance(output, bytes):
         output = output.decode(errors="replace")
     print(output, end="")
-    if "REAL USOUND CALLBACK PASS" in output:
+    if "REAL USOUND MODULE-CALL PASS" in output:
         raise SystemExit(0)
-    raise SystemExit("QEMU callback probe timed out before PASS")
+    raise SystemExit("QEMU module-call probe timed out before PASS")
 
 print(result.stdout, end="")
-if "REAL USOUND CALLBACK PASS" not in result.stdout:
-    raise SystemExit(f"QEMU callback probe failed (exit={result.returncode})")
+if "REAL USOUND MODULE-CALL PASS" not in result.stdout:
+    raise SystemExit(f"QEMU module-call probe failed (exit={result.returncode})")
 PY

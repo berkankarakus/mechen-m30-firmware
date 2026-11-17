@@ -43,5 +43,5 @@ set -e
 printf '%s\n' "$OUTPUT"
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 grep -q 'TCG EXCEPTION' <<<"$OUTPUT"
-grep -q 'REAL USOUND CALLBACK PASS' <<<"$OUTPUT"
+grep -q 'REAL USOUND MODULE-CALL PASS' <<<"$OUTPUT"
 echo 'QEMU TCG EXCEPTION TRACE PASS'
