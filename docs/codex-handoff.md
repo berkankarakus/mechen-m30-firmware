@@ -211,6 +211,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   --set RECORD.FIELD=VALUE`. OUTPUT `/Volumes` altında olamaz.
 - `tools/emu/ui_resources.py`: altı corpus'ta doğrulanmış MCG node ve RU3
   group metadata'sı; user-facing isim veya node anlamı uydurulmaz.
+- `tools/emu/ui_dispatcher.py`: now-playing op-`0x03` payload'ındaki doğrulanmış
+  halfword, byte ve zero-word alanlarını `OpaqueMetadataPayload` olarak trace'e
+  taşır; payload framebuffer'a çizilmez ve semantik atanmaz.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
   table'ının format `0x2`, boyut ve doğrudan little-endian RGB565 sözleşmesi;
   bilinmeyen formatlar reddedilir. `NowPlaying` resource 0 bitmap'ini gerçek

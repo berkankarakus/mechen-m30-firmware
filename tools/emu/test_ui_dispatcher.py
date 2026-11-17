@@ -5,6 +5,7 @@ from ui_dispatcher import (
     OP_CLEAR_COLOR,
     OP_DRAW_TEXT,
     Rect,
+    OpaqueMetadataPayload,
     TextPayload,
     UiDispatcher,
     replay_now_playing_dispatcher,
@@ -26,6 +27,29 @@ class UiDispatcherTests(unittest.TestCase):
         self.assertEqual(dispatcher.call(123, 456, 0, 0x7F), 1)
         self.assertEqual(bytes(dispatcher.framebuffer.pixels), before)
         self.assertFalse(dispatcher.calls[0].rendered)
+
+    def test_metadata_payload_is_preserved_without_rendering(self):
+        dispatcher = UiDispatcher()
+        before = bytes(dispatcher.framebuffer.pixels)
+
+        dispatcher.call(
+            {"style_id": MAIN_PAINT_STYLE},
+            OpaqueMetadataPayload(0x8027, 0x5A),
+            1,
+            OP_DRAW_TEXT,
+        )
+
+        self.assertEqual(bytes(dispatcher.framebuffer.pixels), before)
+        self.assertFalse(dispatcher.calls[0].rendered)
+        self.assertEqual(
+            dispatcher.trace()[0]["payload"],
+            {
+                "table_value": 0x8027,
+                "state_byte": 0x5A,
+                "reserved_word": 0,
+                "semantics": "opaque metadata payload",
+            },
+        )
 
     def test_clear_rect_is_bounded(self):
         dispatcher = UiDispatcher()

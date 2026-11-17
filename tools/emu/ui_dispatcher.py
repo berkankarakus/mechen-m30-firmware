@@ -50,6 +50,23 @@ class TextPayload:
 
 
 @dataclass(frozen=True)
+class OpaqueMetadataPayload:
+    """Carry the verified metadata payload without assigning its ABI."""
+
+    table_value: int
+    state_byte: int
+    reserved_word: int = 0
+
+    def trace(self) -> dict[str, int | str]:
+        return {
+            "table_value": self.table_value & 0xFFFF,
+            "state_byte": self.state_byte & 0xFF,
+            "reserved_word": self.reserved_word & 0xFFFFFFFF,
+            "semantics": "opaque metadata payload",
+        }
+
+
+@dataclass(frozen=True)
 class DispatcherCall:
     op: int
     style_id: int | None
@@ -58,6 +75,7 @@ class DispatcherCall:
     arg2: int
     result: int
     rendered: bool
+    payload: dict[str, int | str] | None
 
 
 class UiDispatcher:
@@ -83,6 +101,8 @@ class UiDispatcher:
     def call(self, arg0: Any, arg1: Any, arg2: int, op: int) -> int:
         style_id = self._style_id(arg0)
         rendered = False
+        payload = arg1.trace() if isinstance(arg1, OpaqueMetadataPayload) else None
+
         if op == OP_CLEAR_COLOR:
             # The M30 passes a resource/color selector here. The exact palette
             # conversion is not part of the dispatcher ABI, so use the host
@@ -108,7 +128,19 @@ class UiDispatcher:
                 offset=arg1.offset,
             )
             rendered = True
-        self.calls.append(DispatcherCall(op, style_id, type(arg0).__name__, type(arg1).__name__, arg2, 1, rendered))
+
+        self.calls.append(
+            DispatcherCall(
+                op,
+                style_id,
+                type(arg0).__name__,
+                type(arg1).__name__,
+                arg2,
+                1,
+                rendered,
+                payload,
+            )
+        )
         return 1
 
     def trace(self) -> list[dict[str, Any]]:

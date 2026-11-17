@@ -144,6 +144,11 @@ The emulator continues to expose `table_value` as opaque, while this section
 records the strongest current semantic hypothesis and the evidence needed to
 revisit it.
 
+`tools/emu/ui_dispatcher.py` now carries the three verified payload fields as
+`OpaqueMetadataPayload` in its trace.  The host dispatcher deliberately does
+not render this payload or mutate the framebuffer; this preserves the observed
+ABI boundary until the real metadata renderer or LCD sink is identified.
+
 ## M30 binary cross-check
 
 The community-compatible M30 `music.ap` was loaded into Ghidra using the
