@@ -64,9 +64,18 @@ resource-name literals. It does not execute the overlay or write a candidate.
 - The preview's `SELECT UPGRADE FILE:` and `CONFIRM UPGRADE` values are host
   examples, not literals recovered from the screen entry in `upgrade.ap`.
   The distinct `Confirm upgrade file: [%s]` replacement is stored in
-  `setting.sty`; its `setting.ap` caller and rendered geometry are not yet
-  mapped to this five-option screen. The preview trace labels text origin so
-  example wording cannot be mistaken for device output.
+  `setting.sty`. In the setting resource table it is text entry 133 (`0x85`);
+  `setting.ap` function `FUN_489146e8` selects that ID and then references
+  controls `0x1009` and `0x100a`. `upgrade.ap` contains a pointer to that
+  MIPS16 entry at file offset `0x13a0` (`0x489146e9`), connecting the prompt
+  path to the updater app. The five-option picker is a separate path:
+  `FUN_40014d54` draws controls `0x2001`/`0x2000` and iterates the five option
+  resources. This supports a separate confirmation window in the same update
+  flow, not a second label on the five-option screen. Its actual text-draw
+  API arguments, rectangle, and event/caller chain are still unresolved; no
+  corresponding RU3 TextBox geometry was found in `setting.sty`. The preview
+  trace labels text origin so example wording cannot be mistaken for device
+  output.
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
