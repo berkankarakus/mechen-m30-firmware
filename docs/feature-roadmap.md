@@ -8,7 +8,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | Öncelik | Alan | Bir sonraki kanıt/çıktı |
 |---|---|---|
 | P0 | Klasör marquee veri akışı | 50-byte slot, nonzero browser context ve gerçek `0x14` row-provider → `0x1c` converter zinciri dinamik doğrulandı; sıradaki iş sabit fsel/list-state kaydının semantik türünü ayırmak, sonra yalnızca güvenli patch adayı üretmek |
-| P0 | Now-playing UI | gerçek paint girişinin dinamik dispatch trace'i eklendi; sırada state/resource branch'lerini tek tek LCD sink'ine bağlamak |
+| P0 | Now-playing UI | initial + metadata/transport/status state branch'leri dinamik doğrulandı; sırada resource/font/LCD sink bağlantısı |
 | P1 | USB-DAC | UAC1 descriptor/endpoint → `usound.drv` ring → selector `0x10` → PCM/DAC sahipliği zincirini ayır; descriptor varlığını ses çıkışı kanıtı sayma |
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
 | P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |

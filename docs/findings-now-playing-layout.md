@@ -201,3 +201,11 @@ resource, or artwork decode succeeded; it proves only the real paint entry's
 control-dispatch sequence and return boundary. The next high-value extension
 is to feed synthetic metadata/artwork state and trace the `0x100`, `0x200`,
 `0x400`, `0x800`, and `0x20` branches one at a time.
+
+The follow-up `tools/ghidra/run_now_playing_state_probe.sh` now executes and
+checks the `0x100` metadata, `0x20` transport/EQ, and `0x200`/`0x800` status
+branches in addition to the initial paint. The observed control IDs are
+stable across the stock, community, and V1.101.11 `music.ap` corpora. This
+does not prove that the final pixels are correct, but it proves that the
+candidate UI work can be isolated at the dispatcher boundary without
+entering the decoder or DAC path.
