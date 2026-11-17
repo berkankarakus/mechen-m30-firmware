@@ -140,7 +140,7 @@ PASS/FAIL koşuluyla kapatılacak.
   prototipinde bozuk `MOVE` atlanınca sonraki `SET` eski yolu yeniden
   gösterebiliyor; fail-closed recovery düzeltilip doğrulanana kadar güvenli
   sayılmayacak.
-- Yeni EQ preset'leri; menu callback ve coefficient mapping tamamlanmadı.
+- Yeni EQ preset'leri: mevcut selector zinciri `0..6` built-in ve `7` Custom olarak kanıtlandı; 7×7 katsayı bloğu yerel stok/resmî/topluluk kopyalarında aynıdır. Yeni seçim için AP callback/menü ağacı ve engine katsayı eşlemesini genişletmek gerekir. Katsayı tablosu sonrasındaki sıfırlar boş patch alanı sayılmaz; duyulur sonuç ve güvenli paketleme kanıtı yok.
 - Gerçek gapless playback ve ASRC/DAC audible tail ölçümü.
 
 Her yeni satır için önce ilgili `findings-*.md` dosyası güncellenir; ardından
