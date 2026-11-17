@@ -285,10 +285,19 @@ pointer at `0x40155334` to temporary RAM; the AP bytes are not modified and no
 device image is produced.
 
 The minimal initial-paint case (`flags = 0x1`) reaches the UI dispatcher seven
-times and passes the real return path. This is the first dynamic contract for
-the UI work: three fixed-band/clear operations followed by the artwork control
-`0x1002` under the default state. It separates the now-playing geometry path
-from metadata scrolling, playback state, and artwork decoding.
+times and passes the real return path. The exact call envelope is stable across
+all twelve dated `music.ap` images: `0x18c3`, a `0x12` clear payload,
+`0x39e7`, a second `0x12` clear payload, `0x18c3`, a third `0x12` clear
+payload, and the artwork control payload whose control ID is `0x1002`.
+This is the first dynamic contract for the UI work. It separates the
+now-playing geometry path from metadata scrolling, playback state, and artwork
+decoding.
+
+`tools/ghidra/run_now_playing_paint_corpus_probe.sh` repeats this initial-paint
+check over every dated `music.ap` below the persistent evidence root. The
+current corpus result is `images=12`; all images produced the same seven-call
+envelope and real return boundary. The wrapper rejects Ghidra script errors
+even if the process itself exits successfully.
 
 This is deliberately not a full LCD emulator. It does not claim that a font,
 resource, or artwork decode succeeded; it proves only the real paint entry's

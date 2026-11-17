@@ -50,7 +50,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 - `9da84ad` ile `FUN_40154ddc` initial paint girişi gerçek MIPS16 p-code'da
   çalıştırıldı; üç firmware ailesinde 7 dispatcher çağrısı ve gerçek return
-  sınırı aynı kaldı.
+  sınırı aynı kaldı. `tools/ghidra/run_now_playing_paint_corpus_probe.sh` ile
+  bu sınır on iki dated image'ın tamamında tekrarlandı: `0x18c3`/`0x39e7`
+  band çağrıları, üç `0x12` clear payload'ı ve son `0x1002` artwork
+  payload'ı aynı sırada kaldı.
+  Paint wrapper artık Ghidra script error raporunu da başarısızlık sayıyor.
 - `3ed9368` ile aynı girişin metadata `0x100`, transport/EQ `0x20` ve status
   `0x200`/`0x800` dalları üç firmware ailesinde gerçek kodla çalıştırıldı.
   Sıra sırasıyla `0x2005`, `0x1004`/`0x1003`, `0x1000`/`0x1001` kontrol
