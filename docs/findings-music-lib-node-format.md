@@ -113,7 +113,10 @@ bytes, compares up to the supplied length, and returns equality when both
 current bytes are NUL. This explains why a visible text-key model can match
 the high-level order while missing terminator-adjacent UTF-16/ASCII ties. The
 host model keeps this refinement opt-in until the source-offset conversion path
-is independently reproduced.
+is independently reproduced. The opt-in
+`tools/sim/library_index_sort.py::refine_sort_record_indices()` helper now
+holds this same bounded algorithm; the existing default sorter remains
+unchanged and no index writer consumes the refined result.
 
 The reproducible cross-comparison tool is
 `tools/emu/library_tie_refinement_probe.py`. It applies the recovered bounded

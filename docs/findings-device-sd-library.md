@@ -50,6 +50,20 @@ PYTHONPATH=tools/emu \
   ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01
 ```
 
+### Read-only mounted-volume metadata
+
+On the same read-only inspection, the mounted volume reported these
+filesystem metadata values. The inode values belong to this mount and are
+useful for detecting a replacement or re-enumeration during a session; they
+are not treated as M30 record identifiers. The content hash remains the
+authoritative identity used by the probes.
+
+| File | Inode | Mode | Bytes | Blocks | Modification time |
+|---|---:|---|---:|---:|---|
+| `MUSIC.LIB` | `1768` | `-rwx------` | `2,625,536` | `5,376` | `2014-12-31 23:00:02` |
+| `M3U.LIB` | `11,140` | `-rwx------` | `1,550,848` | `3,072` | `2014-12-31 23:10:48` |
+| `ALBUM.PIC` | `11,124` | `-rwx------` | `128,000` | `256` | `2014-12-31 23:11:06` |
+
 ## MUSIC.LIB geometry and indexes
 
 `tools/emu/musiclib_evidence_probe.py` reads the image through

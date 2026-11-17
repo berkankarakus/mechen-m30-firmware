@@ -5,6 +5,7 @@ from library_index_sort import (
     derive_section_run_lengths,
     deepest_group_indices_from_runs,
     group_indices_from_runs,
+    refine_sort_record_indices,
     sort_record_indices,
 )
 
@@ -47,6 +48,19 @@ class LibraryIndexSortTests(unittest.TestCase):
             sort_record_indices(records, "ALBUM", previous_rank=(2, 1, 0)),
             (1, 0, 2),
         )
+
+    def test_refined_sort_reloads_equal_short_keys(self):
+        records = (
+            make_record(title=b"ABCDEFGHIJKLMNOPZ\0"),
+            make_record(title=b"ABCDEFGHIJKLMNOPA\0"),
+        )
+
+        self.assertEqual(sort_record_indices(records, "ALLSONG"), (1, 0))
+        self.assertEqual(refine_sort_record_indices(records, "ALLSONG"), (1, 0))
+
+        reversed_records = tuple(reversed(records))
+        self.assertEqual(sort_record_indices(reversed_records, "ALLSONG"), (0, 1))
+        self.assertEqual(refine_sort_record_indices(reversed_records, "ALLSONG"), (0, 1))
 
     def test_non_first_section_requires_previous_rank(self):
         records = (make_record(artist=b"Artist\0"),)

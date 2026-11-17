@@ -9,7 +9,6 @@ again until no run remains or the field is exhausted.
 
 from __future__ import annotations
 
-from functools import cmp_to_key
 import hashlib
 from pathlib import Path
 import struct
@@ -22,36 +21,13 @@ sys.path.insert(0, str(TOOLS_ROOT / "sim"))
 
 from library_index_sort import (
     SECTION_SPECS,
-    _convert_index_text,
-    _signed_track_byte,
+    refine_sort_record_indices,
 )
 
 
 SECTOR_SIZE = 512
 HEADER_SIZE = 0x200
 RECORD_SIZE = 0x100
-INITIAL_KEY_LENGTH = 16
-MAX_REFINEMENT_SLICE = 100
-REFINEMENT_BUDGET = 0x10000
-
-
-def _compare_probe_text(left: bytes, right: bytes) -> int:
-    for left_byte, right_byte in zip(left, right):
-        if 0x61 <= left_byte <= 0x7A:
-            left_byte -= 32
-
-        if 0x61 <= right_byte <= 0x7A:
-            right_byte -= 32
-
-        if left_byte != right_byte:
-            return -1 if left_byte < right_byte else 1
-
-        if left_byte == 0 and right_byte == 0:
-            return 0
-
-    return 0
-
-
 def _read_order(data: bytes, record_count: int, section_number: int) -> tuple[int, ...]:
     section_offset = 0x10 + section_number * 0x1C
     table_sector = struct.unpack_from("<H", data, section_offset + 20)[0]
@@ -67,110 +43,6 @@ def _inverse_rank(order: Sequence[int], record_count: int) -> tuple[int, ...]:
         rank[record_index] = position
 
     return tuple(rank)
-
-
-def _equal_runs(
-    order: Sequence[int],
-    keys: Sequence[bytes],
-    compared_length: int,
-) -> tuple[tuple[int, int], ...]:
-    runs: list[tuple[int, int]] = []
-    start = 0
-
-    while start < len(order):
-        end = start + 1
-
-        while end < len(order):
-            left = keys[order[end - 1]][:compared_length]
-            right = keys[order[end]][:compared_length]
-
-            if _compare_probe_text(left, right) != 0:
-                break
-
-            end += 1
-
-        if end - start > 1:
-            runs.append((start, end))
-
-        start = end
-
-    return tuple(runs)
-
-
-def _refine_order(
-    records: Sequence[bytes],
-    section_name: str,
-    previous_rank: Sequence[int] | None,
-) -> tuple[int, ...]:
-    section_number, field_offset, field_width = SECTION_SPECS[section_name]
-    keys = tuple(
-        _convert_index_text(record, field_offset, field_width)
-        for record in records
-    )
-
-    def compare_initial(left_index: int, right_index: int) -> int:
-        result = _compare_probe_text(
-            keys[left_index][:INITIAL_KEY_LENGTH],
-            keys[right_index][:INITIAL_KEY_LENGTH],
-        )
-        if result:
-            return result
-
-        if section_name == "ALBUM":
-            left_track = _signed_track_byte(records[left_index])
-            right_track = _signed_track_byte(records[right_index])
-
-            if left_track != right_track:
-                return -1 if left_track < right_track else 1
-
-        if section_number and previous_rank is not None:
-            left_rank = previous_rank[left_index]
-            right_rank = previous_rank[right_index]
-
-            if left_rank != right_rank:
-                return -1 if left_rank < right_rank else 1
-
-        return 0
-
-    order = list(sorted(range(len(records)), key=cmp_to_key(compare_initial)))
-    compared_length = min(INITIAL_KEY_LENGTH, field_width)
-
-    while compared_length < field_width:
-        runs = _equal_runs(order, keys, compared_length)
-
-        if not runs:
-            break
-
-        refinement_lengths = [
-            min(
-                MAX_REFINEMENT_SLICE,
-                field_width - compared_length,
-                REFINEMENT_BUDGET // (end - start),
-            )
-            for start, end in runs
-        ]
-        refinement_length = min(refinement_lengths)
-
-        if refinement_length <= 0:
-            break
-
-        next_length = compared_length + refinement_length
-
-        for (start, end), run_length in zip(runs, refinement_lengths):
-            run_end = compared_length + run_length
-            order[start:end] = sorted(
-                order[start:end],
-                key=cmp_to_key(
-                    lambda left, right: _compare_probe_text(
-                        keys[left][compared_length:run_end],
-                        keys[right][compared_length:run_end],
-                    )
-                ),
-            )
-
-        compared_length = next_length
-
-    return tuple(order)
 
 
 def compare_library(
@@ -194,7 +66,11 @@ def compare_library(
 
     for section_name, (section_number, _, _) in SECTION_SPECS.items():
         actual_order = _read_order(data, record_count, section_number)
-        candidate_order = _refine_order(records, section_name, previous_rank)
+        candidate_order = refine_sort_record_indices(
+            records,
+            section_name,
+            previous_rank=previous_rank,
+        )
         matching_entries = sum(
             actual_index == candidate_index
             for actual_index, candidate_index in zip(actual_order, candidate_order)

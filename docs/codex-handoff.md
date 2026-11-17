@@ -196,7 +196,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   tutulur.
 - `tools/sim/library_index_sort.py`: `index.c` karşılaştırma sırasının raw
   record üzerinde çalışan candidate order modeli ile ALBUM→ARTIST→GENRE
-  nested run/group türetimi; yazma veya M30 UI policy iddiası yoktur.
+  nested run/group türetimi; ayrıca gerçek `FUN_40114d54` bounded tie
+  refinement'ı `refine_sort_record_indices()` adıyla opt-in taşır. Varsayılan
+  sorter değişmez; yazma veya M30 UI policy iddiası yoktur.
 - `tools/sim/library_scan.py`: stock fixed-array scanının 4,000-record
   kapasite sınırı; `MUSIC.LIB` formatı veya experimental large-library yolu
   bu modelle birleştirilmez.
