@@ -23,17 +23,19 @@ the two verified resource changes below.
 ## Reproduce the extracted candidate
 
 ```sh
+OUT_DIR="build/m30-safe-ui"
+mkdir -p "$OUT_DIR"
 PYTHONPATH=tools/emu python3 tools/emu/build_safe_ui_members.py \
-  analysis/community/fw /private/tmp/m30-safe-ui/fw
+  analysis/community/fw "$OUT_DIR/fw"
 ```
 
 Then verify the exact delta:
 
 ```sh
 PYTHONPATH=tools/emu python3 tools/emu/candidate_delta_probe.py \
-  analysis/community/fw /private/tmp/m30-safe-ui/fw \
+  analysis/community/fw "$OUT_DIR/fw" \
   --changed music.sty --changed setting.sty \
-  --manifest /private/tmp/m30-safe-ui/delta.json
+  --manifest "$OUT_DIR/delta.json"
 ```
 
 The optional JSON manifest records every extracted member's baseline/candidate
@@ -64,14 +66,23 @@ V1.292.00 HEX. It changes exactly `music.ap` and `browser.ap`:
   overwritten by the HEX and should be read again after restoring an unmodified
   firmware; the menu's displayed/editable value behavior is not fully verified.
 
-Rebuild the HEX outside the repository:
+The command below is a recipe, not a promise that a clean clone contains its
+inputs. It can run only when the verified source HEX and extracted corpus are
+available locally. Supply the source path explicitly; do not assume a path
+from the original workstation:
 
 ```sh
 python3 tools/build_community_custom_eq_50ms.py \
-  /Users/berkankarakus/Projects/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX \
+  "$M30_SOURCE_HEX" \
   analysis/community/dec.bin analysis/community/fw \
-  /private/tmp/MECHEN_M30-community-v1.292-custom-curve-50ms-v3.HEX
+  build/MECHEN_M30-community-v1.292-custom-curve-50ms.HEX
 ```
+
+The generated HEX is a local build output and is intentionally not stored in
+Git. The previously generated HEX mentioned in earlier session notes lived in
+a workstation-specific temporary directory; it is not a portable input. A
+clean clone without the source HEX or `analysis/community/` corpus cannot
+rebuild or independently verify that candidate from Git alone.
 
 The builder pins source hashes, requires a byte-identical no-op repack, checks
 the extracted-member delta, recomputes container checksums, then decrypts its
@@ -87,8 +98,10 @@ established.
 For the narrower now-playing resource boundary, use:
 
 ```sh
+OUT_DIR="build/m30-now-playing-member"
+mkdir -p "$OUT_DIR"
 PYTHONPATH=tools/emu python3 tools/emu/build_now_playing_member.py \
-  analysis/community/fw /private/tmp/m30-now-playing-member/fw
+  analysis/community/fw "$OUT_DIR/fw"
 ```
 
 This candidate changes exactly one extracted member: `music.sty`. It contains

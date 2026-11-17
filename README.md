@@ -4,6 +4,8 @@ Unofficial firmware patches for the **MECHEN M30 HiFi MP3 player**. They fix the
 
 The current integration work is documented in [`docs/community-integration.md`](docs/community-integration.md). It records the hardware-accepted V1.292.00 community fixes, the combined candidate, and the remaining play-counter and UI work.
 
+To continue the firmware analysis from another checkout, use the portable [Claude continuation prompt](docs/claude-continuation-prompt.md); it relies on Git-tracked files and commit history, not workstation-specific temporary files.
+
 The MECHEN M30 is built on an Actions Semiconductor ATJ2127-family chip (USB ID `10d6:1101`). This repository also includes tools to decrypt, unpack, modify, and repack Actions ATJ2127 FWU firmware files, which can help with reverse engineering similar Actions-based MP3 players.
 
 > **Warning:** This is unofficial firmware built from reverse engineering. A bad flash can leave your player unable to boot. Before you install it, read [Recover a player](#recover-a-player). You use it at your own risk.
