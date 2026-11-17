@@ -343,6 +343,40 @@ resident converter. The run inputs were the hash-checked M30 `MUSIC.LIB`
 temporary harness/output remain in the agent scratchpad; bring that exact
 reproducer into the repository before treating the run as locally reproducible.
 
+#### Local seedless QEMU comparison with replacement conversion
+
+The repository QEMU harness was then run with `MODE_REPLACE`, `FILL=1`, and
+`NUL_ZERO` against the same hash-verified stock `playlist.ap` and device
+`MUSIC.LIB`. The harness supplies keys and ranks through its own stock pass
+sequence; it does not seed the captured device ALLSONG ranks used above. The
+only harness change is a compile-time test stub in `tools/library/harness.c`;
+the default converter hypothesis is unchanged.
+
+The seedless run produced order scores `ALLSONG=4000/4000`,
+`ALBUM=4000/4000`, `ARTIST=3944/4000`, and `GENRE=4000/4000`. It emitted
+548 ALBUM nodes, 363/706 ARTIST nodes, and 30/439/708 GENRE nodes, compared
+with 549, 363/707, and 30/439/709 in the device file. The ARTIST order
+mismatch is the 56-entry `9th Wonder` group; the missing ALBUM/ARTIST/GENRE
+nodes are consistent with the remaining equality boundary but do not isolate
+the Indelible pair under device-seeded ranks. This result narrows the
+seedless converter candidate; it does not establish the converter or resolve
+the seeded Indelible/Indelible’ difference.
+
+Reproduction used the local `m30-qemu-tools:debian-stable` image, mounted the
+repository, stock firmware, and evidence directory read-only, and wrote only
+to a temporary work directory:
+
+```sh
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+  HEXTRA='-DMODE_REPLACE -DFILL=1 -DNUL_ZERO' \
+  tools/library/test.sh <stock-playlist.ap> <device-MUSIC.LIB> <workdir> stock
+```
+
+The inputs were stock `playlist.ap` SHA-256
+`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64` and
+device `MUSIC.LIB` SHA-256
+`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`.
+
 With the unmodified device library, the full stock pass sequence matched the
 stored orders at `ALLSONG=3963/4000`, `ALBUM=3973/4000`, `ARTIST=3992/4000`,
 and `GENRE=3992/4000`. ALBUM had 547/549 identical nodes; all ARTIST and GENRE

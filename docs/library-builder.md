@@ -381,6 +381,13 @@ text-length thresholds were artifacts of the Python candidate model. See
 `docs/findings-music-lib-node-format.md` for the experiment boundary and
 reported input hashes.
 
+The checked-in QEMU harness also supports a seedless `MODE_REPLACE` trial with
+`FILL=1` and `NUL_ZERO`. Against the device library, it produced exact
+ALLSONG/ALBUM/GENRE order tables, ARTIST `3944/4000`, and node counts
+548, 363/706, and 30/439/708. Because this run chains ranks produced by the
+same test converter instead of seeding device ALLSONG ranks, it does not
+resolve the seeded Indelible/Indelible’ equality difference.
+
 The record field for a 23-character UTF-16 name has no terminating zero, and the tag reader seems
 to limit names to 22 characters plus the terminator.
 

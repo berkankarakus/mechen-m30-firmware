@@ -153,22 +153,28 @@ u32 stub_text(u32 a, u32 b, u32 c, u32 fn)
     u8 *p = (u8 *)a;
     u32 i, n;
     if (fn == 0x1a) {
-        /* Inferred from the sort order of a player-built library: Latin-1 characters become
-         * their byte, in place, and the first character above U+00FF stops the conversion
-         * without writing anything, so the rest of the buffer keeps the UTF-16 input.  This
-         * reproduces the player's order for every name except a few whose bytes right after
-         * such a character decide the order (see docs/library-builder.md).  Compile with
-         * TEXT_CONVERSION_STOP_ZERO to test the competing cleared-tail hypothesis. */
+        /* This is a test stub, not the recovered resident converter. MODE_REPLACE
+         * projects out-of-range UTF-16 code units to FILL and keeps converting;
+         * NUL_ZERO clears the output bytes after the first NUL. The default path
+         * preserves the old stop-at-wide-character hypothesis. */
         for (i = 0; i + 1 < b; i += 2) {
             u32 ch = p[i] | (p[i + 1] << 8);
             if (ch >= 256) {
+#ifdef MODE_REPLACE
+                p[i / 2] = FILL;
+                continue;
+#else
 #ifdef TEXT_CONVERSION_STOP_ZERO
                 for (n = i / 2; n < b; n++) p[n] = 0;
 #endif
                 break;
+#endif
             }
             p[i / 2] = ch;
             if (!ch) {
+#ifdef NUL_ZERO
+                for (n = i / 2 + 1; n < b; n++) p[n] = 0;
+#endif
 #ifdef TEXT_CONVERSION_STOP_ZERO
                 for (n = i / 2 + 1; n < b; n++) p[n] = 0;
 #endif
