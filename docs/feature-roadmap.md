@@ -5,6 +5,16 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 ## Sıradaki uygulanabilir alanlar
 
+| Öncelik | Alan | Bir sonraki kanıt/çıktı |
+|---|---|---|
+| P0 | Klasör marquee veri akışı | `FUN_40cd5218` → `FUN_48714a20` → unresolved `0x48594511` zincirinde tam adın 50-byte slot dışında kalıp kalmadığını çöz; yalnızca sonra patch adayı üret |
+| P0 | Now-playing UI | gerçek `music.sty`/`new_m.fnt` ile clipping, ikon hizası, bantlar ve marquee regression görsellerini koru |
+| P1 | USB-DAC | UAC1 descriptor/endpoint → `usound.drv` ring → selector `0x10` → PCM/DAC sahipliği zincirini ayır; descriptor varlığını ses çıkışı kanıtı sayma |
+| P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
+| P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |
+| P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
+| P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |
+
 ## Ara verilen noktadaki TODO
 
 Bu liste bir sonraki oturumun başlangıç noktasıdır. Sıra, getirisi ve kanıt
