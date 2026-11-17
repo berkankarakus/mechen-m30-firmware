@@ -95,6 +95,38 @@ and `0x34` to normalized key `0x0d` paths are represented as well. The
 external callback side effect, physical button names, and MMIO register
 meanings remain unmodeled.
 
+`tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16
+`FUN_bfc10178` against all 256 input bytes with the override MMIO bit both
+clear and set. The code and threshold table remain from the extracted
+`key.drv`; synthetic MMIO is mapped at the literal addresses `0xc0020028` and
+`0xc0020054`, and the driver's BSS is mapped at its real address
+`0x9fc14328`. Seven distinct caller-supplied values occupy B+9 through B+15,
+and the override value occupies B+8. All 512 results match
+`classify_adc_sample()`, including high-bit aliases, threshold boundaries, and
+the override branch. This verifies the classifier routine and table indexing;
+it does not populate the unknown runtime normalization table or model
+electrical ADC sampling.
+
+The normalized-value table initializer remains unresolved. Scanning 1,311
+files across `analysis/{community,first-pass-verify,local-evidence,stock,
+v1.101.11,v1.101.12,v5}` and the 12 dated extracted corpora, including
+`afi/FWIMAGE.FW`, `dec.bin`, and `fw/*`, found pointer words into the key BSS
+only in `key.drv` and exact embedded copies of that driver in the containers.
+The corpus reduced to 251 unique files by SHA-256. The scan checked
+halfword-aligned words in the `0x9fc14300..0x9fc143ff`,
+`0xbfc14300..0xbfc143ff`, and `0x1fc14300..0x1fc143ff` windows. All 14
+`key.drv` copies share SHA-256
+`858d56ff19106fccb75e35552c9cecca99dce0579c7daac5dce376d742f67ba1`.
+
+This is negative evidence against a direct literal-pointer initializer in
+those files, not proof that no computed or indirect initializer exists. The
+likely provider boundary is the module-5, selector-`0x18` call from
+`FUN_bfc10008`; its target is not present in the available kernel/ROM corpus.
+The static function inventory finds no writer to B+8..B+15 inside `key.drv`:
+the classifier reads these bytes, initialization paths write B+2/B+3, and
+`FUN_bfc102e4` updates counters at B+0x18/B+0x1c. Runtime values remain
+unobserved.
+
 The public firmware changelog supplies a second, application-level distinction:
 2022-08-16 says that the scroll wheel and all buttons are disabled while
 locked, while 2022-08-05 and 2024-02-28 explicitly retain play/pause,
