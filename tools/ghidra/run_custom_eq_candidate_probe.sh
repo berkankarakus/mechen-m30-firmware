@@ -23,6 +23,7 @@ if ! GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -postScript LoadAP.java "$MUSIC" \
     -postScript FindPointerRefs.java 0x403d4f00 \
     -postScript DumpWords.java 0x403d4f00 0x403d4f08 \
+    -postScript RunCustomEqProducerProbe.java \
     >"$WORK/run.log" 2>&1; then
   cat "$WORK/run.log" >&2
   exit 1
@@ -32,4 +33,5 @@ grep -Fq 'POINTER_REF value=0x403d4f00 address=403d4ef8' "$WORK/run.log"
 grep -Fq 'POINTER_TOTAL value=0x403d4f00 count=1' "$WORK/run.log"
 grep -Fq 'WORD address=403d4f00 value=0xff000304' "$WORK/run.log"
 grep -Fq 'WORD address=403d4f04 value=0x00010201' "$WORK/run.log"
-echo 'CUSTOM EQ CANDIDATE PROBE PASS source-pointer=403d4ef8 curve=403d4f00..403d4f06 refs=1'
+grep -Fq 'CUSTOM EQ PRODUCER P-CODE PASS' "$WORK/run.log"
+echo 'CUSTOM EQ CANDIDATE PROBE PASS source-pointer=403d4ef8 curve=403d4f00..403d4f06 refs=1 runtime-copy=pass payload=7,7'

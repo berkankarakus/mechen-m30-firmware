@@ -21,7 +21,8 @@ SOURCE_POINTER_FILE_OFFSET = 0x86F8
 EXPECTED_SOURCE_POINTER = 0x9FC15720
 CURVE_VA = 0x403D4F00
 CURVE_FILE_OFFSET = CURVE_VA - BANK_VA + BANK_FILE_OFFSET
-CUSTOM_GAINS = (4, 3, 0, -1, 1, 2, 1)
+# Bass-forward curve within the corpus's observed -4..+6 preset envelope.
+CUSTOM_GAINS = (6, 5, 0, -2, 0, 4, 3)
 
 
 def _segment_offsets(data: bytes) -> list[int]:

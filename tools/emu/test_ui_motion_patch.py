@@ -23,7 +23,7 @@ FW = ROOT / "analysis" / "community" / "fw"
 
 
 class UiMotionPatchTests(unittest.TestCase):
-    def test_real_browser_and_music_overlays_change_only_the_80_to_64_literal(self):
+    def test_real_browser_and_music_overlays_change_only_the_80_to_50_literal(self):
         for member in ("browser.ap", "music.ap"):
             source = FW / member
             original = source.read_bytes()
@@ -39,7 +39,7 @@ class UiMotionPatchTests(unittest.TestCase):
                 if before != after
             ]
             # The MIPS16 opcode keeps its high byte (0x6d); only the
-            # immediate low byte changes from 0x50 to 0x40.
+            # immediate low byte changes from 0x50 to 0x32.
             self.assertEqual(len(differences), 1)
 
             bank_offsets = []

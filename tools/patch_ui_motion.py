@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Patch only the directory-list marquee timer in M30 application overlays.
 
-The stock common UI schedules the active-name marquee every 80 ms.  The
+The stock common UI schedules the active-name marquee every 80 ms. The
 MIPS16 literal is present in the shared directory-loop bank of both browser.ap
-and music.ap.  Moving it to 64 ms increases the redraw cadence without
+and music.ap. Moving it to 50 ms increases the redraw cadence without
 changing the text renderer, list contents, playback, indexing, or input code.
 """
 
@@ -18,7 +18,7 @@ BANK_ADDR = 0x40CD4E00
 BANK_SIZE = 0x600
 TIMER_OFFSET = 0x19E  # virtual 0x40CD4F9E: li a1, 80
 STOCK_INSN = 0x6D50    # MIPS16: li a1, 0x50 (80 ms)
-PATCHED_INSN = 0x6D40  # MIPS16: li a1, 0x40 (64 ms)
+PATCHED_INSN = 0x6D32  # MIPS16: li a1, 0x32 (50 ms)
 
 
 def patch_ap(src: Path, dst: Path) -> None:
@@ -40,7 +40,7 @@ def patch_ap(src: Path, dst: Path) -> None:
         )
     struct.pack_into("<H", data, file_off, PATCHED_INSN)
     dst.write_bytes(data)
-    print(f"{src.name}: marquee timer 80 ms -> 64 ms at file 0x{file_off:x}")
+    print(f"{src.name}: marquee timer 80 ms -> 50 ms at file 0x{file_off:x}")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a community V1.292 HEX with Custom EQ gains and 64 ms marquee."""
+"""Build a community V1.292 HEX with Custom EQ gains and 50 ms marquee."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ def build(source_hex: Path, source_afi: Path, source_fw: Path, output_hex: Path)
         raise ValueError(f"refusing to overwrite existing output: {output_hex}")
 
     output_hex.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="m30-custom-eq-64ms-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="m30-custom-eq-50ms-") as temporary:
         work = Path(temporary)
         candidate_fw = work / "fw"
         shutil.copytree(source_fw, candidate_fw)

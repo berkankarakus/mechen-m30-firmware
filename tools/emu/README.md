@@ -120,7 +120,7 @@ deterministic:
     viewport movement can be tested together without implying a hardware
     input-rate measurement.
 27. `FolderList.marquee_offset_at()` and `render_at()` advance the host frame
-    on the requested 64 ms marquee tick. They use integer
+    on the requested 50 ms marquee tick. They use integer
     timestamps for reproducible screenshots/traces and leave the firmware's
     0x32-byte name-slot truncation unchanged.
 28. `tools/sim/ui_imports.py` records a reference-only ordinal cross-check from
