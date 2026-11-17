@@ -64,7 +64,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ID'si payload `+0x00` halfword'unda; bu, shared scroll renderer'daki
   `0x1012/0x1013` trace'inden ayrı bir paint sınırı. `flags=0x08` dalı ayrıca
   `0x1007,0x1006,0x1008,0x1005,0x1004` sırasını ve metadata glyph çağrılarında
-  `a1=0` biçimini community/stock AP'lerinde doğruluyor.
+  `a1=0` biçimini community/stock AP'lerinde doğruluyor. `metadata-table`
+  dalı `state+0x19` ile seçilen sekiz op-`0x03` payload değerini ve
+  `state+0x0e` byte kopyasını aynı corpus'larda doğruluyor; değerler host'ta
+  opaque tutuluyor.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan

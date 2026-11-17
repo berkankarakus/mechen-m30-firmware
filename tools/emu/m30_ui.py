@@ -22,6 +22,7 @@ from music_bitmap import MusicBitmap, load_music_bitmap
 
 WIDTH, HEIGHT = 320, 240
 SCROLL_VADDR = 0x40D55078
+NOW_PLAYING_METADATA_TABLE_LITERAL = 0x40155338
 SCROLL_STYLE = 0x2005
 MAIN_PAINT_STYLE = 0x2005
 SECONDARY_STYLE = 0x2004
@@ -188,6 +189,8 @@ class FirmwareTrace:
     instruction: bytes
     scroll_style_id: int
     dispatch_targets: dict[str, int]
+    metadata_table_address: int = 0
+    metadata_table_values: tuple[int, ...] = ()
     source: str = "FUN_40d54f2c / shared scroll renderer"
 
     @classmethod
@@ -220,7 +223,29 @@ class FirmwareTrace:
         for address, name in DISPATCH_POINTERS.items():
             pointer_bytes = cls._read_virtual(data, banks, address, 4)
             dispatch_targets[name] = struct.unpack_from("<I", pointer_bytes)[0]
-        return cls(path, tuple(banks), bank, file_offset, instruction, style_by_instruction[instruction], dispatch_targets)
+        metadata_table_literal = cls._read_virtual(
+            data,
+            banks,
+            NOW_PLAYING_METADATA_TABLE_LITERAL,
+            4,
+        )
+        metadata_table_address = struct.unpack_from("<I", metadata_table_literal)[0]
+        metadata_table_bytes = cls._read_virtual(data, banks, metadata_table_address, 16)
+        metadata_table_values = tuple(
+            struct.unpack_from("<H", metadata_table_bytes, offset)[0]
+            for offset in range(0, len(metadata_table_bytes), 2)
+        )
+        return cls(
+            path,
+            tuple(banks),
+            bank,
+            file_offset,
+            instruction,
+            style_by_instruction[instruction],
+            dispatch_targets,
+            metadata_table_address,
+            metadata_table_values,
+        )
 
     @staticmethod
     def _read_virtual(data: bytes, banks: list[Bank], address: int, size: int) -> bytes:
@@ -242,6 +267,12 @@ class FirmwareTrace:
             },
             "dispatch_targets": {
                 name: f"0x{address:08x}" for name, address in self.dispatch_targets.items()
+            },
+            "now_playing_metadata_table": {
+                "literal_address": f"0x{NOW_PLAYING_METADATA_TABLE_LITERAL:08x}",
+                "table_address": f"0x{self.metadata_table_address:08x}",
+                "values": [f"0x{value:04x}" for value in self.metadata_table_values],
+                "semantics": "opaque state-indexed payload values",
             },
             "banks": [
                 {"file_offset": f"0x{b.file_offset:x}", "virtual_address": f"0x{b.virtual_address:x}", "size": b.size}
@@ -504,6 +535,7 @@ class NowPlaying:
         stack addresses and unresolved internal fields deliberately stay out
         of the host contract until a second payload probe identifies them.
         """
+        metadata_payload = self.metadata_payload_trace(metadata_index=0, state_byte=0)
         return [
             {"op": 0x14, "a0": 0x18C3, "a1": 0, "a2": 0, "role": "clear_background"},
             {"op": 0x12, "a0": 0, "a1": 0, "a2": 0, "role": "clear_content"},
@@ -511,10 +543,34 @@ class NowPlaying:
             {"op": 0x12, "a0": 0, "a1": 0, "a2": 0, "role": "clear_content"},
             {"op": 0x02, "payload": "control_0x1012", "role": "draw_control"},
             {"op": 0x02, "payload": "control_0x1013", "role": "draw_control"},
-            {"op": 0x03, "a2": 1, "style_id": f"0x{self.trace.scroll_style_id:04x}", "text": self.title, "role": "draw_active_text"},
+            metadata_payload,
             {"op": 0x06, "a2": 6, "text": self.title, "scroll_offset": self.scroll_offset, "role": "draw_dynamic_text"},
             {"op": 0x03, "a2": 1, "style_id": f"0x{SECONDARY_STYLE:04x}", "text": self.title, "role": "draw_cleanup_text"},
         ]
+
+    def metadata_payload_trace(
+        self,
+        metadata_index: int,
+        state_byte: int,
+    ) -> dict[str, object]:
+        """Expose the verified op-0x03 payload without assigning its meaning."""
+        if not 0 <= metadata_index < len(self.trace.metadata_table_values):
+            raise ValueError(f"metadata index is outside the observed table: {metadata_index}")
+
+        return {
+            "op": 0x03,
+            "a2": 1,
+            "style_id": f"0x{MAIN_PAINT_STYLE:04x}",
+            "metadata_index": metadata_index,
+            "metadata_index_source": "state+0x19",
+            "table_value": self.trace.metadata_table_values[metadata_index],
+            "payload_pointer_offset": 0x10,
+            "state_byte": state_byte & 0xFF,
+            "state_byte_source": "state+0x0e",
+            "reserved_word": 0,
+            "semantics": "opaque metadata payload",
+            "role": "draw_active_text",
+        }
 
     def _draw_picbox_frame(self, fb: Framebuffer, picbox_index: int, frame_index: int) -> dict[str, object]:
         """Draw one real PicBox frame and return its provenance.

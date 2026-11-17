@@ -48,6 +48,25 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[0]["style_id"], f"0x{MAIN_PAINT_STYLE:04x}")
         self.assertEqual(calls[1]["style_id"], "0x2005")
 
+    def test_metadata_payload_preserves_opaque_state_indexed_table(self):
+        trace = FirmwareTrace.load(AP)
+        self.assertEqual(trace.metadata_table_address, 0x4015535C)
+        self.assertEqual(
+            trace.metadata_table_values,
+            (0x8027, 0x004E, 0x0024, 0x0026, 0x0028, 0x0017, 0x005D, 0x001A),
+        )
+
+        payload = NowPlaying(MusicStyle.load(STY), trace).metadata_payload_trace(
+            metadata_index=3,
+            state_byte=0x5A,
+        )
+        self.assertEqual(payload["metadata_index_source"], "state+0x19")
+        self.assertEqual(payload["table_value"], 0x0026)
+        self.assertEqual(payload["payload_pointer_offset"], 0x10)
+        self.assertEqual(payload["state_byte"], 0x5A)
+        self.assertEqual(payload["state_byte_source"], "state+0x0e")
+        self.assertEqual(payload["semantics"], "opaque metadata payload")
+
     def test_metadata_trace_keeps_full_value_until_renderer_clip(self):
         ui = NowPlaying(
             MusicStyle.load(STY),

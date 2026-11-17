@@ -88,6 +88,10 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         return (values[0] & 0xffL) | ((values[1] & 0xffL) << 8);
     }
 
+    private long byteValue(EmulatorHelper emu, long address) throws Exception {
+        return emu.readMemory(addr(address), 1)[0] & 0xffL;
+    }
+
     private boolean isStackAddress(long address) {
         return address >= STACK - 0x100 && address < STACK + 0x100;
     }
@@ -156,9 +160,46 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         }
     }
 
+    private void verifyMetadataPayload(
+        EmulatorHelper emu,
+        int metadataIndex,
+        int metadataByte
+    ) throws Exception {
+        long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+        long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
+        long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
+
+        if (a3 != 0x03L) {
+            return;
+        }
+
+        long tableBase = word(emu, 0x40155338L);
+        long expectedTableValue = half(emu, tableBase + metadataIndex * 2L);
+        long actualTableValue = half(emu, a1);
+        long actualMetadataByte = byteValue(emu, a1 + 2);
+        long actualReservedWord = word(emu, a1 + 4);
+
+        if (a1 != a0 + 0x10
+            || actualTableValue != expectedTableValue
+            || actualMetadataByte != (metadataByte & 0xffL)
+            || actualReservedWord != 0) {
+            throw new Exception(String.format(
+                "metadata payload mismatch index=%d a0=%s a1=%s table=%s/%s byte=%s reserved=%s",
+                metadataIndex,
+                hex(a0),
+                hex(a1),
+                hex(actualTableValue),
+                hex(expectedTableValue),
+                hex(actualMetadataByte),
+                hex(actualReservedWord)
+            ));
+        }
+    }
+
     private int[] expectedIds(String mode) {
         if ("initial".equals(mode)) return new int[] {0x18c3, 0, 0x39e7, 0, 0x18c3, 0, 0x1002};
         if ("metadata".equals(mode)) return new int[] {0x1002, 0x2005};
+        if ("metadata-table".equals(mode)) return new int[] {0x1002, 0x2005};
         if ("transport".equals(mode)) return new int[] {0x1002, 0x1004, 0x1003};
         if ("status-low".equals(mode)) return new int[] {0x1002, 0x1000};
         if ("status-high".equals(mode)) return new int[] {0x1002, 0x1001};
@@ -169,6 +210,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
     private int flagFor(String mode) {
         if ("initial".equals(mode)) return 0x001;
         if ("metadata".equals(mode)) return 0x100;
+        if ("metadata-table".equals(mode)) return 0x100;
         if ("transport".equals(mode)) return 0x020;
         if ("status-low".equals(mode)) return 0x200;
         if ("status-high".equals(mode)) return 0x800;
@@ -176,12 +218,18 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         throw new IllegalArgumentException("unknown mode " + mode);
     }
 
-    private void runCase(Memory memory, String mode, byte[] stubs) throws Exception {
+    private void runCase(
+        Memory memory,
+        String mode,
+        byte[] stubs,
+        int metadataIndex,
+        int metadataByte
+    ) throws Exception {
         memory.setBytes(addr(RAM), new byte[0x4000]);
         int flag = flagFor(mode);
         putWord(memory, FLAGS, flag);
-        putWord(memory, UI_STATE + 0x19, 0);
-        putByte(memory, UI_STATE + 0x0e, 0);
+        putByte(memory, UI_STATE + 0x19, metadataIndex);
+        putByte(memory, UI_STATE + 0x0e, metadataByte);
         putByte(memory, PLAY_STATE, 2);
         putByte(memory, PLAY_STATE + 2, 1);
 
@@ -232,13 +280,18 @@ public class RunNowPlayingStateProbe extends GhidraScript {
                         throw new Exception(mode + " IDs=" + Arrays.toString(actual)
                             + " expected=" + Arrays.toString(expected));
                     }
-                    println(String.format("NOW PLAYING STATE DYNAMIC PASS mode=%s flag=0x%x steps=%d dispatches=%d",
-                        mode, flag, steps, events.size()));
+                    println(String.format(
+                        "NOW PLAYING STATE DYNAMIC PASS mode=%s flag=0x%x metadata-index=%d metadata-byte=0x%02x steps=%d dispatches=%d",
+                        mode, flag, metadataIndex, metadataByte, steps, events.size()
+                    ));
                     for (String event : events) println("  " + event);
                     return;
                 }
                 if (base == STUBS) {
                     verifyPayloadLayout(emu);
+                    if ("metadata".equals(mode) || "metadata-table".equals(mode)) {
+                        verifyMetadataPayload(emu, metadataIndex, metadataByte);
+                    }
                     ids.add(dispatchId(emu));
                     events.add(dispatchSummary(emu));
                     emu.writeRegister("v0", 1);
@@ -254,6 +307,12 @@ public class RunNowPlayingStateProbe extends GhidraScript {
                 + hex(emu.readRegister("pc").longValue()));
         } finally {
             emu.dispose();
+        }
+    }
+
+    private void runMetadataTable(Memory memory, byte[] stubs) throws Exception {
+        for (int metadataIndex = 0; metadataIndex < 8; metadataIndex++) {
+            runCase(memory, "metadata-table", stubs, metadataIndex, 0x5a);
         }
     }
 
@@ -277,6 +336,11 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         } else {
             modes.addAll(Arrays.asList(getScriptArgs()).subList(1, getScriptArgs().length));
         }
-        for (String mode : modes) runCase(memory, mode, stubs);
+        for (String mode : modes) {
+            runCase(memory, mode, stubs, 0, 0);
+        }
+        if (getScriptArgs().length == 1 || "all".equals(getScriptArgs()[1])) {
+            runMetadataTable(memory, stubs);
+        }
     }
 }

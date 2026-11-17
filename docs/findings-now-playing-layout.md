@@ -220,10 +220,27 @@ at the pointed-to offsets are not yet assigned palette, bitmap, or text
 pointer semantics. They are intentionally kept separate from the shared
 scroll renderer's `0x1012`/`0x1013` payload trace.
 
+The metadata branch's decompile adds a narrower boundary. The literal at
+`0x40155338` points to `0x4015535c`, where the firmware stores eight little-
+endian 16-bit values:
+
+```text
+index:  0       1       2       3       4       5       6       7
+value:  8027    004e    0024    0026    0028    0017    005d    001a
+```
+
+`state + 0x19` selects one of these values for the metadata payload at
+`a0 + 0x10`; `state + 0x0e` is copied to `a0 + 0x12`, and `a0 + 0x14` remains
+zero in the isolated path. The new `metadata-table` p-code case walks all
+eight indices and injects `0x5a` into `state + 0x0e`; both community and stock
+APs reproduce the table and the copied byte. The host model exposes these as
+`metadata_table_values` and `table_value` with opaque semantics. They are not
+TextBox IDs, palette entries, decoded characters, or bitmap indices.
+
 The dynamically observed paint IDs `0x1000` through `0x1004` also match the
 host resource convention `0x1000 + PicBox index`: status-low/high, artwork,
 transport, and EQ each select the corresponding `music.sty` PicBox. The
-The new `controls` case (`flags=0x08`) executes the real sequence
+new `controls` case (`flags=0x08`) executes the real sequence
 `0x1007, 0x1006, 0x1008, 0x1005, 0x1004` (with the surrounding `0x1002`
 artwork refresh); this dynamically confirms the same convention for the four
 metadata-glyph PicBoxes as well. Those four calls use operation `0x02` with
