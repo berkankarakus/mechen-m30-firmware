@@ -59,7 +59,7 @@ EXTENSIONS = (
 @dataclass(frozen=True)
 class DriverContract:
     name: str
-    segment: tuple[int, int, int]
+    segments: tuple[tuple[int, int, int], ...]
     bss: tuple[int, int]
     entry: int
     table_header_offset: int
@@ -70,7 +70,7 @@ class DriverContract:
 CONTRACTS = {
     "exfatn.drv": DriverContract(
         name="exfatn.drv",
-        segment=(0x200, 0x800, 0xBFC16C00),
+        segments=((0x200, 0x800, 0xBFC16C00), (0xA00, 0x300, 0x9FC18000)),
         bss=(0x9FC18300, 0xA00),
         entry=0x240094D8,
         table_header_offset=0x7F4,
@@ -79,7 +79,7 @@ CONTRACTS = {
     ),
     "fat_32n.drv": DriverContract(
         name="fat_32n.drv",
-        segment=(0x200, 0x800, 0xBFC16C00),
+        segments=((0x200, 0x800, 0xBFC16C00), (0xA00, 0x300, 0x9FC18000)),
         bss=(0x9FC18300, 0xA00),
         entry=0x230096F4,
         table_header_offset=0x77C,
@@ -119,8 +119,10 @@ def verify_driver(path: Path) -> tuple[DriverContract, tuple[str, ...]]:
         for segment in image.segments
         if segment.length
     )
-    if actual_segments != (contract.segment,):
-        raise AssertionError(f"{path.name} segments {actual_segments!r} != {(contract.segment,)!r}")
+    if actual_segments != contract.segments:
+        raise AssertionError(
+            f"{path.name} segments {actual_segments!r} != {contract.segments!r}"
+        )
     if (image.bss_address, image.bss_size) != contract.bss:
         raise AssertionError(
             f"{path.name} BSS {(image.bss_address, image.bss_size)!r} != {contract.bss!r}"
@@ -166,7 +168,7 @@ def main() -> int:
         contract, slots = verify_driver(path)
         print(
             "FILESYSTEM BINARY PASS "
-            f"{contract.name} segment=0x{contract.segment[2]:08x}+0x{contract.segment[1]:x} "
+            f"{contract.name} segments={len(contract.segments)} "
             f"bss=0x{contract.bss[0]:08x}+0x{contract.bss[1]:x} "
             f"entry=0x{contract.entry:08x} extensions={len(slots)}"
         )

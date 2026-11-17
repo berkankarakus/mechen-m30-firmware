@@ -21,6 +21,7 @@ from yqhx import YqhxImage  # noqa: E402
 
 
 USOUND_SEGMENT = (0x200, 0x26B0, 0xBFC30000)
+USOUND_DATA_SEGMENT = (0x2900, 0x154, 0x9FC33C00)
 DAC_RUNTIME_RANGE = range(0xBFC18D00, 0xBFC19500)
 USB_POOL_ADDRESS = 0xBFC31038
 USB_POOL = (0x9FC34000, 0xBFC326A9, 0xBFC318CD)
@@ -42,27 +43,37 @@ def _aligned_words(data: bytes, start: int, length: int) -> tuple[int, ...]:
 def verify(path: Path) -> None:
     image = YqhxImage.load(path)
     nonzero_segments = tuple(segment for segment in image.segments if segment.length)
-    if len(nonzero_segments) != 1:
-        raise AssertionError("usound.drv must have one non-empty resident segment")
-    segment = nonzero_segments[0]
-    actual_segment = (segment.file_offset, segment.length, segment.destination)
-    if actual_segment != USOUND_SEGMENT:
-        raise AssertionError(f"unexpected usound segment {actual_segment!r}")
+    actual_segments = tuple(
+        (segment.file_offset, segment.length, segment.destination)
+        for segment in nonzero_segments
+    )
+    expected_segments = (USOUND_SEGMENT, USOUND_DATA_SEGMENT)
+    if actual_segments != expected_segments:
+        raise AssertionError(f"unexpected usound segments {actual_segments!r}")
+    code_segment = nonzero_segments[0]
 
     data = path.read_bytes()
     direct_dac_refs = tuple(
-        value for value in _aligned_words(data, segment.file_offset, segment.length)
+        value for value in _aligned_words(data, code_segment.file_offset, code_segment.length)
         if value in DAC_RUNTIME_RANGE
     )
     if direct_dac_refs:
         raise AssertionError(f"unexpected direct drv_dac pointer(s): {direct_dac_refs!r}")
 
-    usb_pool_offset = _file_offset(segment.file_offset, segment.destination, USB_POOL_ADDRESS)
+    usb_pool_offset = _file_offset(
+        code_segment.file_offset,
+        code_segment.destination,
+        USB_POOL_ADDRESS,
+    )
     actual_usb_pool = struct.unpack_from("<3I", data, usb_pool_offset)
     if actual_usb_pool != USB_POOL:
         raise AssertionError(f"USB callback pool {actual_usb_pool!r} != {USB_POOL!r}")
 
-    port_pool_offset = _file_offset(segment.file_offset, segment.destination, WORD_PORT_POOL_ADDRESS)
+    port_pool_offset = _file_offset(
+        code_segment.file_offset,
+        code_segment.destination,
+        WORD_PORT_POOL_ADDRESS,
+    )
     actual_port_pool = struct.unpack_from("<3I", data, port_pool_offset)
     if actual_port_pool != WORD_PORT_POOL:
         raise AssertionError(

@@ -1,4 +1,4 @@
-/* Execute the real usound.drv MIPS16 callback syscall stub under QEMU. */
+/* Execute the real usound.drv MIPS16 module-call stub under QEMU. */
 	.set	mips32
 	.set	noreorder
 	.set	noat
@@ -7,7 +7,7 @@
 	.globl	general_exception
 	.ent	general_exception
 general_exception:
-	/* The callback is a break-0 syscall.  Return through the interrupted RA,
+	/* The module call uses break 0. Return through the interrupted RA,
 	 * which is the caller continuation established by JALX/JALRC. */
 	lui	$k0, 0x8006
 	sw	$a0, 0($k0)
@@ -200,7 +200,7 @@ hex_emit:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND CALLBACK PASS selector=0x10 args=4 exc=0x"
+	.asciz	"REAL USOUND MODULE-CALL PASS module=0x10 args=4 exc=0x"
 epc_text:
 	.asciz	" epc=0x"
 badvaddr_text:

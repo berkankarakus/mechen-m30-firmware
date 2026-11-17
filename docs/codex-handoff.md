@@ -6,9 +6,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 ## Güncel durum — 2026-11-17
 
-- Dal: `main`; çalışma ağacı temiz. Son anlamlı commit'leri görmek için
-  `git log --oneline -6` kullanılır. Bu checkpoint commit'leri fork remote'una
-  push edilmek üzere hazırlanmıştır.
+- Dal: `main`. Yerel commit sayısı ve çalışma ağacı değişiklikleri dönüşümlü
+  olarak güncelleniyor; geçiş öncesi `git status --short --branch` ve
+  `git log --oneline origin/main..HEAD` ile kontrol et.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
 - Host-only ve tam statik suite son doğrulamada başarılıdır:
   `bash tools/emu/run_static_suite.sh --host-only` ve
@@ -34,9 +34,15 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   saklamadan yeniden üretir. `tools/emu/upgrade_flow.py` selector ve
   decrypt/search olaylarını trace-only taşır; fixed-ROM anlamı çözülmeden
   flash/reboot/success iddiası üretmez.
-- `tools/sim/usound_callback.py` doğrulanmış selector + dört argüman callback
-  zarfını kaydeder; fixed-ROM service etkisini ve bilinmeyen selector'ları
-  fail-closed bırakır.
+- `tools/sim/usound_callback.py` `break 0` zarfındaki modül kimliğini ve dört
+  argümanı kaydeder. `0x10` libc modülü, `0x0f` çekirdek modülüdür; servis
+  gövdeleri/etkileri host modelinde çalıştırılmaz.
+- Yeni ses/indeks bulgularının ayrıntısı [`findings-auddev-driver.md`](findings-auddev-driver.md),
+  [`findings-eq-usound.md`](findings-eq-usound.md) ve
+  [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md)'te:
+  YQHX dört segmenti parse edilir; USB descriptor yaması host modelinde
+  doğrulanır; `usound`/`aud_dev` için `table[op]` hâlâ inference; MUSIC.LIB'de
+  tek kalan seeded-run sapması Indelible/Indelible’ node eşitliğidir.
 - DAC caller taraması da tekrar üretilebilir durumda:
   `tools/emu/dac_caller_scan.py`. Doğrudan helper pointer'ları yalnızca
   sürücü/container kopyalarında bulunur; codec register anlamı çözülmüş
@@ -45,6 +51,78 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   ve `python3 tools/verify_persistent_evidence.py <evidence-root>` kullanılır;
   firmware, cihaz SD dosyaları ve Ghidra çıktıları Git dışında kalıcı kanıt
   kökünde tutulur.
+
+## Önceki belgelerdeki düzeltmeler ve kanıt kökeni
+
+- **Previous yaması parçayı başa döndürmeyi kanıtlamıyor.** `mengine.ap`
+  içindeki `0x3a64` sabiti, `_play` fonksiyonunun hızlı geri sarma yolunda
+  `bp_time_offset = -5000` olarak kullanılıyor; Previous mesajı `0x319` için
+  motor handler'ında süre eşiği yok. `tools/patch_prev_restart.py` bu sabiti
+  sıfırlasa da gerçek "Previous = başa sar" davranışını sağlamaz ve önceki
+  parçanın sonuna yakın bir noktadan başlama/parça atlama riski taşır. Güvenli
+  aday kapsamına alma. Ayrıntı: [`findings-artwork-start.md`](findings-artwork-start.md)
+  §3 ve [`community-integration.md`](community-integration.md).
+- **UTF-16 satır sonu:** `drv_ui.drv::FUN_300007c4`, `0x0000` değerini EOF,
+  `0xfeff` değerini Unicode bayrağı, `0x000a` değerini LF ve `0x000d` ile
+  `0x000d 0x000a` dizilerini CR/CRLF satır sonu olarak sınıflandırıyor.
+  Host hizalama modeli `tools/sim/text_alignment.py` ve testleriyle bu
+  davranışı kapsıyor; bu, firmware yaması veya cihaz testi değildir.
+  Ayrıntı: [`discovery-environment.md`](discovery-environment.md).
+- **İsim slotu:** SDK'daki 52 baytlık sabit, M30 browser'ın kullandığı 50
+  baytlık slotla karıştırılmamalı. İsim, kayan yazı taramasından önce kesiliyor;
+  slotu kaynağını anlamadan büyütmek güvenli değil. Ayrıntı:
+  [`findings-browser-names-sort.md`](findings-browser-names-sort.md).
+- **Artwork gecikmesi:** gözlenen artwork decode'u PLAY yanıtından sonra UI
+  thread'inde çalışıyor. Bu nedenle UI'nin donması ile sesin başlama gecikmesi
+  aynı iddia değildir; süre/CPU etkisi ölçülmedi. Ayrıntı:
+  [`findings-artwork-start.md`](findings-artwork-start.md).
+
+### Tekrarlanabilir test girişi
+
+Tam host-only doğrulama için kanonik komut:
+
+```sh
+bash tools/emu/run_static_suite.sh --host-only
+```
+
+Komut `tools/sim`, `tools/emu` ve `tools/rom` testlerini çalıştırır ve başarılı
+olduğunda `STATIC SUITE PASS host-only` yazar. Tam statik suite farklı
+firmware corpus'ları ve Ghidra gerektirir. Bazı host testleri yerel
+`common.sty`/RU3 fixture'ları olmadığında skip olur; skip sayısını test
+çıktısından kontrol et.
+
+Tek tek Python paketlerini çalıştırırken repo kökünü ve iki araç dizinini
+import yolunda tut; `-I` kullanma, çünkü Python isolated mode `PYTHONPATH`'i
+yok sayar:
+
+```sh
+PYTHONPATH=.:tools/emu:tools/sim python3 -m unittest discover \
+  -s tools/emu -p 'test_*.py'
+PYTHONPATH=.:tools/emu:tools/sim python3 -m unittest discover \
+  -s tools/sim -p 'test_*.py'
+```
+
+2026-11-17 host-only suite çalıştırmasında sim için 268 test, emu için 229 test
+(3 skip) ve ROM için 6 test geçti. Sayılar o çalıştırmaya aittir; sabit suite
+sözleşmesi değildir. CI/review kapısı olarak yukarıdaki `run_static_suite.sh`
+komutunu tercih et.
+
+### MUSIC.LIB ve playlist.ap girdilerini seçme
+
+- M30 SD kartından alınmış doğrulanmış kütüphane
+  `<persistent-evidence-root>/device-sd/MUSIC.LIB` dosyasıdır; boyutu
+  2,625,536 bayt, SHA-256'sı
+  `e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`.
+- Kanıt kökündeki `<persistent-evidence-root>/MUSIC.LIB` başka kaynaktan
+  alınmış 1,536,000 baytlık, 251 kayıtlı karşılaştırma örneğidir; SHA-256'sı
+  `cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe`.
+  Bu dosya M30 dump'ı değildir; cihaz indeksi/record eşleştirmesi için
+  `device-sd/MUSIC.LIB` yerine kullanma.
+- `playlist.ap` SHA-256 `7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`
+  2023-07-26, 2024-03-19 ve 2025-06-26 tarihli extracted kopyalarda aynıdır.
+  Bu hash payload'ı doğrular, fakat tarih tek başına firmware sürümünü
+  tanımlamaz. Kaynağın tarihini ve tüm firmware imajının hash'ini ayrıca
+  kaydet.
 
 ## Son dinamik kanıt checkpoint'i
 
@@ -148,9 +226,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   controller davranışı modellenmez.
 - `tools/sim/decoder_output.py`: unconfigured/community decoder callback için
   fail-closed `-1`; bilinmeyen callback çalıştırılmaz.
-- `tools/sim/m30_model.py`: Ghidra ile doğrulanan EQ `0x303` mesaj zarfı,
-  `{eq_type, selector}` çifti ve selector kaynağı ofseti; opaque DSP çağrıları
-  çalıştırılmaz.
+- `tools/sim/m30_model.py`: EQ `0x303` mesaj zarfı ve `{eq_type, selector}`
+  çifti yanında, p-code ile doğrulanan yedi bantlı builder çıktısını ve erken
+  dönüş koşullarını modeller. `run_eq_builder_probe.sh` stock/community
+  MIPS16 çıktısını byte-byte karşılaştırır. `mmm_pp.al` SHM+2'den DSP seçimini
+  yapıp SHM işaretçisini modül `0x0c` op `0x12`'ye verir; ROM alıcısı,
+  katsayı dönüşümü ve duyulabilir DSP etkisi hâlâ çözülmedi.
 - `tools/sim/sd_block_device.py`: kanıtlanmış 512-byte SD sektör sınırı,
   card presence, bounds ve `sector_count * 512` capacity davranışı.
 - `tools/emu/driver_loader.py`: doğrulanmış `yqhx` segment bytes'larını sparse

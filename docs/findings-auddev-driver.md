@@ -1,46 +1,83 @@
-# M30 `aud_dev.drv`: tiny member boundary
+# M30 `aud_dev.drv`: banked audio-device service
 
-`aud_dev.drv` is not a complete audio playback implementation in the
-extracted firmware. It contains an eight-byte MIPS32 payload, so it must be
-kept separate from the much larger codec bus driver (`drv_dac.drv`) and the
-unexamined decoder DSP members.
+`aud_dev.drv` contains a small resident stub, a loaded far-pointer table, and
+banked MIPS16 code. Its ROM dispatch boundary and hardware-facing effects are
+still only partly understood.
 
 ## Reproducible checks
 
 ```sh
 PYTHONPATH=tools/emu python3 tools/emu/auddev_binary_probe.py \
   analysis/community/fw/aud_dev.drv
-bash tools/ghidra/run_auddev_probe.sh analysis/community/fw/aud_dev.drv
+bash tools/ghidra/run_auddev_bank_probe.sh analysis/community/fw/aud_dev.drv
 ```
 
 The member is byte-identical in the local community, stock, first-pass,
-V1.101.11, V1.101.12, and V5 extractions. Its SHA-256 is:
+V1.101.11, V1.101.12, and V5 extractions. SHA-256:
 
 ```text
 3349287198faaa90a503353673674d5628e85711db9ee16217db5a803484f09c
 ```
 
-## Container and observed bytes
+## YQHX segments and the far-pointer table
 
-| Field | Value |
-|---|---:|
-| file offset | `0x300` |
-| length | `0x8` |
-| destination | `0xbfc09f58` |
-| BSS | `0x9fc34160`, `0` bytes |
-| entry field | `0x1c009000` |
-| body | `25 9b 08 2c 91 9b 08 2c` |
+The header has four segment descriptors. The fourth descriptor at header
+offset `0x2c` loads the 21-word table from file `0x200`, length `0x54`, to
+`0x9fc09f00`. The resident stub is file `0x300`, length 8, at `0xbfc09f58`.
+The other two descriptors are empty; BSS size is zero and the entry field is
+`0x1c009000`. The parser previously read only three descriptors and therefore
+omitted the table from its load plan.
 
-Mapping the member as MIPS32 gives two COP2 register reads/writes in Ghidra's
-decompiler. The generated output then reaches the end of the eight-byte
-segment and warns about missing control-flow bytes. There is no complete
-function body, codec register table, PCM path, volume path, or fade logic in
-this member.
+The resident bytes `10 6b 05 e8 0f 6b 05 e8` are MIPS16 `break 0` stubs for
+modules `0x10` and `0x0f`. They are not the COP2-looking words at file `0x200`.
+The loaded table begins `25 9b 08 2c 91 9b 08 2c`; entry 18 at file `0x248`
+is `0x2c149401`.
 
-## Consequence
+The banked payload start offsets reported for this member are
+`0x500, 0x800, 0xe00, 0x1600, 0x1700, 0x1f00, 0x2500, 0x2900`. Bank 5 begins
+at file `0x1f00`. Its table target is MIPS16 address `0x9400`; the Ghidra
+probe maps file `0x1f00..0x24ff` there. This corrects the earlier mapping of
+file `0x2500` as bank 5. The existing `driver_banks.py` parser is specific to
+the `drv_ui.drv` layout and does not parse this member's table.
 
-`aud_dev.drv` is now classified as a tiny hardware-facing stub/fragment, not
-an unresolved full audio driver. It should not be patched or emulated as a
-playback path. The useful remaining audio targets are `drv_dac.drv` callers and
-the `ad*.dsp` decoder/processing members; those are separate questions and
-remain unmodified.
+## Operation dispatch and EQ shared memory
+
+`mmm_pp.al` calls module `0x0c`, op `0x12` with argument 0 equal to `1` and
+argument 1 pointing to `dae_cfg` shared memory. Other calls use argument 0
+values `0`, `2`, and `3`. The proposed table-index-equals-op mapping is a
+strong inference: the 13 observed operation calls align with their table
+entries, while shifts of one entry do not. The fixed-ROM dispatcher is absent,
+so the mapping is not proven.
+
+Under that mapping, entry 18 targets the MIPS16 routine at `0x9400`. A
+Ghidra analysis of the corrected bank reports that the `id=1` path checks
+`SHM+7`, reads flags and values around `SHM+3..+0xd`, consumes sixteen
+8-byte bands from `SHM+0x10..+0x8f`, and reads gain adjustments from
+`SHM+0xc0..+0xcb` into a structure at `cfg+0x94`. This is the first evidence
+that the EQ shared-memory band area reaches an audio-device routine. Because
+the ROM dispatch mapping is not proven, treat the association between op
+`0x12` and this entry as an inference.
+
+The same routine is reported to handle `id=0` with a rate structure
+`{2, rate*1000, 0x80}`, including a 44000-to-44100 adjustment; entry 19 is
+reported as a getter. The producer's EQ builder writes seven bands and clears
+bands 7–15, while the consumer reads sixteen. That shape is consistent with
+the observed `0xf0`-byte shared-memory structure; it does not show how the
+values become audible DSP coefficients.
+
+The banked code also references `spk_comp.dat`, a speaker-compensation filter
+asset. Its relation to EQ gain processing and the downstream coefficient or
+DSP path remains unknown. `drv_dac.drv` register writes and the fixed-ROM
+operation dispatcher are the next static targets.
+
+## Emulator boundary
+
+The host YQHX parser now records four segment descriptors, including this
+table segment. The aud_dev binary probe checks both nonempty segments and the
+far-table word. This models the file's declared load layout; it does not
+execute the banked code, emulate the ROM dispatcher, or model audio hardware.
+
+Remaining unknowns include whether the ROM dispatcher indexes the table
+directly by op, the exact behavior of non-EQ operations, `spk_comp.dat`
+consumption, and the coefficient/DSP output path. No firmware patch or device
+write has been made.

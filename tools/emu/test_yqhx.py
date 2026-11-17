@@ -12,11 +12,13 @@ class YqhxTests(unittest.TestCase):
         struct.pack_into("<III", data, 0x08, 0x50, 4, 0x16024000)
         struct.pack_into("<III", data, 0x14, 0, 0, 0)
         struct.pack_into("<III", data, 0x20, 0x54, 3, 0x16025000)
+        struct.pack_into("<III", data, 0x2C, 0x57, 2, 0x9FC09F00)
         struct.pack_into("<II", data, 0x38, 0x20, 0x16026000)
         struct.pack_into("<I", data, 0x40, 0x16024001)
         data[0x44:0x4C] = b"entryctx"
         data[0x50:0x54] = b"TEXT"
         data[0x54:0x57] = b"BSS"
+        data[0x57:0x59] = b"TB"
         return Path("synthetic.drv"), bytes(data)
 
     def test_parse_and_load_plan(self) -> None:
@@ -29,6 +31,7 @@ class YqhxTests(unittest.TestCase):
             (
                 ("segment", 0x16024000, 4),
                 ("segment", 0x16025000, 3),
+                ("segment", 0x9FC09F00, 2),
                 ("bss-zero", 0x16026000, 0x20),
             ),
         )
@@ -43,6 +46,14 @@ class YqhxTests(unittest.TestCase):
         path, data = self.make_image()
         broken = bytearray(data)
         struct.pack_into("<I", broken, 0x0C, 0x1000)
+        with self.assertRaises(ValueError):
+            YqhxImage.parse(path, bytes(broken))
+
+    def test_fourth_segment_overflow_is_rejected(self) -> None:
+        path, data = self.make_image()
+        broken = bytearray(data)
+        struct.pack_into("<I", broken, 0x2C, 0x1000)
+
         with self.assertRaises(ValueError):
             YqhxImage.parse(path, bytes(broken))
 

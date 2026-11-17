@@ -128,10 +128,13 @@ suite therefore no longer re-imports the same driver eight times.
 | Artwork fallback/cache | community `music.ap` decompile + host models | policy and `ALBUM.PIC` record modeled; JPEG decode, SD/CPU timing and UI render unverified |
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
 | USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
+| USB Audio descriptor patch | hash-checked `usound.drv`/`config.bin` + host patch model | PASS; configured VID/PID, strings, interface count and 16/48 vs 24/96 fields reproduced; MIPS16 p-code confirmation remains in scratchpad and hardware USB is not modeled |
+| USB Audio operation-table candidate | hash-checked fourth YQHX segment + host candidate resolver | PASS; final eight pointers and op-3 target match; `table[op]` remains an inference and candidate functions are never executed by this model |
+| USB Audio EP0 request handler | Ghidra MIPS16 p-code, reported scratchpad run | PASS for request state with zeroed RAM-backed MMIO; alternate-setting ACK behavior and descriptor GET paths observed; no checked-in p-code harness or real controller status transitions yet |
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
-| Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 callback syscall | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes the real `selector=0x10` callback twice on wrap, and resets its read pointer to zero; kernel service/DAC side effect remains unresolved |
-| Real `usound.drv` callback syscall | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, CP0 records exception code 9 with `EPC=0x800526ab`, and the four callback arguments survive the trap boundary; kernel service effect remains unresolved |
+| Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 `break 0` module call | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes module `0x10` twice on wrap, and resets its read pointer to zero; fixed-ROM service/DAC side effect remains unresolved |
+| Real `usound.drv` module call | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, CP0 records exception code 9 with `EPC=0x800526ab`, and the four arguments survive the trap boundary; module `0x10` service effect remains unresolved |
 | Passive QEMU exception observation | QEMU 11.1.3 TCG plugin + callback probe | PASS; independent observer reports `from=0x800526aa -> to=0x80010180`; guest CP0 trace remains authoritative for Cause/EPC/Status |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
@@ -139,18 +142,18 @@ suite therefore no longer re-imports the same driver eight times.
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
 | usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
-| Real `usound.drv` producer→consumer chain | exact segment + shared guest ring + real callback exception shim | PASS across six corpora; producer publishes 16 bytes, `FUN_bfc31654` consumes 16, and selector `0x10` traps once; PCM/DAC ownership remains unresolved |
+| Real `usound.drv` producer→consumer chain | exact segment + shared guest ring + real module-call exception shim | PASS across six corpora; producer publishes 16 bytes, `FUN_bfc31654` consumes 16, and module `0x10` traps once; PCM/DAC ownership remains unresolved |
 | Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
 | Real `drv_dac.drv` byte-transfer execution | exact resident segment + translated MIPS16 helper-call alias + synthetic RAM GPIO context | PASS across six corpora; real 8-bit transmit, two-byte public send, and all-high/all-low byte sampling execute; codec/GPIO electrical semantics remain unresolved |
 | LCD-backed now-playing preview | real `music.ap`/`music.sty` host renderer + recovered LCD sink | PASS; visible 320x240 RGB565 round-trip with `0x36,0x2a,0x2b,0x2c` trace; hybrid preview, not full ATJ2127 boot |
-| Combined visible preview session | `m30_preview_session.py` + LCD sink + usound callback/stream boundaries | PASS; one JSON trace joins 76,800 LCD pixels, UI calls, callback selector/args, and optional 200-byte stream framing; fixed-ROM/audio effects remain explicitly unresolved |
+| Combined visible preview session | `m30_preview_session.py` + LCD sink + usound module-call/stream boundaries | PASS; one JSON trace joins 76,800 LCD pixels, UI calls, module ID/args, and optional 200-byte stream framing; fixed-ROM/audio effects remain explicitly unresolved |
 | Ghidra-guided now-playing framebuffer | real `music.ap`/`music.sty` inputs + host renderer | PASS; bank/call-site/geometry checks |
 | LCD address-window transfer | `drv_lcd.drv` commands `0x36/0x2a/0x2b/0x2c` + host framebuffer sink | PASS; recovered raw orientation values and bounded RGB565 window writes modeled; orientation semantics/controller timing unresolved |
 | Real MIPS16 renderer smoke probe | exact `music.ap` banks + 13 verified pointer stubs | PASS in Ghidra p-code; 359 steps; QEMU ELF also links |
 | Real MIPS16 event transitions | `FUN_40d54d80`, exact bank + key/UI stubs | PASS; next 94 steps, previous 90, redraw 121 |
 | MCG/RU3 resource metadata | six-corpus byte-identical resource members | PASS; immutable node/group catalog, localized names unresolved |
 | Decoder write callback | community `mengine.ap` callback boundary | PASS; unconfigured/known callback returns `-1`, unknown pointer fail-closed |
-| EQ message/coefficient boundary | `mengine.ap` dispatcher and `music.ap` selector path | PASS; message `0x303`, `{eq_type, selector}` envelope, seven gain rows; DSP calls unresolved |
+| EQ builder/shared-memory boundary | Ghidra MIPS16 p-code on stock and community `mengine.ap` | PASS; 11 builder cases byte-verified with matching cross-version digest; SHM payload reaches module `0x0c` op `0x12`, while ROM/DSP interpretation remains unresolved |
 | FAT32/exFAT extension boundary | six-corpus resident driver table | PASS; shared 31-slot vocabulary and explicit-slot host filter; caller mask/walker unresolved |
 | Library extension masks | `playlist.ap` raw mask words at `0x2a20`/`0x2a28` plus resident matcher loop | PASS; MUSIC `0x7e190ea0` (14 bits), M3U `0x00080400` (2 bits); driver slot order is bit 31→slot 0 through bit 1→slot 30 |
 | Library tag-reader selector | `playlist.ap` `FUN_40094f2c` mapping | PASS; types 0–7 plus type-8 fallback; reader ABI/metadata parsing unresolved |
@@ -158,7 +161,7 @@ suite therefore no longer re-imports the same driver eight times.
 | MUSIC.LIB record codec | documented 256-byte scan record layout plus `index.c` field accesses | PASS; text/flags/track fields and the `cluster_no`/`dir_entry` key are decoded, while the primary location blob and record links remain opaque |
 | Library directory walker | stock `playlist.ap`/playall walker contract | PASS; DFS order, depth 8, `RECORD` skip, target count; filesystem callbacks unresolved |
 | SD sector/capacity boundary | `cards.drv` 512-byte transfer and capacity path | PASS; host sector device with card presence, bounds checks and explicit `sector_count * 512` capacity |
-| Resident `yqhx` header/materialization | kernel header + host sparse memory | PASS; declared segments and BSS are applied without entry execution; real resident loader and fixed ROM handoff unresolved |
+| Resident `yqhx` header/materialization | four header segment descriptors + host sparse memory | PASS; all four descriptor slots, nonempty segments and BSS are applied without entry execution; 28 local `.drv` files parse; real resident loader and fixed ROM handoff unresolved |
 
 The latest QEMU library diagnostic was deliberately run as an ephemeral
 diagnostic build with the experimental whole-card library enabled. It was not
@@ -293,7 +296,7 @@ callback target `0xbfc326a9` (aligned MIPS16 entry `0xbfc326a8`). The guest
 redirects CP0 `EBase` to a RAM exception vector, catches the callback's
 `break 0`, records CP0 `Cause`, `EPC`, `BadVAddr`, and `Status`, and returns
 through the interrupted caller continuation. Across all six local
-`usound.drv` corpora, QEMU observes exception code 9, selector `v1=0x10`, and
+`usound.drv` corpora, QEMU observes exception code 9, module ID `v1=0x10`, and
 the four arguments used by the ring consumer. This resolves the callback's
 exception envelope, not the kernel service or eventual PCM/DAC side effect.
 The observed `EPC` is the relocated odd MIPS16 callback entry; it is not
@@ -311,7 +314,7 @@ FIFO, interrupt timing, or DAC/codec output.
 `FUN_bfc31654` consumer in one guest, with a shared ring buffer and separate
 recovered state descriptors. Across all six local `usound.drv` corpora, the
 producer publishes 16 bytes, the consumer returns 16 bytes, and the real
-selector-`0x10` callback traps once. This proves that the two recovered
+module-`0x10` break-0 call traps once. This proves that the two recovered
 software boundaries can be composed at the byte/state level; it does not prove
 that the stock USB callback, kernel service, PCM owner, or DAC consumes the
 same data on hardware.

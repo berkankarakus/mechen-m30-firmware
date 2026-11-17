@@ -38,22 +38,28 @@
   +156. `mmm_pp.al` then calls module `0x0c`, op `0x12`, with `a0=1` and the
   SHM handle as `a1`; the same op is called with `a0=2` for sample rate, `a0=3`
   for another context structure, and `a0=0` for a channel/rate structure.
-  Calling `a0=1` the EQ/DAE payload is an inference from this call pattern.
+  `a0=1` is the EQ/DAE payload by call shape; the aud_dev target below now
+  supplies matching consumer evidence, while the ROM op-dispatch mapping is
+  still an inference.
   `mmm_pp.al` directly reads only SHM byte `+2`, selecting `adppext.dsp` when
   zero and `audiopp.dsp` when nonzero; it does not directly inspect the band
-  range `+0x10..+0x8f`. The op-`0x12` recipient may read it, but that target is
-  outside the available corpus. The actual storage backing and module `0x42`
-  message recipient also remain unknown.
+  range `+0x10..+0x8f` itself. The bank-5 routine reached by table entry 18
+  reads sixteen 8-byte band slots from that range under its `a0=1` path. The
+  actual ROM rule that maps op `0x12` to table entry 18 remains unverified.
 - V `config.ap` sets SHM byte `+2` and `+3` from an object flag before creating
   `dae_cfg`; the flag's meaning is unknown. This gives a concrete DSP-selection
   boundary, not proof that a particular EQ curve reaches or changes audible
   output.
-- V The M30 `aud_dev.drv` container has one nonempty YQHX load segment:
-  file `0x300`, length 8, destination `0xbfc09f58`. The raw file region
-  `0x200..0x253` contains 21 words; word 18 is `0x2c149401`. Treating these as
-  an op-to-ROM far-pointer table and mapping module `0x0c` to `aud_dev.drv` are
-  inferences. The executable bytes at `0x300` are `10 6b 05 e8 0f 6b 05 e8`,
-  two MIPS16 module-call stubs. No ROM implementation for op `0x12` is present.
+- V `aud_dev.drv` has two nonempty YQHX segments: the resident module stubs at
+  file `0x300` (8 bytes → `0xbfc09f58`) and the 21-word table at file `0x200`
+  (`0x54` bytes → `0x9fc09f00`). Table entry 18 is `0x2c149401`; the corrected
+  bank-5 mapping resolves it to MIPS16 VA `0x9400`, file `0x1f00`. Ghidra
+  decompilation of that banked routine shows an `a0=1` path reading sixteen
+  8-byte bands from the shared-memory pointer and applying additional
+  per-band adjustments. The table-index-equals-op relationship is strong
+  inference because the fixed-ROM dispatcher is unavailable. Therefore this
+  is evidence that the EQ structure reaches an aud_dev consumer, but it does
+  not prove the ROM dispatch rule or audible DSP effect.
 - Data-only preset tuning is the lowest-risk firmware experiment currently
   identified, but it is not validated as safe. Existing gain values are signed
   bytes and the builder scales them by 10; interpreting them as dB is an
@@ -117,6 +123,38 @@
   value; the request handler has standard/interface control branches and
   handles endpoint `0x82`. This ties the descriptor table to executable
   driver code rather than treating strings alone as proof.
+- V The fourth YQHX descriptor maps file `0x2900..0x2a53` to
+  `0x9fc33c00..0x9fc33d53`. Its first 77 words are descriptor/config data;
+  the final eight words at file `0x2a34` are code pointers
+  `bfc3154d,bfc315f9,bfc31615,bfc31629,bfc31655,bfc31741,bfc31755,bfc318b9`.
+  `usound_operation_table_probe.py` hash-checks this tail. Calls from
+  `usound.ap` use module 5 op 3 with scalar index, buffer, and fixed lengths;
+  the op-3 pointer at `bfc31629` reaches the parameter setter at `bfc31de8`.
+  Direct indexing as `table[op]` is consistent with this and the independent
+  `aud_dev.drv` call shapes, but the fixed-ROM dispatcher is unavailable, so
+  the host candidate resolver marks this rule as an inference and never calls
+  the candidate entry.
+- A scratchpad Ghidra MIPS16 p-code run executed the real
+  `FUN_bfc303c4` request handler with the `0xc0080000..0xc00803ff` MMIO window
+  represented as zeroed RAM. It confirms the request-state behavior under
+  those modeled registers: SET_CUR frequency writes the supplied 3-byte rate
+  to `0x9fc33c00`, while GET_CUR frequency returns the active descriptor rate
+  at `0x9fc33ca3`; SET_INTERFACE `alt=1` resets the ring, and other alternate
+  values are ACKed without resetting it. The run also exercises mute/volume
+  GET/SET, HID idle, descriptor lookup, IN packet chunking, and the observed
+  ACK/stall register writes. MMIO status transitions and real USB timing were
+  not modeled, so these are software-handler results, not a device USB test.
+  The p-code harness/output remain in scratchpad and need a checked-in
+  reproducer before this result is part of the automated suite.
+- `tools/sim/usb_audio.py::patch_usound_descriptors()` now models the verified
+  descriptor writes. Its hash-checked reproduction command is
+  `python3 tools/emu/usound_descriptor_patch_probe.py
+  analysis/community/fw/usound.drv analysis/community/fw/config.bin`. It
+  produces VID/PID `10d6:dd01`, `M30`/`USB AUDIO` strings, interface count 3,
+  16-bit/48 kHz fields and 200-byte packets from the stock config values.
+  Unit cases also cover empty ID overrides, empty strings, interface flag 0,
+  and item `0x115=1` selecting 24-bit/96 kHz. Item `0x116` remains the separate
+  app-mode selector and is not consumed by the descriptor patch.
 - Consequence: the firmware contains a device-side UAC1/HID implementation,
   so “M30 as a USB DAC for a USB host” is statically plausible. This does not
   prove that the M30 hardware exposes OTG/VBUS correctly, that the firmware
@@ -151,15 +189,15 @@
   short-read counter `0x9fc33df4`, reset signal `0x9fc33e13`, and callback entry
   `0xbfc326a9` (odd MIPS16 pointer). The aligned callback entry at
   `0xbfc326a8` is the MIPS16 pair `li v1,0x10; break 0`; the adjacent
-  `0xbfc326ac` pair uses selector `0x0f`. A QEMU exception-vector probe
+  `0xbfc326ac` pair uses module `0x0f`. A QEMU exception-vector probe
   executes the `0x10` target across all six local corpora and verifies that
   the ring consumer's four arguments survive the trap boundary. This resolves
   the callback's syscall envelope, not the kernel service or PCM ownership;
   the host emulator therefore models the ring only as an explicitly generic
   boundary, not as the firmware's PCM/DMA implementation.
 - `tools/sim/usound_callback.py` now mirrors the proven part of that boundary:
-  it records the selector and four trapped arguments, counts selector `0x10`,
-  and refuses to execute either the fixed-ROM service or an unknown selector.
+  it records the module ID and four trapped arguments, counts module `0x10`,
+  and refuses to execute either the fixed-ROM service or an unknown module.
   This is a host observation model, not a PCM/DAC implementation.
 - The callback QEMU probe now records the CP0 exception envelope as well as the
   arguments. The current run reports exception code `9` (breakpoint),
@@ -206,7 +244,7 @@
   functions in one guest using the producer's 16-byte output as the consumer's
   shared ring input. All six local corpora pass: producer state reaches 16,
   `FUN_bfc31654` returns 16 and drains its consumer state, and the real
-  selector-`0x10` callback traps once. This is byte/state-level composition
+  module-`0x10` break-0 call traps once. This is byte/state-level composition
   evidence only; it does not identify the stock callback's kernel service,
   PCM ownership, USB interrupt path, or DAC routing.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.

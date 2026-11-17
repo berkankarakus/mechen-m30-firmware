@@ -18,7 +18,7 @@ python3 "$ROOT/tools/emu/m30_preview_session.py" \
   --music-sty "$STY" \
   --out "$OUT" \
   --trace "$TRACE" \
-  --callback-selector 0x10 \
+  --callback-module-id 0x10 \
   --callback-args 0 0 0 0 \
   --submit-packet
 echo "M30 PREVIEW SESSION READY image=$OUT trace=$TRACE"

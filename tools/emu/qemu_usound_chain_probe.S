@@ -7,7 +7,7 @@
 	.globl	general_exception
 	.ent	general_exception
 general_exception:
-	/* The real consumer callback is a selector-0x10 break-0 envelope. */
+	/* The real consumer calls module 0x10 through a break-0 envelope. */
 	lui	$k0, 0x8006
 	ori	$k0, $k0, 0x4000
 	lw	$k1, 0($k0)
@@ -97,7 +97,7 @@ _start:
 	 nop
 	lw	$t1, 8($t0)
 	li	$t2, 0x10
-	bne	$t1, $t2, fail_callback_selector
+	bne	$t1, $t2, fail_callback_module_id
 	 nop
 
 	la	$a0, pass_text
@@ -118,8 +118,9 @@ fail_callback_count:
 	la	$a0, callback_text
 	b	fail
 	 nop
-fail_callback_selector:
-	la	$a0, selector_text
+
+fail_callback_module_id:
+	la	$a0, module_id_text
 
 fail:
 	jal	puts
@@ -152,15 +153,15 @@ puts_done:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND CHAIN PASS producer=16 consumer=16 callback=1 selector=0x10\r\n"
+	.asciz	"REAL USOUND CHAIN PASS producer=16 consumer=16 module_call=1 module=0x10\r\n"
 producer_text:
 	.asciz	"REAL USOUND CHAIN FAIL producer\r\n"
 consumer_text:
 	.asciz	"REAL USOUND CHAIN FAIL consumer\r\n"
 callback_text:
 	.asciz	"REAL USOUND CHAIN FAIL callback\r\n"
-selector_text:
-	.asciz	"REAL USOUND CHAIN FAIL selector\r\n"
+module_id_text:
+	.asciz	"REAL USOUND CHAIN FAIL module-id\r\n"
 
 	.section .driver,"ax"
 	.align	2

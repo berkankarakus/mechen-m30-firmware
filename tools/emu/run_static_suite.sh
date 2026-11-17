@@ -115,6 +115,8 @@ PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/uhost_binary_probe.py" \
 for usb_audio_driver in "$ROOT"/analysis/*/fw/usound.drv; do
   PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_binary_probe.py" \
     "$usb_audio_driver" >/dev/null
+  PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_operation_table_probe.py" \
+    "$usb_audio_driver" >/dev/null
   PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_ring_binary_probe.py" \
     "$usb_audio_driver" >/dev/null
   PYTHONPATH="$ROOT/tools/emu" python3 "$ROOT/tools/emu/usound_fifo_binary_probe.py" \

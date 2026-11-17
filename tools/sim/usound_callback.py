@@ -1,12 +1,12 @@
-"""Fail-closed model of the recovered usound MIPS16 callback envelope."""
+"""Fail-closed model of the recovered usound MIPS16 module-call envelope."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 
-CALLBACK_SELECTOR = 0x10
-ADJACENT_SELECTOR = 0x0F
+LIBC_MODULE_ID = 0x10
+KERNEL_MODULE_ID = 0x0F
 EXCEPTION_EPC_SAVE_ADDRESS = 0x00013DD8
 EXCEPTION_RA_SAVE_ADDRESS = 0x00013DDC
 EXCEPTION_HANDLER_TARGET = 0xBFC06D6C
@@ -55,32 +55,32 @@ class Break0ExceptionContext:
 
 @dataclass(frozen=True)
 class Break0Call:
-    """Arguments captured at the exception boundary, not a service result."""
+    """Module ID and arguments captured at break 0, not a service result."""
 
-    selector: int
+    module_id: int
     args: tuple[int, int, int, int]
     exception: Break0ExceptionContext | None = None
 
 
 @dataclass
 class UsoundCallbackBoundary:
-    """Record known callback traps without executing the missing kernel ABI."""
+    """Record break-0 module calls without executing the missing ROM ABI."""
 
     calls: list[Break0Call] = field(default_factory=list)
 
     def trap(
         self,
-        selector: int,
+        module_id: int,
         args: tuple[int, int, int, int],
         *,
         exception: Break0ExceptionContext | None = None,
     ) -> Break0Call:
         if len(args) != 4:
-            raise ValueError("usound callback envelope requires four arguments")
+            raise ValueError("usound module-call envelope requires four arguments")
 
         normalized = tuple(value & 0xFFFFFFFF for value in args)
         call = Break0Call(
-            selector=selector & 0xFFFFFFFF,
+            module_id=module_id & 0xFFFFFFFF,
             args=normalized,
             exception=exception,
         )
@@ -89,12 +89,12 @@ class UsoundCallbackBoundary:
         return call
 
     @property
-    def known_callback_count(self) -> int:
-        return sum(call.selector == CALLBACK_SELECTOR for call in self.calls)
+    def libc_module_call_count(self) -> int:
+        return sum(call.module_id == LIBC_MODULE_ID for call in self.calls)
 
     def service_effect(self, call: Break0Call) -> None:
         """Reject service execution until the fixed-ROM dispatcher is known."""
 
-        if call.selector not in (CALLBACK_SELECTOR, ADJACENT_SELECTOR):
-            raise ValueError(f"unknown usound selector: 0x{call.selector:x}")
-        raise NotImplementedError("fixed-ROM callback service is unresolved")
+        if call.module_id not in (LIBC_MODULE_ID, KERNEL_MODULE_ID):
+            raise ValueError(f"unknown usound module: 0x{call.module_id:x}")
+        raise NotImplementedError("fixed-ROM module service is unresolved")

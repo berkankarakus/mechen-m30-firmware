@@ -9,7 +9,8 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 |---|---|---|
 | P0 | Klasör marquee veri akışı | 50-byte slot, nonzero browser context, gerçek `0x14` row-provider → `0x1c` converter zinciri ve directory callback'in üç dalı dinamik doğrulandı; row kaydının `+0x02` little-endian alanının converter'a gittiği kanıtlandı; sırada bu alanın fsel/list-state içindeki semantik türünü ayırmak var |
 | P0 | Now-playing UI | initial + metadata/transport/status state branch'leri dinamik doğrulandı; sırada resource/font/LCD sink bağlantısı |
-| P1 | USB-DAC | UAC1 descriptor/endpoint → `usound.drv` ring → selector `0x10` → PCM/DAC sahipliği zincirini ayır; descriptor varlığını ses çıkışı kanıtı sayma |
+| P1 | MUSIC.LIB sort/index | stock MIPS/QEMU sıralama, refinement ve node yazımı cihaz sırasını seeded-rank koşusunda üretiyor; converter stub'ı ve seedless zincir açık. Kalan tek node-count sapması Indelible/Indelible’ eşitlik kuralı; scratchpad koşusunu repo içinde yeniden üretilebilir yapıp bu tek çifti sınamak |
+| P1 | USB-DAC | UAC1 descriptor yaması host modelinde doğrulandı; EP0 p-code çalıştı. Sırada descriptor-patch p-code koşusunu repo içine almak, FW-info yolunu çözmek ve modül `0x10` sonrasında PCM/DAC sahipliğini ayırmak |
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
 | P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |
 | P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
@@ -27,7 +28,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 | P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın `+0x02` alanı doğrulandı; playlist/directory semantik türü ve güvenli isim patch noktası hâlâ açık |
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
 | P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
-| P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | selector `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
+| P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | module `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
 | P1 | Upgrade | trace-only screen/preflight sınırı tamamlandı; sırada indirect callback return'leri | ekran olayları ve rollback sınırı host'ta var; flash/reboot çağrısı bilinçli olarak stub kalır |
 | P1 | MUSIC.LIB metadata | gerçek writer/reader fonksiyonlarını RAM-backed `MUSIC.LIB` üzerinde yürüt | record alanları, tie-break ve sayaç için güvenli kalıcı alan adayı |
 | P2 | Key/screen-off | gerçek key/common-filter path’ine event dizileri enjekte et | wake/media-key ayrımı, debounce/repeat state ve ekran açılma nedeni |
@@ -43,7 +44,7 @@ denemesi anlamına gelmez.
    `0xbfc34074 -> 0xbfc06d6c` handoff'u, mevcut boot-ROM/ROM kanıtı veya yeni
    salt-okunur cihaz gözlemi olmadan tamamlanmış kabul etme. Önce yeni bir
    extracted üye içinde handler/provider kopyası var mı tekrar doğrula; yoksa
-   `selector=0x10` etkisini fail-closed bırak.
+   `module=0x10` etkisini fail-closed bırak.
 2. **DONE — upgrade akışını trace-only modelle:** doğrulanmış beş seçenekli
    ekran, `FUN_40014c30` selector'ları, decrypt/search metinleri ve
    `FUN_bfc37408` ilerleme normalizer'ı `tools/emu/upgrade_flow.py` ve
@@ -80,11 +81,11 @@ PASS/FAIL koşuluyla kapatılacak.
 
 | Öncelik | İş | Neden şimdi | Kapanış ölçütü |
 |---|---|---|---|
-| P0 | **DONE:** Gerçek `FUN_bfc31654` ring consumer’ını callback syscall ile çalıştır | `0xbfc326a9` QEMU’da `selector=0x10` olarak yakalanıyor | lineer ve wrap çağrılarında gerçek callback trap’i, iki callback sayısı ve dört argüman kaydı altı corpus’ta doğrulandı |
+| P0 | **DONE:** Gerçek `FUN_bfc31654` ring consumer’ını `break 0` modül çağrısıyla çalıştır | `0xbfc326a9` QEMU’da modül kimliği `0x10` olarak yakalanıyor | lineer ve wrap çağrılarında gerçek trap, iki modül çağrısı ve dört argüman kaydı altı corpus’ta doğrulandı |
 | P0 | **DONE:** LCD resident komut/data ve window akışını QEMU’da çalıştır | `drv_lcd.drv` fonksiyonları ve `0x2a/0x2b/0x2c/0x36` akışı ekran sink’ine bağlandı | gerçek window/orientation akışı ve komut/data izleri altı corpus’ta geçti |
-| P1 | MIPS16 `break 0` selector dispatch’ini resident exception yoluna bağla | callback zarfı çözüldü, fakat selector `0x10` servisinin kernel tarafındaki etkisi bilinmiyor | exception handler veya kernel kaynaklı dispatch tablosu selector ve dönüş sözleşmesini kanıtlar; PCM/DAC sonucu iddia edilmez |
+| P1 | MIPS16 `break 0` modül dispatch’ini resident exception yoluna bağla | zarf çözüldü, fakat modül `0x10` servisinin sabit-ROM etkisi bilinmiyor | exception handler veya kernel kaynaklı dispatch tablosu modül ve dönüş sözleşmesini kanıtlar; PCM/DAC sonucu iddia edilmez |
 | P1 | `drv_dac.drv` gerçek byte-transfer fonksiyonlarını sentetik GPIO context ile çalıştır | DAC sürücüsü ortak ve küçük; register anlamı bilinmese de bit/byte transfer sınırı ölçülebilir | **DONE:** six corpus QEMU probe executes real 8-bit transmit, two-byte send, and all-high/all-low receive boundary; electrical/codec semantics remain unresolved |
-| P1 | `usound.drv` producer → consumer state zincirini tek guest’te birleştir | producer, consumer ve callback ayrı ayrı geçiyor; birleşik state henüz kanıtlanmadı | **DONE:** six corpus QEMU chain passes with producer=16, consumer=16, and real selector `0x10` callback trap; PCM/DAC ownership remains unresolved |
+| P1 | `usound.drv` producer → consumer state zincirini tek guest’te birleştir | producer, consumer ve modül çağrısı ayrı ayrı geçiyor; birleşik state henüz kanıtlanmadı | **DONE:** six corpus QEMU chain passes with producer=16, consumer=16, and real module `0x10` break-0 call; PCM/DAC ownership remains unresolved |
 | P2 | Kernel loader/overlay entry ve exception handoff probe’u | YQHX header/segment sözleşmesi biliniyor; `kernel.drv` içindeki adaylar resident-table helper, gerçek loader ve sabit ROM handoff bilinmiyor | gerçek loader çağrısı ve giriş/çıkış CP0/stack sözleşmesi kanıtlanır |
 | P3 | Tam ATJ2127 QEMU machine / boot | upstream model ve ROM/peripheral kodu yok; maliyeti yüksek, şu anki kanıtı az artırır | yalnızca ATJ2127 MMIO/ROM kaynağı veya cihaz dump’ı gelirse başlatılır; mevcut haliyle ertelenir |
 

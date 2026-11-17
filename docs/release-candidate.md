@@ -4,6 +4,12 @@ There is currently no persistent flashable candidate in this worktree. The
 reproducible candidate boundary is the extracted community member tree plus
 the two verified resource changes below.
 
+> **Correction (static analysis; not device tested):** The Previous-as-restart
+> patch is excluded. The `0x3a64` value is a fast-backward offset, and the
+> Previous handler has no elapsed-time threshold. Changing it does not establish
+> restart behavior. See [`codex-handoff.md`](codex-handoff.md)
+> and [`findings-artwork-start.md`](findings-artwork-start.md#3-previous-key).
+
 ## Source and scope
 
 - Source: community V1.292.00, SHA-256

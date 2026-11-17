@@ -15,6 +15,7 @@ from yqhx import YqhxImage  # noqa: E402
 
 
 USOUND_SEGMENT = (0x200, 0x26B0, 0xBFC30000)
+USOUND_DATA_SEGMENT = (0x2900, 0x154, 0x9FC33C00)
 USOUND_BSS = (0x9FC33D54, 0xD4)
 USOUND_ENTRY = 0xBFC32680
 DEVICE_DESCRIPTOR = bytes(
@@ -56,10 +57,16 @@ def _descriptor_stream(data: bytes, offset: int) -> tuple[bytes, ...]:
 
 def verify(path: Path) -> None:
     image = YqhxImage.load(path)
-    segment = image.segments[0]
-    actual_segment = (segment.file_offset, segment.length, segment.destination)
-    if actual_segment != USOUND_SEGMENT:
-        raise AssertionError(f"USB Audio segment {actual_segment!r} != {USOUND_SEGMENT!r}")
+    actual_segments = tuple(
+        (segment.file_offset, segment.length, segment.destination)
+        for segment in image.segments
+        if segment.length
+    )
+    expected_segments = (USOUND_SEGMENT, USOUND_DATA_SEGMENT)
+    if actual_segments != expected_segments:
+        raise AssertionError(
+            f"USB Audio segments {actual_segments!r} != {expected_segments!r}"
+        )
     if (image.bss_address, image.bss_size) != USOUND_BSS:
         raise AssertionError(
             f"USB Audio BSS {(image.bss_address, image.bss_size)!r} != {USOUND_BSS!r}"

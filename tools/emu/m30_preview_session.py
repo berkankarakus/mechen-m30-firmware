@@ -27,7 +27,7 @@ class CallbackBoundary(Protocol):
 
     calls: list[Any]
 
-    def trap(self, selector: int, args: tuple[int, int, int, int]) -> Any:
+    def trap(self, module_id: int, args: tuple[int, int, int, int]) -> Any:
         ...
 
 
@@ -78,7 +78,7 @@ class M30PreviewSession:
 
     def observe_callback(
         self,
-        selector: int,
+        module_id: int,
         args: tuple[int, int, int, int],
         *,
         exception: Any | None = None,
@@ -86,11 +86,11 @@ class M30PreviewSession:
         """Record the callback envelope and any supplied exception context."""
 
         if exception is None:
-            return self.callback.trap(selector, args)
+            return self.callback.trap(module_id, args)
 
         trap_with_exception = getattr(self.callback, "trap")
 
-        return trap_with_exception(selector, args, exception=exception)
+        return trap_with_exception(module_id, args, exception=exception)
 
     def submit_audio_packet(self, payload: bytes) -> int:
         """Queue one observed USB packet and retain only framing statistics."""
@@ -135,7 +135,7 @@ class M30PreviewSession:
                     }
 
             call_trace = {
-                "selector": f"0x{int(call.selector):08x}",
+                "module_id": f"0x{int(call.module_id):08x}",
                 "args": [f"0x{int(value):08x}" for value in call.args],
             }
 
@@ -191,7 +191,14 @@ def main() -> int:
     parser.add_argument("--album", default="ALBUM")
     parser.add_argument("--file", dest="filename", default="FILE")
     parser.add_argument("--offset", type=int, default=0)
-    parser.add_argument("--callback-selector", type=_parse_int, default=0x10)
+    parser.add_argument(
+        "--callback-module-id",
+        "--callback-selector",
+        dest="callback_module_id",
+        type=_parse_int,
+        default=0x10,
+        help="module ID captured at the break-0 boundary (legacy alias: --callback-selector)",
+    )
     parser.add_argument(
         "--callback-args",
         type=_parse_int,
@@ -251,7 +258,7 @@ def main() -> int:
         )
 
     session.observe_callback(
-        args.callback_selector,
+        args.callback_module_id,
         tuple(args.callback_args),
         exception=exception,
     )

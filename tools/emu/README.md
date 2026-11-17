@@ -28,7 +28,7 @@ deterministic:
    verifies the byte-transfer boundary across all six local DAC driver
    corpora; it does not emulate codec registers or audio output.
 8. `run_qemu_usound_chain_probe.sh` composes the exact producer and ring
-   consumer in one guest with a shared ring and the real selector-`0x10`
+   consumer in one guest with a shared ring and the real module-`0x10`
    callback trap. It proves only the byte/state composition; PCM/DAC ownership
    remains unresolved.
 9. `scroll_descriptor.py` models the verified state/event offsets used by
@@ -53,7 +53,7 @@ deterministic:
 10. `tools/ghidra/run_kernel_exception_probe.sh` checks the extracted
    `ker_xsys` exception entry and records the boundary where the unavailable
    fixed handler begins.
-11. `yqhx.py` parses the resident driver's three copy segments, BSS range,
+11. `yqhx.py` parses the resident driver's four segment descriptors, BSS range,
    entry fields, and the kernel's mode-dependent slot layout. It is a load
    plan only; it never executes raw payload bytes.
 12. `driver_loader.py` models the verified `yqhx` header/segment materializer.
@@ -147,6 +147,10 @@ deterministic:
 33. `driver_loader.py` can apply the verified `yqhx` segment payloads and BSS
     zeroing into sparse byte-addressable resident memory. It never invokes the
     image entry point or the unresolved fixed-ROM handler.
+34. `usound_operation_table_probe.py` hash-checks the final eight words in the
+    fourth `usound.drv` segment. `tools/sim/usound_driver.py` resolves a
+    `table[op]` candidate and clears the MIPS16 tag, but leaves ROM dispatch
+    unexecuted because the indexing rule is still inferred.
 
 `tools/sim/ui_calls.py` carries the resulting safety policy into the host
 model: B02 `+0x471` is `lazy-load-then-call`, B02 `+0x4e9` is

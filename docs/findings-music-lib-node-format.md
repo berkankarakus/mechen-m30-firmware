@@ -4,6 +4,15 @@ This note records the byte-level evidence behind the host decoder for the
 16-byte section nodes. It does not claim that the public comparison file is an
 M30 dump.
 
+> **Current status (2026-11-17):** the later stock-MIPS/QEMU experiment below
+> supersedes the Python-model claims about 56 ARTIST mismatches, a `9th Wonder`
+> encoding-group rule, and 8–10-character node thresholds. Those were artifacts
+> of the host candidate model, not observed device behavior. With device
+> ALLSONG ranks supplied and the text converter replaced by a test stub, stock
+> MIPS reproduces every stored order. The remaining node-count difference is
+> the `Indelible` / `Indelible’` pair. The converter stub is still a hypothesis,
+> and the run is not a seedless full rebuild.
+
 ## Evidence
 
 The repository's reference builder emits every node with:
@@ -244,36 +253,11 @@ eight rank-source choices raises ARTIST above 3,944 for either uniform
 conversion mode. The remaining ARTIST error is not explained by choosing a
 different predecessor rank alone.
 
-A focused record-level crossover isolates six ARTIST entries in the
-`Curren$y &` / `Continuance` group. The chained `stale-tail` candidate reverses
-three duplicate-title pairs at the ALBUM pass; substituting the device's
-ALLSONG rank for those records restores the stored ALBUM ranks and their
-ARTIST positions:
-
-| Records | Stored ARTIST positions | Stored ALBUM ranks | Candidate ALBUM ranks |
-|---|---:|---:|---:|
-| 1804 / 1817, “04. Obsession.flac” | 1464 / 1465 | 663 / 664 | 664 / 663 |
-| 1807 / 1820, “07. The Tonight Show.flac” | 1470 / 1471 | 669 / 670 | 670 / 669 |
-| 1810 / 1823, “10. The Final Board.flac” | 1477 / 1476 | 676 / 675 | 675 / 676 |
-
-All six records carry identical raw ARTIST bytes
-`fffe430075007200720065006e0024007900200026000000`; the two modeled
-conversions also agree through the NUL terminator. These six reversals
-therefore arise upstream in the candidate ALLSONG-to-ALBUM rank chain, not
-from ARTIST text conversion. This is a corpus crossover, not a claim about
-the resident converter. The still-unexplained ARTIST differences are in the
-separate `9th Wonder` block.
-
-The six `ALLSONG` residual positions reduce to three pairs whose visible
-titles differ after a character above U+00FF:
-`Dokunmayarayaparsın.flac`/`.wav`, `Şaraba Sarılı Gazete`/`Şevket Hamdi Tan`,
-and `Yangın I`/`Yangın III`. The old `stop-zero` hypothesis makes each pair's
-keys equal and cannot order their suffixes. A newer scratchpad experiment
-tests a different inferred converter: emit single-byte characters normally,
-replace each out-of-byte-range UTF-16 code unit with one constant byte, and
-continue converting the remainder. This lets the suffix determine the order;
-it is not general Unicode collation and is not yet a recovered service
-implementation.
+Earlier Python-only comparisons reported residual ALLSONG, ALBUM, and ARTIST
+positions and suggested that `9th Wonder` needed an encoding-sensitive grouping
+rule. The stock-MIPS experiment below shows that those residuals do not describe
+the device's sort/group implementation: they came from the host candidate
+model. Keep the Python converter sweeps as hypothesis tools only.
 
 Against the hash-verified 4,000-record M30 image, replacement bytes `0x01` and
 `0x20` both reproduce ALLSONG, ALBUM, and GENRE exactly; ARTIST remains
@@ -302,29 +286,13 @@ model's total ALLSONG score from 3963/4000 to 3803/4000. It is therefore not a
 valid general fix and does not explain the newer converter result. No sorting
 behavior was changed in the emulator.
 
-The replace-and-continue model leaves 56 ARTIST positions unmatched, all at
-positions 83–138. The device places 15 plain-byte `9th Wonder` records first,
-then 41 UTF-16LE records; each block is internally ordered by ALBUM rank. The
-candidate treats the representations as one key and sorts the combined block
-by ALBUM rank. On the captured corpus, an added group rule that separates
-same-visible-name plain/UTF-16 records at lengths 8, 9, or 10 (but merges them
-at lengths 7 and below) reproduces all observed node boundaries. There are no
-8- or 9-character mixed-encoding examples to choose among those thresholds;
-this is a corpus-fitting hypothesis, not a recovered comparison rule.
-
-Node grouping is not explained by simply using `stop-zero` for equality while
-using replace-and-continue for sorting. On device order, that combination
-predicts 548 ALBUM nodes and 362/707 ARTIST nodes, versus 549 and 363/707 on
-device; GENRE counts match at 30/439/709. With the candidate section orders,
-the same two-converter model predicts 548 ALBUM, 362/706 ARTIST, and
-30/438/708 GENRE nodes. ARTIST records 3924 (`Indelible`) and 3925
-(`Indelible’`) illustrate the split: stop-zero gives equal keys and the device
-places both in outer ARTIST node 238, while replace-and-continue distinguishes
-them. Their deepest reference-5 indices differ because they belong to
-different child runs. The device also separates plain and UTF-16 `9th Wonder`
-into distinct outer nodes, which stop-zero alone would merge. Node equality
-therefore needs an encoding-sensitive rule in addition to the candidate sort
-key; its exact rule remains unknown.
+Earlier Python grouping experiments reported node-count mismatches for
+`9th Wonder` and proposed text-length thresholds. Those results are superseded:
+the stock MIPS pass produced the `9th Wonder` groups and node-index tables
+correctly in the later controlled run. The unresolved node behavior is limited
+to records 3924 (`Indelible`) and 3925 (`Indelible’`): the device merges them,
+while the replace-and-continue test converter separates their keys. The
+equality rule for this pair is unknown.
 
 ### Stock MIPS passes executed under QEMU
 
@@ -348,6 +316,32 @@ inferred converter. These runs validate stock pass logic for the supplied key
 bytes; Unicode-sensitive mismatches remain evidence about the converter and
 its input state, not a direct test of the resident routine. See the call-chain
 notes in `docs/library-builder.md`.
+
+#### Controlled stock-MIPS run reported 2026-11-17
+
+A newer scratchpad run executed the stock MIPS16 sort, rank-refinement,
+grouping, and node-writing passes using the captured device ALLSONG order as
+the preceding-rank input. Its text-conversion stub replaced each UTF-16 code
+unit above U+00FF with `0x01`, continued through the string, and retained the
+post-NUL tail. This converter behavior is a test hypothesis, not recovered
+firmware behavior.
+
+The report records 4,000/4,000 order entries for all four sections, 549/549
+ALBUM nodes, and matching node-index tables. ARTIST has one extra outer node
+(364 vs 363); GENRE has one extra level-1 node (440 vs 439). Both differences
+come from records 3924 `Indelible` and 3925 `Indelible’`, which the device
+groups together but this converter stub separates. The earlier Python-model
+`9th Wonder` grouping and text-length threshold claims are therefore not
+device rules.
+
+This experiment validates the stock pass code for seeded ranks and the
+specified stub output. It is not a seedless rebuild and does not identify the
+resident converter. The run inputs were the hash-checked M30 `MUSIC.LIB`
+(`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`) and
+2025-06-26 `playlist.ap`
+(`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`). Its
+temporary harness/output remain in the agent scratchpad; bring that exact
+reproducer into the repository before treating the run as locally reproducible.
 
 With the unmodified device library, the full stock pass sequence matched the
 stored orders at `ALLSONG=3963/4000`, `ALBUM=3973/4000`, `ARTIST=3992/4000`,

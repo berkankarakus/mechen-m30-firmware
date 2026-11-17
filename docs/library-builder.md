@@ -349,11 +349,11 @@ index-writing code under the supplied key bytes; they do not validate the reside
 prove exact stock ordering for names affected by that converter.
 
 The fixed exception handler at `0xbfc06d6c` is absent from the available extracted corpus, and
-work must proceed without a ROM dump. Keep the service effect fail-closed. The productive
-ROM-free path is to use the now-known selectors/arguments to enumerate candidate conversion
-outputs, predict their sort-order consequences, and reject them against the captured M30 orders
-and the existing QEMU stock-pass results. Promote a conversion rule only when it explains
-independent Unicode cases without breaking the verified ASCII and node/table results. See
+work must proceed without a ROM dump. Keep the service effect fail-closed. The current
+ROM-free experiment is to run the remaining Indelible/Indelible’ node-equality variant against
+the stock QEMU pass, then bring the exact seeded harness into the repository and test the
+seedless chain. Promote a conversion rule only when it explains independent Unicode cases
+without breaking the verified ASCII and node/table results. See
 `docs/findings-kernel-loader.md` for the exception-vector evidence and the unavailable-handler
 boundary.
 
@@ -364,15 +364,22 @@ as "Déjà vu" after "Dross Glop" and "02 Qué Onda" after "02 Queen". At the
 first character above U+00FF, two output-tail hypotheses remain relevant:
 preserve the unconverted UTF-16 bytes or clear the rest of the output. The
 4,000-record M30 ALBUM table favors the cleared-tail candidate for the exact
-`Du` + U+0308 versus `Duality` boundary: it matches all 4,000 album positions,
-while the preserved-tail candidate misses those 19 positions. The same
-cleared-tail candidate still misses 6 ALLSONG and 56 ARTIST positions, so it
-cannot yet be promoted as the shared converter behavior. The stock QEMU harness
-uses the preserved-tail guess and redirects the resident conversion call; its
-results validate the sort and grouping passes for supplied key bytes, not the
-kernel's output buffer semantics. The all-Greek album "Ἀποκάλυψις", "We’ve
-Come for You All" before "We Got It From Here", and the separate "D’Angelo"
-and "DāM‐FunK" artist groups remain unresolved conversion/pass-boundary cases.
+`Du` + U+0308 versus `Duality` boundary in the Python model. That candidate's
+other ALLSONG/ARTIST mismatches are host-model results, not device mismatches.
+The stock QEMU harness redirects the resident conversion call, so its output
+validates the sort and grouping passes for supplied key bytes, not the kernel's
+conversion semantics.
+
+A controlled stock-MIPS/QEMU run reported on 2026-11-17 supplied the captured
+device ALLSONG ranks and used a replace-and-continue test stub (`>U+00FF` maps
+to `0x01`, conversion continues to NUL, and the post-NUL tail is retained).
+It reproduced all four 4,000-entry orders and the 549 ALBUM nodes. ARTIST had
+one extra outer node and GENRE one extra level-1 node, both due to records 3924
+`Indelible` and 3925 `Indelible’`. The resident converter remains unknown; this
+is not a seedless full rebuild. The previous 56-entry `9th Wonder` mismatch and
+text-length thresholds were artifacts of the Python candidate model. See
+`docs/findings-music-lib-node-format.md` for the experiment boundary and
+reported input hashes.
 
 The record field for a 23-character UTF-16 name has no terminating zero, and the tag reader seems
 to limit names to 22 characters plus the terminator.

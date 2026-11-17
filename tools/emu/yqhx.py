@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 HEADER_SIZE = 0x4C
-SEGMENT_COUNT = 3
+SEGMENT_COUNT = 4
 MAGIC_OFFSET = 0x04
 
 

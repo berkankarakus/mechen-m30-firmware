@@ -52,7 +52,7 @@ class M30PreviewSessionTests(unittest.TestCase):
         self.assertEqual(trace["lcd"]["pixels"], 320 * 240)
         self.assertEqual(trace["lcd"]["remaining_pixels"], 0)
         self.assertEqual(trace["audio"]["queued_bytes"], 200)
-        self.assertEqual(trace["callback"]["calls"][0]["selector"], "0x00000010")
+        self.assertEqual(trace["callback"]["calls"][0]["module_id"], "0x00000010")
         self.assertEqual(
             trace["callback"]["calls"][0]["args"],
             ["0x00000001", "0x00000002", "0x00000003", "0x00000004"],
@@ -111,8 +111,8 @@ class M30PreviewSessionTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.calls = []
 
-            def trap(self, selector: int, args: tuple[int, int, int, int]):
-                call = SimpleNamespace(selector=selector, args=args)
+            def trap(self, module_id: int, args: tuple[int, int, int, int]):
+                call = SimpleNamespace(module_id=module_id, args=args)
                 self.calls.append(call)
 
                 return call
@@ -121,7 +121,7 @@ class M30PreviewSessionTests(unittest.TestCase):
         session.callback = LegacyCallbackBoundary()
         call = session.observe_callback(0x10, (1, 2, 3, 4))
 
-        self.assertEqual(call.selector, 0x10)
+        self.assertEqual(call.module_id, 0x10)
         self.assertEqual(call.args, (1, 2, 3, 4))
         self.assertNotIn("exception", session.trace()["callback"]["calls"][0])
 

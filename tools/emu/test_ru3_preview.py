@@ -6,7 +6,7 @@ from m30_font import M30Font
 
 
 ROOT = Path(__file__).parents[2]
-FW = Path("/private/tmp/m30-card-inspect.sNixua/fw")
+FW = ROOT / "analysis/community/fw"
 UPGRADE = FW / "upgrade.sty"
 MUSIC = FW / "music.sty"
 FONT = FW / "new_m.fnt"

@@ -1,20 +1,20 @@
 import unittest
 
 from usound_callback import (
-    CALLBACK_SELECTOR,
+    LIBC_MODULE_ID,
     Break0ExceptionContext,
     UsoundCallbackBoundary,
 )
 
 
 class UsoundCallbackBoundaryTests(unittest.TestCase):
-    def test_records_selector_and_four_arguments(self) -> None:
+    def test_records_module_id_and_four_arguments(self) -> None:
         boundary = UsoundCallbackBoundary()
-        call = boundary.trap(CALLBACK_SELECTOR, (1, 2, 3, 0x1_0000_0004))
-        self.assertEqual(call.selector, CALLBACK_SELECTOR)
+        call = boundary.trap(LIBC_MODULE_ID, (1, 2, 3, 0x1_0000_0004))
+        self.assertEqual(call.module_id, LIBC_MODULE_ID)
         self.assertEqual(call.args, (1, 2, 3, 4))
         self.assertIsNone(call.exception)
-        self.assertEqual(boundary.known_callback_count, 1)
+        self.assertEqual(boundary.libc_module_call_count, 1)
 
     def test_records_optional_exception_context_as_captured(self) -> None:
         boundary = UsoundCallbackBoundary()
@@ -26,7 +26,7 @@ class UsoundCallbackBoundaryTests(unittest.TestCase):
         )
 
         call = boundary.trap(
-            CALLBACK_SELECTOR,
+            LIBC_MODULE_ID,
             (1, 2, 3, 4),
             exception=exception,
         )
@@ -76,11 +76,11 @@ class UsoundCallbackBoundaryTests(unittest.TestCase):
 
     def test_does_not_invent_kernel_service_effect(self) -> None:
         boundary = UsoundCallbackBoundary()
-        call = boundary.trap(CALLBACK_SELECTOR, (0, 0, 0, 0))
+        call = boundary.trap(LIBC_MODULE_ID, (0, 0, 0, 0))
         with self.assertRaises(NotImplementedError):
             boundary.service_effect(call)
 
-    def test_rejects_unknown_selector(self) -> None:
+    def test_rejects_unknown_module_id(self) -> None:
         boundary = UsoundCallbackBoundary()
         call = boundary.trap(0x99, (0, 0, 0, 0))
         with self.assertRaises(ValueError):
