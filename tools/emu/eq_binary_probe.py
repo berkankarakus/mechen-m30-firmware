@@ -47,14 +47,14 @@ def verify(
     if frequencies != profile.band_hz:
         raise AssertionError(f"frequency table {frequencies!r} != model {profile.band_hz!r}")
 
-    q_values = u16_rows(mengine, ENGINE_Q_TABLE, len(profile.q_x10))
-    if q_values != profile.q_x10:
-        raise AssertionError(f"Q table {q_values!r} != model {profile.q_x10!r}")
+    q_values = u16_rows(mengine, ENGINE_Q_TABLE, len(profile.q_values))
+    if q_values != profile.q_values:
+        raise AssertionError(f"Q table {q_values!r} != model {profile.q_values!r}")
 
     for selector in range(7):
         offset = ENGINE_GAIN_TABLE + selector * ENGINE_ROW_STRIDE
         actual = signed_bytes(mengine[offset : offset + ENGINE_ROW_STRIDE])
-        expected = profile.presets[selector].gains_db
+        expected = profile.presets[selector].gain_int8
         if actual != expected:
             raise AssertionError(
                 f"mengine selector {selector} {actual!r} != model {expected!r}"

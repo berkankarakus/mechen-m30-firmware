@@ -12,7 +12,7 @@ from m30_model import (
     FIRMWARE_EQ_CURRENT_PROFILE,
     FIRMWARE_EQ_MESSAGE_ID,
     FIRMWARE_EQ_PRESETS,
-    FIRMWARE_EQ_Q_X10,
+    FIRMWARE_EQ_Q_VALUES,
     FIRMWARE_EQ_SELECTOR_OFFSET,
     IndexState,
     IndexStatus,
@@ -23,6 +23,8 @@ from m30_model import (
     eq_names,
     find_eq,
     firmware_eq_gains,
+    firmware_eq_gain_s16,
+    build_firmware_eq_structure,
     firmware_eq_command,
     firmware_eq_payload,
     find_firmware_eq_profile,
@@ -151,13 +153,13 @@ class EqCatalogTests(unittest.TestCase):
 class FirmwareEqContractTests(unittest.TestCase):
     def test_recovered_geometry_is_seven_band(self):
         self.assertEqual(FIRMWARE_EQ_BAND_HZ, (80, 200, 480, 980, 4000, 8000, 16000))
-        self.assertEqual(FIRMWARE_EQ_Q_X10, (10, 6, 4, 6, 10, 5, 8))
+        self.assertEqual(FIRMWARE_EQ_Q_VALUES, (10, 6, 4, 6, 10, 5, 8))
         self.assertEqual(len(FIRMWARE_EQ_PRESETS), 8)
 
     def test_revision_profile_preserves_verified_2024_frequency_exception(self):
         self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.band_hz[0], 80)
         self.assertEqual(FIRMWARE_EQ_2024_04_PROFILE.band_hz[0], 50)
-        self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.q_x10, FIRMWARE_EQ_2024_04_PROFILE.q_x10)
+        self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.q_values, FIRMWARE_EQ_2024_04_PROFILE.q_values)
         self.assertEqual(FIRMWARE_EQ_CURRENT_PROFILE.presets, FIRMWARE_EQ_2024_04_PROFILE.presets)
 
     def test_revision_profile_lookup_is_case_insensitive(self):
@@ -184,6 +186,63 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(firmware_eq_gains(0), (0, 0, 0, 0, 0, 0, 0))
         self.assertEqual(firmware_eq_gains(1), (5, 3, 0, -1, 0, 4, 5))
         self.assertEqual(firmware_eq_gains(6), (5, 2, 0, 0, 0, 0, 6))
+
+    def test_builder_scales_signed_gain_bytes_into_signed_halfwords(self):
+        custom = (1, 2, 3, -3, -2, 127, -128)
+
+        self.assertEqual(
+            firmware_eq_gain_s16(7, custom),
+            (10, 20, 30, -30, -20, 1270, -1280),
+        )
+
+    def test_builder_matches_verified_structure_writes_and_preserves_unknown_bytes(self):
+        initial = bytearray([0xAA] * 0xF0)
+        initial[0x0C] = 0
+
+        result = build_firmware_eq_structure(1, 1, bytes(initial))
+
+        self.assertTrue(result.built)
+        self.assertEqual(result.selector_copy, 1)
+        self.assertEqual(result.structure[0x07], 1)
+        self.assertEqual(result.structure[0x0C], 0)
+        self.assertEqual(result.structure[0x0D], 1)
+        self.assertEqual(result.structure[0x08:0x0C], bytes([0xAA] * 4))
+        self.assertEqual(result.structure[0x0E:0x10], bytes([0xAA] * 2))
+        self.assertEqual(result.structure[0x47], 0)
+        self.assertEqual(result.structure[0x48:0x90], bytes(0x48))
+        self.assertEqual(result.structure[0x90:], bytes([0xAA] * 0x60))
+
+        first_band = (
+            bytes.fromhex("50000a003200")
+            + bytes((1, 0))
+        )
+        self.assertEqual(result.structure[0x10:0x18], first_band)
+
+    def test_builder_selector_zero_sets_inactive_header_and_zero_gains(self):
+        initial = bytearray([0xAA] * 0xF0)
+        initial[0x0C] = 0
+
+        result = build_firmware_eq_structure(0, 1, bytes(initial))
+
+        self.assertTrue(result.built)
+        self.assertEqual(result.structure[0x0D], 0)
+        self.assertEqual(result.structure[0x10 + 4:0x10 + 6], bytes(2))
+
+    def test_builder_gates_leave_structure_unchanged_after_selector_mirror(self):
+        busy_structure = bytearray([0xAA] * 0xF0)
+        busy_structure[0x0C] = 1
+        inactive_structure = bytearray([0xAA] * 0xF0)
+        inactive_structure[0x0C] = 0
+
+        busy = build_firmware_eq_structure(3, 1, bytes(busy_structure))
+        inactive = build_firmware_eq_structure(3, 0, bytes(inactive_structure))
+
+        self.assertFalse(busy.built)
+        self.assertEqual(busy.selector_copy, 3)
+        self.assertEqual(busy.structure, bytes(busy_structure))
+        self.assertFalse(inactive.built)
+        self.assertEqual(inactive.selector_copy, 3)
+        self.assertEqual(inactive.structure, bytes(inactive_structure))
 
     def test_custom_requires_exactly_seven_signed_int8_values(self):
         custom = FIRMWARE_EQ_CUSTOM_DEFAULT

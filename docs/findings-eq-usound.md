@@ -7,17 +7,24 @@
   community `mengine.ap` EQ loader and checks its pointer pool, seven-band
   frequency table, gain rows, and the `setting.ap` Custom row. It is a static
   AP/raw-byte check and does not validate audible output.
+- `bash tools/ghidra/run_eq_builder_probe.sh` executes the real MIPS16 builder
+  in Ghidra p-code against hash-verified stock and community `mengine.ap`.
+  Eleven cases pass; both binaries produce the same structure digest. The
+  probe uses synthetic RAM and stubs for missing ROM services, so it validates
+  builder writes and call arguments only.
 - V SDK: ap/ap_setting/menu_callback_sound_setting.c: eq_param[8][MAX_EQ_SEG] int8 (none,rock,funk,hiphop,jazz,classic,techno,custom); _set_real_eq() builds mmm_mp_eq_info_t{eq_type, eq_para[12]} and sends MSG_MENGINE_SET_EQ_SYNC (music_set_eq, line 81-88). Engine: mengine_event_volume.c mengine_set_real_eq() -> mmm_mp_cmd(MMM_MP_SET_EQ,&eq_info). Custom = g_setting_vars.music_comval.eq_parameter[12] (int8, setting_common.h:167), edited in music_setmenu_soundset_param.c. EQ_TOTAL=8 (ap_setting.h:27) incl. Off. config.txt SETTING_AP_ID_EQ_SETTING = 0[0..7].
 - V Table A (setting.ap, community==stock): file 0x5a94..0x5b13, 8 rows x 16 B (12 int8 used + 4 pad; rock row 0x5aa4, funk 0x5ab4, hiphop 0x5ac4, jazz 0x5ad4, classic 0x5ae4, techno 0x5af4, custom 0x5b04 = {-9,0,0,0,0,0,6}). Zeros 0x5b14..0x5bff (236 B) then next sector at 0x5c00.
-- V Table B (mengine.ap, same in stock): presets at 0x440c.. 7 B/row (7 int8 gains, row index = preset): none 0x440c, rock 0x4413, funk 0x441a, hiphop 0x4421, jazz 0x4428, classic 0x442f, techno 0x4436 (=7 rows, idx 0..6). Row values = first 7 bytes of SDK rows. Band centre freqs u16 at 0x43ec (80,200,480,980,4000,8000,16000 Hz), per-band u16 at 0x43fc (10,6,4,6,10,5,8; likely Q x10, H). Pointer pool file 0x41f4 = {0x601d10ec, 0x601d10fc, 0x9fc1a19c(RAM custom), 0x601d110c}; file = addr - 0x601ccd00.
-- V Code: mengine.ap FUN_601d0d58 (mengine_community.c:1717-1790): idx=*(byte*)(g+0x41); loop 7 bands: freq,Q, gain = (idx==7 ? custom[b] : table[idx*7+b]) * 10 (0.1 dB units), flag 1; bands 7..15 zeroed; struct 0xf0 B (16 bands x 8 B) sent to DSP. So 7-band parametric EQ, int8 dB gains, custom = idx 7 read from RAM 0x9fc1a19c (not in table).
+- V Table B (mengine.ap, same in stock): presets at 0x440c.., 7 B/row (7 signed-int8 gain values; row index is preset): Off 0x440c, Rock 0x4413, Funk 0x441a, Hip hop 0x4421, Jazz 0x4428, Classical 0x442f, Techno 0x4436 (selector 0..6). Frequencies are u16 values at 0x43ec (80,200,480,980,4000,8000,16000 Hz); Q values are raw u16s at 0x43fc (10,6,4,6,10,5,8). Calling those Q×10 is a hypothesis; the binary establishes the stored values only. Pointer pool file 0x41f4 = {0x601d10ec, 0x601d10fc, 0x9fc1a19c (RAM custom), 0x601d110c}; file = VA - 0x601ccd00.
+- V `FUN_601d0d58` selects one 7-byte table row, or selector 7's seven RAM bytes at `0x9fc1a19c`, sign-extends each gain, multiplies by 10 and writes an s16 into each band. The ×10 conversion is verified; interpreting the result as 0.1 dB units is a strong inference, not a demonstrated DSP unit. Seven active bands use the eight-byte layout `{frequency u16, Q u16, gain s16, enable=1, reserved=0}` beginning at structure offset `0x10 + 8*i`.
+- V Scratchpad MIPS16 p-code run of `FUN_601d0d58` used hash-verified stock and community `mengine.ap`; all 11 cases (selectors 0..7 with sentinel Custom, real Custom default, busy guard, and inactive guard) matched their byte expectations. It confirmed the argumentless entry, selector mirror at `0x9fc15db5`, active flag at `0x9fc15db4`, busy check at structure `+0x0c == 1`, and early return after mirroring the selector. In an active build, `+7=1`, `+0xd=(selector != 0)`, bands 0..6 are written, and bands 7..15 occupy and zero `0x48..0x8f`. Bytes `0x00..0x06`, `0x08..0x0b`, `0x0e..0x0f`, and `0x90..0xef` retain their initial `0xaa` values in the probe. The latter range is untouched, not the unused-band range.
+- V The builder passes `{a1=0x9fc15dd4, a2=0xf0}` to the module `0x10` copy stub, then requests shared-memory id 3 with argument `0x49`, then invokes module `0x42` with command `0x1f`. The probe used a synthetic nonzero SHM handle; the message target value was zero because initialization was not run. These stub effects are not modeled as DSP behavior.
 - V Free space: mengine.ap zeros 0x443d..0x47ff (0x443d-0x4443 would be a would-be 8th row; 956 B to 0x4800 sector end, but 0x4600 is also a sector edge -> 0x4600..0x47ff may be bank padding). setting.ap 236 B after table.
 - V/H Extra presets: `run_eq_probe.sh` confirms `FUN_601d0d58` has a seven-iteration loop, uses `idx * 7` for non-Custom rows, and branches only on `idx == 7` to the Custom RAM pointer. No index clamp or default case is visible in this function. The UI count remains `EQ_TOTAL=8`; setting.ap table and music/setting menu strings/.mcg trees are separate. Adding presets therefore needs a code patch (new index mapping and bounds behavior) plus menu tree/sty edits. Not checked: music.mcg/setting.mcg node count, which AP writes `g+0x41` (H: copy of eq_type from SET_EQ msg).
 - `run_eq_writer_probe.sh` performs a separate Ghidra instruction scan over `setting.ap`, `music.ap`, and `mengine.ap`. It finds no decoded direct `sb/sh/sw` store using an immediate `0x41` (or `0x141`) offset. This is a negative boundary result, not proof that the selector is never written: the writer may copy a message/structure, use a register-derived offset, or live in a shared resident component. It is enough to reject a simple “patch the first `+0x41` store” approach.
 - `run_eq_chain_probe.sh` closes the message-path gap. The public PD196 reference defines `MSG_MENGINE_SET_EQ_SYNC` as `MENGINE_BASE + 3 = 0x303`; in the M30 binary, `FUN_60090d64` dispatches `0x303` through the pool entry at `0x60091014` to `FUN_601d0f30`. That handler copies the message payload through the resident memory helper and calls the pool entry at `0x601d0f74`, whose raw value is `0x601d0d59` (the MIPS16 entry of `FUN_601d0d58`). The builder then reads the selector from `0x9fc15c88 + 0x41`, chooses Custom only for `idx == 7`, and builds the seven-band structure. The producer side is resolved by the companion `music.ap` probe below.
 - `run_eq_producer_probe.sh` resolves that producer in `music.ap`: `FUN_403d4e20` forwards a two-byte `{eq_type, selector}` payload through `FUN_40614f08`, which sends message `0x303`. The wrappers emit `0,0` for Off and `7,1` through `7,6` for the six built-in presets. `FUN_403d4ed0` copies the seven custom gains and then emits `7,7`. This closes the selector-producer gap; adding a preset would require extending this dispatch/menu set and the engine's coefficient mapping, not merely editing the EQ table.
 - `tools/emu/eq_menu_probe.py` verifies the menu-side pointer topology in stock, community, V1.101.11, and V1.101.12: the seven built-in callback entry points occur once each in the `music.ap` table at file `0xdeec..0xdf64` with `0x14` (20-byte) spacing, and three repeated groups in `music.mcg` reference the same seven pointers at `0x2fea`, `0x3554`, and `0x3b90` with `0x2a` (42-byte) spacing. The Custom callback `FUN_403d4ed0` has no direct MCG pointer; its separate parameter-copy path is consistent with the producer decompilation. The probe deliberately does not assign language meaning to the three MCG groups.
-- `tools/sim/m30_model.py` keeps an evidence-backed `FIRMWARE_EQ_PRESETS` contract separate from the older five-band UI proposal. It models the seven recovered centre frequencies, Q values, exact selector payloads (`Off = {0,0}`, built-ins `{7,1..6}`, `Custom = {7,7}`), and the seven signed-int8 gain rows. Custom curves require seven explicit values; the model does not silently treat the proposed UI curves as device coefficients.
+- `tools/sim/m30_model.py` keeps an evidence-backed `FIRMWARE_EQ_PRESETS` contract separate from the older five-band UI proposal. It models raw u16 frequency/Q tables, signed-int8 gain rows, exact selector payloads (`Off = {0,0}`, built-ins `{7,1..6}`, `Custom = {7,7}`), the observed signed-int8 ×10 conversion, and the verified builder writes while preserving unknown bytes. Custom curves require seven explicit values; the model does not silently treat the proposed UI curves as device coefficients.
 - The public twelve-image corpus shows one verified revision-specific exception: the 2024-04-24 `mengine.ap` uses `50 Hz` for the first band while the other checked releases use `80 Hz`. `FirmwareEqProfile` exposes both the current profile and this dated profile without weakening the default contract.
 - `tools/emu/eq_binary_probe.py` cross-checks a selected profile against raw bytes: `mengine.ap` frequency/Q tables and all seven non-Custom gain rows, plus the default seven-value Custom row at `setting.ap` `0x5b04`. The default profile remains the current host target; the 2024-04 profile is selected explicitly for historical corpus validation.
 - `run_eq_chain_probe.sh` verifies the message boundary: `0x303` dispatches to
@@ -25,6 +32,46 @@
   `music.ap` supplies the selector from `0x9fc15c88 + 0x41`; the host model
   exposes this as `FirmwareEqCommand` while leaving the indirect DSP calls
   unresolved.
+- V Shared-memory chain: `config.ap` creates id 3 with a 0xf0-byte buffer and
+  copies the source structure; `mengine.ap` builds/copies the same 0xf0-byte
+  structure; `mmm_pp.al` attaches id 3 and stores its handle at object offset
+  +156. `mmm_pp.al` then calls module `0x0c`, op `0x12`, with `a0=1` and the
+  SHM handle as `a1`; the same op is called with `a0=2` for sample rate, `a0=3`
+  for another context structure, and `a0=0` for a channel/rate structure.
+  Calling `a0=1` the EQ/DAE payload is an inference from this call pattern.
+  `mmm_pp.al` directly reads only SHM byte `+2`, selecting `adppext.dsp` when
+  zero and `audiopp.dsp` when nonzero; it does not directly inspect the band
+  range `+0x10..+0x8f`. The op-`0x12` recipient may read it, but that target is
+  outside the available corpus. The actual storage backing and module `0x42`
+  message recipient also remain unknown.
+- V `config.ap` sets SHM byte `+2` and `+3` from an object flag before creating
+  `dae_cfg`; the flag's meaning is unknown. This gives a concrete DSP-selection
+  boundary, not proof that a particular EQ curve reaches or changes audible
+  output.
+- V The M30 `aud_dev.drv` container has one nonempty YQHX load segment:
+  file `0x300`, length 8, destination `0xbfc09f58`. The raw file region
+  `0x200..0x253` contains 21 words; word 18 is `0x2c149401`. Treating these as
+  an op-to-ROM far-pointer table and mapping module `0x0c` to `aud_dev.drv` are
+  inferences. The executable bytes at `0x300` are `10 6b 05 e8 0f 6b 05 e8`,
+  two MIPS16 module-call stubs. No ROM implementation for op `0x12` is present.
+- Data-only preset tuning is the lowest-risk firmware experiment currently
+  identified, but it is not validated as safe. Existing gain values are signed
+  bytes and the builder scales them by 10; interpreting them as dB is an
+  inference. Keep candidate values within the range already present in the
+  vendor's presets/custom default, change one byte first, preserve the original
+  image, and verify repackaging checksums before any device test. No such image
+  patch or flash test has been performed. The Q table's physical units and the
+  DSP's clipping limits remain unknown. The 50 Hz first-band value in the
+  2024-04-24 image proves that value was shipped in that image, not that it is
+  safe on another revision or hardware path.
+- V Negative corpus scan: the module 0x42 stub, command 0x1f, and EQ shared
+  structure references are present in `mengine.ap`; the code that receives
+  module 0x42 is absent from the scanned AP/driver/DSP corpus and is expected
+  in fixed ROM or another unavailable component. `coeffi.bin` uses a separate
+  six-block loader (six blocks of 0x1a00 bytes); the EQ builder does not refer
+  to it, and the EQ frequency table was not found inside the DSP blobs. An EQ
+  connection to `coeffi.bin` is therefore unproven. `audiopp.dsp` is listed
+  for loading by `mmm_pp.al`, but that alone does not prove it consumes EQ data.
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound

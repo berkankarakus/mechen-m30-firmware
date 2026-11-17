@@ -212,9 +212,16 @@ EQ_PRESETS: tuple[EqPreset, ...] = (
 # five-band UI catalogue above: the latter is a proposed host-side design,
 # while this table describes what the shipped binary actually consumes.
 FIRMWARE_EQ_BAND_HZ: tuple[int, ...] = (80, 200, 480, 980, 4000, 8000, 16000)
-FIRMWARE_EQ_Q_X10: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
+FIRMWARE_EQ_Q_VALUES: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
+FIRMWARE_EQ_GAIN_SCALE = 10
 FIRMWARE_EQ_MESSAGE_ID = 0x303
 FIRMWARE_EQ_SELECTOR_OFFSET = 0x41
+FIRMWARE_EQ_STRUCTURE_SIZE = 0xF0
+FIRMWARE_EQ_STRUCTURE_BAND_OFFSET = 0x10
+FIRMWARE_EQ_BAND_STRIDE = 8
+FIRMWARE_EQ_BUILTIN_BAND_COUNT = 7
+FIRMWARE_EQ_CLEAR_TAIL_START = 0x48
+FIRMWARE_EQ_CLEAR_TAIL_END = 0x90
 # Default Custom row recovered from setting.ap (file offset 0x5b04). Runtime
 # edits replace this row through the RAM-backed Custom path.
 FIRMWARE_EQ_CUSTOM_DEFAULT: tuple[int, ...] = (-9, 0, 0, 0, 0, 0, 6)
@@ -227,7 +234,7 @@ class FirmwareEqPreset:
     name: str
     eq_type: int
     selector: int
-    gains_db: tuple[int, ...] | None
+    gain_int8: tuple[int, ...] | None
 
 
 @dataclass(frozen=True)
@@ -236,9 +243,18 @@ class FirmwareEqProfile:
 
     name: str
     band_hz: tuple[int, ...]
-    q_x10: tuple[int, ...]
+    q_values: tuple[int, ...]
     presets: tuple[FirmwareEqPreset, ...]
     custom_default: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class FirmwareEqBuildResult:
+    """Observed output of the M30's gated seven-band structure builder."""
+
+    selector_copy: int
+    structure: bytes
+    built: bool
 
 
 @dataclass(frozen=True)
@@ -267,14 +283,14 @@ FIRMWARE_EQ_PRESETS: tuple[FirmwareEqPreset, ...] = (
 FIRMWARE_EQ_CURRENT_PROFILE = FirmwareEqProfile(
     name="current",
     band_hz=FIRMWARE_EQ_BAND_HZ,
-    q_x10=FIRMWARE_EQ_Q_X10,
+    q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
     custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
 )
 FIRMWARE_EQ_2024_04_PROFILE = FirmwareEqProfile(
     name="2024-04",
     band_hz=(50, 200, 480, 980, 4000, 8000, 16000),
-    q_x10=FIRMWARE_EQ_Q_X10,
+    q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
     custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
 )
@@ -344,8 +360,74 @@ def firmware_eq_gains(
         if any(not -128 <= value <= 127 for value in custom):
             raise ValueError("Custom firmware EQ gains must fit signed int8")
         return tuple(custom)
-    assert preset.gains_db is not None
-    return preset.gains_db
+    assert preset.gain_int8 is not None
+    return preset.gain_int8
+
+
+def firmware_eq_gain_s16(
+    selector: int,
+    custom: Sequence[int] | None = None,
+    *,
+    profile: FirmwareEqProfile = FIRMWARE_EQ_CURRENT_PROFILE,
+) -> tuple[int, ...]:
+    """Return the builder's signed-16 gain words after its observed x10 step."""
+
+    return tuple(
+        gain * FIRMWARE_EQ_GAIN_SCALE
+        for gain in firmware_eq_gains(selector, custom, profile=profile)
+    )
+
+
+def build_firmware_eq_structure(
+    selector: int,
+    active_flag: int,
+    structure: bytes,
+    custom: Sequence[int] | None = None,
+    *,
+    profile: FirmwareEqProfile = FIRMWARE_EQ_CURRENT_PROFILE,
+) -> FirmwareEqBuildResult:
+    """Apply the p-code-verified EQ builder writes to an existing RAM image.
+
+    The selector mirror is written before the active/busy guards. On an
+    inactive call or when structure byte +0x0c is exactly 1, the 0xf0-byte
+    structure is unchanged. Unknown header and trailing bytes are preserved.
+    """
+
+    if len(structure) != FIRMWARE_EQ_STRUCTURE_SIZE:
+        raise ValueError("EQ structure must be exactly 0xf0 bytes")
+
+    if not 0 <= selector <= 0xFF:
+        raise ValueError("EQ selector must fit one byte")
+
+    if not 0 <= active_flag <= 0xFF:
+        raise ValueError("EQ active flag must fit one byte")
+
+    if active_flag == 0 or structure[0x0C] == 1:
+        return FirmwareEqBuildResult(selector, structure, False)
+
+    if selector >= len(profile.presets):
+        raise ValueError("EQ builder model only supports observed selectors 0..7")
+
+    gains = firmware_eq_gain_s16(selector, custom, profile=profile)
+    updated = bytearray(structure)
+    updated[0x07] = 1
+    updated[0x0D] = int(selector != 0)
+
+    for band_index in range(FIRMWARE_EQ_BUILTIN_BAND_COUNT):
+        offset = FIRMWARE_EQ_STRUCTURE_BAND_OFFSET + band_index * FIRMWARE_EQ_BAND_STRIDE
+        record = (
+            profile.band_hz[band_index].to_bytes(2, "little")
+            + profile.q_values[band_index].to_bytes(2, "little")
+            + gains[band_index].to_bytes(2, "little", signed=True)
+            + bytes((1, 0))
+        )
+        updated[offset : offset + FIRMWARE_EQ_BAND_STRIDE] = record
+
+    updated[FIRMWARE_EQ_CLEAR_TAIL_START : FIRMWARE_EQ_CLEAR_TAIL_END] = bytes(
+        FIRMWARE_EQ_CLEAR_TAIL_END - FIRMWARE_EQ_CLEAR_TAIL_START
+    )
+
+    return FirmwareEqBuildResult(selector, bytes(updated), True)
 
 
 def eq_names() -> tuple[str, ...]:

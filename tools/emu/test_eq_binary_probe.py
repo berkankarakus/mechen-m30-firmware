@@ -11,10 +11,10 @@ def make_eq_members(profile):
     mengine = bytearray(0x5000)
     setting = bytearray(0x5B0B)
     struct.pack_into("<7H", mengine, 0x43EC, *profile.band_hz)
-    struct.pack_into("<7H", mengine, 0x43FC, *profile.q_x10)
+    struct.pack_into("<7H", mengine, 0x43FC, *profile.q_values)
 
     for selector in range(7):
-        gains = profile.presets[selector].gains_db
+        gains = profile.presets[selector].gain_int8
         assert gains is not None
         offset = 0x440C + selector * 7
         mengine[offset : offset + 7] = bytes(value & 0xFF for value in gains)
