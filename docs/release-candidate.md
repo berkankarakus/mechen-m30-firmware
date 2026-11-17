@@ -46,6 +46,37 @@ repack a HEX. A repack step may be documented only after the source HEX,
 decrypted AFI, container offsets, checksums, and full round-trip extraction
 are all available and tested.
 
+## Custom EQ + 64 ms experiment
+
+The current experimental candidate is built from the pinned community
+V1.292.00 HEX. It changes exactly `music.ap` and `browser.ap`:
+
+- `music.ap`: redirect the Custom EQ producer's seven-byte source pointer to
+  an in-bank curve `(4, 3, 0, -1, 1, 2, 1)`; change the directory marquee
+  interval from 80 ms to 64 ms.
+- `browser.ap`: change the same directory marquee interval from 80 ms to
+  64 ms.
+- `config.ap`, `config.bin`, and the saved-settings records are byte-identical
+  to the community source. This does not prove that a device upgrade preserves
+  settings or that the new EQ curve is audible.
+
+Rebuild the HEX outside the repository:
+
+```sh
+python3 tools/build_community_custom_eq_64ms.py \
+  /Users/berkankarakus/Projects/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX \
+  analysis/community/dec.bin analysis/community/fw \
+  /private/tmp/MECHEN_M30-community-v1.292-custom-curve-64ms-roundtrip.HEX
+```
+
+The builder pins source hashes, requires a byte-identical no-op repack, checks
+the extracted-member delta, recomputes container checksums, then decrypts its
+own result and compares every firmware member slot and checksum against the
+candidate tree. The extracted EQ/marquee tests and Ghidra source-pointer probe
+pass. This remains an experimental image: it has not been run on the M30, and
+the Custom curve's audible response and persistence through UI edits are not
+established.
+
 ## Now-playing-only member candidate
 
 For the narrower now-playing resource boundary, use:
