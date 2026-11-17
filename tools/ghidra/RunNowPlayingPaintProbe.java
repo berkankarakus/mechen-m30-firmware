@@ -67,8 +67,50 @@ public class RunNowPlayingPaintProbe extends GhidraScript {
         return result.toString();
     }
 
+    private long half(EmulatorHelper emu, long address) throws Exception {
+        byte[] values = emu.readMemory(addr(address), 2);
+        return (values[0] & 0xffL) | ((values[1] & 0xffL) << 8);
+    }
+
     private boolean isStackAddress(long address) {
         return address >= STACK - 0x100 && address < STACK + 0x100;
+    }
+
+    private int dispatchId(EmulatorHelper emu) throws Exception {
+        long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+        if (!isStackAddress(a0)) {
+            return (int)(a0 & 0xffff);
+        }
+        return (int)half(emu, a0);
+    }
+
+    private void verifyClearRect(EmulatorHelper emu, int index) throws Exception {
+        long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+        long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
+        if (a3 != 0x12L) {
+            return;
+        }
+        if (!isStackAddress(a0)) {
+            throw new Exception("clear payload is not stack-backed: " + hex(a0));
+        }
+
+        int[] expectedY = {0, 0x1c, 0xb3};
+        int[] expectedHeight = {0x1c, 0x97, 0x3d};
+        if (index >= expectedY.length
+            || half(emu, a0) != 0
+            || half(emu, a0 + 2) != expectedY[index]
+            || half(emu, a0 + 4) != 0x140
+            || half(emu, a0 + 6) != expectedHeight[index]) {
+            throw new Exception(String.format(
+                "clear rectangle mismatch index=%d a0=%s x=%s y=%s width=%s height=%s",
+                index,
+                hex(a0),
+                hex(half(emu, a0)),
+                hex(half(emu, a0 + 2)),
+                hex(half(emu, a0 + 4)),
+                hex(half(emu, a0 + 6))
+            ));
+        }
     }
 
     private String dispatchSummary(EmulatorHelper emu) throws Exception {
@@ -118,6 +160,8 @@ public class RunNowPlayingPaintProbe extends GhidraScript {
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         List<String> events = new ArrayList<>();
+        List<Integer> ids = new ArrayList<>();
+        int clearRectCount = 0;
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -141,12 +185,28 @@ public class RunNowPlayingPaintProbe extends GhidraScript {
                         throw new Exception("paint dispatch count=" + events.size()
                             + " expected=7 events=" + events);
                     }
+                    int[] expectedIds = {0x18c3, 0, 0x39e7, 0, 0x18c3, 0, 0x1002};
+                    if (ids.size() != expectedIds.length || clearRectCount != 3) {
+                        throw new Exception("paint payload count mismatch ids=" + ids
+                            + " clear-rects=" + clearRectCount);
+                    }
+                    for (int index = 0; index < expectedIds.length; index++) {
+                        if (ids.get(index) != expectedIds[index]) {
+                            throw new Exception("paint IDs=" + ids
+                                + " expected=" + java.util.Arrays.toString(expectedIds));
+                        }
+                    }
                     println("NOW PLAYING PAINT DYNAMIC PASS steps=" + steps
-                        + " dispatches=" + events.size());
+                        + " dispatches=" + events.size() + " clear-rects=" + clearRectCount);
                     for (String event : events) println("  " + event);
                     return;
                 }
                 if (base == STUBS) {
+                    verifyClearRect(emu, clearRectCount);
+                    if ((emu.readRegister("a3").longValue() & 0xffffffffL) == 0x12L) {
+                        clearRectCount++;
+                    }
+                    ids.add(dispatchId(emu));
                     events.add(dispatchSummary(emu));
                     emu.writeRegister("v0", 1);
                     long ra = emu.readRegister("ra").longValue() & 0xffffffffL;

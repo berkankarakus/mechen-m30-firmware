@@ -151,9 +151,14 @@ class M30UiTests(unittest.TestCase):
             [0x18C3, 0x39E7, 0x18C3],
         )
         self.assertEqual(
-            [call["payload"] for call in calls[1:6:2]],
-            ["clear_band_0", "clear_band_1", "clear_band_2"],
+            [call["rectangle"] for call in calls[1:6:2]],
+            [
+                {"x": 0, "y": 0, "width": 320, "height": 28},
+                {"x": 0, "y": 28, "width": 320, "height": 151},
+                {"x": 0, "y": 179, "width": 320, "height": 61},
+            ],
         )
+        self.assertEqual(calls[1]["payload_tail"], "opaque")
         self.assertEqual(calls[-1]["control_id"], 0x1002)
         self.assertEqual(calls[-1]["role"], "draw_artwork")
 

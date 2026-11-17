@@ -553,14 +553,18 @@ class NowPlaying:
     def paint_dispatch_trace(self) -> list[dict[str, object]]:
         """Return the verified seven-call initial-paint dispatcher envelope.
 
-        The three clear payloads remain opaque because their stack bytes
+        The rectangle header is verified, while the remaining stack bytes
         contain pointers whose target meaning is not proven. The operation,
-        scalar arguments, and final artwork control ID are stable across all
-        twelve dated ``music.ap`` images.
+        scalar arguments, rectangle geometry, and final artwork control ID are
+        stable across all twelve dated ``music.ap`` images.
         """
-        clear_payloads = ("clear_band_0", "clear_band_1", "clear_band_2")
+        clear_rects = (
+            (0, 0, 320, 28),
+            (0, 28, 320, 151),
+            (0, 179, 320, 61),
+        )
         calls: list[dict[str, object]] = []
-        for index, payload in enumerate(clear_payloads):
+        for index, rectangle in enumerate(clear_rects):
             background = 0x39E7 if index == 1 else 0x18C3
             calls.append({
                 "op": 0x14,
@@ -576,8 +580,14 @@ class NowPlaying:
                 "a1": 0,
                 "a2": 0,
                 "a3": 0x12,
-                "payload": payload,
-                "semantics": "opaque clear payload",
+                "rectangle": {
+                    "x": rectangle[0],
+                    "y": rectangle[1],
+                    "width": rectangle[2],
+                    "height": rectangle[3],
+                },
+                "payload_tail": "opaque",
+                "semantics": "verified rectangle header; opaque payload tail",
                 "role": "clear_content",
             })
 

@@ -305,6 +305,14 @@ controls `0x1012`/`0x1013`, and is intentionally not used as evidence for the
 initial paint. This distinction prevents the host preview from presenting a
 scroll-renderer call as an artwork paint call.
 
+The first eight bytes of each `0x12` clear payload are now decoded as a
+rectangle header, not guessed coordinates: `(x, y, width, height)` is
+`(0, 0, 320, 28)`, `(0, 28, 320, 151)`, and `(0, 179, 320, 61)`.
+The three regions tile the complete 320x240 display. The remaining payload
+bytes still contain unresolved pointers/state and remain opaque in the host
+model. The paint probe asserts this header and the seven-call ID sequence on
+each dated image.
+
 This is deliberately not a full LCD emulator. It does not claim that a font,
 resource, or artwork decode succeeded; it proves only the real paint entry's
 control-dispatch sequence and return boundary. The next high-value extension
