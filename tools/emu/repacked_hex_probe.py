@@ -9,6 +9,10 @@ from fwu_repack import deinterleave, derive_key, layout
 from repack_fw import afi_entry, fw_entries, sum32
 
 
+def sum16(data: bytes) -> int:
+    return sum(struct.unpack(f"<{len(data) // 2}H", data[: len(data) // 2 * 2])) & 0xFFFF
+
+
 def _decrypt_sector(ciphertext: bytes, initial_key: list[int], session_key_7: int, rounds: int) -> bytes:
     encrypted = list(struct.unpack(f"<{len(ciphertext) // 4}I", ciphertext))
     plain = encrypted.copy()
@@ -77,10 +81,26 @@ def verify_repacked_hex(
 
     fw = afi[fw_offset : fw_offset + fw_size]
     base_fw = base_afi[base_fw_offset : base_fw_offset + base_fw_size]
+    for label, image in (("baseline", base_fw), ("candidate", fw)):
+        if sum32(image[0x200:0x2000]) != struct.unpack_from("<I", image, 0x10)[0]:
+            raise AssertionError(f"{label} FW directory checksum mismatch")
+        if sum16(image[:0x1FE]) != struct.unpack_from("<H", image, 0x1FE)[0]:
+            raise AssertionError(f"{label} FW header checksum mismatch")
+
     entries = {entry[0]: entry for entry in fw_entries(fw)}
     base_entries = {entry[0]: entry for entry in fw_entries(base_fw)}
     if entries.keys() != base_entries.keys():
         raise AssertionError("firmware member directory changed")
+
+    extracted_names = {path.name for path in baseline_fw.iterdir() if path.is_file()}
+    if extracted_names != entries.keys():
+        raise AssertionError("baseline extracted tree member set differs from source AFI")
+    for name, (_, _, data_offset, size, _nbytes, _) in base_entries.items():
+        source_member = baseline_fw / name
+        if source_member.stat().st_size != size:
+            raise AssertionError(f"baseline extracted member has wrong size: {name}")
+        if source_member.read_bytes() != base_fw[data_offset : data_offset + size]:
+            raise AssertionError(f"baseline extracted member differs from source AFI: {name}")
 
     expected_changes = set(changed_members)
     actual_changes: set[str] = set()
