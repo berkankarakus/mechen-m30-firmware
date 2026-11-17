@@ -166,6 +166,10 @@ step is to identify the state/context condition and confirm whether the
 directory mode ever enters this playlist-record path; only then should the
 20-byte fields be compared with the folder-name symptom.
 
+The same probe passes against the stock and V1.101.11 browser members. The
+provider boundary is therefore not a community-only change; version selection
+does not currently offer a safer way around the directory slot limit.
+
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
   (`FUN_71352820` + fsel enter-dir/count code at 0x71352500 bank) plus an index map from sorted position to FS entry
