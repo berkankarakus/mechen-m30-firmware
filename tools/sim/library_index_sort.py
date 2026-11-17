@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import cmp_to_key
 import struct
-from typing import Sequence
+from typing import Callable, Sequence
 
 
 RECORD_SIZE = 0x100
@@ -15,9 +15,9 @@ SECTION_SPECS = {
     "GENRE": (3, 0x88, 0x18),
 }
 
-INITIAL_KEY_LENGTH = 16
 MAX_REFINEMENT_SLICE = 100
 REFINEMENT_BUDGET = 0x10000
+STOCK_INSERTION_LIMIT = 8
 
 
 def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
@@ -59,6 +59,110 @@ def _compare_text(left: bytes, right: bytes) -> int:
 
 def _signed_track_byte(record: bytes) -> int:
     return struct.unpack_from("<b", record, 0xF2)[0]
+
+
+def _stock_sort_indices(
+    indices: list[int],
+    compare: Callable[[int, int], int],
+) -> tuple[int, ...]:
+    """Run the recovered in-place quicksort on an index array.
+
+    The firmware uses a middle-element pivot, Hoare-style partitioning, an
+    explicit range stack, and a selection-style insertion sort for ranges of
+    eight elements or fewer.  Keeping this separate from ``sorted`` matters:
+    equal keys are intentionally not stable in the stock implementation.
+    """
+    if len(indices) < 2:
+        return tuple(indices)
+
+    pending_ranges: list[tuple[int, int]] = []
+    range_start = 0
+    range_end = len(indices) - 1
+
+    def swap(left: int, right: int) -> None:
+        indices[left], indices[right] = indices[right], indices[left]
+
+    while True:
+        item_count = range_end - range_start + 1
+
+        if item_count <= STOCK_INSERTION_LIMIT:
+            insertion_end = range_end
+
+            while range_start < insertion_end:
+                selected_index = range_start
+                selected_count = 0
+
+                for candidate_index in range(range_start + 1, insertion_end + 1):
+                    if compare(indices[candidate_index], indices[selected_index]) > 0:
+                        selected_index = candidate_index
+                        selected_count += 1
+
+                if selected_count == insertion_end - range_start:
+                    break
+
+                if selected_index != insertion_end:
+                    swap(selected_index, insertion_end)
+
+                insertion_end -= 1
+
+            if not pending_ranges:
+                return tuple(indices)
+
+            range_start, range_end = pending_ranges.pop()
+            continue
+
+        pivot_index = range_start + (item_count >> 1)
+        swap(pivot_index, range_start)
+        left_index = range_start
+        right_index = range_end + 1
+
+        while True:
+            left_index += 1
+
+            while (
+                left_index <= range_end
+                and compare(indices[left_index], indices[range_start]) <= 0
+            ):
+                left_index += 1
+
+            right_index -= 1
+
+            while (
+                right_index > range_start
+                and compare(indices[right_index], indices[range_start]) >= 0
+            ):
+                right_index -= 1
+
+            if left_index > right_index:
+                break
+
+            swap(left_index, right_index)
+
+        if right_index != range_start:
+            swap(range_start, right_index)
+
+        left_count = right_index - range_start
+        right_count = range_end - left_index + 1
+
+        if left_count <= right_count:
+            if left_index < range_end:
+                pending_ranges.append((left_index, range_end))
+
+            if range_start + 1 < right_index:
+                range_end = right_index - 1
+                continue
+        else:
+            if range_start + 1 < right_index:
+                pending_ranges.append((range_start, right_index - 1))
+
+            if left_index < range_end:
+                range_start = left_index
+                continue
+
+        if not pending_ranges:
+            return tuple(indices)
+
+        range_start, range_end = pending_ranges.pop()
 
 
 def sort_record_indices(
@@ -110,12 +214,12 @@ def refine_sort_record_indices(
     section_name: str,
     previous_rank: Sequence[int] | None = None,
 ) -> tuple[int, ...]:
-    """Apply the recovered short-key sort and bounded tie refinement.
+    """Apply the recovered stock sort and bounded tie refinement.
 
     This is deliberately separate from ``sort_record_indices``. The latter
-    remains the small candidate comparator used by the offline builder; this
-    opt-in model mirrors the independently recovered ``FUN_40114d54`` path,
-    which re-reads equal runs in bounded key slices.
+    remains the small stable candidate comparator used by the offline builder;
+    this opt-in model follows the recovered stock quicksort and
+    ``FUN_40114d54`` path, which re-reads equal runs in bounded key slices.
     """
     if section_name not in SECTION_SPECS:
         raise ValueError(f"unsupported MUSIC.LIB section: {section_name}")
@@ -133,79 +237,147 @@ def refine_sort_record_indices(
         for record in records
     )
 
-    def compare_initial(left_index: int, right_index: int) -> int:
-        result = _compare_text(
-            keys[left_index][:INITIAL_KEY_LENGTH],
-            keys[right_index][:INITIAL_KEY_LENGTH],
+    initial_key_length = min(
+        field_width,
+        max(1, REFINEMENT_BUDGET // len(records)),
+    )
+
+    def compare_segment(
+        left_index: int,
+        right_index: int,
+        offset: int,
+        length: int,
+    ) -> int:
+        return _compare_text(
+            keys[left_index][offset : offset + length],
+            keys[right_index][offset : offset + length],
         )
-        if result:
-            return result
 
-        if section_name == "ALBUM":
-            left_track = _signed_track_byte(records[left_index])
-            right_track = _signed_track_byte(records[right_index])
-            if left_track != right_track:
-                return -1 if left_track < right_track else 1
+    order = list(
+        _stock_sort_indices(
+            list(range(len(records))),
+            lambda left, right: compare_segment(
+                left,
+                right,
+                0,
+                initial_key_length,
+            ),
+        )
+    )
 
-        if section_number:
+    def refine_run(run: list[int], offset: int) -> list[int]:
+        if len(run) < 2 or offset >= field_width:
+            return run
+
+        refinement_length = min(
+            MAX_REFINEMENT_SLICE,
+            field_width - offset,
+            REFINEMENT_BUDGET // len(run),
+        )
+
+        if refinement_length <= 0:
+            return run
+
+        refined_run = list(
+            _stock_sort_indices(
+                run,
+                lambda left, right: compare_segment(
+                    left,
+                    right,
+                    offset,
+                    refinement_length,
+                ),
+            )
+        )
+        next_offset = offset + refinement_length
+        result: list[int] = []
+        start = 0
+
+        for position in range(1, len(refined_run) + 1):
+            is_end = position == len(refined_run)
+            has_different_segment = (
+                not is_end
+                and compare_segment(
+                    refined_run[position - 1],
+                    refined_run[position],
+                    offset,
+                    refinement_length,
+                )
+                != 0
+            )
+
+            if is_end or has_different_segment:
+                result.extend(refine_run(refined_run[start:position], next_offset))
+                start = position
+
+        return result
+
+    refined_order: list[int] = []
+    start = 0
+
+    for position in range(1, len(order) + 1):
+        is_end = position == len(order)
+        has_different_prefix = (
+            not is_end
+            and compare_segment(
+                order[position - 1],
+                order[position],
+                0,
+                initial_key_length,
+            )
+            != 0
+        )
+
+        if is_end or has_different_prefix:
+            refined_order.extend(refine_run(order[start:position], initial_key_length))
+            start = position
+
+    if not section_number:
+        return tuple(refined_order)
+
+    grouped_order: list[int] = []
+    start = 0
+
+    while start < len(refined_order):
+        end = start + 1
+
+        while (
+            end < len(refined_order)
+            and compare_segment(
+                refined_order[end - 1],
+                refined_order[end],
+                0,
+                field_width,
+            )
+            == 0
+        ):
+            end += 1
+
+        def compare_group(left_index: int, right_index: int) -> int:
+            if section_name == "ALBUM":
+                left_track = _signed_track_byte(records[left_index])
+                right_track = _signed_track_byte(records[right_index])
+
+                if left_track != right_track:
+                    return -1 if left_track < right_track else 1
+
             left_rank = previous_rank[left_index]
             right_rank = previous_rank[right_index]
+
             if left_rank != right_rank:
                 return -1 if left_rank < right_rank else 1
 
-        return 0
+            return 0
 
-    order = list(sorted(range(len(records)), key=cmp_to_key(compare_initial)))
-    compared_length = min(INITIAL_KEY_LENGTH, field_width)
-
-    while compared_length < field_width:
-        runs: list[tuple[int, int]] = []
-        start = 0
-        while start < len(order):
-            end = start + 1
-            while end < len(order):
-                left = keys[order[end - 1]][:compared_length]
-                right = keys[order[end]][:compared_length]
-                if _compare_text(left, right) != 0:
-                    break
-
-                end += 1
-
-            if end - start > 1:
-                runs.append((start, end))
-
-            start = end
-
-        if not runs:
-            break
-
-        refinement_lengths = [
-            min(
-                MAX_REFINEMENT_SLICE,
-                field_width - compared_length,
-                REFINEMENT_BUDGET // (end - start),
+        grouped_order.extend(
+            _stock_sort_indices(
+                refined_order[start:end],
+                compare_group,
             )
-            for start, end in runs
-        ]
-        refinement_length = min(refinement_lengths)
-        if refinement_length <= 0:
-            break
+        )
+        start = end
 
-        for (start, end), run_length in zip(runs, refinement_lengths):
-            run_end = compared_length + run_length
-            order[start:end] = sorted(
-                order[start:end],
-                key=cmp_to_key(
-                    lambda left, right: _compare_text(
-                        keys[left][compared_length:run_end],
-                        keys[right][compared_length:run_end],
-                    )
-                ),
-            )
-
-        compared_length += refinement_length
-
-    return tuple(order)
+    return tuple(grouped_order)
 
 
 def group_indices_from_runs(

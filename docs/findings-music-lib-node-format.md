@@ -110,13 +110,13 @@ equal runs, reloads a bounded additional key slice of `0x10000 / run_length`
 bytes (capped by the remaining field width and 100 bytes), re-sorts that run,
 and repeats while a run can still be refined. `FUN_71812548` uppercases ASCII
 bytes, compares up to the supplied length, and returns equality when both
-current bytes are NUL. This explains why a visible text-key model can match
-the high-level order while missing terminator-adjacent UTF-16/ASCII ties. The
-host model keeps this refinement opt-in until the source-offset conversion path
-is independently reproduced. The opt-in
-`tools/sim/library_index_sort.py::refine_sort_record_indices()` helper now
-holds this same bounded algorithm; the existing default sorter remains
-unchanged and no index writer consumes the refined result.
+current bytes are NUL. `FUN_71812874` is not a stable sort: it uses a
+middle-element pivot, an explicit range stack, Hoare-style partitioning, and a
+selection-style insertion sort for ranges of eight entries or fewer. The host
+model keeps this stock path opt-in in
+`tools/sim/library_index_sort.py::refine_sort_record_indices()`; the existing
+default sorter remains unchanged and no index writer consumes the refined
+result.
 
 The reproducible cross-comparison tool is
 `tools/emu/library_tie_refinement_probe.py`. It applies the recovered bounded
@@ -125,9 +125,9 @@ the stored section table while feeding the device's preceding-section rank to
 later passes. Against the captured M30 image it reports:
 
 ```text
-ALLSONG 3803/4000 (first mismatch 14)
+ALLSONG 3963/4000 (first mismatch 65)
 ALBUM 3981/4000 (first mismatch 859)
-ARTIST 4000/4000
+ARTIST 3944/4000 (first mismatch 83)
 GENRE 4000/4000
 ```
 
@@ -140,12 +140,15 @@ PYTHONPATH=tools/sim:tools/emu \
   e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88
 ```
 
-The same probe was rerun on 2026-11-16 against the mounted
-`/Volumes/MECHEN M30/MUSIC.LIB` file. Its hash matched the captured M30 image
-and the result was unchanged: `ALLSONG` 3,803/4,000, `ALBUM` 3,981/4,000,
-`ARTIST` 4,000/4,000, and `GENRE` 4,000/4,000. This is a reproducibility
-check of the existing evidence, not a claim that the remaining mismatches are
-safe to rewrite in the firmware or on the card.
+The stock-sort model was rerun on 2026-11-17 against the mounted
+`/Volumes/MECHEN M30/MUSIC.LIB` file. Its hash matched the captured M30 image.
+The remaining `ALLSONG` differences are 37 entries in small equal-visible-title
+blocks such as FLAC/WAV pairs and repeated `Instrumental`/`Vocal` titles. The
+19 `ALBUM` differences remain one contiguous boundary: three
+`Dünya'dan Kovuldu` records precede sixteen `Duality` records in the device
+file, while the candidate conversion puts the latter group first. This is
+still isolated to the unresolved U+0308/UTF-16 conversion edge case, not the
+album comparator or track ordering.
 
 This is still a differential probe, not a firmware writer or a replacement
 for QEMU execution. The existing QEMU MIPS probe scripts remain the next

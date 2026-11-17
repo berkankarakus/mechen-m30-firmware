@@ -62,6 +62,14 @@ class LibraryIndexSortTests(unittest.TestCase):
         self.assertEqual(sort_record_indices(reversed_records, "ALLSONG"), (0, 1))
         self.assertEqual(refine_sort_record_indices(reversed_records, "ALLSONG"), (0, 1))
 
+    def test_refined_sort_matches_stock_unstable_equal_key_order(self):
+        records = tuple(make_record(title=b"Same\0") for _ in range(10))
+
+        self.assertEqual(
+            refine_sort_record_indices(records, "ALLSONG"),
+            (5, 1, 2, 3, 4, 0, 6, 7, 8, 9),
+        )
+
     def test_non_first_section_requires_previous_rank(self):
         records = (make_record(artist=b"Artist\0"),)
 
