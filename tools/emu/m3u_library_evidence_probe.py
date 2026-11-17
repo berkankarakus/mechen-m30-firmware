@@ -11,12 +11,11 @@ import sys
 
 SECTOR_SIZE = 512
 M3U_HEADER_BYTES = SECTOR_SIZE
-M3U_PAYLOAD_BLOCK_BYTES = 256
 M3U_MAGIC = b"M3U\x00"
 M3U_MARKER_OFFSET = 0x10
 M3U_MARKER = b"ALLFILE"
 M3U_ENTRY_COUNT_OFFSET = 0x08
-M3U_MODE_OFFSET = 0x0A
+M3U_RECORD_START_SECTOR_OFFSET = 0x0A
 EXPECTED_DEVICE_SHA256 = (
     "ad4deb5b599eb97309e49a1d907cab445e3785d04f0ee103e6126f8ab0703a01"
 )
@@ -26,10 +25,10 @@ def inspect_m3u_library(
     data: bytes,
     expected_sha256: str | None = EXPECTED_DEVICE_SHA256,
 ) -> dict[str, object]:
-    """Validate only the stable header and block boundaries.
+    """Validate the observed header and report the remaining byte count.
 
-    The payload is intentionally not decoded: the current evidence identifies
-    its container boundary, but not the firmware's per-playlist entry ABI.
+    Payload bytes are intentionally left uninterpreted.  The supplied image's
+    payload is stale MP3 data, not an example of the firmware's playlist ABI.
     """
     if len(data) % SECTOR_SIZE:
         raise ValueError("M3U.LIB image must contain complete 512-byte sectors")
@@ -52,19 +51,18 @@ def inspect_m3u_library(
         raise ValueError("M3U.LIB entry-count field at 0x08 is not zero")
 
     payload_bytes = len(data) - M3U_HEADER_BYTES
-    if payload_bytes % M3U_PAYLOAD_BLOCK_BYTES:
-        raise ValueError("M3U.LIB payload is not made of 256-byte blocks")
 
     return {
         "bytes": len(data),
         "sha256": sha256,
         "header_bytes": M3U_HEADER_BYTES,
         "payload_bytes": payload_bytes,
-        "payload_blocks": payload_bytes // M3U_PAYLOAD_BLOCK_BYTES,
         "entry_count_field": struct.unpack_from(
             "<H", header, M3U_ENTRY_COUNT_OFFSET
         )[0],
-        "mode_field": struct.unpack_from("<H", header, M3U_MODE_OFFSET)[0],
+        "record_start_sector": struct.unpack_from(
+            "<H", header, M3U_RECORD_START_SECTOR_OFFSET
+        )[0],
     }
 
 
@@ -73,9 +71,9 @@ def main(path: Path, expected_sha256: str | None) -> None:
     print(
         "M3U.LIB EVIDENCE PASS "
         f"bytes={summary['bytes']} "
-        f"payload_blocks={summary['payload_blocks']} "
+        f"payload_bytes={summary['payload_bytes']} "
         f"entry_count_field={summary['entry_count_field']} "
-        f"mode_field={summary['mode_field']} "
+        f"record_start_sector={summary['record_start_sector']} "
         f"sha256={summary['sha256']}"
     )
 

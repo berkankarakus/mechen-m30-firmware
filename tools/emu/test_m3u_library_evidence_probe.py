@@ -6,13 +6,12 @@ import unittest
 
 from m3u_library_evidence_probe import (
     M3U_HEADER_BYTES,
-    M3U_PAYLOAD_BLOCK_BYTES,
     inspect_m3u_library,
 )
 
 
 def make_m3u_library() -> bytes:
-    data = bytearray(M3U_HEADER_BYTES + 2 * M3U_PAYLOAD_BLOCK_BYTES)
+    data = bytearray(M3U_HEADER_BYTES + 0x400)
     data[:4] = b"M3U\x00"
     data[0x10:0x17] = b"ALLFILE"
     struct.pack_into("<H", data, 0x08, 0)
@@ -22,14 +21,14 @@ def make_m3u_library() -> bytes:
 
 
 class M3uLibraryEvidenceProbeTests(unittest.TestCase):
-    def test_probe_accepts_header_and_opaque_payload_blocks(self):
+    def test_probe_accepts_header_and_uninterpreted_payload(self):
         data = make_m3u_library()
         summary = inspect_m3u_library(data, expected_sha256=None)
 
         self.assertEqual(summary["bytes"], len(data))
-        self.assertEqual(summary["payload_blocks"], 2)
+        self.assertEqual(summary["payload_bytes"], 0x400)
         self.assertEqual(summary["entry_count_field"], 0)
-        self.assertEqual(summary["mode_field"], 1)
+        self.assertEqual(summary["record_start_sector"], 1)
 
     def test_probe_rejects_a_hash_mismatch_before_decoding(self):
         data = make_m3u_library()

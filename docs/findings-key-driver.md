@@ -119,13 +119,53 @@ halfword-aligned words in the `0x9fc14300..0x9fc143ff`,
 `858d56ff19106fccb75e35552c9cecca99dce0579c7daac5dce376d742f67ba1`.
 
 This is negative evidence against a direct literal-pointer initializer in
-those files, not proof that no computed or indirect initializer exists. The
-likely provider boundary is the module-5, selector-`0x18` call from
-`FUN_bfc10008`; its target is not present in the available kernel/ROM corpus.
-The static function inventory finds no writer to B+8..B+15 inside `key.drv`:
-the classifier reads these bytes, initialization paths write B+2/B+3, and
-`FUN_bfc102e4` updates counters at B+0x18/B+0x1c. Runtime values remain
+those files, not proof that no computed or indirect initializer exists. An
+earlier attribution to a “module 5, selector 0x18” call from
+`FUN_bfc10008` was incorrect. In the key driver's syscall envelope, module
+`0x0f` is selected by the immediate `li v1, 0x0f` before `break 0`; values
+such as `5` and `6` are arguments. `FUN_bfc10084` sends its stack-backed
+`0xf0`/`0xf1` event word with arguments `(5, buffer, 0, 0x18)`, while
+`FUN_bfc10008` contains `(6, 0, 0, 0x1a)` and `(6, buffer, 0, 0x18)` calls.
+The SDK maps module `0x0f` operations `0x18`, `0x19`, and `0x1a` to
+`MQ_SEND`, `MQ_RECEIVE`, and `MQ_FLUSH`; the M30 call shapes structurally
+match that mapping. These queue calls do not identify the key normalization
+table initializer.
+
+The SDK's key path provides a separate lead: `key_rcode_scan.c` indexes
+`key_map[i + 1]` for ADC ranges and `key_map[0]` for override, matching the
+M30 driver's B+9+i and B+8 reads. SDK configuration code obtains the table
+address from the installed key driver and copies 16 bytes from `keyID` into
+it. This is verified SDK behavior; identifying the corresponding M30
+configuration path is still a hypothesis. `manager.ap` contains the
+`key.drv` name, but the config record layout has not been recovered. No
+writer to B+8..B+15 has been found in `key.drv`; runtime values remain
 unobserved.
+
+## Kernel exception-vector table (separate from the key table)
+
+The kernel exception table is now statically traced, and must not be confused
+with the key driver's BSS normalization table. `ker_init.bin` has SHA-256
+`f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8` and
+maps at `0xbfc32000`. Its entry flow calls the table constructor at
+`0xbfc32bc8`; the constructor calls the MIPS16 setter at `0xbfc330a0`, which
+stores `table[a0] = a1` at table base `0x9fc1a9a4`. The base pointer is the
+literal at file offset `0x10dc` / VA `0xbfc330dc`. The setter accepts indices
+0 through 13 and rejects a zero handler.
+
+The constructor writes index 9 as `0xbfc06f18` (setter call at file offset
+`0xc54` / VA `0xbfc32c54`). `kernel.drv` has SHA-256
+`58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6`; its
+MIPS32 exception vector at file offset `0x380` / VA `0xbfc08180` loads the
+handler from `0x9fc1a9a4 + (Cause & 0x7c)`. ExcCode 9 therefore reads entry
+`0x9fc1a9c8`, whose statically installed value is `0xbfc06f18`. The earlier
+expected value `0xbfc34075` is disproved by this init-time write.
+
+This establishes the extracted kernel's static table setup and vector lookup,
+not runtime immutability or the handler's behavior. The target `0xbfc06f18`
+is in the unavailable fixed ROM. No static link has been established from
+that ROM handler to `ker_xsys.bin` entry `0xbfc34074`; that possible handoff
+remains a hypothesis. The M30 key normalization table at B+8..B+15 is a
+different table and remains unresolved.
 
 The public firmware changelog supplies a second, application-level distinction:
 2022-08-16 says that the scroll wheel and all buttons are disabled while
