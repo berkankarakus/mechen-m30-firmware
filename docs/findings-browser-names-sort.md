@@ -66,6 +66,21 @@ verified `0x32`-byte length this is 25 UTF-16 code units. The adjacent helper
 already enforced in the filesystem/name-copy boundary, before `drv_ui`'s
 marquee code, while leaving the implementation of the fixed ROM helper
 outside the extracted firmware.
+
+The next layer is now separated as well by
+`tools/ghidra/run_browser_fs_dispatch_probe.sh`. `0x780db201` is the
+MIPS16 entry of `FUN_780db200`, a generic filesystem-operation wrapper: it
+selects an implementation from `0x780db5d4` using the resident state byte at
+`0x9fc15735`. Its community table entries are `0x713125dd`, `0x714525ad`,
+and `0x713925f5`; this is operation-provider dispatch, not marquee rendering.
+The directory implementation `FUN_713125dc` then uses explicit operation
+values: `1` enters a selected item, `2` moves to the parent, and `3` resets
+the path to the root (the underlying path operations are `0x2f`, `0x5c`, and
+`0x3a`). Therefore the `0/3` argument seen during browser initialization is
+filesystem navigation state, not a hidden “scroll disabled” flag. The
+folder-name fix must remain at the name-buffer/provider boundary or in the
+directory screen's later display path; changing this dispatch would alter
+navigation semantics and is not a safe UI patch.
 - Truncation, directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883): per item it calls kernel fs op 2 with
   length `name_len >> 1` (= 25 UTF-16 units), then `FUN_71352ab0` (B:12004, 8.3 name -> "NAME.EXT" when no FF FE BOM).
   Max visible name: 25 units incl. BOM and terminator, so about 23-24 chars (HYPOTHESIS for exact count; kernel op 2 not in any dump).

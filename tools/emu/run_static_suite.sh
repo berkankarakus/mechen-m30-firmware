@@ -162,6 +162,7 @@ bash "$ROOT/tools/ghidra/run_index_guard_probe.sh" "$ROOT/analysis/stock/fw" "$R
 bash "$ROOT/tools/ghidra/run_drvui_matrix_probe.sh" "$FW/drv_ui.drv"
 bash "$ROOT/tools/ghidra/run_browser_name_probe.sh" "$ROOT/analysis/community/fw/browser.ap"
 bash "$ROOT/tools/ghidra/run_browser_layout_probe.sh" "$ROOT/analysis/community/fw/browser.ap"
+bash "$ROOT/tools/ghidra/run_browser_fs_dispatch_probe.sh" "$ROOT/analysis/community/fw/browser.ap"
 bash "$ROOT/tools/ghidra/run_folder_nav_probe.sh"
 bash "$ROOT/tools/ghidra/run_kernel_bank_boundary_probe.sh" "$FW/kernel.drv"
 bash "$ROOT/tools/ghidra/run_kernel_loader_probe.sh" "$FW/kernel.drv"
