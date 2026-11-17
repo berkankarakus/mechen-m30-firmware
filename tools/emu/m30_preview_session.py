@@ -122,6 +122,7 @@ class M30PreviewSession:
             },
             "paint_dispatch": self.ui.paint_dispatch_trace(),
             "ui_calls": self.ui.observed_dispatch_trace(),
+            "state_dispatch": self.ui.state_dispatch_traces(),
             "audio": {
                 "submitted_packets": self.submitted_packets,
                 "submitted_frames": self.submitted_frames,

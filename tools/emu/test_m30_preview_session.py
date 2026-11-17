@@ -46,6 +46,10 @@ class M30PreviewSessionTests(unittest.TestCase):
             trace["callback"]["calls"][0]["args"],
             ["0x00000001", "0x00000002", "0x00000003", "0x00000004"],
         )
+        self.assertEqual(
+            [call["identifier"] for call in trace["state_dispatch"]["transport"]],
+            [0x1002, 0x1004, 0x1003],
+        )
 
     def test_trace_is_json_safe_and_identifies_hybrid_boundary(self) -> None:
         session = self.make_session()

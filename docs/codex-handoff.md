@@ -268,6 +268,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   operation/identifier sırasını host JSON'daki `state_dispatch` altında taşır.
   Bu yalnızca dispatcher sınırıdır; frame/resource görsel anlamı tahmin
   edilmez.
+- `lcd_preview.py` ve `m30_preview_session.py` aynı `state_dispatch` sözleşmesini
+  LCD sink ve birleşik session trace'lerine de taşır; doğrulanmış RGB565 bant
+  renkleri LCD round-trip testinde korunur.
 - `tools/ghidra/run_now_playing_paint_decompile_probe.sh`, `FUN_40154ddc`
   decompile’ındaki dört halfword rectangle yazımını ve `&uStack_18` → op-`0x12`
   çağrısını koruyan dar bir static guard’dır. Probe dump’ındaki header sonrası

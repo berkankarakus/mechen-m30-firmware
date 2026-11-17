@@ -4,6 +4,7 @@ from pathlib import Path
 
 from lcd_preview import render_preview
 from lcd_transfer import COLUMN_ADDRESS_SET, MEMORY_ACCESS_CONTROL, MEMORY_WRITE, ROW_ADDRESS_SET
+from m30_ui import rgb565
 
 
 ROOT = Path(__file__).parents[2]
@@ -33,6 +34,35 @@ class LcdPreviewTests(unittest.TestCase):
         self.assertEqual(sink.remaining_pixels, 0)
         self.assertEqual(len(ui.render().pixels), 320 * 240 * 3)
         self.assertIsNotNone(ui.font)
+
+    def test_verified_color_bands_survive_lcd_rgb565_round_trip(self):
+        sink, ui = render_preview(
+            AP,
+            STY,
+            title="TITLE",
+            artist="ARTIST",
+            album="ALBUM",
+            filename="FILE",
+            scroll_offset=0,
+        )
+
+        top = sink.framebuffer.pixels[
+            (10 * 320 + 319) * 3 : (10 * 320 + 319) * 3 + 3
+        ]
+        middle = sink.framebuffer.pixels[
+            (100 * 320 + 319) * 3 : (100 * 320 + 319) * 3 + 3
+        ]
+        bottom = sink.framebuffer.pixels[
+            (220 * 320 + 319) * 3 : (220 * 320 + 319) * 3 + 3
+        ]
+        self.assertEqual(top, bytes(rgb565(0x18C3)))
+        self.assertEqual(middle, bytes(rgb565(0x39E7)))
+        self.assertEqual(bottom, bytes(rgb565(0x18C3)))
+
+        self.assertEqual(
+            [call["identifier"] for call in ui.state_dispatch_trace(0x020)],
+            [0x1002, 0x1004, 0x1003],
+        )
 
     def test_preview_writes_a_ppm(self):
         sink, _ = render_preview(

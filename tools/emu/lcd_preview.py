@@ -21,9 +21,12 @@ from m30_ui import FirmwareTrace, MusicStyle, NowPlaying
 def pack_rgb565(red: int, green: int, blue: int) -> int:
     """Quantize one host RGB888 pixel to the controller's RGB565 word."""
 
-    r = max(0, min(255, red)) * 31 // 255
-    g = max(0, min(255, green)) * 63 // 255
-    b = max(0, min(255, blue)) * 31 // 255
+    # Use nearest quantization so a pixel expanded by ``rgb565`` can return
+    # to its original word. Truncation would turn observed words such as
+    # 0x18c3 into a different RGB565 value during the LCD round-trip.
+    r = (max(0, min(255, red)) * 31 + 127) // 255
+    g = (max(0, min(255, green)) * 63 + 127) // 255
+    b = (max(0, min(255, blue)) * 31 + 127) // 255
     return (r << 11) | (g << 5) | b
 
 
@@ -103,6 +106,7 @@ def main() -> int:
                     "pixels": sink.window.pixel_count if sink.window else 0,
                     "paint_dispatch": ui.paint_dispatch_trace(),
                     "ui_calls": ui.observed_dispatch_trace(),
+                    "state_dispatch": ui.state_dispatch_traces(),
                 },
                 indent=2,
             )

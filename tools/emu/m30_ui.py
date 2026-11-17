@@ -670,6 +670,13 @@ class NowPlaying:
             for op, identifier, identifier_kind in dispatches
         ]
 
+    def state_dispatch_traces(self) -> dict[str, list[dict[str, object]]]:
+        """Return every independently verified state-branch sequence."""
+        return {
+            branch_name: self.state_dispatch_trace(flags)
+            for flags, (branch_name, _) in NOW_PLAYING_STATE_DISPATCHES.items()
+        }
+
     def metadata_payload_trace(
         self,
         metadata_index: int,
@@ -978,10 +985,7 @@ def main() -> int:
             "calls": ui.dispatch_trace(),
             "paint_dispatch": ui.paint_dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
-            "state_dispatch": {
-                branch_name: ui.state_dispatch_trace(flags)
-                for flags, (branch_name, _) in NOW_PLAYING_STATE_DISPATCHES.items()
-            },
+            "state_dispatch": ui.state_dispatch_traces(),
             "selected_picboxes": ui.selected_picbox_trace(),
             "clipping": {
                 "directory_input_contract": "fixed 50-byte UTF-16 slot before marquee",

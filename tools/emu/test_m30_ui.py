@@ -196,6 +196,11 @@ class M30UiTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ui.state_dispatch_trace(0x001)
 
+        self.assertEqual(
+            set(ui.state_dispatch_traces()),
+            {"metadata", "transport", "status-low", "status-high", "controls"},
+        )
+
     def test_render_uses_verified_clear_band_colors(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
         frame = ui.render()
