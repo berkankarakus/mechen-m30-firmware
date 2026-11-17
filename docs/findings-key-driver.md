@@ -104,16 +104,22 @@ these two observed policies as `WAKE_ONLY` and `MEDIA_KEYS_PASS`. The existing
 does not assign physical names to normalized key values or claim a debounce
 timing.
 
+`tools/sim/key_input.py` composes these proven boundaries into one sample
+session: caller-supplied ADC normalization values and override value pass
+through classification, repeat-state event generation, and the selected
+application key-filter policy. Each sample trace retains the classification,
+optional driver event, and optional filter decision. Repeat counts remain
+sample counts; the model assigns no physical key labels or real-time cadence.
+
 It does **not** yet prove:
 
 - which physical button corresponds to each normalized value;
 - the meaning of the hardware registers or the callback at the header entry
   field `0x290094c4`;
 - whether any key event forces the LCD/backlight on;
-- the complete event-consumer path in the applications;
+- application-specific consumers beyond the shared key filter;
 - timing values in real milliseconds.
 
-No flashable patch is proposed from this analysis. The next safe step is to
-trace the consumer of the normalized events in `music.ap`, `browser.ap`, and
-the resident kernel, then add only the proven event contract to the host
-emulator.
+No flashable patch is proposed from this analysis. Further progress on this
+path needs evidence for the RAM normalization table, physical ADC mapping, or
+real sampling cadence; these are left as caller-provided or unresolved.
