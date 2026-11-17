@@ -572,6 +572,24 @@ class NowPlaying:
             "role": "draw_active_text",
         }
 
+    def control_payload_trace(self, control_id: int) -> dict[str, object]:
+        """Expose the verified secondary payload for the primary controls."""
+        supported_control_ids = (0x1000, 0x1001, 0x1002, 0x1003, 0x1004)
+        if control_id not in supported_control_ids:
+            raise ValueError(f"control ID has no verified secondary payload: {control_id:#x}")
+
+        secondary_word = 0xFF00 if control_id in (0x1000, 0x1001) else 0xFFFF
+        secondary_byte = 1 if control_id in (0x1003, 0x1004) else 0
+        return {
+            "op": 0x02,
+            "control_id": control_id,
+            "payload_pointer_offset": 0x08,
+            "secondary_payload_word": secondary_word,
+            "secondary_payload_byte": secondary_byte,
+            "semantics": "opaque control payload",
+            "role": "draw_control",
+        }
+
     def _draw_picbox_frame(self, fb: Framebuffer, picbox_index: int, frame_index: int) -> dict[str, object]:
         """Draw one real PicBox frame and return its provenance.
 

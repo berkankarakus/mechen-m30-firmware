@@ -77,6 +77,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   Bu, public SDK `textbox_private_t` yapısıyla sınırlı bir yapısal
   karşılaştırma sağlıyor; pointer/color semantiği kanıtlanmadığı için host'ta
   yalnızca yazıldığı kanıtlanan alanlar taşınıyor.
+- `op=0x02` için `a1=a0+0x08` secondary payload'ı da sentinel ile ayrıştırıldı:
+  `0x1000/0x1001` için word `0xff00`, `0x1002..0x1004` için `0xffff`; sonraki
+  byte yalnızca `0x1003/0x1004` için `1`. Host bunu
+  `NowPlaying.control_payload_trace()` ile opaque trace olarak taşır.
 - `tools/ghidra/run_now_playing_corpus_probe.sh <evidence-root>` aynı kontrolü
   dated corpus'taki tüm `music.ap` dosyalarına uygular. Son tam tarama 12/12
   imajda 8/8 metadata index'i geçti. Ghidra 12.2 için Java seçimi

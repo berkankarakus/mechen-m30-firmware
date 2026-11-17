@@ -85,6 +85,24 @@ class M30UiTests(unittest.TestCase):
         self.assertTrue(title["scroll_eligible"])
         self.assertEqual(title["scroll_offset_px"], 32)
 
+    def test_control_payload_trace_preserves_verified_secondary_fields(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+
+        self.assertEqual(
+            ui.control_payload_trace(0x1000),
+            {
+                "op": 0x02,
+                "control_id": 0x1000,
+                "payload_pointer_offset": 0x08,
+                "secondary_payload_word": 0xFF00,
+                "secondary_payload_byte": 0,
+                "semantics": "opaque control payload",
+                "role": "draw_control",
+            },
+        )
+        self.assertEqual(ui.control_payload_trace(0x1004)["secondary_payload_word"], 0xFFFF)
+        self.assertEqual(ui.control_payload_trace(0x1004)["secondary_payload_byte"], 1)
+
     def test_transport_frame_semantics_are_explicit(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
         selected = {item["picbox"]: item for item in ui.selected_picbox_trace()}

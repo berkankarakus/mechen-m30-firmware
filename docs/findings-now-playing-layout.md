@@ -194,6 +194,14 @@ host model: the firmware emits it from the `param_1 & 0x8` / `param_1 & 0x20`
 refresh branches, so the stable playback preview keeps it hidden by default
 and exposes it through `--show-controls`.
 
+The same sentinel-backed probe also resolves the initialized part of the
+secondary control payload at `a1 = a0 + 0x08`. For controls `0x1000` and
+`0x1001`, its first halfword is `0xff00`; for `0x1002`, `0x1003`, and `0x1004`,
+it is `0xffff`. The following byte is `1` only for `0x1003` and `0x1004`, and
+`0` for the other three. The next byte and following word retain the `0xa5`
+sentinel. The host records these bytes through `control_payload_trace()` but
+does not assign them palette, bitmap, or state semantics.
+
 The first call-site candidate changed the `0x2005` literal in this paint path,
 but the device-visible marquee is emitted by the shared scroll renderer, not
 by that call alone.  Ghidra identifies the actual draw path as:

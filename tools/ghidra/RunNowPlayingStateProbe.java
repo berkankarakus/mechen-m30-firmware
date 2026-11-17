@@ -153,6 +153,29 @@ public class RunNowPlayingStateProbe extends GhidraScript {
                     hex(a1)
                 ));
             }
+
+            long expectedSecondaryWord = id == 0x1000L || id == 0x1001L
+                ? 0xff00L
+                : 0xffffL;
+            long expectedSecondaryByte = id == 0x1003L || id == 0x1004L
+                ? 1L
+                : 0L;
+            if (hasSecondaryPayload
+                && (half(emu, a1) != expectedSecondaryWord
+                    || byteValue(emu, a1 + 2) != expectedSecondaryByte
+                    || byteValue(emu, a1 + 3) != STACK_SENTINEL
+                    || word(emu, a1 + 4) != 0xa5a5a5a5L)) {
+                throw new Exception(String.format(
+                    "control secondary payload mismatch id=%s a0=%s a1=%s word=%s byte2=%s byte3=%s word4=%s",
+                    hex(id),
+                    hex(a0),
+                    hex(a1),
+                    hex(half(emu, a1)),
+                    hex(byteValue(emu, a1 + 2)),
+                    hex(byteValue(emu, a1 + 3)),
+                    hex(word(emu, a1 + 4))
+                ));
+            }
         }
 
         if (a3 == 0x03L) {
