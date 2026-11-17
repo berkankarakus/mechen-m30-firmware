@@ -258,6 +258,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x1002` artwork control'ü yedi çağrılık sırayla taşır. Rectangle header'ı
   kanıtlanmıştır; payload tail'i opaque kalır. `observed_dispatch` adı artık
   yalnızca `0x1012`/`0x1013` içeren shared scroll zarfını ifade eder.
+- `tools/ghidra/run_now_playing_paint_decompile_probe.sh`, `FUN_40154ddc`
+  decompile’ındaki dört halfword rectangle yazımını ve `&uStack_18` → op-`0x12`
+  çağrısını koruyan dar bir static guard’dır. Probe dump’ındaki header sonrası
+  stack byte’ları rectangle alanı kabul edilmez.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
   table'ının format `0x2`, boyut ve doğrudan little-endian RGB565 sözleşmesi;
   bilinmeyen formatlar reddedilir. `NowPlaying` resource 0 bitmap'ini gerçek

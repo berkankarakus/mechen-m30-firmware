@@ -313,6 +313,14 @@ bytes still contain unresolved pointers/state and remain opaque in the host
 model. The paint probe asserts this header and the seven-call ID sequence on
 each dated image.
 
+The static decompile of `FUN_40154ddc` independently names these writes as
+`uStack_18`, `uStack_16`, `uStack_14`, and `uStack_12`, then passes
+`&uStack_18` to operation `0x12`. It does not write the bytes that appear
+after this eight-byte header in the probe dump during the initial-paint branch;
+those bytes are adjacent stack locals, not established rectangle fields.
+`tools/ghidra/run_now_playing_paint_decompile_probe.sh` keeps this decompiler
+shape as a narrow, reproducible guard.
+
 This is deliberately not a full LCD emulator. It does not claim that a font,
 resource, or artwork decode succeeded; it proves only the real paint entry's
 control-dispatch sequence and return boundary. The next high-value extension
