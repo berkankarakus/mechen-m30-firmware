@@ -185,6 +185,24 @@ The same probe passes against the stock and V1.101.11 browser members. The
 provider boundary is therefore not a community-only change; version selection
 does not currently offer a safer way around the directory slot limit.
 
+### Dynamic branch check
+
+`tools/ghidra/run_browser_refresh_pcode_probe.sh` now executes the real
+`FUN_40cd5218` body in Ghidra's p-code emulator. The AP remains unchanged;
+only the control structure, list table, and indirect callbacks are relocated
+to writable synthetic RAM. With the context pointer at `param_1+4+8` cleared,
+the function emits zero row-provider callbacks and takes one fallback update
+callback. With that pointer nonzero, it emits seven row-provider callbacks for
+the seven visible entries, with row indices `0..6`, and no fallback update.
+This dynamically verifies the branch and callback argument contract that the
+static decompile exposed. It does **not** yet prove which value the physical
+directory scene places in that context field; that requires driving the outer
+`FUN_40cd4e00` state machine or observing the real scene state.
+
+The result is therefore a useful boundary, not a folder-scroll patch: the
+directory fix still needs the runtime directory-context value and a proven
+full-name source before changing the 50-byte slot.
+
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
   (`FUN_71352820` + fsel enter-dir/count code at 0x71352500 bank) plus an index map from sorted position to FS entry
