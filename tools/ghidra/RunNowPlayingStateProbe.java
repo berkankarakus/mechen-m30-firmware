@@ -132,7 +132,9 @@ public class RunNowPlayingStateProbe extends GhidraScript {
 
         long id = dispatchId(emu);
         if (a3 == 0x02L) {
-            if (a1 != a0 + 8 || half(emu, a0 + 0) != id) {
+            boolean hasSecondaryPayload = a1 != 0;
+            boolean pointerMatches = !hasSecondaryPayload || a1 == a0 + 8;
+            if (!pointerMatches || half(emu, a0 + 0) != id) {
                 throw new Exception(String.format(
                     "control payload layout mismatch id=%s a0=%s a1=%s",
                     hex(id),
@@ -160,6 +162,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         if ("transport".equals(mode)) return new int[] {0x1002, 0x1004, 0x1003};
         if ("status-low".equals(mode)) return new int[] {0x1002, 0x1000};
         if ("status-high".equals(mode)) return new int[] {0x1002, 0x1001};
+        if ("controls".equals(mode)) return new int[] {0x1002, 0x1007, 0x1006, 0x1008, 0x1005, 0x1004, 0x1002};
         throw new IllegalArgumentException("unknown mode " + mode);
     }
 
@@ -169,6 +172,7 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         if ("transport".equals(mode)) return 0x020;
         if ("status-low".equals(mode)) return 0x200;
         if ("status-high".equals(mode)) return 0x800;
+        if ("controls".equals(mode)) return 0x008;
         throw new IllegalArgumentException("unknown mode " + mode);
     }
 
@@ -267,7 +271,9 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         ramBlock(memory);
         List<String> modes = new ArrayList<>();
         if (getScriptArgs().length == 1 || "all".equals(getScriptArgs()[1])) {
-            modes.addAll(Arrays.asList("initial", "metadata", "transport", "status-low", "status-high"));
+            modes.addAll(Arrays.asList(
+                "initial", "metadata", "transport", "status-low", "status-high", "controls"
+            ));
         } else {
             modes.addAll(Arrays.asList(getScriptArgs()).subList(1, getScriptArgs().length));
         }

@@ -223,6 +223,10 @@ scroll renderer's `0x1012`/`0x1013` payload trace.
 The dynamically observed paint IDs `0x1000` through `0x1004` also match the
 host resource convention `0x1000 + PicBox index`: status-low/high, artwork,
 transport, and EQ each select the corresponding `music.sty` PicBox. The
-static `0x1005..0x1008` metadata-glyph calls follow the same table convention.
+The new `controls` case (`flags=0x08`) executes the real sequence
+`0x1007, 0x1006, 0x1008, 0x1005, 0x1004` (with the surrounding `0x1002`
+artwork refresh); this dynamically confirms the same convention for the four
+metadata-glyph PicBoxes as well. Those four calls use operation `0x02` with
+`a1=0`, unlike the stateful controls that carry the secondary payload pointer.
 The `0x2005` text style remains a separate opaque dispatcher style; it is not
 being equated with a `music.sty` TextBox index.

@@ -62,7 +62,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x02` için `a1 = a0 + 0x08`, operation `0x03` için `a1 = a0 + 0x10`
   ilişkisini gerçek stack bytes ile assertion olarak kontrol ediyor. Kontrol
   ID'si payload `+0x00` halfword'unda; bu, shared scroll renderer'daki
-  `0x1012/0x1013` trace'inden ayrı bir paint sınırı.
+  `0x1012/0x1013` trace'inden ayrı bir paint sınırı. `flags=0x08` dalı ayrıca
+  `0x1007,0x1006,0x1008,0x1005,0x1004` sırasını ve metadata glyph çağrılarında
+  `a1=0` biçimini community/stock AP'lerinde doğruluyor.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan

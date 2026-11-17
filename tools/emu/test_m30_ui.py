@@ -83,6 +83,10 @@ class M30UiTests(unittest.TestCase):
             (0x1002, 2),
             (0x1003, 3),
             (0x1004, 4),
+            (0x1005, 5),
+            (0x1006, 6),
+            (0x1007, 7),
+            (0x1008, 8),
         ):
             self.assertEqual(selected[picbox_index]["control_id"], f"0x{control_id:04x}")
 
