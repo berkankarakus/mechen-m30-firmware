@@ -29,9 +29,10 @@ deterministic:
    corpora; it does not emulate codec registers or audio output.
 8. `run_qemu_usound_chain_probe.sh` runs the real producer and ring consumer
    with two distinct firmware ring literals aliased to one guest address. It
-   verifies state/control flow and the module-`0x10` trap; ring bytes and the
-   consumer destination copy remain unchecked, and PCM/DAC ownership is
-   unresolved.
+   verifies a seeded 16-byte pattern through the producer and into the
+   consumer callback source, plus state/control flow and the module-`0x10`
+   trap. The consumer destination copy and natural firmware ring connection
+   remain unresolved; PCM/DAC ownership is not modeled.
 9. `scroll_descriptor.py` models the verified state/event offsets used by
    `FUN_40d54f2c` and `FUN_40d54d80`.
 8. `ui_dispatcher.py` provides the conservative host shim for the verified

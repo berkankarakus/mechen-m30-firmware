@@ -314,13 +314,15 @@ FIFO, interrupt timing, or DAC/codec output.
 `FUN_bfc31654` consumer in one guest, with separate recovered state descriptors.
 The two distinct firmware ring literals (`0x9fc24000`/`0x6e40` producer ring
 and `0x9fc34000`/`0x1000` consumer ring) are deliberately relocated to the same
-guest base `0x80061000`. Across all six local `usound.drv` corpora, producer
-state reaches 16, the consumer returns 16 and drains its state, and the real
-module-`0x10` break-0 call traps once. The probe does not compare ring bytes or
-verify the consumer destination copy, so this is synthetic aliased-ring
-control/state coverage; it does not prove that firmware naturally connects
-these rings or that the stock USB callback, kernel service, PCM owner, or DAC
-consumes the same data on hardware.
+guest base `0x80061000`. The probe seeds the producer's scratch with bytes
+`0x10..0x1f`, checks the real producer copy helper writes them into the ring,
+and checks that the consumer's module-`0x10` callback receives the same source
+address and bytes. Across all six local `usound.drv` corpora, state reaches 16
+and the real break-0 call traps once. The exception shim does not copy into the
+consumer destination, so this is synthetic aliased-ring data-flow coverage;
+it does not prove that firmware naturally connects these rings or that the
+stock USB callback, kernel service, PCM owner, or DAC consumes the same data on
+hardware.
 
 `bash tools/emu/run_qemu_lcd_probe.sh` executes the real LCD resident helpers
 `FUN_bfc0a378` and `FUN_bfc0a438`. The guest relocates only the driver's
