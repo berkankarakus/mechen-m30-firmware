@@ -7,7 +7,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 
 | Öncelik | Alan | Bir sonraki kanıt/çıktı |
 |---|---|---|
-| P0 | Klasör marquee veri akışı | 50-byte slot, nonzero browser context, gerçek `0x14` row-provider → `0x1c` converter zinciri ve directory callback'in üç dalı dinamik doğrulandı; sıradaki iş sabit fsel/list-state kaydının semantik türünü ayırmak, sonra yalnızca güvenli patch adayı üretmek |
+| P0 | Klasör marquee veri akışı | 50-byte slot, nonzero browser context, gerçek `0x14` row-provider → `0x1c` converter zinciri ve directory callback'in üç dalı dinamik doğrulandı; row kaydının `+0x02` little-endian alanının converter'a gittiği kanıtlandı; sırada bu alanın fsel/list-state içindeki semantik türünü ayırmak var |
 | P0 | Now-playing UI | initial + metadata/transport/status state branch'leri dinamik doğrulandı; sırada resource/font/LCD sink bağlantısı |
 | P1 | USB-DAC | UAC1 descriptor/endpoint → `usound.drv` ring → selector `0x10` → PCM/DAC sahipliği zincirini ayır; descriptor varlığını ses çıkışı kanıtı sayma |
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
@@ -24,7 +24,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 
 | Öncelik | Alan | Dinamik deney | Beklenen yüksek getirili çıktı |
 |---|---|---|---|
-| P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın playlist mi, directory mi olduğunun ayrılması; güvenli isim patch noktası |
+| P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın `+0x02` alanı doğrulandı; playlist/directory semantik türü ve güvenli isim patch noktası hâlâ açık |
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
 | P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
 | P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | selector `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |

@@ -59,6 +59,15 @@ public class RunBrowserRowProviderProbe extends GhidraScript {
         return String.format("0x%08x", value & 0xffffffffL);
     }
 
+    private String bytes(EmulatorHelper emu, long address, int length) throws Exception {
+        byte[] values = emu.readMemory(addr(address), length);
+        StringBuilder result = new StringBuilder();
+        for (byte value : values) {
+            result.append(String.format("%02x", value & 0xff));
+        }
+        return result.toString();
+    }
+
     private void ramBlock(Memory memory) throws Exception {
         MemoryBlock block = memory.createInitializedBlock(
             "browser_row_provider_probe_ram", addr(RAM),
@@ -91,6 +100,13 @@ public class RunBrowserRowProviderProbe extends GhidraScript {
         long readMode = -1;
         long converterDest = -1;
         long converterLimit = -1;
+        long converterA0 = -1;
+        long converterA1 = -1;
+        long converterA2 = -1;
+        long converterA3 = -1;
+        long converterA1Value = -1;
+        String converterA1Bytes = "";
+        String recordBytes = "";
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -112,16 +128,21 @@ public class RunBrowserRowProviderProbe extends GhidraScript {
                 if (base == STOP) {
                     if (fsCalls != 2 || seekOffset != ROW_INDEX * 0x14L
                         || readLength != 0x14L || readMode != 0x11L
-                        || converterDest != NAME + 2 || converterLimit != 0x1cL) {
+                        || converterA0 != 0xa3a2L || converterDest != NAME + 2
+                        || converterLimit != 0x1cL) {
                         throw new Exception(String.format(
-                            "provider contract mismatch fs=%d seek=%s read-dest=%s len=%s mode=%s converter-dest=%s limit=%s",
+                            "provider contract mismatch fs=%d seek=%s read-dest=%s len=%s mode=%s converter-a0=%s converter-dest=%s limit=%s",
                             fsCalls, hex(seekOffset), hex(readDest), hex(readLength),
-                            hex(readMode), hex(converterDest), hex(converterLimit)));
+                            hex(readMode), hex(converterA0), hex(converterDest),
+                            hex(converterLimit)));
                     }
                     println(String.format(
-                        "BROWSER ROW PROVIDER PASS steps=%d row=%d fs-calls=%d seek-offset=%s read-dest=%s read-length=%s read-mode=%s converter-dest=%s converter-limit=%s",
+                        "BROWSER ROW PROVIDER PASS steps=%d row=%d fs-calls=%d seek-offset=%s read-dest=%s read-length=%s read-mode=%s record-field-0x02=%s converter-a1=%s converter-a2=%s converter-a3=%s converter-a1-value=%s converter-a1-bytes=%s record-bytes=%s converter-dest=%s converter-limit=%s",
                         steps, ROW_INDEX, fsCalls, hex(seekOffset), hex(readDest),
-                        hex(readLength), hex(readMode), hex(converterDest), hex(converterLimit)));
+                        hex(readLength), hex(readMode), hex(converterA0), hex(converterA1),
+                        hex(converterA2), hex(converterA3), hex(converterA1Value),
+                        converterA1Bytes, recordBytes,
+                        hex(converterDest), hex(converterLimit)));
                     return;
                 }
                 if (base == FS_STUB) {
@@ -138,19 +159,32 @@ public class RunBrowserRowProviderProbe extends GhidraScript {
                         readMode = a3;
                         // Supply a deterministic 20-byte record to the real
                         // provider's destination pointer.
+                        byte[] record = new byte[0x14];
                         for (int i = 0; i < 0x14; i++) {
-                            memory.setBytes(addr(a1 + i), new byte[] {(byte)(0xa0 + i)});
+                            record[i] = (byte)(0xa0 + i);
                         }
+                        emu.writeMemory(addr(a1), record);
                     }
                     emu.writeRegister("v0", 0);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
                     continue;
                 }
                 if (base == CONVERT_STUB) {
+                    converterA0 = emu.readRegister("a0").longValue() & 0xffffffffL;
                     long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
+                    converterA1 = a1;
+                    converterA2 = emu.readRegister("a2").longValue() & 0xffffffffL;
+                    converterA3 = emu.readRegister("a3").longValue() & 0xffffffffL;
                     converterDest = word(emu, a1);
-                    converterLimit = emu.readRegister("a3").longValue() & 0xffffffffL;
-                    putUtf16(memory, converterDest, "FolderProvider");
+                    converterA1Value = converterDest;
+                    converterLimit = converterA3;
+                    converterA1Bytes = bytes(emu, converterA1, 0x14);
+                    recordBytes = bytes(emu, readDest, 0x14);
+                    byte[] text = new byte["FolderProvider".length() * 2 + 2];
+                    for (int i = 0; i < "FolderProvider".length(); i++) {
+                        text[i * 2] = (byte)"FolderProvider".charAt(i);
+                    }
+                    emu.writeMemory(addr(converterDest), text);
                     emu.writeRegister("v0", 0);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
                     continue;

@@ -52,6 +52,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   current-index dallarını çalıştırdı. Üç dalda da 0x0c row stride, 0x32-byte
   slot, 25-unit FS çağrısı, mode 2 ve 0x4 converter limiti aynı kaldı; yalnızca
   provider preflight çağrı sayısı dal konumuna göre değişti.
+- `RunBrowserRowProviderProbe.java`, gerçek `FUN_48714a20` → `FUN_48594510`
+  zincirinde 20-byte kaydın little-endian `+0x02` halfword'unu converter'ın
+  ilk argümanı olarak doğruladı. Sentinel kayıt `a0a1a2a3...` ile gözlenen
+  değer `0xa3a2`; community ve stock AP'lerinde aynı. Bu alanın playlist
+  anahtarı, directory kimliği veya başka bir fsel semantiği olduğu henüz
+  adlandırılmadı; emulator'a yeni semantik eklenmedi.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan

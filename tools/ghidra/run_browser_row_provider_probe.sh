@@ -32,6 +32,7 @@ set -e
 
 grep -q 'BROWSER ROW PROVIDER PASS' "$WORK/ghidra.log"
 grep -q 'read-length=0x00000014' "$WORK/ghidra.log"
+grep -q 'record-field-0x02=0x0000a3a2' "$WORK/ghidra.log"
 grep -q 'converter-limit=0x0000001c' "$WORK/ghidra.log"
 
-echo 'BROWSER ROW PROVIDER PCODE PASS record-stride=0x14 converter-bound=0x1c'
+echo 'BROWSER ROW PROVIDER PCODE PASS record-stride=0x14 record-field=0x02 converter-bound=0x1c'

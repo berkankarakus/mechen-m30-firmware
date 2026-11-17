@@ -221,12 +221,16 @@ file helper and fixed-ROM converter. For row `2`, the observed calls are:
 |---|---|
 | provider seek | offset `2 * 0x14 = 0x28` |
 | provider record read | length `0x14`, mode `0x11` |
+| converter source field | little-endian halfword at record `+0x02` (`0xa3a2` in the sentinel run) |
 | converter destination | `entry+8+2`, after the callback writes `FF FE` |
 | converter bound | `0x1c` |
 
 The same chain passes in community, stock, and V1.101.11. This proves that
 the conditional refresh path can overwrite an entry's visible name slot from
-a 20-byte row record before the UI marquee sees it. The provider bank is also
+a 20-byte row record before the UI marquee sees it. The provider reads the
+little-endian halfword at record offset `+0x02` and passes that value as the
+converter's first argument; the remaining record fields are not interpreted by
+this path. The provider bank is also
 the browser's identified user-playlist file-helper bank, so this is stronger
 evidence for a playlist-record path than for a filesystem long filename. The
 fixed fsel/list-state object and record fields still need semantic
