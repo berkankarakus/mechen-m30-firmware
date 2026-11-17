@@ -193,6 +193,17 @@ the M3U payload. The next useful test is therefore a matching plaintext/encoded
 playlist pair or a traced M3U reader, not further speculation about the
 resolved copy dispatcher.
 
+The captured 4,000-record M30 `MUSIC.LIB` provides a separate value-level
+check of those two tail words: every `previous_index` equals `record_index - 1`
+except record zero, which contains `0xffff`; every `next_index` equals
+`record_index + 1` through record 3998. Record 3999 stores `next_index=4000`,
+which is outside the zero-based record range. This is consistent with the
+writer linking records in scan order and preserving a one-past-end terminal
+value, but one image does not establish how any reader interprets that value.
+The public 251-record comparison file is excluded from this check because its
+record-tail layout is not M30-compatible. The host codec therefore continues
+to preserve these words without validating them as links.
+
 Reproduce the static check with:
 
 ```sh
