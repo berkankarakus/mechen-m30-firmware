@@ -27,8 +27,9 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -postScript LoadAP.java "$AP" \
   -postScript DumpWords.java 0x40cd52c8 0x40cd52dc \
   -postScript DumpWords.java 0x48714a70 0x48714a7c \
+  -postScript DumpWords.java 0x48594568 0x48594574 \
   -postScript DumpAt.java \
-    0x40cd5218,0x48714a20 \
+    0x40cd5218,0x48714a20,0x48594510 \
     "$WORK/decomp.c" 2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -40,11 +41,16 @@ for marker in \
   'WORD address=40cd52d4 value=0x9fc155a4' \
   'WORD address=40cd52d8 value=0x48714a21' \
   'WORD address=48714a74 value=0x48594511' \
-  'WORD address=48714a78 value=0xbfc16a29'; do
+  'WORD address=48714a78 value=0xbfc16a29' \
+  'WORD address=4859456c value=0x9fc1571c' \
+  'WORD address=48594570 value=0xbfc16a25'; do
   grep -q "$marker" "$WORK/ghidra.log"
 done
 
 grep -q 'param_1 + 8' "$WORK/decomp.c"
 grep -q '0x1c' "$WORK/decomp.c"
+grep -q 'DumpAt: 48594510 -> FUN_48594510' "$WORK/ghidra.log"
+grep -q 'param_2 \* 0x14' "$WORK/decomp.c"
+grep -q '0x14,0x11' "$WORK/decomp.c"
 
-echo 'BROWSER SCREEN NAME PROBE PASS entry-name-destination=+8 provider=0x48594511 converter=0xbfc16a29'
+echo 'BROWSER SCREEN NAME PROBE PASS entry-name-destination=+8 provider=0x48594511 record-stride=0x14 converter=0xbfc16a29'
