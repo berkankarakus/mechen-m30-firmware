@@ -580,9 +580,11 @@ class NowPlaying:
 
         secondary_word = 0xFF00 if control_id in (0x1000, 0x1001) else 0xFFFF
         secondary_byte = 1 if control_id in (0x1003, 0x1004) else 0
+        style_resource_type = 1 if control_id == 0x1003 else 0
         return {
             "op": 0x02,
             "control_id": control_id,
+            "style_resource_type": style_resource_type,
             "payload_pointer_offset": 0x08,
             "secondary_payload_word": secondary_word,
             "secondary_payload_byte": secondary_byte,

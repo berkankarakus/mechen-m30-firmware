@@ -214,12 +214,16 @@ it is `0xffff`. The following byte is `1` only for `0x1003` and `0x1004`, and
 sentinel. The host records these bytes through `control_payload_trace()` but
 does not assign them palette, bitmap, or state semantics.
 
-The style record's byte at `a0 + 0x02` stays within the public SDK's
-`UI_AP=0` / `UI_COM=1` enum range, but it is not stable across the dated M30
-images: for example, community `0x1004` uses `1` while at least one dated image
-uses `0`. The probe therefore asserts only the enum-sized range and the
-sentinel-preserved reserve byte; the host does not promote this byte to a
-resource-type semantic.
+The style record's byte at `a0 + 0x02` is stable across all twelve dated M30
+images: it is `1` for control `0x1003` and `0` for every other observed
+control/text ID, including `0x1004` and `0x2005`. This fits the public SDK's
+`UI_AP=0` / `UI_COM=1` shape, but the host carries the value only as the raw
+`style_resource_type` field; it does not promote the structural match to a
+full resource-type semantic.
+
+`run_now_playing_state_probe.sh` emits a compact `PAYLOAD TYPES` line with the
+observed control/text ID to raw-byte mapping, so version differences remain
+reproducible without retaining temporary Ghidra logs.
 
 There is also negative evidence against using that byte to redirect the host
 to `common.sty`: the extracted M30 `common.sty` PicBox IDs are in the

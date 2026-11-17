@@ -145,8 +145,9 @@ public class RunNowPlayingStateProbe extends GhidraScript {
         }
 
         long id = dispatchId(emu);
+        long expectedStyleType = id == 0x1003L ? 1L : 0L;
         if ((a3 == 0x02L || a3 == 0x03L)
-            && (byteValue(emu, a0 + 2) > 1
+            && (byteValue(emu, a0 + 2) != expectedStyleType
                 || byteValue(emu, a0 + 3) != STACK_SENTINEL)) {
             throw new Exception(String.format(
                 "style payload layout mismatch id=%s a0=%s type=%s reserve=%s",

@@ -56,3 +56,9 @@ if grep -q 'ERROR REPORT SCRIPT ERROR' "$LOG"; then
   exit 1
 fi
 grep -q 'NOW PLAYING STATE DYNAMIC PASS' "$LOG"
+payload_types=$(sed -n -E \
+  's/.*id=(0x[0-9a-f]+).*style-type=(0x[0-9a-f]+).*/\1=\2/p' \
+  "$LOG" | sort -u | paste -sd, -)
+if [ -n "$payload_types" ]; then
+  echo "NOW PLAYING STATE PAYLOAD TYPES $payload_types"
+fi

@@ -86,10 +86,12 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   olarak eşleşiyor: `a0` style ID/type, `a1` ise op'a göre PicBox/TextBox
   adayı. Bu henüz ABI/semantic kanıt değil; özellikle `0xff00`, language ve
   color alanları bilinçli olarak opaque bırakılıyor.
-- Style type byte'ı public SDK `UI_AP/UI_COM` aralığında kalıyor, ancak dated
-  image'lar arasında sabit değil; bu yüzden host'a semantic alan olarak
-  taşınmıyor. Probe yalnızca aralık ve sentinel reserve byte'ını assertion ile
-  kontrol ediyor.
+- On iki dated image'ın tamamında style type byte'ı sabit eşleşiyor: `0x1003`
+  için `1`, gözlenen diğer control/text ID'leri ve `0x2005` için `0`. Bu,
+  public SDK'deki `UI_AP=0` / `UI_COM=1` düzeniyle yapısal olarak uyumlu; host
+  alanı yalnızca ham `style_resource_type` olarak taşıyor ve tam resource-type
+  semantiği ilan etmiyor. Wrapper ayrıca geçici logdan compact `PAYLOAD TYPES`
+  özeti yazıyor.
 - `common.sty` içinde doğrudan `0x1003/0x1004` PicBox ID'si bulunmadığı için
   bu byte'ın common-resource yönlendirmesi olduğu varsayılmıyor; `0x1000 +
   PicBox index` eşleşmesi ayrı M30 dispatcher kanıtı olarak korunuyor.

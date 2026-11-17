@@ -93,6 +93,7 @@ class M30UiTests(unittest.TestCase):
             {
                 "op": 0x02,
                 "control_id": 0x1000,
+                "style_resource_type": 0,
                 "payload_pointer_offset": 0x08,
                 "secondary_payload_word": 0xFF00,
                 "secondary_payload_byte": 0,
@@ -100,6 +101,7 @@ class M30UiTests(unittest.TestCase):
                 "role": "draw_control",
             },
         )
+        self.assertEqual(ui.control_payload_trace(0x1003)["style_resource_type"], 1)
         self.assertEqual(ui.control_payload_trace(0x1004)["secondary_payload_word"], 0xFFFF)
         self.assertEqual(ui.control_payload_trace(0x1004)["secondary_payload_byte"], 1)
 
