@@ -309,10 +309,16 @@ class M30UiTests(unittest.TestCase):
     def test_header_status_icons_use_common_style_bitmaps(self):
         music = MusicStyle.load(STY)
         common = MusicStyle.load(COMMON)
-        frame = NowPlaying(music, FirmwareTrace.load(AP), common_style=common).render()
-        for resource, x, y in ((3, 3, 2), (18, 247, 2), (2, 274, 2), (27, 291, 2)):
-            bitmap = common.bitmap(resource)
-            offset = (y * frame.width + x) * 3
+        ui = NowPlaying(music, FirmwareTrace.load(AP), common_style=common)
+        frame = ui.render()
+        trace = ui.header_status_trace()
+        self.assertEqual(
+            [(entry["picbox"], entry["frame"], entry["resource"], entry["x"], entry["y"]) for entry in trace],
+            [(2, 2, 35, 247, 0), (3, 2, 2, 267, 0), (1, 6, 31, 287, 0)],
+        )
+        for entry in trace:
+            bitmap = common.bitmap(entry["resource"])
+            offset = (entry["y"] * frame.width + entry["x"]) * 3
             self.assertEqual(frame.pixels[offset:offset + 3], bytes(rgb565(bitmap.pixels[0])))
 
     @unittest.skipUnless(FONT.exists(), "extracted M30 font is not present")
@@ -362,6 +368,25 @@ class M30UiTests(unittest.TestCase):
         for box, icon_index in zip(boxes, icon_indices):
             picbox = style.picboxes[icon_index]
             self.assertEqual((box.x, box.y), (picbox.x + 30, picbox.y))
+
+
+COMMUNITY_FW = ROOT / "analysis" / "community" / "fw"
+
+
+class CommunityHeaderResourceTests(unittest.TestCase):
+    def test_photo_status_icons_use_real_common_picbox_frames_and_geometry(self):
+        music = MusicStyle.load(COMMUNITY_FW / "music.sty")
+        common = MusicStyle.load(COMMUNITY_FW / "common.sty")
+        trace = NowPlaying(
+            music,
+            FirmwareTrace.load(COMMUNITY_FW / "music.ap"),
+            common_style=common,
+        ).header_status_trace()
+
+        self.assertEqual(
+            [(entry["picbox"], entry["frame"], entry["resource"], entry["x"], entry["y"]) for entry in trace],
+            [(2, 2, 35, 247, 0), (3, 2, 2, 267, 0), (1, 6, 31, 287, 0)],
+        )
 
 
 if __name__ == "__main__":

@@ -46,6 +46,10 @@ PICBOX_SEMANTICS = {
 # model keeps the overlay separate from the now-playing paint trace.
 OBSERVED_HEADER_FRAMES = ((1, 1), (0, 2))  # shuffle-on, repeat glyph
 HEADER_EQ_TEXTBOX = 5
+# These common.sty frames match the supplied device photo: the orange card,
+# play triangle, and full battery. Their coordinates and bitmap references
+# come from the resource PicBoxes; frame choices remain host-observed inputs.
+COMMON_HEADER_STATUS_FRAMES = ((2, 2), (3, 2), (1, 6))
 
 # FUN_40154ddc emits controls 0x1002..0x1008 on the now-playing refresh path.
 # The p-code state probe dynamically confirms the 0x1000 + PicBox-index
@@ -136,6 +140,12 @@ def rgb565(value: int) -> tuple[int, int, int]:
 
 def _u32(data: bytes, offset: int) -> int:
     return struct.unpack_from("<I", data, offset)[0]
+
+
+def _style_resource_index(reference: int) -> int | None:
+    if reference == 0xFFFF:
+        return None
+    return reference & 0x7FFF if reference & 0x8000 else reference
 
 
 @dataclass(frozen=True)
@@ -532,6 +542,7 @@ class NowPlaying:
     progress_fraction: float = 0.40
     font: M30Font | None = None
     common_style: MusicStyle | None = None
+    common_status_frames: tuple[tuple[int, int], ...] = COMMON_HEADER_STATUS_FRAMES
     show_header: bool = True
     eq_label: str = "EQ: Jazz"
     volume_level: int = 6
@@ -796,13 +807,42 @@ class NowPlaying:
                 fb.pixel(x + column, y + row, rgb565(bitmap.pixels[row * bitmap.width + column]))
 
     def _draw_host_status_icons(self, fb: Framebuffer) -> None:
-        """Draw status icons from the shared common.sty resource member."""
+        """Draw observed header statuses using common.sty's real PicBoxes."""
         if self.common_style:
             self._draw_external_bitmap(fb, self.common_style, 3, 3, 2)   # speaker
-            self._draw_external_bitmap(fb, self.common_style, 18, 247, 2)  # storage
-            self._draw_external_bitmap(fb, self.common_style, 2, 274, 2)   # play state
-            self._draw_external_bitmap(fb, self.common_style, 27, 291, 2)  # battery
+            for picbox_index, frame_index in self.common_status_frames:
+                picbox = self.common_style.picboxes[picbox_index]
+                if not 0 <= frame_index < len(picbox.frames):
+                    raise ValueError(
+                        f"common.sty PicBox {picbox_index} has no frame {frame_index}"
+                    )
+                resource_index = _style_resource_index(picbox.frames[frame_index])
+                if resource_index is None:
+                    raise ValueError(
+                        f"common.sty PicBox {picbox_index} frame {frame_index} is empty"
+                    )
+                self._draw_external_bitmap(
+                    fb, self.common_style, resource_index, picbox.x, picbox.y
+                )
         self._draw_device_numeric(fb, str(max(0, min(99, self.volume_level))), 27, 6, (25, 2, 28, 20))
+
+    def header_status_trace(self) -> list[dict[str, object]]:
+        """Return resource-backed status icons selected for the photo preview."""
+        if not self.common_style:
+            return []
+        result = []
+        for picbox_index, frame_index in self.common_status_frames:
+            picbox = self.common_style.picboxes[picbox_index]
+            resource_index = _style_resource_index(picbox.frames[frame_index])
+            result.append({
+                "picbox": picbox_index,
+                "frame": frame_index,
+                "resource": resource_index,
+                "x": picbox.x,
+                "y": picbox.y,
+                "state_source": "host-observed device-photo state",
+            })
+        return result
 
     def _draw_header_overlay(self, fb: Framebuffer) -> None:
         if not self.show_header:
@@ -987,6 +1027,7 @@ def main() -> int:
             "observed_dispatch": ui.observed_dispatch_trace(),
             "state_dispatch": ui.state_dispatch_traces(),
             "selected_picboxes": ui.selected_picbox_trace(),
+            "header_status_resources": ui.header_status_trace(),
             "clipping": {
                 "directory_input_contract": "fixed 50-byte UTF-16 slot before marquee",
                 "metadata": ui.metadata_clip_trace(),

@@ -107,6 +107,7 @@ def main() -> int:
                     "paint_dispatch": ui.paint_dispatch_trace(),
                     "ui_calls": ui.observed_dispatch_trace(),
                     "state_dispatch": ui.state_dispatch_traces(),
+                    "header_status_resources": ui.header_status_trace(),
                 },
                 indent=2,
             )
