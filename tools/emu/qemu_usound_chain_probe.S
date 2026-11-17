@@ -1,4 +1,4 @@
-/* Execute the real usound producer and ring consumer in one guest. */
+/* Execute producer/consumer control paths with an explicit synthetic ring alias. */
 	.set	mips32
 	.set	noreorder
 	.set	noat
@@ -41,7 +41,7 @@ _start:
 	mtc0	$k1, $12
 	nop
 
-	/* Producer state at 0x80060000; it writes the shared 0x6e40 ring. */	lui	$t0, 0x8006
+	/* Producer state at 0x80060000; 0x6e40 ring aliases consumer ring at 0x80061000. */	lui	$t0, 0x8006
 	sw	$zero, 0($t0)
 	sw	$zero, 4($t0)
 	sb	$zero, 0x10($t0)
@@ -63,7 +63,7 @@ _start:
 	bne	$t1, $t2, fail_producer
 	 nop
 
-	/* Consumer state at 0x80063000 reads the producer's shared ring. */	lui	$t0, 0x8006
+	/* Consumer state reads the synthetic alias at 0x80061000; no bytes are asserted. */	lui	$t0, 0x8006
 	ori	$t0, $t0, 0x3000
 	sw	$t2, 0($t0)
 	sw	$zero, 4($t0)
@@ -153,7 +153,7 @@ puts_done:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND CHAIN PASS producer=16 consumer=16 module_call=1 module=0x10\r\n"
+	.asciz	"REAL USOUND CHAIN PASS alias=0x80061000 producer=16 consumer=16 module_call=1 module=0x10 bytes_unchecked=1 destination_copy_unchecked=1\r\n"
 producer_text:
 	.asciz	"REAL USOUND CHAIN FAIL producer\r\n"
 consumer_text:

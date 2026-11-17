@@ -29,7 +29,8 @@ if len(segment) != size:
 
 stub = 0x80012001
 relocations = {
-    # Producer literals at bfc31024..bfc31068.
+    # Producer literals at bfc31024..bfc31068. The 0x6e40 producer ring
+    # (bfc31058) is deliberately relocated onto the consumer ring below.
     0x1024: 0x80060000,
     0x1028: stub,
     0x102C: 0x80060004,
@@ -47,7 +48,8 @@ relocations = {
     0x1060: 0x80060024,
     0x1064: 0x80060028,
     0x1068: stub,
-    # Consumer literals at bfc31728..bfc3173c.
+    # Consumer literals at bfc31728..bfc3173c. Its 0x1000 ring aliases the
+    # producer ring at 0x80061000 in this synthetic composition probe.
     0x1728: 0x80063000,
     0x172C: 0x80063004,
     0x1730: 0x80063008,

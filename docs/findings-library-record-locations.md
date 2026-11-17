@@ -94,6 +94,27 @@ available version changes. This is stronger evidence for keeping the record
 links lossless-but-opaque in the host emulator; it is not proof that an
 indirect ROM helper never reads them.
 
+## Play-counter identity implication
+
+The secondary eight-byte `cluster_no`/`dir_entry` key identifies a filesystem
+location, not the audio content. Sorting the library changes index tables and
+does not itself move a directory entry, so the key can survive sorting. A
+re-index can reproduce it while the file remains at the same entry; moving or
+renaming a file may change it, and a deleted entry can later be reused. The
+firmware lookup returns the first matching active record, so duplicate keys
+would make a sidecar count ambiguous. Identical audio files at distinct
+locations remain distinct under this key.
+
+There is no record field proven safe for a persistent play count: the key and
+opaque location data are read by firmware, and the record tail stores links
+rebuilt by the indexer. A sidecar is therefore the safer design boundary.
+For that sidecar, a content digest plus normalized relative path can identify
+an unchanged file and distinguish same-content copies; a unique content-digest
+match can support recovery after a move. This remains a design proposal, not a
+device-validated storage or rename-recovery contract. A temporary host-only
+synthetic check covered reorder, move, duplicate content, and duplicate key
+cases; it did not model exFAT directory-entry allocation.
+
 ## US212A SDK correspondence
 
 A publicly mirrored US212A application-design manual documents the same

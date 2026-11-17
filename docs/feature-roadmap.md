@@ -85,7 +85,7 @@ PASS/FAIL koşuluyla kapatılacak.
 | P0 | **DONE:** LCD resident komut/data ve window akışını QEMU’da çalıştır | `drv_lcd.drv` fonksiyonları ve `0x2a/0x2b/0x2c/0x36` akışı ekran sink’ine bağlandı | gerçek window/orientation akışı ve komut/data izleri altı corpus’ta geçti |
 | P1 | MIPS16 `break 0` modül dispatch’ini resident exception yoluna bağla | zarf çözüldü, fakat modül `0x10` servisinin sabit-ROM etkisi bilinmiyor | exception handler veya kernel kaynaklı dispatch tablosu modül ve dönüş sözleşmesini kanıtlar; PCM/DAC sonucu iddia edilmez |
 | P1 | `drv_dac.drv` gerçek byte-transfer fonksiyonlarını sentetik GPIO context ile çalıştır | DAC sürücüsü ortak ve küçük; register anlamı bilinmese de bit/byte transfer sınırı ölçülebilir | **DONE:** six corpus QEMU probe executes real 8-bit transmit, two-byte send, and all-high/all-low receive boundary; electrical/codec semantics remain unresolved |
-| P1 | `usound.drv` producer → consumer state zincirini tek guest’te birleştir | producer, consumer ve modül çağrısı ayrı ayrı geçiyor; birleşik state henüz kanıtlanmadı | **DONE:** six corpus QEMU chain passes with producer=16, consumer=16, and real module `0x10` break-0 call; PCM/DAC ownership remains unresolved |
+| P1 | `usound.drv` producer/consumer ring ilişkisini kanıtla | mevcut QEMU probe iki farklı firmware ring adresini `0x80061000`'da alias'lıyor; byte içeriği ve consumer destination kopyası kontrol edilmiyor | state/control akışı zaten PASS; gerçek mapping veya açıkça sentetik bridge altında ring bytes + destination copy doğrulanmalı; ROM service ve PCM/DAC sınırı ayrı kalır |
 | P2 | Kernel loader/overlay entry ve exception handoff probe’u | YQHX header/segment sözleşmesi biliniyor; `kernel.drv` içindeki adaylar resident-table helper, gerçek loader ve sabit ROM handoff bilinmiyor | gerçek loader çağrısı ve giriş/çıkış CP0/stack sözleşmesi kanıtlanır |
 | P3 | Tam ATJ2127 QEMU machine / boot | upstream model ve ROM/peripheral kodu yok; maliyeti yüksek, şu anki kanıtı az artırır | yalnızca ATJ2127 MMIO/ROM kaynağı veya cihaz dump’ı gelirse başlatılır; mevcut haliyle ertelenir |
 
@@ -134,7 +134,10 @@ PASS/FAIL koşuluyla kapatılacak.
 - Tam ATJ2127 boot ve upstream QEMU machine model.
 - Gerçek LCD, DAC, codec/DSP ve DMA davranışı.
 - Filename natural sort için caller-side mask ve browser state modeli.
-- Persistent play counter; atomic storage/recovery davranışı kanıtlanmadı.
+- Persistent play counter; MUSIC.LIB içinde güvenli boş alan yok. 8-byte
+  `cluster_no`/`dir_entry` anahtarı sıralamada kalır ama taşınabilir dosya kimliği
+  değil; sidecar için digest + normalize edilmiş yol ve atomic recovery
+  davranışı kanıtlanmalı.
 - Yeni EQ preset'leri; menu callback ve coefficient mapping tamamlanmadı.
 - Gerçek gapless playback ve ASRC/DAC audible tail ölçümü.
 

@@ -241,12 +241,15 @@
   format-specific ready edge; hardware FIFO timing and the downstream reader
   remain outside the model.
 - `tools/emu/run_qemu_usound_chain_probe.sh` composes the two real driver
-  functions in one guest using the producer's 16-byte output as the consumer's
-  shared ring input. All six local corpora pass: producer state reaches 16,
-  `FUN_bfc31654` returns 16 and drains its consumer state, and the real
-  module-`0x10` break-0 call traps once. This is byte/state-level composition
-  evidence only; it does not identify the stock callback's kernel service,
-  PCM ownership, USB interrupt path, or DAC routing.
+  control paths in one guest, but it deliberately relocates the distinct
+  firmware ring literals (`0x9fc24000`, capacity `0x6e40`; `0x9fc34000`,
+  capacity `0x1000`) onto the same QEMU base `0x80061000`. All six local
+  corpora pass: producer state reaches 16, `FUN_bfc31654` returns 16 and
+  drains its consumer state, and the real module-`0x10` break-0 call traps
+  once. The probe does not compare ring bytes or verify a copy into the
+  consumer destination at `0x80065000`; it establishes state/control-flow
+  composition under an injected alias, not the firmware's natural ring
+  connection, PCM ownership, USB interrupt path, or DAC routing.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
 
 ## Product-documentation cross-check
