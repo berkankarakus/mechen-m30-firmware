@@ -115,6 +115,13 @@ device-validated storage or rename-recovery contract. A temporary host-only
 synthetic check covered reorder, move, duplicate content, and duplicate key
 cases; it did not model exFAT directory-entry allocation.
 
+The first append-only journal prototype is **not safe to port yet**: if a
+`MOVE` frame is corrupted and skipped, the current scanner can apply a later
+higher-sequence `SET`, leaving the old path's count visible again. Its existing
+corruption test did not check this stale-path resurrection. Recovery must
+fail closed at a sequence gap or corrupt transaction, and the corrected rule
+needs a regression before the sidecar format is treated as viable.
+
 ## US212A SDK correspondence
 
 A publicly mirrored US212A application-design manual documents the same

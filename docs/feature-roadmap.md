@@ -136,8 +136,10 @@ PASS/FAIL koşuluyla kapatılacak.
 - Filename natural sort için caller-side mask ve browser state modeli.
 - Persistent play counter; MUSIC.LIB içinde güvenli boş alan yok. 8-byte
   `cluster_no`/`dir_entry` anahtarı sıralamada kalır ama taşınabilir dosya kimliği
-  değil; sidecar için digest + normalize edilmiş yol ve atomic recovery
-  davranışı kanıtlanmalı.
+  değil; sidecar için digest + normalize edilmiş yol düşünülüyor. İlk journal
+  prototipinde bozuk `MOVE` atlanınca sonraki `SET` eski yolu yeniden
+  gösterebiliyor; fail-closed recovery düzeltilip doğrulanana kadar güvenli
+  sayılmayacak.
 - Yeni EQ preset'leri; menu callback ve coefficient mapping tamamlanmadı.
 - Gerçek gapless playback ve ASRC/DAC audible tail ölçümü.
 
