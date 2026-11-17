@@ -90,6 +90,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   image'lar arasında sabit değil; bu yüzden host'a semantic alan olarak
   taşınmıyor. Probe yalnızca aralık ve sentinel reserve byte'ını assertion ile
   kontrol ediyor.
+- `common.sty` içinde doğrudan `0x1003/0x1004` PicBox ID'si bulunmadığı için
+  bu byte'ın common-resource yönlendirmesi olduğu varsayılmıyor; `0x1000 +
+  PicBox index` eşleşmesi ayrı M30 dispatcher kanıtı olarak korunuyor.
 - `tools/ghidra/run_now_playing_corpus_probe.sh <evidence-root>` aynı kontrolü
   dated corpus'taki tüm `music.ap` dosyalarına uygular. Son tam tarama 12/12
   imajda 8/8 metadata index'i geçti. Ghidra 12.2 için Java seçimi

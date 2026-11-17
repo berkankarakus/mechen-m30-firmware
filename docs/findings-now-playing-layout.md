@@ -221,6 +221,12 @@ uses `0`. The probe therefore asserts only the enum-sized range and the
 sentinel-preserved reserve byte; the host does not promote this byte to a
 resource-type semantic.
 
+There is also negative evidence against using that byte to redirect the host
+to `common.sty`: the extracted M30 `common.sty` PicBox IDs are in the
+`0x8000`-range and do not contain direct `0x1003` or `0x1004` entries. The
+`0x1000 + PicBox index` relationship is therefore retained as an M30
+dispatcher convention, independently of the public SDK's struct shape.
+
 The first call-site candidate changed the `0x2005` literal in this paint path,
 but the device-visible marquee is emitted by the shared scroll renderer, not
 by that call alone.  Ghidra identifies the actual draw path as:
