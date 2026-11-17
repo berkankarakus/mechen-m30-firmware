@@ -138,6 +138,25 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[4]["payload"], "control_0x1012")
         self.assertEqual(calls[7]["role"], "draw_dynamic_text")
 
+    def test_paint_dispatch_trace_matches_the_verified_initial_boundary(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+        calls = ui.paint_dispatch_trace()
+
+        self.assertEqual(
+            [call["op"] for call in calls],
+            [0x14, 0x12, 0x14, 0x12, 0x14, 0x12, 0x02],
+        )
+        self.assertEqual(
+            [call["a0"] for call in calls[:6:2]],
+            [0x18C3, 0x39E7, 0x18C3],
+        )
+        self.assertEqual(
+            [call["payload"] for call in calls[1:6:2]],
+            ["clear_band_0", "clear_band_1", "clear_band_2"],
+        )
+        self.assertEqual(calls[-1]["control_id"], 0x1002)
+        self.assertEqual(calls[-1]["role"], "draw_artwork")
+
     def test_render_is_320x240_ppm(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), title="LONG TITLE")
         with tempfile.TemporaryDirectory() as tmp:

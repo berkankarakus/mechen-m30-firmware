@@ -529,11 +529,13 @@ class NowPlaying:
         return result
 
     def observed_dispatch_trace(self) -> list[dict[str, object]]:
-        """Return the observed dispatcher envelope from the real-bank probe.
+        """Return the observed shared-scroll dispatcher envelope.
 
         Pointer payloads are represented by stable semantic labels here. Their
         stack addresses and unresolved internal fields deliberately stay out
-        of the host contract until a second payload probe identifies them.
+        of the host contract. This is the separate ``0x1012``/``0x1013``
+        scroll-renderer path, not the seven-call initial-paint path emitted by
+        ``FUN_40154ddc``.
         """
         metadata_payload = self.metadata_payload_trace(metadata_index=0, state_byte=0)
         return [
@@ -547,6 +549,48 @@ class NowPlaying:
             {"op": 0x06, "a2": 6, "text": self.title, "scroll_offset": self.scroll_offset, "role": "draw_dynamic_text"},
             {"op": 0x03, "a2": 1, "style_id": f"0x{SECONDARY_STYLE:04x}", "text": self.title, "role": "draw_cleanup_text"},
         ]
+
+    def paint_dispatch_trace(self) -> list[dict[str, object]]:
+        """Return the verified seven-call initial-paint dispatcher envelope.
+
+        The three clear payloads remain opaque because their stack bytes
+        contain pointers whose target meaning is not proven. The operation,
+        scalar arguments, and final artwork control ID are stable across all
+        twelve dated ``music.ap`` images.
+        """
+        clear_payloads = ("clear_band_0", "clear_band_1", "clear_band_2")
+        calls: list[dict[str, object]] = []
+        for index, payload in enumerate(clear_payloads):
+            background = 0x39E7 if index == 1 else 0x18C3
+            calls.append({
+                "op": 0x14,
+                "a0": background,
+                "a1": 0,
+                "a2": 0,
+                "a3": 0x14,
+                "role": "clear_background",
+            })
+            calls.append({
+                "op": 0x12,
+                "a0": 0,
+                "a1": 0,
+                "a2": 0,
+                "a3": 0x12,
+                "payload": payload,
+                "semantics": "opaque clear payload",
+                "role": "clear_content",
+            })
+
+        artwork = self.control_payload_trace(0x1002)
+        artwork.update({
+            "a0": 0,
+            "a1": 0,
+            "a2": 0,
+            "a3": 0x02,
+            "role": "draw_artwork",
+        })
+        calls.append(artwork)
+        return calls
 
     def metadata_payload_trace(
         self,
@@ -854,6 +898,7 @@ def main() -> int:
         args.trace.write_text(json.dumps({
             "firmware": trace.json(),
             "calls": ui.dispatch_trace(),
+            "paint_dispatch": ui.paint_dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
             "selected_picboxes": ui.selected_picbox_trace(),
             "clipping": {

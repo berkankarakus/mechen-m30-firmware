@@ -253,6 +253,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 - `tools/emu/ui_dispatcher.py`: now-playing op-`0x03` payload'ındaki doğrulanmış
   halfword, byte ve zero-word alanlarını `OpaqueMetadataPayload` olarak trace'e
   taşır; payload framebuffer'a çizilmez ve semantik atanmaz.
+- `NowPlaying.paint_dispatch_trace()` gerçek paint sınırını shared scroll
+  trace'inden ayırır: üç opaque clear payload'ı ve `0x1002` artwork control'ü
+  yedi çağrılık doğrulanmış sırayla taşır. `observed_dispatch` adı artık
+  yalnızca `0x1012`/`0x1013` içeren shared scroll zarfını ifade eder.
 - `tools/emu/music_bitmap.py`: 12 corpus'ta doğrulanmış `music.sty` resource
   table'ının format `0x2`, boyut ve doğrudan little-endian RGB565 sözleşmesi;
   bilinmeyen formatlar reddedilir. `NowPlaying` resource 0 bitmap'ini gerçek

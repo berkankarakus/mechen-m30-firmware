@@ -120,6 +120,7 @@ class M30PreviewSession:
                 "pixels": window.pixel_count if window else 0,
                 "remaining_pixels": self.sink.remaining_pixels,
             },
+            "paint_dispatch": self.ui.paint_dispatch_trace(),
             "ui_calls": self.ui.observed_dispatch_trace(),
             "audio": {
                 "submitted_packets": self.submitted_packets,

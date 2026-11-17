@@ -299,6 +299,12 @@ current corpus result is `images=12`; all images produced the same seven-call
 envelope and real return boundary. The wrapper rejects Ghidra script errors
 even if the process itself exits successfully.
 
+The host JSON now keeps this boundary in `paint_dispatch`. The older
+`observed_dispatch` field remains the nine-call shared-scroll trace, including
+controls `0x1012`/`0x1013`, and is intentionally not used as evidence for the
+initial paint. This distinction prevents the host preview from presenting a
+scroll-renderer call as an artwork paint call.
+
 This is deliberately not a full LCD emulator. It does not claim that a font,
 resource, or artwork decode succeeded; it proves only the real paint entry's
 control-dispatch sequence and return boundary. The next high-value extension

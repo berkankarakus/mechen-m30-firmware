@@ -101,6 +101,7 @@ def main() -> int:
                         for command in sink.commands
                     ],
                     "pixels": sink.window.pixel_count if sink.window else 0,
+                    "paint_dispatch": ui.paint_dispatch_trace(),
                     "ui_calls": ui.observed_dispatch_trace(),
                 },
                 indent=2,
