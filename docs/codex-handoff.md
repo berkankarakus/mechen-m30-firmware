@@ -67,6 +67,9 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 - `tools/emu/folder_ui.py` ve `folder_input.py`: gerçek liste geometrisi,
   50-byte UTF-16 slot, marquee zamanlaması, navigation ve key-filter akışı.
+- `tools/sim/browser_row_record.py`: gerçek `0x14` row stride ve
+  `list_state + 4 + row * 0x14` kaynağını korur; yalnızca converter'a giden
+  `+0x02` halfword'u açar, geri kalan alanları opaque bırakır.
 - `tools/sim/key_filter.py`: ekran kapalı stock wake davranışı ve community
   keypass'in beş medya tuşu.
 - `tools/sim/key_driver.py`: resident key driver ADC için 7-bit maske, yedi

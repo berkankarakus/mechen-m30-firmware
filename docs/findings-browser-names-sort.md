@@ -240,6 +240,12 @@ The result is therefore a useful dynamic boundary, not a folder-scroll patch:
 the directory fix still needs a proven full-name source and ownership of the
 fsel/list-state record before changing the 50-byte slot.
 
+The verified byte boundary is represented in the host emulator by
+`tools/sim/browser_row_record.py`. It preserves all 20 bytes, exposes only the
+little-endian `+0x02` halfword consumed by the converter, and computes the
+`list_state + 4 + row * 0x14` offset. It deliberately does not call that field
+a playlist index or directory identifier.
+
 ### Directory callback runtime boundary
 
 `tools/ghidra/run_browser_directory_name_probe.sh` now executes the real
