@@ -305,6 +305,13 @@ controls `0x1012`/`0x1013`, and is intentionally not used as evidence for the
 initial paint. This distinction prevents the host preview from presenting a
 scroll-renderer call as an artwork paint call.
 
+The host JSON also exposes `state_dispatch` for the five separately probed
+state branches: metadata (`0x100`), transport/EQ (`0x20`), status-low
+(`0x200`), status-high (`0x800`), and controls (`0x08`). It records only the
+verified operation and raw identifier order. The identifier's visual state is
+left unresolved because the p-code probe stops at the dispatcher and does not
+prove which runtime frame or resource state the consumer selects.
+
 The first eight bytes of each `0x12` clear payload are now decoded as a
 rectangle header, not guessed coordinates: `(x, y, width, height)` is
 `(0, 0, 320, 28)`, `(0, 28, 320, 151)`, and `(0, 179, 320, 61)`.

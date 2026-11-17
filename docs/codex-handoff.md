@@ -263,6 +263,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x1002` artwork control'ü yedi çağrılık sırayla taşır. Rectangle header'ı
   kanıtlanmıştır; payload tail'i opaque kalır. `observed_dispatch` adı artık
   yalnızca `0x1012`/`0x1013` içeren shared scroll zarfını ifade eder.
+- `NowPlaying.state_dispatch_trace()` gerçek p-code state probe'unda ayrı ayrı
+  çalıştırılan `0x100`, `0x20`, `0x200`, `0x800` ve `0x08` dallarının ham
+  operation/identifier sırasını host JSON'daki `state_dispatch` altında taşır.
+  Bu yalnızca dispatcher sınırıdır; frame/resource görsel anlamı tahmin
+  edilmez.
 - `tools/ghidra/run_now_playing_paint_decompile_probe.sh`, `FUN_40154ddc`
   decompile’ındaki dört halfword rectangle yazımını ve `&uStack_18` → op-`0x12`
   çağrısını koruyan dar bir static guard’dır. Probe dump’ındaki header sonrası

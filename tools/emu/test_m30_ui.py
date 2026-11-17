@@ -163,6 +163,39 @@ class M30UiTests(unittest.TestCase):
         self.assertEqual(calls[-1]["role"], "draw_artwork")
         self.assertEqual(calls[3]["background_color"], 0x39E7)
 
+    def test_state_dispatch_trace_matches_real_branch_sequences(self):
+        ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP))
+
+        cases = {
+            0x100: [(0x02, 0x1002), (0x03, 0x2005)],
+            0x020: [(0x02, 0x1002), (0x02, 0x1004), (0x02, 0x1003)],
+            0x200: [(0x02, 0x1002), (0x02, 0x1000)],
+            0x800: [(0x02, 0x1002), (0x02, 0x1001)],
+            0x008: [
+                (0x02, 0x1002),
+                (0x02, 0x1007),
+                (0x02, 0x1006),
+                (0x02, 0x1008),
+                (0x02, 0x1005),
+                (0x02, 0x1004),
+                (0x02, 0x1002),
+            ],
+        }
+
+        for flags, expected in cases.items():
+            calls = ui.state_dispatch_trace(flags)
+            self.assertEqual(
+                [(call["op"], call["identifier"]) for call in calls],
+                expected,
+            )
+            self.assertTrue(all(call["flags"] == flags for call in calls))
+            self.assertTrue(
+                all("visual state unresolved" in call["semantics"] for call in calls)
+            )
+
+        with self.assertRaises(ValueError):
+            ui.state_dispatch_trace(0x001)
+
     def test_render_uses_verified_clear_band_colors(self):
         ui = NowPlaying(MusicStyle.load(STY), FirmwareTrace.load(AP), show_header=False)
         frame = ui.render()

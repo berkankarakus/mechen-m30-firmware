@@ -67,6 +67,44 @@ NOW_PLAYING_CLEAR_BANDS = (
     (0, 179, 320, 61, 0x18C3),
 )
 
+# These flag-to-dispatch sequences come from the real state probe. The
+# identifiers are intentionally kept as raw control/style IDs; their visual
+# state selection is still supplied by the host inputs below.
+NOW_PLAYING_STATE_DISPATCHES = {
+    0x100: (
+        "metadata",
+        ((0x02, 0x1002, "control"), (0x03, 0x2005, "style")),
+    ),
+    0x020: (
+        "transport",
+        (
+            (0x02, 0x1002, "control"),
+            (0x02, 0x1004, "control"),
+            (0x02, 0x1003, "control"),
+        ),
+    ),
+    0x200: (
+        "status-low",
+        ((0x02, 0x1002, "control"), (0x02, 0x1000, "control")),
+    ),
+    0x800: (
+        "status-high",
+        ((0x02, 0x1002, "control"), (0x02, 0x1001, "control")),
+    ),
+    0x008: (
+        "controls",
+        (
+            (0x02, 0x1002, "control"),
+            (0x02, 0x1007, "control"),
+            (0x02, 0x1006, "control"),
+            (0x02, 0x1008, "control"),
+            (0x02, 0x1005, "control"),
+            (0x02, 0x1004, "control"),
+            (0x02, 0x1002, "control"),
+        ),
+    ),
+}
+
 # Ghidra names these as _UNK_40d551xx because they are literal-pool function
 # pointers.  These are the exact addresses read from the real AP bank.
 DISPATCH_POINTERS = {
@@ -607,6 +645,31 @@ class NowPlaying:
         calls.append(artwork)
         return calls
 
+    def state_dispatch_trace(self, flags: int) -> list[dict[str, object]]:
+        """Return one verified state-branch dispatcher sequence.
+
+        The p-code probe executes one branch flag at a time and proves the
+        operation order and raw identifier values. It does not prove the
+        visual meaning of those identifiers, so this method deliberately
+        stops at the dispatcher boundary.
+        """
+        branch = NOW_PLAYING_STATE_DISPATCHES.get(flags)
+        if branch is None:
+            raise ValueError(f"state flags have no verified dispatch trace: {flags:#x}")
+
+        branch_name, dispatches = branch
+        return [
+            {
+                "flags": flags,
+                "branch": branch_name,
+                "op": op,
+                "identifier": identifier,
+                "identifier_kind": identifier_kind,
+                "semantics": "verified dispatcher boundary; visual state unresolved",
+            }
+            for op, identifier, identifier_kind in dispatches
+        ]
+
     def metadata_payload_trace(
         self,
         metadata_index: int,
@@ -915,6 +978,10 @@ def main() -> int:
             "calls": ui.dispatch_trace(),
             "paint_dispatch": ui.paint_dispatch_trace(),
             "observed_dispatch": ui.observed_dispatch_trace(),
+            "state_dispatch": {
+                branch_name: ui.state_dispatch_trace(flags)
+                for flags, (branch_name, _) in NOW_PLAYING_STATE_DISPATCHES.items()
+            },
             "selected_picboxes": ui.selected_picbox_trace(),
             "clipping": {
                 "directory_input_contract": "fixed 50-byte UTF-16 slot before marquee",
