@@ -103,6 +103,47 @@ The M30 resource is the source of truth for a patch.  A candidate must preserve
 its existing control-group counts and member size, and every changed style
 record must be tied to a runtime style ID used by the M30 `music.ap`.
 
+## Public SDK string-ID cross-check
+
+The external [PD196_ATJ2127 SDK](https://github.com/Suber/PD196_ATJ2127)
+reference tree (local checkout: `/Users/berkan/Projects/m30-inputs/ref/PD196`)
+contains a useful, but non-authoritative, cross-check for the metadata table.
+Its public resource headers define every value in the standard M30 table as a
+string resource ID:
+
+| M30 value | PD196 SDK symbol | Header |
+| ---: | --- | --- |
+| `0x8027` | `S_SECOND` | `case/resource/common/UIFile/common_res.h` |
+| `0x004e` | `S_SET_MENU` | `case/resource/music/music_res.h` |
+| `0x0024` | `S_GENRE` | `case/resource/music/music_res.h` |
+| `0x0026` | `S_IS_OVERRIDE_FAVLIST` | `case/resource/music/music_res.h` |
+| `0x0028` | `S_LICENSE_FAIL` | `case/resource/music/music_res.h` |
+| `0x0017` | `S_CLASSIC` | `case/resource/music/music_res.h` |
+| `0x005d` | `S_THIS_ALBUM` | `case/resource/music/music_res.h` |
+| `0x001a` | `S_CUSTOM` | `case/resource/music/music_res.h` |
+
+This exact eight-value correspondence raises the confidence that the M30
+payload's first halfword is string-ID-like rather than a palette, bitmap, or
+TextBox index.  It is still an educated guess: the SDK is a different build,
+its generated `music.sty` is not byte-compatible with M30, and the M30
+`0x004f`/`0x005e` revision values do not preserve the standard table.
+
+The same SDK also narrows what this correspondence can mean.  Its music
+playing code fills `g_title_buf`, `g_artist_buf`, and `g_album_buf`, then points
+`g_scroll_content[0..2]` at those buffers; it does not use the resource IDs as
+the ID3 title, artist, or album values.  The table therefore cannot currently
+be labelled as the M30's visible metadata-field names.  At most, the public
+headers show that the halfwords fit an existing string-resource namespace.
+
+The same SDK documents a 12-byte `string_desc_t` containing a data union,
+language byte, length, argv, and result fields.  The M30 probe has only proved
+that its metadata payload contains a little-endian halfword at `a0 + 0x10`, the
+copied byte at `a0 + 0x12`, and a zero word at `a0 + 0x14`.  The observed
+payload is therefore not promoted to `string_desc_t` or any other named ABI.
+The emulator continues to expose `table_value` as opaque, while this section
+records the strongest current semantic hypothesis and the evidence needed to
+revisit it.
+
 ## M30 binary cross-check
 
 The community-compatible M30 `music.ap` was loaded into Ghidra using the

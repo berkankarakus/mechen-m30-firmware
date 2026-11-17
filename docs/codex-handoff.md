@@ -71,6 +71,14 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   indeks 1 ve 6'yı `0x004f`/`0x005e` olarak değiştiriyor ve gerçek p-code
   probe'u bu iki payload farkını üretiyor. Host değerleri AP'den okuyor,
   sabit anlam atamıyor.
+- Dış PD196 SDK referansındaki `common_res.h` ve `music_res.h`, standart M30
+  metadata tablosundaki sekiz halfword'ün tamamını string resource ID olarak
+  adlandırıyor (`S_SECOND`, `S_SET_MENU`, `S_GENRE`,
+  `S_IS_OVERRIDE_FAVLIST`, `S_LICENSE_FAIL`, `S_CLASSIC`, `S_THIS_ALBUM`,
+  `S_CUSTOM`). Bu, ilk halfword için güçlü bir string-ID hipotezidir; M30
+  `string_desc_t` ABI'si kanıtlanmadığından emulator'daki `table_value` hâlâ
+  opaque kalır. Ayrıntı [`findings-now-playing-layout.md`](findings-now-playing-layout.md)
+  içindedir.
 - Sıradaki yüksek getirili iş resource/font pointer'larını gerçek LCD sink'e
   bağlamak. EOF mode-4 için dinamik callback patch'i, bank sonundaki
   kod/veri örtüşmesi nedeniyle güvenli bir probe sınırı oluşturmadı; bu alan
