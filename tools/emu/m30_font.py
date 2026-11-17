@@ -188,6 +188,16 @@ class M30Font:
             raise ValueError("pixel_scale must be 1 or 2")
         return sum(self._scaled_advance(self.display_glyph(char).advance, pixel_scale) for char in text)
 
+    def record_text_width(self, text: str, *, pixel_scale: int = 1) -> int:
+        """Sum the advance bytes stored in the extracted font records.
+
+        This is an evidence candidate for firmware text measurement, not a
+        claim that a particular M30 screen path consumes these bytes.
+        """
+        if pixel_scale not in (1, 2):
+            raise ValueError("pixel_scale must be 1 or 2")
+        return sum(self._scaled_advance(self.glyph(char).advance, pixel_scale) for char in text)
+
     def vertical_ink_bounds(self, text: str, *, pixel_scale: int = 1) -> tuple[int, int] | None:
         """Return the displayed glyph ink's relative vertical bounds."""
         if pixel_scale not in (1, 2):

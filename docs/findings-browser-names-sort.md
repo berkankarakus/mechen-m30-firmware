@@ -246,6 +246,27 @@ little-endian `+0x02` halfword consumed by the converter, and computes the
 `list_state + 4 + row * 0x14` offset. It deliberately does not call that field
 a playlist index or directory identifier.
 
+### Candidate explanation for variable folder scrolling
+
+The directory name slot can contain 23 visible BMP characters after its BOM
+and terminator. At that length, fixed 8-pixel cells always measure 184 px,
+below the 205 px viewport. The extracted `new_m.fnt` record advances vary by
+glyph: the slot text `A very long folder name` totals 207 px using raw record
+advance bytes, while 23 `I` characters total 115 px. The host display
+rasterizer gives its own values and currently uses those for painting. This
+makes variable advances a plausible explanation for some truncated names
+scrolling and others staying still, but the browser's indirect measurement
+callbacks have not been tied to `new_m.fnt`; the hardware metric remains
+unproven.
+
+`folder_ui.py` now reports raw-record, host-display, and fixed-cell threshold
+results side by side without changing its rendered behavior. Reproduce with:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=tools/emu:. python3 -m unittest \
+  tools/emu/test_folder_ui.py
+```
+
 ### Directory callback runtime boundary
 
 `tools/ghidra/run_browser_directory_name_probe.sh` now executes the real

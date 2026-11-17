@@ -88,6 +88,8 @@ def directory_clipping_trace(
     source_width = _measured_text_width(name, font)
     slot_width = _measured_text_width(slot_text, font)
     scroll_input_width = _measured_text_width(scroll_text, font)
+    raw_record_width = font.record_text_width(scroll_text) if font else None
+    fixed_cell_width = len(scroll_text) * FOLDER_GLYPH_WIDTH_PX
     source_clipped = slot_text != name
     renderer_clipped = scroll_input_width > viewport_width
     if scroll_source == SCROLL_SOURCE_SLOT and source_clipped:
@@ -107,6 +109,13 @@ def directory_clipping_trace(
         "scroll_input": scroll_source,
         "scroll_input_text": scroll_text,
         "scroll_eligible": renderer_clipped,
+        "raw_font_record_scroll_input_width_px": raw_record_width,
+        "raw_font_record_scroll_eligible": (
+            raw_record_width > viewport_width if raw_record_width is not None else None
+        ),
+        "fixed_8px_scroll_input_width_px": fixed_cell_width,
+        "fixed_8px_scroll_eligible": fixed_cell_width > viewport_width,
+        "font_metric_mapping_to_firmware_verified": False,
     }
 
 

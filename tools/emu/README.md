@@ -392,6 +392,11 @@ font metrics. To compare the untruncated source name against the fixed-width
 firmware slot, pass `--scroll-source full-name`; this is a diagnostic
 candidate, not a proven device behavior.
 
+The browser trace also compares that host width with raw `new_m.fnt` record
+advances and the prior fixed 8-pixel cell model. These are candidate width
+calculations only: the firmware call path that consumes the font record
+advance is not yet connected to the browser's marquee threshold.
+
 ```sh
 PYTHONPATH=. python3 tools/emu/folder_ui.py \
   --common-sty analysis/community/fw/common.sty \

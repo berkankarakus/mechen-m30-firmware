@@ -82,6 +82,23 @@ class FolderUiTests(unittest.TestCase):
         )
         self.assertEqual(view.json()["font"], "new_m.fnt")
 
+    def test_raw_font_record_advances_explain_candidate_scroll_threshold(self):
+        font = M30Font.load(Path(__file__).parents[2] / "analysis/community/fw/new_m.fnt")
+        view = FolderList(
+            (FolderRow("A very long folder name that should scroll continuously"),),
+            selected_index=0,
+            font=font,
+        )
+        _, trace = view.render()
+        clipping = trace[0]["clipping"]
+
+        self.assertEqual(view.rows[0].slot_text, "A very long folder name")
+        self.assertEqual(clipping["raw_font_record_scroll_input_width_px"], 207)
+        self.assertTrue(clipping["raw_font_record_scroll_eligible"])
+        self.assertEqual(clipping["fixed_8px_scroll_input_width_px"], 184)
+        self.assertFalse(clipping["fixed_8px_scroll_eligible"])
+        self.assertFalse(clipping["font_metric_mapping_to_firmware_verified"])
+
     def test_render_trace_records_selected_redraw_contract(self):
         view = FolderList(
             (
