@@ -1,9 +1,9 @@
 # M30 SD-card adapter driver: partial static boundary
 
-`card.drv` is a two-segment SD-card adapter/controller member. Automatic
-Ghidra prologue discovery does not recover its functions, so this file is
-not marked as fully decompiled. The entry call tree can nevertheless be
-seeded and checked reproducibly.
+`card.drv` has three non-empty YQHX segments in descriptor slots 0, 1, and 3;
+slot 2 is empty. Automatic Ghidra prologue discovery does not recover its
+functions, so this file is not marked as fully decompiled. The entry call tree
+can nevertheless be seeded and checked reproducibly.
 
 ## Reproducible checks
 
@@ -24,8 +24,10 @@ fc355c17258fe6fca184e5a616ec4c0b151a566caa99feba9b14981a046063bf
 
 | Field | Value |
 |---|---:|
-| segment 0 | file `0x200`, `0x9d0` bytes → `0xbfc17400` |
-| segment 1 | file `0xc00`, `0xa10` bytes → `0xbfc28000` |
+| descriptor slot 0 | file `0x200`, `0x9d0` bytes → `0xbfc17400` |
+| descriptor slot 1 | file `0xc00`, `0xa10` bytes → `0xbfc28000` |
+| descriptor slot 2 | empty |
+| descriptor slot 3 | file `0x1700`, `0x44` bytes → `0x9fc19500` |
 | BSS | `0x9fc19544`, `0` bytes |
 | entry field | `0xbfc28494` |
 | Ghidra mode | MIPS16, 8 entry/call-tree functions seeded |

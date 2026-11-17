@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the two-segment SD-card adapter driver's static boundary."""
+"""Check the non-empty YQHX segments of the SD-card adapter driver."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from yqhx import YqhxImage  # noqa: E402
 CARD_SEGMENTS = (
     (0x200, 0x9D0, 0xBFC17400),
     (0xC00, 0xA10, 0xBFC28000),
+    (0x1700, 0x44, 0x9FC19500),
 )
 CARD_BSS = (0x9FC19544, 0)
 CARD_ENTRY = 0xBFC28494
@@ -51,7 +52,7 @@ def main() -> int:
     verify(args.card_driver)
     print(
         "SD ADAPTER BINARY PROBE PASS "
-        "segments=2 bfc17400+0x9d0,bfc28000+0xa10 "
+        "segments=3 bfc17400+0x9d0,bfc28000+0xa10,9fc19500+0x44 "
         "entry=0xbfc28494 markers=rwclk,rwerr"
     )
     return 0
