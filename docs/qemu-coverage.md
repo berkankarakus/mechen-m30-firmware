@@ -376,3 +376,10 @@ The suite is intentionally separate from the static/Ghidra suite: it requires
 RAM or exception shims. A green result proves the recovered boundary and
 argument/state contract only; it does not prove ATJ2127 hardware behavior or
 USB-DAC audible output.
+
+The boundary suite was run against the `stock`, `community`, and `v1.101.11`
+firmware directories. All three produced the same LCD/DAC boundary results,
+16-byte producer-to-consumer transfer, and `module=0x10` exception envelope
+(`Cause=9`, `EPC=0x800526ab`, four preserved arguments). The independent TCG
+observer also reported the same transition to `0x80010180` in each run. This
+cross-version agreement covers these extracted driver paths only.
