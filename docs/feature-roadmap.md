@@ -15,7 +15,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | P1 | EQ'nin duyulabilir yolu | Deneysel Custom eğri cihazda Off'tan farklı duyulmadı; dört overlay kendi tabanındaki `0x38`-byte kalıcı bloğun `+0x2c..+0x32` alanını Custom kaynağı olarak kullanıyor. `config.ap` bunu açılışta `0x9fc1a19c`'ye kopyalıyor. Gerçek `FUN_40414c00 → FUN_48ad47b0` p-code yürütmesi community ve V1.101.12’de helper sonucu `-0x7fef` enjekte edilip resident system-call ve shared-AP servis stub’ları sıfır döndürdüğünde type `3` dalının `-0x7fec` verdiğini doğruladı. Selector `0x9fc1570d` yazarı, slider sahnesi ve ses tüketicisi hâlâ çözülmedi. Sıradaki iş MCG ID resolver/caller zincirinde selector yazmalarını izlemek; sabit eğriyi değiştirme |
 | P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |
 | P1 | Sabit ROM kaynağı | [ROM-dump arama bulgusu](findings-rom-dump-availability.md): diğer Mechen modelleri için doğrulanabilir ham dump bulunmadı; güncelleme paketleri M30 sabit-ROM boşluğunu kapatmıyor. Aynı M30 kartının readback’ini veya adres haritası doğrulanmış eşdeğerini ara |
-| P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
+| P2 | Playback | `run_asrc_mode4_dynamic_probe.sh` gerçek `FUN_40494e94`'ü hash-pinned stock/community AP'lerde çalıştırıyor. Son öğede progress 9/10/11 eşik vakaları denendi: community mode 4 eşikte index 0 ile advance callback'e gider, stock end notification alır. Sırada transition callback'ini decoder/ASRC/DAC byte akışına bağlamak var; fade-out drain kanıtı henüz yok |
 | P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |
 
 ## Dinamik inceleme havuzu
@@ -29,7 +29,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 |---|---|---|---|
 | P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın `+0x02` alanı doğrulandı; playlist/directory semantik türü ve güvenli isim patch noktası hâlâ açık |
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
-| P0 | Playback/EOF | `music.ap` → `mengine.ap` → `mmm_bp` çağrılarını PCM/read/EOF callback stub’larıyla yürüt | fade-out kesilmesinin decoder EOF mu, ASRC drain mi, DAC tüketimi mi olduğu |
+| P0 | Playback/EOF | `run_asrc_mode4_dynamic_probe.sh`: gerçek `FUN_40494e94`'ü stock/community hash-pinned AP'lerde p-code çalıştır; callback literal'larını değiştirmeden hedeflerde intercept et | Son öğede stock mode 4 end-notification alır; community mode 4 eşik 10'da index 0 ile advance callback'e gider; decoder/ASRC/DAC ve örnek kuyruğu hâlâ bağlı değil |
 | P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | module `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |
 | P1 | EQ Custom | Gerçek callback ve event target p-code’unu hash-pinned community/V1.101.12 kodunda çalıştır; MCG ID resolver’da `0x9fc1570d` yazmasını izle | stub’lar sıfır dönerken type-3 isteğinin `-0x7fec` dönüşü gerçek talimatlarda tekrarlandı; selector writer ve gerçek UI caller zinciri hâlâ açık |
 | P1 | Browser marquee/B3 | Gerçek `FUN_260e4ff4` kodunu injected branch/width sonuçlarıyla çalıştır; B16-qualified dış hedef çağrı argümanlarını yakala | `0x17` dalında descriptor `+8=0x7c`; kısa injected width region X’ini 5→45 kaydırıyor. Browser callback→B3 caller bağı ve 0x26409401 hedefinin çizim etkisi hâlâ açık |
@@ -68,10 +68,12 @@ denemesi anlamına gelmez.
 5. **Ses tarafını sınırda tut:** `usound` producer/consumer ve DAC byte
    transferi geçişlerini birlikte trace et; decoder/DSP/ASRC/DAC'ın audible
    etkisi kanıtlanmadan USB-DAC, gapless veya fade-out sonucu çıkarma.
-6. **EOF dinamik probe sınırı:** `FUN_40494e94` çevresindeki bank sonu
-   kod/veri örtüşmesi nedeniyle callback literal'lerini güvenle RAM'e
-   yönlendiren bir p-code probe kurulamadı. Mode-4 sonucu bu nedenle mevcut
-   statik delta ile sınırlı; yanlış patch üretme.
+6. **EOF kontrol akışı dinamik olarak doğrulandı:**
+   `run_asrc_mode4_dynamic_probe.sh` gerçek stock/community `music.ap`
+   talimatlarını çalıştırıp callback hedeflerini kod/literal değiştirmeden
+   yakalıyor. Son öğede mode-4 ve 9/10/11 threshold vakaları doğrulandı.
+   Sırada advance callback'ini gerçek player/decoder/ASRC veri yoluna bağlamak
+   var; sesin uzadığı veya kuyruk örneklerinin çalındığı sonucu çıkarma.
 7. **Düşük öncelikli işler:** MUSIC.LIB metadata yeniden kurma/tie-break,
    sayaç kalıcılığı, yeni EQ presetleri ve filename sıralama değişikliği;
    bunlar mevcut kanıtla cihaz eşdeğeri kabul edilemez.

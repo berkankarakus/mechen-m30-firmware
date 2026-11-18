@@ -50,9 +50,27 @@ probe until their callers and device-facing effects are identified.
 
 ## Dinamik probe sınırı
 
-`FUN_40494e94` çevresindeki callback havuzu, bank sonundaki kod/veri
-örtüşmesi nedeniyle doğrudan RAM callback'lerine güvenle yönlendirilemedi:
-Ghidra, bazı literal görünen adresleri aynı zamanda tanımlı instruction/function
-olarak işaretliyor ve yazma denemesi gerçek kodla çakışıyor. Bu nedenle mode-4
-dinamik yürütme sonucu üretilmedi; statik altı-byte delta ve host control-flow
-modeli geçerli kanıt sınırı olarak korunuyor.
+`bash tools/ghidra/run_asrc_mode4_dynamic_probe.sh` executes the real
+`FUN_40494e94` instructions from hash-pinned stock and community APs in Ghidra
+p-code. It verifies the callback literal pool in the program and emulated
+memory before/after execution, then intercepts callbacks at their original
+targets; no AP code or callback literal is rewritten. The resident snapshot
+callback at `0xbfc164dc` returns a controlled value of 100, and the
+song-advance/end-notification targets are captured stubs. Playback
+state, index, threshold, and the remote UI event byte are synthetic RAM inputs.
+The tested direct callees have MIPS16 context, every callback pointer is
+MIPS16-tagged, and every intercepted return address is checked for its odd
+MIPS16 tag. Only those tested paths are covered by this mode-preserving
+assumption. The runner creates disposable Ghidra projects under a temporary
+directory; its synthetic RAM blocks are discarded when each run exits.
+
+At the last item (index 2 of 3) above the threshold, stock mode 2 wraps to index
+0 and calls the transition target with argument 0. Stock mode 4 instead leaves
+the index at 3 and takes the end-notification/UI path. Community mode 4 wraps to
+index 0 and calls the transition target with argument 0, matching mode 2. Below
+the threshold (progress 9 against threshold 10), community mode 4 makes no
+transition call; at equality (10) and above (11) it takes the advance path.
+The probe therefore
+confirms the mode-4 end-of-list control-flow change in actual AP instructions.
+It does not execute the transition/UI callback bodies, establish what mode 4
+means at the decoder, or prove that the ASRC/DAC drains the fade-out samples.
