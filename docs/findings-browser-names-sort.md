@@ -61,11 +61,17 @@ literal pool identifies the directory descriptor at `0x9fc15598`, the
 per-entry table at `0x9fc155a4`, and the directory operation wrapper at
 `0x780db201`. In the directory callback `FUN_71352820`, the resident helper
 `0xbfc16a2d` receives each slot's destination and `slot_length >> 1`; with the
-verified `0x32`-byte length this is 25 UTF-16 code units. The adjacent helper
-`0xbfc16a21` updates the entry metadata. This confirms that the truncation is
-already enforced in the filesystem/name-copy boundary, before `drv_ui`'s
-marquee code, while leaving the implementation of the fixed ROM helper
-outside the extracted firmware.
+verified `0x32`-byte length this requests 25 UTF-16 code units. The adjacent
+helper `0xbfc16a21` updates entry metadata. This establishes the caller's
+capacity, not what the ROM helper returns when a name is longer: it may
+truncate, return a short alias, or use another provider rule. The ROM helper's
+implementation is outside the extracted firmware.
+
+The p-code probe was rerun against the community AP. Its synthetic filesystem
+stub returned `FILE    TXT`; the real in-AP formatter produced
+`FILE.TXT\0TXT`, and the callback passed the 25-unit request. This confirms
+that synthetic short-name path only. It does not exercise a long name or
+establish the ROM provider's long-filename behavior.
 
 The next layer is now separated as well by
 `tools/ghidra/run_browser_fs_dispatch_probe.sh`. `0x780db201` is the
@@ -81,9 +87,11 @@ filesystem navigation state, not a hidden “scroll disabled” flag. The
 folder-name fix must remain at the name-buffer/provider boundary or in the
 directory screen's later display path; changing this dispatch would alter
 navigation semantics and is not a safe UI patch.
-- Truncation, directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883): per item it calls kernel fs op 2 with
-  length `name_len >> 1` (= 25 UTF-16 units), then `FUN_71352ab0` (B:12004, 8.3 name -> "NAME.EXT" when no FF FE BOM).
-  Max visible name: 25 units incl. BOM and terminator, so about 23-24 chars (HYPOTHESIS for exact count; kernel op 2 not in any dump).
+- Directory mode (fsel type 0): VERIFIED `FUN_71352820` (B:11883) calls
+  kernel fs op 2 with requested capacity `name_len >> 1` (= 25 UTF-16 units),
+  then `FUN_71352ab0` (B:12004) formats a non-BOM 8.3 name as `NAME.EXT`.
+  The 25-unit request does not prove how the ROM provider handles longer
+  names; the actual maximum returned/displayed name remains UNKNOWN.
 - Truncation, library mode (fsel type 1): VERIFIED community `FUN_714d2658` (B:13681; copy at ~13790) copies `name_len-2` = 48 bytes
   from the record title (record+0, 64-byte field, FF FE BOM + UTF-16LE) then writes 2 zero bytes. 48 bytes = BOM + 23 chars. Cap 0x40 if len-2 > 0x3f.
   Stock twin: `FUN_714126e0` (B:12679). Playlist/other type 2 uses `FUN_71392658`; `FUN_71512628` (B:13936) caps 0x30 (album field).
@@ -258,6 +266,14 @@ makes variable advances a plausible explanation for some truncated names
 scrolling and others staying still, but the browser's indirect measurement
 callbacks have not been tied to `new_m.fnt`; the hardware metric remains
 unproven.
+
+The M30 call boundary to the marquee remains incomplete. Static analysis found
+`drv_ui.drv` `FUN_260e4ff4` (file `0x9674`) forwarding two text records to the
+B16 renderer and, conditionally, the A17 forwarder. The renderer/forwarder
+bodies are outside the extracted driver, and no direct call from browser
+`FUN_40cd5218` to this path was found. The `0x7c` argument is carried into the
+renderer descriptor, but its unit and meaning are unknown; it cannot yet be
+used as a measured scroll width.
 
 `folder_ui.py` now reports raw-record, host-display, and fixed-cell threshold
 results side by side without changing its rendered behavior. Reproduce with:

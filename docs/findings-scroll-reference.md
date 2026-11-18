@@ -45,13 +45,14 @@ colour fill:
 - active background resource is the 310x29 selection bitmap (resource 80 in
   the extracted `common.sty`), currently red in the safe UI candidate.
 
-The reference `show_list_item()` first draws that selected bitmap. When the
-name needs scrolling, it calls `load_bgpic_sd()` and changes the text path to
-`CHAR_FILL_SDIMAGE`. The marquee then restores the background from the image
-while drawing characters. The source's `clear_remain_pixel_sdimage()` clears
-only the remaining edge region requested by the marquee. This makes the red
-rectangle a normal selected-row background, not evidence that the palette is
-wrong; the missing-text symptom is a separate buffer/rendering problem.
+The `common.sty` resource is 80, a 310x29 bitmap whose pixels are all RGB565
+`0xd000` red. The reference `show_list_item()` first draws that selected
+bitmap. In that reference implementation, scrolling uses `load_bgpic_sd()`,
+`CHAR_FILL_SDIMAGE`, and `clear_remain_pixel_sdimage()` to restore the moving
+text region. This is generic SDK behavior, not yet mapped to the M30 browser
+call chain. The red selection bitmap explains a red selected row before
+scrolling; it does not by itself explain the red rectangle reported during
+movement.
 
 The source implementation makes the restore boundary more precise:
 
@@ -64,18 +65,25 @@ The source implementation makes the restore boundary more precise:
   saved background image and sends only that rectangle through the LCD DMA
   path.
 
-Therefore a red strip appearing behind a moving folder name is exactly the
-kind of symptom produced when the selected-row background was drawn but the
-image-backed tail restore is skipped, clipped, or given the wrong x/y origin.
-The M30 binary still needs a direct pointer/API match before this becomes a
-flashable fix.
+New M30 static evidence narrows the boundary without identifying its effect.
+In `drv_ui.drv`, `FUN_260e4ff4` (file `0x9674`) passes `0x7c` (124) to the
+ROM helper at `0xbfc09c01` (call at file `0x96be`). The same value is stored at
+`+8` in text descriptors sent through the A17/B16 renderer path. The helper
+body is absent, so the unit and operation remain unknown; `0x7c` is not proven
+to mean 124 pixels or to equal the 205-pixel text viewport.
 
-The host contract in `tools/sim/listbox.py` now models this distinction: the
-initial empty row may clear the full viewport, while an active marquee frame
-records a one-pixel `sdimage-tail` restore. This is a rendering model update,
-not a firmware patch. The folder emulator now exposes the same distinction in
-its trace: a selected row with an active pixel offset reports `sdimage-tail`,
-while a short/initial selection reports `solid-selection-red`.
+The browser row-refresh callback and the `drv_ui` marquee path have not been
+connected by a direct call edge; the intervening listbox/framework step is
+still missing. An unrefreshed or incorrectly clipped right edge is one
+possible explanation for a red strip behind a moving folder name, but remains
+an inference. The M30 scroll activation threshold and the selected-row redraw
+during movement also remain unresolved.
+
+The host contract in `tools/sim/listbox.py` models the SDK-style background
+restore as an emulator behavior. It is not evidence that the M30 firmware
+uses the same restore API. The folder emulator's `sdimage-tail` trace should
+therefore be read as a modeled hypothesis, while the red initial selection
+background is supported by the M30 resource data.
 
 ## M30-specific truncation point
 
