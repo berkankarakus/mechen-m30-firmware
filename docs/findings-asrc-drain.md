@@ -83,3 +83,30 @@ control-flow change and literal-mediated caller edge in actual AP
 instructions. They do not
 execute the advance/index-update callback body, establish what mode 4 means at
 the decoder, or prove that the ASRC/DAC drains the fade-out samples.
+
+## Callback-to-engine message boundary
+
+The mode-4 index callback was followed through the community `music.ap` and
+`mengine.ap` dispatchers. `FUN_405151a0` updates the selected-track state and
+ends through `FUN_40394eb4(1)`. That helper computes a state flag from
+`0x9fc15418` and calls `FUN_40614f30`; its literal-mediated resident call
+uses message ID `0x304` (`FUN_40614f30` at `0x40614f30`, resident target
+pointer `0xbfc16409`). In `mengine.ap`, `FUN_60090d64` dispatches `0x304`
+through pool slot `0x60091024` to `FUN_60110ddc` (`0x60110ddd` MIPS16-tagged
+pointer).
+
+The `0x304` handler reads a byte through message `param+4`, writes masked
+fields (`& 0x30`, `& 0x0f`, `& 0xc0`) into state at `0x60110e94 +
+0x2b/+0x2c/+0x2e`, conditionally calls state-transition helpers, and
+acknowledges via another indirect helper. The decompiled handler does not
+call the `0x311` PLAY dispatcher. This closes the *message-dispatch edge*
+from the mode-4 callback, but not the question of what those state fields
+mean or whether another asynchronous consumer later starts playback. This is
+static Ghidra evidence; the message payload and resident service effects were
+not executed in this trace.
+
+Reproduction: map the hash-pinned community `music.ap` and `mengine.ap` with
+`tools/ghidra/LoadAP.java`, then decompile `0x405151a0`, `0x40394eb4`,
+`0x40614f30`, `0x60090d64`, and `0x60110ddc` using `DumpAt.java`; inspect
+`mengine.ap` words at `0x60091010..0x6009106c` with `DumpWords.java` to verify
+the `0x304` dispatch slot.
