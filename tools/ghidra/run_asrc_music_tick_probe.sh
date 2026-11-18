@@ -31,17 +31,19 @@ run_case() {
       -import "$ap" -loader BinaryLoader -processor 'MIPS:LE:32:default' -noanalysis \
       -scriptPath "$WORK/scripts" -postScript LoadAP.java "$ap" \
       -postScript RunAsrcMusicTickProbe.java stock >"$log" 2>&1; then cat "$log" >&2; exit 1; fi
-    expect_log 'ASRC TICK DYNAMIC PASS stock=true steps=real-wrapper+real-mode4 snapshot-calls=2 event-init=1 handler=0x40494e94 handler-hits=1 entry-from=' "$log"
+    expect_log 'CALLSITE STATIC PASS 400d4fda lw v0,0xc4(pc) -> 400d4fdc jalrc v0 literal=400d509c' "$log"
+    expect_log 'ASRC TICK DYNAMIC PASS stock=true steps=real-wrapper+literal-load+jalrc+real-mode4 snapshot-calls=2 event-init=1 callback-jalrc-hits=1 call-target=40494e95 handler=0x40494e94 handler-hits=1 entry-from=400d4fdc return-to=400d4fdf' "$log"
     expect_log ' mode=4 final-index=3 advance-ui-args=[] end-notice=[0] end-ui=1 emulated-literal=unchanged' "$log"
   else
     if ! GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$home}" "$GHIDRA" "$project" "m30asrctick-$label" \
       -import "$ap" -loader BinaryLoader -processor 'MIPS:LE:32:default' -noanalysis \
       -scriptPath "$WORK/scripts" -postScript LoadAP.java "$ap" \
       -postScript RunAsrcMusicTickProbe.java >"$log" 2>&1; then cat "$log" >&2; exit 1; fi
-    expect_log 'ASRC TICK DYNAMIC PASS stock=false steps=real-wrapper+real-mode4 snapshot-calls=2 event-init=1 handler=0x40494e94 handler-hits=1 entry-from=' "$log"
+    expect_log 'CALLSITE STATIC PASS 400d4fda lw v0,0xc4(pc) -> 400d4fdc jalrc v0 literal=400d509c' "$log"
+    expect_log 'ASRC TICK DYNAMIC PASS stock=false steps=real-wrapper+literal-load+jalrc+real-mode4 snapshot-calls=2 event-init=1 callback-jalrc-hits=1 call-target=40494e95 handler=0x40494e94 handler-hits=1 entry-from=400d4fdc return-to=400d4fdf' "$log"
     expect_log ' mode=4 final-index=0 advance-ui-args=[0] end-notice=[] end-ui=0 emulated-literal=unchanged' "$log"
   fi
-  rg 'ASRC TICK DYNAMIC PASS' "$log"
+  rg 'CALLSITE STATIC PASS|ASRC TICK DYNAMIC PASS' "$log"
 }
 
 run_case stock "$ROOT/analysis/stock/fw/music.ap" \
