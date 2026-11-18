@@ -140,3 +140,53 @@ form the payload pointer, store message ID) and `0x40154caa..0x40154cb4`
 `LoadAP.java` and `DumpInstructions.java` on the hash-pinned community
 `setting.ap`, starting at `0x40154c88`; decompile `0x40154c88`,
 `0x40154cd4`, and `0x40155200` with `DumpAt.java`.
+
+### Confirmed engine-side consumers of the `0x304` state
+
+The state base pointer `0x9fc15c88` has multiple literal-pool references in
+`mengine.ap`. Decompiled consumers establish downstream effects without
+assigning speculative names to the bytes:
+
+- `FUN_60050d00` initializes `+0x2c` to `2` and `+0x2b` to `0` when its
+  persisted record is absent or invalid. This is a default/reset value, not
+  evidence that the byte means a particular playback mode.
+- `FUN_60190eec` is the `0x311 PLAY` handler (`_play`). After issuing the
+  `mmm_mp` PLAY command (`0x19`), it checks state `+0x2c`; if the value is
+  exactly `3`, it issues `mmm_mp` command `0x1c` and then copies a word from
+  the supplied data block into another engine state location. The
+  `+0x2c == 3` check is outside the success/failure branch for command
+  `0x19`, so command `0x1c` is not gated on that PLAY command succeeding. Its
+  own return value is also not checked before the word is copied. This is a
+  concrete playback-path effect of the `0x304` state. The purpose of command
+  `0x1c` and the meaning of the copied word remain unresolved.
+- `FUN_601910b0` passes `state[+0x2b] | state[+0x2c]` to an indirect helper
+  after its playback-state handling. In `FUN_600d1054`, nonzero state
+  `+0x2b` is one of two conditions for an indirect callback; that callback
+  receives state byte `+0x31`, not `+0x2b` or `+0x2c`. The helper and callback
+  targets are still unnamed.
+- `FUN_600d0e1c` returns the OR of `+0x2b` and `+0x2c` through its message
+  output pointer. `FUN_600d0ddc` is a neighboring message handler that passes
+  an engine data pointer to a helper and completes the message; its relation
+  to the state is only the shared pointer-pool neighborhood, not a proven
+  semantic link.
+- In the complete community `mengine.c` decompile, `+0x2e` appears only in
+  the `0x304` handler's store (`input & 0xc0`); no downstream read was found.
+  Its effect therefore remains unestablished.
+
+The strongest supported conclusion is that `0x304` updates engine state used
+by playback setup and related engine callbacks. It is not merely a UI marker
+and its setter has no direct `0x311` dispatch. Whether the `+0x2c == 3` branch
+corresponds to a user-facing option, an internal playback variant, or a
+transition condition still needs the producer/caller values and the target of
+command `0x1c` to be identified. These consumer links are static: the state
+pointer is resolved from literal-pool entries. The PLAY handler's relation to
+message `0x311` comes from the decompiled dispatch table; the other listed
+consumers are linked by their shared state-pointer references and direct
+calls where shown. This section does not claim a dynamic execution trace.
+
+Reproduce the consumers by decompiling `0x60050d00`, `0x600d0e1c`,
+`0x600d1054`, `0x60190eec`, and `0x601910b0` from community `mengine.ap`.
+`FUN_60190eec` is linked to the PLAY path by the existing `0x311` dispatcher
+finding. The persisted-record initialization and consumers are also present
+at the same addresses in the archived stock `V1.101.10` decompile; this
+finding establishes no community-only change.
