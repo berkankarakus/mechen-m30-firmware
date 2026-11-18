@@ -200,6 +200,29 @@ guard. It does not execute the resident `0xbfc11cc1` implementation, actual
 selector and RAM are controlled probe inputs; this is not a full engine run or
 proof of the helper's device-time effects.
 
+### Connection to the stock shuffle picker
+
+The status-0/1 path reaches code that this repository independently identifies
+as the stock shuffle subsystem: `tools/patch_mengine.py` names
+`FUN_7b1a808c` (`0x7b1a808c`) `init_shuffle` and `0x7b1a84b0` the stock picker
+entry. In the recovered code, `FUN_7b1a808c` builds a bitmap from its count
+argument and `FUN_7b1a8300` tests and clears a selected bit. The higher-level
+selection routines `FUN_7b1a8568`/`FUN_7b1a8658` use history first and reach the
+bitmap picker on fallback paths. The README identifies the old stock shuffle
+as biased and documents the replacement picker; this confirms the code
+region's shuffle role without treating the patched picker as stock behavior.
+
+The same engine RAM layout defines the current-folder track count at
+`0x9fc15f26` (`COUNT` in `tools/playall/playall.h`). In the dynamic 0x304
+probe, this count was deliberately seeded to `0x35` (53) and the status-0/1
+path passed it to `init_shuffle`; payloads `0xa3` and `0x53` reached this path
+with selector values `0x23` and `0x13`. This proves that the tested synthetic
+0x304 cases invoke the shuffle initializer with the seeded count. The resident
+clear calls made by that initializer are stubbed, so full device-time shuffle
+state reset is not established. The visible setting label and exact
+user-facing meaning of the producer's selection value remain unresolved; the
+UI option itself is not identified as “Shuffle.”
+
 ### Confirmed engine-side consumers of the `0x304` state
 
 The state base pointer `0x9fc15c88` has multiple literal-pool references in
