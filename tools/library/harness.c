@@ -208,6 +208,38 @@ static void (*const p_passes)(void) = (void (*)(void))0x400d5291;             /*
 static u32 (*const p_header)(u32) = (u32 (*)(u32))0x4019502d;                  /* FUN_4019502c */
 static void (*const p_key)(u32, u32, u32, u32) = (void (*)(u32, u32, u32, u32))0x48014695;  /* FUN_48014694 */
 
+#ifdef TRACE_KEY_PAIR
+#if !defined(TRACE_KEY_RECORD_A) || !defined(TRACE_KEY_RECORD_B) || \
+    !defined(TRACE_KEY_FIELD_OFFSET) || !defined(TRACE_KEY_FIELD_WIDTH)
+#error TRACE_KEY_PAIR requires both record indices, field offset, and field width
+#endif
+static void trace_key_pair(void)
+{
+    const u32 record_indices[] = {TRACE_KEY_RECORD_A, TRACE_KEY_RECORD_B};
+    u32 pair_index, byte_index;
+
+    for (pair_index = 0; pair_index < 2; pair_index++) {
+        const u8 *record = expect_image + 0x200 + record_indices[pair_index] * 256;
+        u8 *key = (u8 *)(RAMB + 0x3e000 + pair_index * 0x40);
+
+        for (byte_index = 0; byte_index < TRACE_KEY_FIELD_WIDTH; byte_index++)
+            key[byte_index] = 0xaa;
+
+        p_key((u32)key, (u32)(record + TRACE_KEY_FIELD_OFFSET),
+              TRACE_KEY_FIELD_WIDTH, TRACE_KEY_FIELD_WIDTH);
+        puts_("normalized key for record ");
+        putu(record_indices[pair_index]);
+        puts_(": ");
+        for (byte_index = 0; byte_index < TRACE_KEY_FIELD_WIDTH; byte_index++)
+            putb(key[byte_index]);
+        puts_("\n");
+    }
+
+    flush();
+    sys3(4001, 0, 0, 0);
+}
+#endif
+
 static void (*const p_new)(void) = (void (*)(void))0x10040001;                 /* index.c, TEST build, linked above the RAM */
 static u32 use_new_flag(void)                                                 /* --defsym use_new=0|1 */
 {
@@ -248,11 +280,15 @@ void _start(void)
     R16(0x15440) = n;                         /* scan count */
     R8(0x158cc) = keylen;
     R8(0x158cf) = 0;
+#ifdef TRACE_KEY_PAIR
+    trace_key_pair();
+#else
     for (i = 0; i < n && !use_new_flag(); i++) {                         /* the stock passes need the scan's keys */
         const u8 *rec = expect_image + 0x200 + i * 256;
-        p_key(RAMB + 0x30000 + i * keylen, (u32)rec, 0, keylen);      /* title key, as the scan does */
+        p_key(RAMB + 0x30000 + i * keylen, (u32)rec, 0x40, keylen); /* title key, width then key length */
         R8(0x29000 + i) = rec[0xf2];                                   /* track number byte */
     }
+#endif
 
     puts_(use_new_flag() ? "running the new index passes\n" : "running the stock index passes\n");
     if (use_new_flag()) p_new(); else p_passes();

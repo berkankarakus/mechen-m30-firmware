@@ -149,6 +149,92 @@ UTF-16↔UTF-16 differences in `ALBUM`, and 56 `ARTIST` differences split into
 diagnostic only; it does not make the candidate sorter a firmware writer and
 does not rewrite a device index.
 
+### Stock MIPS pass under QEMU
+
+The stock `playlist.ap` passes were also run in the QEMU harness against this
+4,000-record device image. The firmware code was unmodified. The harness text
+service was configured with `MODE_REPLACE`, replacement byte `0x01`, and no
+tail clearing (`NUL_ZERO` was not defined). This is an experiment with a
+candidate converter, not evidence that the device's ROM converter has that
+implementation. The run used the existing `m30-qemu-tools:debian-stable`
+container; firmware and evidence mounts were read-only.
+
+```sh
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+HEXTRA="-DMODE_REPLACE -DFILL=1" \
+tools/library/test.sh \
+  <stock-playlist.ap> \
+  <persistent-evidence-root>/device-sd/MUSIC.LIB \
+  <temporary-workdir> stock
+```
+
+The resulting `libdiff.py` comparison reported all four sections' order,
+inverse, and node-index tables as `4000 of 4000 identical`. All section node
+counts matched except `ARTIST` level 0 (`364` generated vs `363` on device) and
+`GENRE` level 1 (`440` vs `439`). `ALBUM` nodes were `549 of 549` byte-identical;
+the artist and genre node payloads still differ in runs containing the
+`Indelible` / `Indelible’` records. The whole-file comparison also reports a
+mismatch: the header and node-count differences are real, and the harness does
+not recreate unused/stale sectors. The per-section table comparison isolates
+the ordering result.
+
+Two controls narrowed the converter hypothesis. Clearing bytes after NUL with
+`-DNUL_ZERO` broke table equality (`ALLSONG` 3994/4000, `ALBUM` 3998/4000,
+`ARTIST` 3942/4000, `GENRE` 3998/4000). Treating a trailing non-byte UTF-16
+unit as a field terminator also produced incorrect node counts. Thus retaining
+the destination tail is required by this harness match, while the replacement
+byte and exact ROM conversion remain unverified.
+
+The host Python model has not yet matched the MIPS result: its opt-in
+`replace-continue-stale-tail:01` mode matches `ALLSONG`, `ALBUM`, and `GENRE`,
+but only 3944/4000 `ARTIST` order entries. The remaining gap is therefore not
+just the replacement byte or NUL-tail policy; the Python comparator/refinement
+or conversion call semantics still differ from the stock MIPS path. This mode
+remains an explicit experiment and is not the default emulator behavior.
+The first divergence is at position 83. The device places record 27, a
+single-byte `9th Wonder`, before record 67, a BOM-prefixed UTF-16LE `9th
+Wonder`; the Python candidate puts record 67 first. Both follow record 206
+(`90BPM - Ko`) at this boundary. Their observed bytes are:
+
+| Record | Encoding | Raw artist field | Python candidate key |
+|---:|---|---|---|
+| 27 | single-byte | `39746820576f6e6465720000000000000000000000000000` | same as raw field |
+| 67 | BOM + UTF-16LE | `fffe390074006800200057006f006e006400650072000000` | `39746820576f6e64657200006e006400650072000000fffe` |
+
+This pair identifies the next narrow comparison but does not establish the
+converter's behavior.
+
+A QEMU micro-probe called the stock `FUN_48014694` helper directly for these
+two artist fields with width and key length both set to `0x18`. The plain-byte
+record produced `39 74 68 20 57 6f 6e 64 65 72` followed by zero padding. The
+UTF-16LE record produced the same bytes through its NUL, then retained
+`6e 00 64 00 65 00 72 00 00 00 ff fe` in the remaining key bytes. These are
+the same full-width candidate keys produced by Python. Both are equal to the
+NUL-terminated comparator, so this probe does not explain the order reversal;
+the remaining distinction is in how the stock pass uses keys during
+refinement/tie ordering. This direct call also does not exercise the fixed-ROM
+converter's replacement behavior because the tested text is entirely within
+U+00FF.
+
+A focused follow-up ruled out the preceding-rank seed as the cause: using
+either the device `ALBUM` order or the Python candidate order still produces
+3944/4000 `ARTIST` entries, with the first mismatch at position 83. The
+normalizer's MIPS16 call takes a width argument, but the QEMU harness's initial
+title-key call originally passed zero where the title field width is `0x40`.
+That harness call was corrected and the full QEMU run repeated. All four order,
+inverse, and node-index tables remained 4000/4000; the node counts remained
+`ARTIST` 364 vs 363 and `GENRE` level 1 440 vs 439. The bad width argument was
+therefore a real harness defect, but it did not cause the remaining index
+mismatch. The harness stub ignores that argument, so the MIPS experiment's
+sorting result is unchanged. The strongest remaining hypothesis is that Python converts
+each field once at full width while the MIPS refinement path reconverts
+equal-key slices at their individual widths. Two small-record QEMU runs were
+not valid controls because their shortened key length left stale index-sector
+data in the copied header. The next discriminating experiment is to trace the
+normalizer's arguments and output bytes for the few mixed-encoding records
+around the first artist mismatch, then compare those exact keys with Python.
+No root cause has been confirmed.
+
 ## Location-key corroboration
 
 The public US212A application-design manual documents the file record's

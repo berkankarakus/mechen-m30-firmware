@@ -10,6 +10,7 @@
 # Tools, overridable from the environment, as for build.sh:
 #   CROSS=mips64-linux-gnu-   QEMU=qemu-mipsel-static   PYTHON=python3
 # INDEX_SRC=tools/library/replay.c OPS=IOTEST.OPS runs the op replay instead of the passes.
+# TRACE_ONLY=1 runs the linked harness once and skips output-library comparison.
 set -euo pipefail
 [ $# -ge 2 ] || { sed -n '2,8p' "$0"; exit 2; }
 T=$(cd "$(dirname "$0")" && pwd)
@@ -45,6 +46,7 @@ for v in stock new; do
   "${CROSS}as" -EL -mabi=32 -mips32 -o banks_$v.o banks_$v.s
   "${CROSS}ld" -EL -m elf32ltsmip -T "$T/test.ld" --defsym use_new=$flag -o test_$v.elf harness.o banks_$v.o index_test.o
   timeout 1800 "$QEMU" -cpu 24Kc ./test_$v.elf | tee harness_$v.txt || true
+  [ "${TRACE_ONLY:-0}" = 1 ] && exit 0
   mv harness_out.lib out_$v.lib
   "$PY" -I "$T/libdiff.py" "$ref" out_$v.lib | tee libdiff_$v.txt
 done

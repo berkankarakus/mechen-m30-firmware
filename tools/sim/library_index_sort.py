@@ -21,6 +21,7 @@ STOCK_INSERTION_LIMIT = 8
 INDEX_TEXT_CONVERSION_STALE_TAIL = "stale-tail"
 INDEX_TEXT_CONVERSION_STOP_ZERO = "stop-zero"
 INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX = "replace-continue:"
+INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX = "replace-continue-stale-tail:"
 
 
 def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
@@ -103,6 +104,33 @@ def _convert_index_text_replace_continue(
     return bytes(converted)
 
 
+def _convert_index_text_replace_continue_stale_tail(
+    record: bytes,
+    offset: int,
+    width: int,
+    replacement_byte: int,
+) -> bytes:
+    """Try in-place replacement while retaining bytes after the first NUL."""
+    field = record[offset : offset + width]
+    if field[:2] != b"\xff\xfe":
+        return bytes(field)
+
+    converted = bytearray(
+        record[offset + 2 : offset + 2 + 2 * width].ljust(2 * width, b"\0")
+    )
+    for index in range(width):
+        character = converted[2 * index] | (converted[2 * index + 1] << 8)
+        if character >= 256:
+            converted[index] = replacement_byte
+            continue
+
+        converted[index] = character
+        if character == 0:
+            break
+
+    return bytes(converted[:width])
+
+
 def _select_index_text_converter(
     conversion_mode: str,
 ) -> Callable[[bytes, int, int], bytes]:
@@ -111,6 +139,29 @@ def _select_index_text_converter(
 
     if conversion_mode == INDEX_TEXT_CONVERSION_STOP_ZERO:
         return _convert_index_text_stop_zero
+
+    if conversion_mode.startswith(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX):
+        replacement_text = conversion_mode[
+            len(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX) :
+        ]
+        try:
+            replacement_byte = int(replacement_text, 16)
+        except ValueError as error:
+            raise ValueError(
+                "replace-continue-stale-tail mode needs a hexadecimal byte"
+            ) from error
+
+        if not 0 <= replacement_byte <= 0xFF:
+            raise ValueError(
+                "replace-continue-stale-tail replacement must fit one byte"
+            )
+
+        return lambda record, offset, width: _convert_index_text_replace_continue_stale_tail(
+            record,
+            offset,
+            width,
+            replacement_byte,
+        )
 
     if conversion_mode.startswith(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX):
         replacement_text = conversion_mode[len(INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX) :]
@@ -524,6 +575,7 @@ def derive_section_run_lengths(
     *,
     album_group_indices: Sequence[int] | None = None,
     artist_group_indices: Sequence[int] | None = None,
+    conversion_mode: str = INDEX_TEXT_CONVERSION_STALE_TAIL,
 ) -> tuple[tuple[int, ...], ...]:
     """Derive the recovered nested group runs without writing index bytes."""
     if section_name not in SECTION_SPECS:
@@ -547,8 +599,9 @@ def derive_section_run_lengths(
     if section_number == 0:
         return ()
 
+    convert_index_text = _select_index_text_converter(conversion_mode)
     keys = tuple(
-        _convert_index_text(record, field_offset, field_width)
+        convert_index_text(record, field_offset, field_width)
         for record in records
     )
     level_count = section_number

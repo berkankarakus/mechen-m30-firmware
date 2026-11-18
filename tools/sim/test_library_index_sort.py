@@ -2,6 +2,7 @@ import struct
 import unittest
 
 from library_index_sort import (
+    INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX,
     INDEX_TEXT_CONVERSION_STOP_ZERO,
     _select_index_text_converter,
     derive_section_run_lengths,
@@ -101,6 +102,46 @@ class LibraryIndexSortTests(unittest.TestCase):
     def test_replace_continue_conversion_rejects_invalid_replacement_byte(self):
         with self.assertRaises(ValueError):
             _select_index_text_converter("replace-continue:100")
+
+    def test_replace_continue_stale_tail_retains_source_bytes_after_nul(self):
+        record = make_record(title=b"\xff\xfeA\x00\x00\x00XY")
+        conversion_mode = f"{INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX}01"
+        convert = _select_index_text_converter(conversion_mode)
+
+        self.assertEqual(convert(record, 0, 0x40)[:6], b"A\x00\x00\x00XY")
+
+    def test_artist_grouping_can_use_stop_zero_after_replacement_sort(self):
+        utf16_artist = "Indelible’\0".encode("utf-16-le")
+        plain_artist = "Indelible\0".encode("utf-16-le")
+        records = (
+            make_record(
+                album=b"Album\0",
+                artist=b"\xff\xfe" + utf16_artist,
+            ),
+            make_record(
+                album=b"Album\0",
+                artist=b"\xff\xfe" + plain_artist,
+            ),
+        )
+        replacement_mode = f"{INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX}01"
+        order = refine_sort_record_indices(
+            records,
+            "ARTIST",
+            previous_rank=(0, 1),
+            conversion_mode=replacement_mode,
+        )
+
+        self.assertEqual(order, (1, 0))
+        self.assertEqual(
+            derive_section_run_lengths(
+                records,
+                "ARTIST",
+                order,
+                album_group_indices=(0, 0),
+                conversion_mode=INDEX_TEXT_CONVERSION_STOP_ZERO,
+            ),
+            ((2,), (2,)),
+        )
 
     def test_non_first_section_requires_previous_rank(self):
         records = (make_record(artist=b"Artist\0"),)
