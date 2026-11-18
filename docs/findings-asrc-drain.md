@@ -141,6 +141,51 @@ form the payload pointer, store message ID) and `0x40154caa..0x40154cb4`
 `setting.ap`, starting at `0x40154c88`; decompile `0x40154c88`,
 `0x40154cd4`, and `0x40155200` with `DumpAt.java`.
 
+### Dynamic `0x304` producer payload
+
+The community `music.ap` selection callback `FUN_40394f48` calls
+`FUN_40394e7c(3)`. That helper writes `3` to `0x9fc15719`, combines it with
+the upper-bit byte at `0x9fc1571a`, then calls `FUN_40614f30`. The latter
+applies an additional `0x40` bit when `0x9fc15418 & 0x4000` is set and sends
+message `0x304` through resident pointer `0xbfc16409`.
+
+`bash tools/ghidra/run_mengine_state_producer_probe.sh` executes the real
+callback/helper/message-wrapper instructions in p-code and intercepts the
+resident message and value-service boundaries. With upper bits `0xa0` and the
+flag clear, it captures payload byte `0xa3`. With upper bits `0x10` and the
+flag set, it captures `0x53`, confirming that bit `0x40` is added while the
+selection's low nibble remains `3`. The flagged callback also reaches the
+value-service stub. These stubs return synthetic results: the probe proves
+the UI-side payload construction and message request, not delivery to the
+engine or the meaning of the visible option.
+
+This dynamic path is separate from the mode-4 track-index callback
+`FUN_405151a0`, which does not produce `0x304`. The setting UI has an
+independent static producer at `FUN_40155148`; its visible option label is
+also unresolved.
+
+### Dynamic `mengine` handling of `0x304`
+
+`bash tools/ghidra/run_mengine_304_handler_probe.sh` executes the real
+`mengine.ap` handler `FUN_60110ddc` in p-code. The synthetic message's `param+4`
+points directly to the payload byte; the engine handle at `0x9fc15c0c` and
+both resident service boundaries are controlled test inputs/stubs.
+
+With the handler status byte seeded to `2`, payload `0xa3`, and prior
+`+0x2c == 2`, the handler writes `0x20`, `3`, and `0x80` to state bytes
+`+0x2b`, `+0x2c`, and `+0x2e`, requests command `0x1c`, and copies the stubbed
+snapshot word at output `+0x0c` into `0x9fc15d8c`. With the same status byte,
+payload `0x53`, and prior `+0x2c == 3`, it writes `0x10`, `3`, and `0x40` but
+does not request another snapshot; the previous `0x9fc15d8c` value is
+retained. Both exercised paths acknowledge the message.
+
+This verifies only the handler's status-2 path. The `0x1c` request is guarded
+by the payload low nibble being `3` and prior `+0x2c` not being `3`; the
+handler takes a separate queue-helper path when its status byte is `0` or
+`1`. That queue path is not exercised or intercepted by this probe. The
+`mmm_mp` and acknowledgement services are stubbed, so this does not prove
+their real effects or message-queue delivery.
+
 ### Confirmed engine-side consumers of the `0x304` state
 
 The state base pointer `0x9fc15c88` has multiple literal-pool references in
@@ -190,3 +235,40 @@ Reproduce the consumers by decompiling `0x60050d00`, `0x600d0e1c`,
 finding. The persisted-record initialization and consumers are also present
 at the same addresses in the archived stock `V1.101.10` decompile; this
 finding establishes no community-only change.
+
+### Dynamic p-code confirmation of `mmm_mp` command `0x1c`
+
+The `mmm_mp.al` overlay's `FUN_bfc13864` is the command handler reached with
+command byte `0x1c`. Its recovered branch fills a six-word snapshot at
+`param_1 + 0xd0`: the words at offsets `+0x08`, `+0x0c`, `+0x10`, and
+`+0x14` are refreshed from the context offsets `+0x140`, `+0x104`, `+0x108`,
+and `+0x10c`, respectively; the first two words are retained from the
+existing `+0xd0/+0xd4` fields. It requests a `0x18`-byte transfer to the
+caller-provided output buffer. For a command value at least 2, the handler
+also calls the external service with command arguments `0x19` before this
+branch and `0x1a` afterward.
+
+`bash tools/ghidra/run_mmm_command_snapshot_probe.sh` executes the real
+`FUN_bfc13864` instructions in Ghidra's p-code emulator with synthetic context
+RAM. The run observed the service-call order `(handle,0,0,0x19)`,
+`(output,context+0xd0,0x18,0)`, `(handle,0,0,0x1a)` and verified all six output
+words against unique inputs. The transfer service at pointer literal
+`0xbfc13934` is intercepted; the probe models its `(dst,src,size,0)` operation
+as a byte copy, and returns `0` from each intercepted service. Thus the real
+command handler's requests and data layout are executed and checked along the
+stubbed-success path; the external OS service implementation is not. This is
+a p-code control/data-flow result, not proof that playback occurs or a full
+player/DSP run. The runner pins the input `.al` SHA-256 to
+`57b541ad791637e30135db6c114da98d5680b5f0907ffabf74bf57fa4977a199` (the
+archived stock and community copies currently match).
+
+This resolves the structural source of the engine caller's `+0x0c` word:
+both the `0x304` transition path and the PLAY setup path store the fourth
+snapshot word into engine RAM `0x9fc15d8c`. That fourth word is sourced from
+the library context's `+0x104`, not `+0x10c`. `FUN_680d2d00` updates `+0x104`
+in 1000-unit steps while advancing playback state, so it is time/position-like;
+the exact unit and semantic label are not yet proven. The library context
+`+0x10c` is instead snapshot word six (`output +0x14`); it has no direct
+reader among the recovered `mmm_mp` functions, and its meaning remains
+unresolved. Whether the surrounding `0x19/0x1a` service calls pause, resume,
+or otherwise bracket the snapshot also remains unresolved.
