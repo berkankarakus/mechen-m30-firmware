@@ -52,25 +52,35 @@ probe until their callers and device-facing effects are identified.
 
 `bash tools/ghidra/run_asrc_mode4_dynamic_probe.sh` executes the real
 `FUN_40494e94` instructions from hash-pinned stock and community APs in Ghidra
-p-code. It verifies the callback literal pool in the program and emulated
-memory before/after execution, then intercepts callbacks at their original
-targets; no AP code or callback literal is rewritten. The resident snapshot
-callback at `0xbfc164dc` returns a controlled value of 100, and the
-song-advance/end-notification targets are captured stubs. Playback
-state, index, threshold, and the remote UI event byte are synthetic RAM inputs.
-The tested direct callees have MIPS16 context, every callback pointer is
-MIPS16-tagged, and every intercepted return address is checked for its odd
-MIPS16 tag. Only those tested paths are covered by this mode-preserving
-assumption. The runner creates disposable Ghidra projects under a temporary
-directory; its synthetic RAM blocks are discarded when each run exits.
+p-code. The follow-up `bash tools/ghidra/run_asrc_music_tick_probe.sh` starts
+at the actual music tick wrapper `FUN_400d4edc`; in that same run the program
+counter enters `FUN_40494e94` once, with the preceding PC and return address
+both inside the wrapper. The callback literal at `0x400d509c` contains the
+MIPS16-tagged handler address, verified from emulated memory before and after
+execution. The trace has not yet established the literal-load dataflow as the
+specific source of that call. No AP code or callback literal is rewritten. The
+resident snapshot callback at `0xbfc164dc` returns a controlled value of 100,
+while resident event/UI/end-notification boundaries are captured stubs.
+Playback state, index, threshold, and the remote UI event byte are synthetic
+RAM inputs. The tested direct callees have MIPS16 context, every callback
+pointer is MIPS16-tagged, and every intercepted return address is checked for
+its odd MIPS16 tag. Only those tested paths are covered by this mode-preserving
+assumption. The runners create disposable Ghidra projects under a temporary
+directory; synthetic RAM blocks are discarded when each run exits.
 
-At the last item (index 2 of 3) above the threshold, stock mode 2 wraps to index
-0 and calls the transition target with argument 0. Stock mode 4 instead leaves
-the index at 3 and takes the end-notification/UI path. Community mode 4 wraps to
-index 0 and calls the transition target with argument 0, matching mode 2. Below
-the threshold (progress 9 against threshold 10), community mode 4 makes no
-transition call; at equality (10) and above (11) it takes the advance path.
-The probe therefore
-confirms the mode-4 end-of-list control-flow change in actual AP instructions.
-It does not execute the transition/UI callback bodies, establish what mode 4
-means at the decoder, or prove that the ASRC/DAC drains the fade-out samples.
+At the last item (index 2 of 3) above the threshold, stock mode 2 wraps to
+index 0 and calls the advance/index-update callback with argument 0. Stock
+mode 4 instead leaves the index at 3 and takes the end-notification/UI path.
+Community mode 4 wraps to index 0 and calls that same callback with argument
+0, matching mode 2. The integrated tick probe confirms the wrapper executes
+and the handler is entered once in that run, with an in-wrapper predecessor PC
+and return address; the literal's value matches the handler but its
+load-to-call dataflow is not yet traced. Stock then emits the end notification,
+while community invokes the index/UI callback with argument 0. Below the
+threshold (progress 9 against threshold 10),
+community mode 4 makes no advance callback; at equality (10) and above (11) it
+takes the advance path. These probes confirm the mode-4 end-of-list
+control-flow change in actual AP instructions and a dynamic wrapper-to-handler
+caller relationship. They do not
+execute the advance/index-update callback body, establish what mode 4 means at
+the decoder, or prove that the ASRC/DAC drains the fade-out samples.
