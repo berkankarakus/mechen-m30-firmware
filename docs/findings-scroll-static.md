@@ -93,12 +93,31 @@ clear implementation. The host test now explicitly records that absence. The
 B3 runtime probe now also binds the literal envelope: the initial system
 operation is the resident wrapper `0xbfc09c01`, the three-argument background
 operation goes through the conditional resident forwarder `0xbfc09e35`, and
-the text-side SD-image renderer is the B16-qualified pointer `0x26409401`.
+the text-side SD-image call target is the B16-qualified pointer `0x26409401`.
 These are exact pointer values, not yet names for the underlying LCD/resource
 operation. The resident probe asserts the forwarder shape. The flat loader used for this result is
 `tools/ghidra/FlatLoad.java`; the complete temporary decompile was generated
 from the stock/community-identical `analysis/community/fw/drv_ui.drv`
 without modifying it.
+
+### B3 marquee branch: p-code execution with measured-width inputs
+
+`bash tools/ghidra/run_drvui_marquee_dynamic_probe.sh` executes the extracted
+`FUN_260e4ff4` instructions from a hash-pinned `drv_ui.drv`. It runs with a
+synthetic 120-unit region and injected width-helper results (80 and 180). The
+branch byte at `0x9fc0be9d` is set to `0x16` or `0x17`; the `0x164c9001` width
+helper, resident UI calls, Arabic transforms, resident forwarder, and B16-qualified
+external target `0x26409401` are stubbed. No pixels or LCD effects are inferred.
+
+Observed result: for `0x16`, the real B3 path makes no width-helper call and
+sends descriptors without the `0x7c` field. For `0x17`, it calls the width
+helper twice and sets descriptor offset `+8` to `0x7c` on both calls through `0x26409401`.
+With injected width 80, the first returned region's X coordinate moves from 5 to 45
+(`120 - 80`); with injected width 180, it remains 5. The B16-qualified target
+is not present in this extracted driver, so the probe only records its call
+arguments; its renderer role is not executed or confirmed. This establishes B3's response to injected branch state and width;
+it does not establish that the browser folder callback invokes B3, what `0x7c`
+means in hardware coordinates, or why red residue appears.
 
 ### B3 trailing table: local B08 renderer is a separate path
 

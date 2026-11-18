@@ -68,16 +68,11 @@ The source implementation makes the restore boundary more precise:
 New M30 static evidence narrows the boundary without identifying its effect.
 In `drv_ui.drv`, `FUN_260e4ff4` (file `0x9674`) passes `0x7c` (124) to the
 ROM helper at `0xbfc09c01` (call at file `0x96be`). The same value is stored at
-`+8` in text descriptors sent through the A17/B16 renderer path. The helper
+`+8` in text descriptors sent through the A17/B16-qualified provider path. The helper
 body is absent, so the unit and operation remain unknown; `0x7c` is not proven
 to mean 124 pixels or to equal the 205-pixel text viewport.
 
-The browser row-refresh callback and the `drv_ui` marquee path have not been
-connected by a direct call edge; the intervening listbox/framework step is
-still missing. An unrefreshed or incorrectly clipped right edge is one
-possible explanation for a red strip behind a moving folder name, but remains
-an inference. The M30 scroll activation threshold and the selected-row redraw
-during movement also remain unresolved.
+The new `run_drvui_marquee_dynamic_probe.sh` executes the actual B3 function with injected width-helper results. It confirms the `0x17` branch adds `0x7c` at descriptor `+8` and moves the emitted region X by `viewport - measured_width` when the injected width is shorter than the 120-unit region. The B16-qualified external target is stubbed; its renderer role is unconfirmed. The browser row-refresh callback and the `drv_ui` marquee path still have no direct call edge; the intervening listbox/framework step is missing. The probe therefore does not explain the device red strip, prove the folder uses B3, establish the hardware unit of `0x7c`, or identify the M30 scroll activation threshold.
 
 The host contract in `tools/sim/listbox.py` models the SDK-style background
 restore as an emulator behavior. It is not evidence that the M30 firmware
