@@ -91,14 +91,21 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length != 0 && getScriptArgs().length != 3) {
+        if (getScriptArgs().length != 0 && getScriptArgs().length != 3
+            && getScriptArgs().length != 4) {
             throw new Exception(
-                "usage: RunBrowserDirectoryNameProbe.java [current-index start-index row-count]"
+                "usage: RunBrowserDirectoryNameProbe.java [current-index start-index row-count [read-result]]"
             );
         }
         int currentIndex = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[0]) : 5;
         int startIndex = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[1]) : 5;
         int rowCount = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[2]) : 1;
+        int readResult = getScriptArgs().length == 4 ? Integer.parseInt(getScriptArgs()[3]) : 0;
+        if (getScriptArgs().length == 4) {
+            currentIndex = Integer.parseInt(getScriptArgs()[0]);
+            startIndex = Integer.parseInt(getScriptArgs()[1]);
+            rowCount = Integer.parseInt(getScriptArgs()[2]);
+        }
         if (rowCount <= 0 || rowCount > 3) {
             throw new Exception("row-count must be between one and three");
         }
@@ -119,6 +126,9 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
             putBytes(memory, rowAddress, new byte[] {0, 0, 0, 0, 0x32, 0, 0, 0, 0, 0, 0, 0});
             putWord(memory, rowAddress + 8, NAME + row * 0x20L);
         }
+        putBytes(memory, NAME, new byte[] {
+            'S', 0, 't', 0, 'a', 0, 'l', 0, 'e', 0, 0, 0
+        });
         putWord(memory, GLOBAL + 4, FS_ARGUMENT);
         putWord(memory, CURRENT, currentIndex);
 
@@ -181,15 +191,18 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                         ? startIndex - currentIndex
                         : startIndex;
                     int expectedDatabaseCalls = preflightCalls + rowCount;
+                    int expectedConverterCalls = rowCount;
                     if (databaseCalls != expectedDatabaseCalls || filesystemCalls != rowCount
-                        || converterCalls != rowCount
+                        || converterCalls != expectedConverterCalls
                         || filesystemDestination != NAME || filesystemLength != 25
                         || filesystemMode != 2 || converterRow != ROWS
                         || converterContext != RAM + 0x370L || converterLimit != 4) {
                         throw new Exception(String.format(
-                            "directory contract mismatch db=%d fs=%d dest=%s len=%s mode=%s row=%s context=%s limit=%s name=%s",
+                            "directory contract mismatch result=%d db=%d fs=%d converter=%d dest=%s len=%s mode=%s row=%s context=%s limit=%s name=%s",
+                            readResult,
                             databaseCalls,
                             filesystemCalls,
+                            converterCalls,
                             hex(filesystemDestination),
                             hex(filesystemLength),
                             hex(filesystemMode),
@@ -200,12 +213,15 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                         ));
                     }
                     println(String.format(
-                        "BROWSER DIRECTORY NAME PASS current=%d start=%d rows=%d steps=%d db-calls=%d row-stride=0xc slot=0x32 fs-length=%d fs-mode=%d converter-limit=0x%x name-bytes=%s",
+                        "BROWSER DIRECTORY NAME PASS read-result=%d current=%d start=%d rows=%d steps=%d db-calls=%d fs-calls=%d converter-calls=%d row-stride=0xc slot=0x32 fs-length=%d fs-mode=%d converter-limit=0x%x name-bytes=%s",
+                        readResult,
                         currentIndex,
                         startIndex,
                         rowCount,
                         steps,
                         databaseCalls,
+                        filesystemCalls,
+                        converterCalls,
                         filesystemLength,
                         filesystemMode,
                         converterLimit,
@@ -225,11 +241,13 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                     if (filesystemCalls == 1) filesystemDestination = destination;
                     filesystemLength = emu.readRegister("a2").longValue() & 0xffffffffL;
                     filesystemMode = word(emu, emu.readRegister("sp").longValue() + 0x10);
-                    emu.writeMemory(
-                        addr(destination),
-                        new byte[] {'F', 'I', 'L', 'E', ' ', ' ', ' ', ' ', 'T', 'X', 'T', 0}
-                    );
-                    emu.writeRegister("v0", 0);
+                    if (readResult == 0) {
+                        emu.writeMemory(
+                            addr(destination),
+                            new byte[] {'F', 'I', 'L', 'E', ' ', ' ', ' ', ' ', 'T', 'X', 'T', 0}
+                        );
+                    }
+                    emu.writeRegister("v0", readResult);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
                     continue;
                 }

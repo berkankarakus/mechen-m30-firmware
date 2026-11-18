@@ -34,6 +34,31 @@ class UsbAudioStream:
     def available(self) -> int:
         return self.ring.available
 
+    def set_interface(self, alternate_setting: int, *, interface_index: int = 1) -> bool:
+        """Apply the observed SET_INTERFACE ring reset for interface 1.
+
+        The real handler resets its producer offset, consumer offset, queued
+        byte count, and reset signal only for alternate setting 1. Other
+        alternate settings are acknowledged without changing those fields.
+        The PCM storage and short-read counter are not cleared by the observed
+        handler path.
+        """
+
+        if not 0 <= alternate_setting <= 0xFFFF:
+            raise ValueError("alternate_setting must fit an unsigned 16-bit field")
+
+        if interface_index != 1:
+            raise NotImplementedError("only SET_INTERFACE for interface 1 is recovered")
+
+        if alternate_setting != 1:
+            return False
+
+        self.write_offset = 0
+        self.ring.read_offset = 0
+        self.ring.available = 0
+        self.ring.reset_signal = 0
+        return True
+
     def submit_packet(self, payload: bytes) -> int:
         """Queue one exact packet and return its stereo-frame count."""
         frames = self.contract.validate_packet(payload)

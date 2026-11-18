@@ -7,11 +7,23 @@ unresolved PCM ring/driver ABI.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping
 
 
 OBSERVED_CONTROL_REQUESTS = frozenset((0x21, 0x22))
+FEATURE_UNIT_RANGE_RESPONSES = {
+    0x82: bytes((0xA0, 0xE3)),
+    0x83: bytes((0xF0, 0xFF)),
+    0x84: bytes((0x30, 0x00)),
+}
+CURRENT_CONTROL_LENGTHS = {
+    (0x09, 0x0100): 1,
+    (0x0B, 0x0100): 1,
+    (0x09, 0x0200): 2,
+    (0x09, 0x0201): 2,
+    (0x09, 0x0202): 2,
+}
 
 USB_CONFIG_ITEM_VID = 0x107
 USB_CONFIG_ITEM_PID = 0x108
@@ -22,6 +34,7 @@ USB_CONFIG_ITEM_FORMAT_FLAG = 0x115
 
 DEVICE_VID_OFFSET = 0x08
 DEVICE_PID_OFFSET = 0x0A
+DEVICE_SERIAL_INDEX_OFFSET = 0x10
 CONFIG_INTERFACE_COUNT_OFFSET = 0x36
 CONFIG_AUDIO_SUBFRAME_OFFSET = 0x58
 CONFIG_SAMPLE_RATE_OFFSET = 0x5B
@@ -87,16 +100,100 @@ class UsbAudioContract:
         return request in OBSERVED_CONTROL_REQUESTS
 
 
+@dataclass
+class UsbAudioControlState:
+    """Model recovered USB Audio control values without simulating USB I/O."""
+
+    contract: UsbAudioContract = field(default_factory=UsbAudioContract)
+    requested_sample_rate_hz: int = 44_100
+    frequency_set: bool = False
+    frequency_changed: bool = False
+    current_control_values: dict[tuple[int, int], bytes] = field(default_factory=dict)
+
+    def set_current_sample_rate(self, payload: bytes) -> None:
+        """Store one three-byte rate while preserving the descriptor rate."""
+
+        if len(payload) != 3:
+            raise ValueError("sample-rate SET_CUR payload must contain three bytes")
+
+        self.requested_sample_rate_hz = int.from_bytes(payload, "little")
+        self.frequency_set = True
+        self.frequency_changed = True
+
+    def get_current_sample_rate(self) -> bytes:
+        """Return the descriptor's rate, matching the recovered GET_CUR path."""
+
+        return self.contract.sample_rate_hz.to_bytes(3, "little")
+
+    def get_feature_unit_range(self, request: int) -> bytes:
+        """Return the fixed s16 response for GET_MIN, GET_MAX, or GET_RES.
+
+        The M30 handler returns these values without consulting ``wValue``.
+        This host contract records the observed request/value mapping; it does
+        not model entity selection, setup packets, or endpoint transfers.
+        """
+
+        if request not in FEATURE_UNIT_RANGE_RESPONSES:
+            raise ValueError(f"unsupported feature-unit range request 0x{request:02x}")
+
+        return FEATURE_UNIT_RANGE_RESPONSES[request]
+
+    def set_current_control(
+        self,
+        entity: int,
+        selector_and_channel: int,
+        payload: bytes,
+    ) -> None:
+        """Store only mute and volume controls exercised in the M30 probe."""
+
+        key = (entity, selector_and_channel)
+        expected_length = CURRENT_CONTROL_LENGTHS.get(key)
+
+        if expected_length is None:
+            raise ValueError(
+                f"unsupported current control entity=0x{entity:02x} "
+                f"selector=0x{selector_and_channel:04x}"
+            )
+
+        if len(payload) != expected_length:
+            raise ValueError(
+                f"current control payload must contain {expected_length} bytes"
+            )
+
+        self.current_control_values[key] = bytes(payload)
+
+    def get_current_control(self, entity: int, selector_and_channel: int) -> bytes:
+        """Return a previously supplied value for a recovered mute/volume slot."""
+
+        key = (entity, selector_and_channel)
+
+        if key not in CURRENT_CONTROL_LENGTHS:
+            raise ValueError(
+                f"unsupported current control entity=0x{entity:02x} "
+                f"selector=0x{selector_and_channel:04x}"
+            )
+
+        if key not in self.current_control_values:
+            raise KeyError(
+                f"no current value supplied for entity=0x{entity:02x} "
+                f"selector=0x{selector_and_channel:04x}"
+            )
+
+        return self.current_control_values[key]
+
+
 def patch_usound_descriptors(
     device_descriptor: bytes,
     configuration_descriptor: bytes,
     config_items: Mapping[int, bytes],
+    firmware_serial: bytes | None = None,
+    firmware_serial_status: int = 0,
 ) -> UsbAudioDescriptorPatch:
     """Apply the verified ``usound.drv`` descriptor-field writes.
 
     The input config values represent buffers after the config service has
-    populated the driver's parameter slots. The ROM config-copy service is
-    outside this model.
+    populated the driver's parameter slots. Firmware serial status and bytes
+    represent the outputs of the unresolved ROM service.
     """
 
     if len(device_descriptor) < 18:
@@ -104,6 +201,9 @@ def patch_usound_descriptors(
 
     if len(configuration_descriptor) < CONFIG_DESCRIPTOR_MINIMUM_SIZE:
         raise ValueError("USB configuration descriptor is shorter than patched fields")
+
+    if not 0 <= firmware_serial_status <= 0xFF:
+        raise ValueError("firmware serial status must fit one byte")
 
     device = bytearray(device_descriptor)
     configuration = bytearray(configuration_descriptor)
@@ -165,6 +265,18 @@ def patch_usound_descriptors(
             ),
         ),
     )
+
+    if firmware_serial_status in (1, 2):
+        if firmware_serial is None:
+            raise ValueError("firmware serial bytes are required for an available serial status")
+
+        serial_text = firmware_serial[:0x10].split(b"\0", 1)[0]
+
+        if serial_text:
+            strings += ((3, _make_usb_string_descriptor(serial_text, max_characters=0x30)),)
+
+        else:
+            device[DEVICE_SERIAL_INDEX_OFFSET] = 0
 
     return UsbAudioDescriptorPatch(
         bytes(device),

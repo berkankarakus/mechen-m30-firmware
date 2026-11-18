@@ -86,3 +86,23 @@ no known index call or flag literal. A main-menu event path involving message
 detection, the flash-word setter, or playlist launch has been established.
 Treat it only as a candidate. No setter or card-event callback has been
 verified yet.
+
+### Main-menu `0x9fc155d0` candidate check
+
+A Ghidra load of `mainmenu.ap` found ten raw 32-bit occurrences of
+`0x9fc155d0` and none of `0x9fc155d4`. Inspecting one occurrence in the
+resident initialization path identified `FUN_40014d74`: it passes
+`0x9fc155d0` to the persistence helper with ID `0x10000`, length `0x22`, and
+read operation `0x12`; on a missing/invalid `0x55ab` record it initializes
+and writes that record. Its caller is `FUN_40014efc`. This occurrence is
+persistent-state initialization, not evidence that the address is the
+powered-card event flag.
+
+The currently decoded MIPS16 import calls in `mainmenu.ap` contain no
+`a3` import selector `0x4e` (59 calls scanned). This does not test for an
+application-launch argument `0x4e`; the import selector and app parameter
+are different call fields. No conclusion about a main-menu app launch can
+be drawn from this scan. The card-insertion-to-indexing path remains
+unresolved. Several other raw pointer hits overlap decoded instruction
+addresses, so the bytewise pointer scan is not a call-reference list; the
+remaining hits need instruction-level classification.

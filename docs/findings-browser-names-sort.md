@@ -311,6 +311,20 @@ boundary and leaves BOM-prefixed names unchanged. This confirms the
 directory-side name preparation path without claiming that the missing
 resident filesystem provider returns long filenames.
 
+The directory callback probe now also varies the synthetic filesystem helper's
+return value. For both `0` and `-1`, the real callback makes the converter call
+once per row; in the `-1` case the stub deliberately leaves the name buffer
+untouched, yet the in-AP formatter/converter path still runs. Starting from a
+UTF-16 `Stale` sentinel, that case ends with bytes
+`53 00 74 00 61 00 6c 00 2e 65 00 00`. This does not establish the ROM provider's
+failure convention, but it shows that a `-1` return alone does not bypass the
+remaining callback path in this harness. A separate scratchpad report claimed
+that `-1` skips conversion, but its `convert=0xa3a2` field is the converter's
+captured `a0` value, confirming the call. That scratchpad probe runs the
+different `FUN_48714a20` provider; this repo probe runs the row callback
+`FUN_71352820`. Neither result justifies a model rule that failed reads skip
+conversion.
+
 Two separate behaviours exist, so first decide the target:
 - A. Directory browse (FAT order): browser.ap has no sort. Needs a new sort over the directory entries at the listing layer
   (`FUN_71352820` + fsel enter-dir/count code at 0x71352500 bank) plus an index map from sorted position to FS entry

@@ -4,14 +4,20 @@ This note records the byte-level evidence behind the host decoder for the
 16-byte section nodes. It does not claim that the public comparison file is an
 M30 dump.
 
-> **Current status (2026-11-17):** the later stock-MIPS/QEMU experiment below
+> **Current status (2026-11-18):** the later stock-MIPS/QEMU experiment below
 > supersedes the Python-model claims about 56 ARTIST mismatches, a `9th Wonder`
 > encoding-group rule, and 8–10-character node thresholds. Those were artifacts
 > of the host candidate model, not observed device behavior. With device
 > ALLSONG ranks supplied and the text converter replaced by a test stub, stock
-> MIPS reproduces every stored order. The remaining node-count difference is
-> the `Indelible` / `Indelible’` pair. The converter stub is still a hypothesis,
-> and the run is not a seedless full rebuild.
+> MIPS results depend on the test stub's post-NUL tail policy. The stale-tail
+> seeded run reproduced every order but separated the `Indelible` /
+> `Indelible’` nodes. A separate `NUL_ZERO` seeded run also separated that pair
+> and introduced a `9th Wonder` order mismatch; aggregate node totals partly
+> cancel across those groups. A third, narrower terminal-unit hypothesis
+> reproduced every seeded order, node, and index table. The middle-unit branch
+> fits 52 album records; the terminal-unit branch fits only the two ARTIST
+> records that motivated it. The exact corpus match is real, but the narrow
+> branch may be overfit and does not prove the resident converter.
 
 ## Evidence
 
@@ -294,6 +300,18 @@ to records 3924 (`Indelible`) and 3925 (`Indelible’`): the device merges them,
 while the replace-and-continue test converter separates their keys. The
 equality rule for this pair is unknown.
 
+A cheap host-model split-semantics check used `replace-continue:01` for sort
+and refinement, then `stop-zero` for node-run equality, with candidate ranks
+chained between sections. It still produced 4,000/4,000 ALLSONG and ALBUM
+orders, 3,944/4,000 ARTIST, and 4,000/4,000 GENRE. Node counts were 548
+ALBUM, 362/706 ARTIST, and 30/438/708 GENRE, versus 549, 363/707, and
+30/439/709 in the device file. Records 3924/3925 share an outer ARTIST group
+under this model but remain in separate deeper ARTIST and GENRE groups. The
+hybrid merges the Indelible pair at one level but overmerges elsewhere, so
+this simple split does not reproduce the device nodes. This is a host-model
+experiment only; it does not establish that firmware uses separate conversion
+semantics for sorting and grouping.
+
 ### Stock MIPS passes executed under QEMU
 
 The stock passes were run through `tools/library/test.sh` in a temporary
@@ -336,12 +354,149 @@ device rules.
 
 This experiment validates the stock pass code for seeded ranks and the
 specified stub output. It is not a seedless rebuild and does not identify the
-resident converter. The run inputs were the hash-checked M30 `MUSIC.LIB`
+resident converter. A separate seeded run with `NUL_ZERO` is recorded below.
+The run inputs were the hash-checked M30 `MUSIC.LIB`
 (`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`) and
 2025-06-26 `playlist.ap`
 (`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`). Its
 temporary harness/output remain in the agent scratchpad; bring that exact
 reproducer into the repository before treating the run as locally reproducible.
+
+#### Seeded `NUL_ZERO` comparison reported 2026-11-18
+
+A separate one-condition Docker run used the same captured device ALLSONG
+ranks, but compiled the text-conversion stub with `MODE_REPLACE`, `FILL=1`,
+and `NUL_ZERO`. This is not the stale-tail condition above. The report gives
+these inputs: device `MUSIC.LIB` SHA-256
+`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`, stock
+`playlist.ap` SHA-256
+`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`, and
+seed fixture SHA-256
+`86752ed323f2e3545a1a83a7994ab7df7f11b55755b7192f32176a9d877b7833`.
+The reported output `out_stock.lib` SHA-256 is
+`e07f2a97fc7b5688148b1079ae41c466da7d1e9a066add3e728515ef078c327c`.
+The exact `FILL=1/NUL_ZERO` full run is recorded as Claude's reported result;
+it was not repeated in this turn. Its hash-verified seed was available and was
+reused for the independent probes and full candidate runs below.
+
+The report gives order scores `ALLSONG=4000/4000`, `ALBUM=4000/4000`,
+`ARTIST=3944/4000`, and `GENRE=4000/4000`. Node counts were 548 ALBUM,
+363/706 ARTIST, and 30/439/708 GENRE, versus device counts 549, 363/707, and
+30/439/709. Records 3924/3925 retained their device order positions in both
+ARTIST (3184/3185) and GENRE (2296/2297), but the reported node boundaries
+split the pair at ARTIST L0 and GENRE L1. The aggregate ARTIST L0 and GENRE L1
+counts happen to equal device counts because a separate `9th Wonder`
+grouping difference offsets the extra Indelible node; ARTIST order still
+differs first at position 83. Equal totals therefore do not mean the hierarchy
+matches.
+
+The report's key bytes for the pair were computed by a separate Python
+translation of the stub, not dumped from the QEMU harness: `Indelible` ends
+in `...65 00`, while `Indelible’` becomes `...65 01` under replacement with
+`NUL_ZERO`; those candidate keys differ at byte 9. This explains the stub's
+split but does not establish the device converter's behavior. The local
+seedless `NUL_ZERO` result below is a different input/order condition and must
+not be used as a substitute for this seeded run.
+
+As a control, an independent full seeded run mapped every out-of-range unit to
+NUL (`MODE_REPLACE`, `FILL=0`, `NUL_ZERO`). It made records 3924/3925 equal,
+but overmerged other names: ALBUM had 548 nodes, ARTIST 362/706, and GENRE
+30/438/708, versus device counts 549, 363/707, and 30/439/709. ARTIST order
+remained 3,944/4,000 with its first difference at position 83 (`9th Wonder`);
+the other three order tables were 4,000/4,000. This rejects the broad
+“all unsupported characters become NUL” rule and motivates testing only a
+terminal unsupported unit specially.
+
+#### Seeded terminal-unit candidate, stock MIPS under QEMU, 2026-11-18
+
+To distinguish “all out-of-range units become NUL” from a narrower rule, the
+QEMU harness was run on the same seeded 4,000-song fixture with this candidate
+conversion behavior: an out-of-range UTF-16 unit immediately followed by
+UTF-16 NUL becomes NUL and ends conversion; any other out-of-range unit becomes
+`0x01` and conversion continues. The converter leaves bytes after the
+terminator untouched. This is an explicit test hypothesis, not recovered
+firmware behavior. The harness exposes it as `TERMINAL_OOR_ZERO`, used with
+`MODE_REPLACE` and `FILL=1`; `NUL_ZERO` is not enabled.
+
+The seed was reconstructed from device `MUSIC.LIB`
+(`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`) by
+replacing each record's 64-byte title field with its zero-padded four-digit
+position in the captured ALLSONG order, followed by NUL padding. The fixture
+SHA-256 was
+`86752ed323f2e3545a1a83a7994ab7df7f11b55755b7192f32176a9d877b7833`.
+The stock input was the 2025-06-26 `playlist.ap` with SHA-256
+`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`.
+
+The real stock MIPS16 passes reproduced every indexed result in the fixture:
+all four order tables were 4,000/4,000; ALBUM nodes were 549/549; ARTIST
+nodes were 363/363 and 707/707; GENRE nodes were 30/30, 439/439, and 709/709.
+All per-song inverse-order and node-index tables also matched 4,000/4,000.
+This includes both the merged `Indelible` / `Indelible’` boundary and the
+`9th Wonder` ordering that differed in the `NUL_ZERO` run. The harness output
+is exactly 1,161,216 bytes (`0x11b800`, 2,268 sectors): it contains the input
+prefix and generated index data through sector 2267, then ends. The 2,625,536-
+byte seed is longer because it also contains the original file tail. The
+comparison first differs at `0x11b800`
+because the harness does not emit that tail; this is the output boundary, not
+an index mismatch.
+
+The contrasting two-record key probes support the mechanism: `FILL=1` leaves
+the Indelible keys different at byte 9, while the terminal-unit rule makes
+them equal. For records 27 and 67 (`9th Wonder`), stale-tail output preserves
+the suffix difference between the plain and UTF-16 fields; `NUL_ZERO` erases
+it. The full seeded run shows that preserving this tail while special-casing
+only a terminal out-of-range unit is sufficient to match the captured index
+tables. It does not show that the device implements this exact rule; another
+converter behavior could produce the same keys for this corpus.
+
+The candidate's two branches have unequal corpus support. A scan of the device
+library found out-of-range units immediately before NUL in 4 title fields, 2
+ARTIST fields, and no ALBUM or GENRE fields. The two ARTIST entries are the
+Indelible pair (zero-based record indices 3924/3925; one-based record numbers
+3925/3926). The scan found nonterminal out-of-range units in 43 title fields
+and 52 ALBUM fields, and none in ARTIST or GENRE. The seeded fixture replaces
+all title fields with ASCII ranks, so this experiment does not test the title
+cases. The exact ALBUM order, 549 nodes, and per-song tables match despite its
+52 nonterminal cases, which gives the `0x01`-and-continue branch broader support
+than the terminal-NUL branch. The latter is based on only the pair it was
+introduced to explain; treat it as a possible overfit until tested on another
+terminal code point or another device library.
+
+Reproduction, with the seeded fixture and firmware inputs mounted read-only
+and a disposable work directory:
+
+```sh
+python3 tools/library/seed_all_song_order_fixture.py \
+  <device-MUSIC.LIB> <seeded-MUSIC.LIB>
+
+CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
+  HEXTRA='-DMODE_REPLACE -DFILL=1 -DTERMINAL_OOR_ZERO' \
+  tools/library/test.sh <stock-playlist.ap> <seeded-MUSIC.LIB> <workdir> stock
+```
+
+The fixture generator was checked against the available 2026-11-18 seed and
+reproduced its SHA-256 exactly.
+
+The full run used `m30-qemu-tools:debian-stable`. The repository harness and
+this result are now retained here; the generated ELF and output library are
+not required to understand the finding.
+
+#### ARTIST tie-group prior-rank experiment, 2026-11-18
+
+A focused scratchpad QEMU run passed the 56-record ARTIST tie group through
+stock `FUN_71812874` and `FUN_40114d54`, using the device's preceding ALBUM
+ranks as the input order. The two records that distinguish the observed
+device order (record 27 at position 0 and record 67 at position 15) entered
+the run at positions 41 and 0 respectively. Their 16-byte keys compared equal
+under the harness converter. After sorting and refinement, they were at
+positions 41 and 28; the resulting order matched the device in 0/56 positions.
+
+This rules out the preceding ALBUM order, by itself, as an explanation for
+the ARTIST tie-group order under this converter hypothesis. It does not prove
+the device's converter or tie policy. Inputs were the same hash-verified
+`MUSIC.LIB` and `playlist.ap` listed above. The temporary harness, manifest,
+and output are in `/private/tmp/m30-tie-qemu/`; the run is not yet reproduced
+by a repository command.
 
 #### Local seedless QEMU comparison with replacement conversion
 
@@ -530,6 +685,41 @@ tie-breaking, and previous-section rank tie-breaking. It operates on raw
 M30 device's final UI policy. This separation is intentional because the
 public comparison file produces different grouping counts from the local
 model.
+
+### Seedless stock MIPS16 index pass
+
+The stock `playlist.ap` index passes were run under QEMU against the original
+device library, without `seed_all_song_order_fixture.py`:
+
+- `playlist.ap`: SHA-256
+  `7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`
+  (stock, 2025-06-26).
+- Device `MUSIC.LIB`: SHA-256
+  `e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`.
+- QEMU output `out_stock.lib`: SHA-256
+  `ff518da115e2a748b72bc130a15825d5d2ad5b0e44d592cebb3c01782c695546`.
+
+The run reproduced all 4,000 records and the section counts. `ARTIST` node
+records matched 363/363 at level 0 and 707/707 at level 1; `GENRE` matched
+30/30, 439/439, and 709/709 at all three levels. Their per-record node-index
+tables matched 4,000/4,000. Thus the earlier seeded-run Indelible grouping
+difference does not recur in this unseeded run. This narrows that discrepancy
+to a seed-dependent result; it does not identify the real text converter.
+
+Other index data still differs: `ALLSONG` order/inverse matched 3,963/4,000;
+`ALBUM` node records matched 547/549 and its order/inverse matched
+3,973/4,000; `ARTIST` and `GENRE` order/inverse each matched 3,992/4,000.
+The first `ALLSONG` ordering difference is between the same base title with
+`.flac` and `.wav` extensions. The full comparison is recorded in
+`analysis/local-evidence/musiclib-seedless/run/libdiff_stock.txt`; the harness
+log is in `analysis/local-evidence/musiclib-seedless/run.log`.
+
+Important limit: the stock MIPS16 passes ran, but module 6 / function `0x1a`
+text conversion was a harness stub using its default stop-at-wide-character
+behavior. This validates the observed node boundaries under that stub, not
+the device converter's semantics. The full-file comparison reports `FAIL`
+because ordering, album nodes, and file extent differ; this was not a
+byte-for-byte reproduction.
 
 The same module now derives the candidate nested run lengths that feed the
 three node levels in the local builder. `ALBUM` produces its album runs;

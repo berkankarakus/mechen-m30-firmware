@@ -9,8 +9,14 @@ still only partly understood.
 ```sh
 PYTHONPATH=tools/emu python3 tools/emu/auddev_binary_probe.py \
   analysis/community/fw/aud_dev.drv
-bash tools/ghidra/run_auddev_bank_probe.sh analysis/community/fw/aud_dev.drv
 ```
+
+`tools/ghidra/run_auddev_bank_probe.sh` is retained as an exploratory
+disassembly, not as a validated bank-loader probe. Its assumed A/B table
+layout is not established for `aud_dev.drv`; likewise,
+`tools/inspect_drv.py` expects a different compact start/end table. Do not use
+either tool's generic bank-table interpretation as proof of an aud_dev file
+mapping.
 
 The member is byte-identical in the local community, stock, first-pass,
 V1.101.11, V1.101.12, and V5 extractions. SHA-256:
@@ -25,20 +31,26 @@ The header has four segment descriptors. The fourth descriptor at header
 offset `0x2c` loads the 21-word table from file `0x200`, length `0x54`, to
 `0x9fc09f00`. The resident stub is file `0x300`, length 8, at `0xbfc09f58`.
 The other two descriptors are empty; BSS size is zero and the entry field is
-`0x1c009000`. The parser previously read only three descriptors and therefore
-omitted the table from its load plan.
+`0x1c009000`. `tools/emu/yqhx.py` currently parses all four descriptors and
+includes this table in its load plan; `test_yqhx.py` covers the fourth entry.
 
 The resident bytes `10 6b 05 e8 0f 6b 05 e8` are MIPS16 `break 0` stubs for
 modules `0x10` and `0x0f`. They are not the COP2-looking words at file `0x200`.
 The loaded table begins `25 9b 08 2c 91 9b 08 2c`; entry 18 at file `0x248`
 is `0x2c149401`.
 
-The banked payload start offsets reported for this member are
-`0x500, 0x800, 0xe00, 0x1600, 0x1700, 0x1f00, 0x2500, 0x2900`. Bank 5 begins
-at file `0x1f00`. Its table target is MIPS16 address `0x9400`; the Ghidra
-probe maps file `0x1f00..0x24ff` there. This corrects the earlier mapping of
-file `0x2500` as bank 5. The existing `driver_banks.py` parser is specific to
-the `drv_ui.drv` layout and does not parse this member's table.
+The reported nonzero payload starts are
+`0x500, 0x800, 0xe00, 0x1600, 0x1700, 0x1f00, 0x2500, 0x2900`. The proposed
+far-pointer encoding is `0x2c000000 | (bank << 18) | window_offset`; entry 18
+`0x2c149401` therefore identifies slot `0x0c`, bank 5, and MIPS16 window
+offset `0x9401` (aligned address `0x9400`). The file mapping of bank 5 to
+`0x1f00` is supported by the independent reference `0x2c149958` at file
+`0x240c`, which resolves to the `spk_comp.dat` name at file `0x2458` under that
+mapping. File `0x2500` is the next bank (bank 6), not bank 5. These are static
+address correlations; the generic `inspect_drv.py` and the current
+`run_auddev_bank_probe.sh` table assumptions do not validate the aud_dev bank
+loader or its runtime mapping. The existing `driver_banks.py` parser is
+specific to the `drv_ui.drv` layout and does not parse this member's table.
 
 ## Operation dispatch and EQ shared memory
 
@@ -49,8 +61,8 @@ strong inference: the 13 observed operation calls align with their table
 entries, while shifts of one entry do not. The fixed-ROM dispatcher is absent,
 so the mapping is not proven.
 
-Under that mapping, entry 18 targets the MIPS16 routine at `0x9400`. A
-Ghidra analysis of the corrected bank reports that the `id=1` path checks
+Under that candidate mapping, entry 18 points to the MIPS16 bytes at `0x9400`.
+The reported static Ghidra analysis of that file range says the `id=1` path checks
 `SHM+7`, reads flags and values around `SHM+3..+0xd`, consumes sixteen
 8-byte bands from `SHM+0x10..+0x8f`, and reads gain adjustments from
 `SHM+0xc0..+0xcb` into a structure at `cfg+0x94`. This is the first evidence

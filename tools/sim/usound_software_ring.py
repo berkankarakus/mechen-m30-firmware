@@ -10,6 +10,75 @@ from usound_format import expand_three_to_four
 RING_CAPACITY = 0x6E40
 EXPANDED_READY_THRESHOLD = 0x1B90
 DIRECT_READY_THRESHOLD = 0x3720
+DMA_COMPLETION_BYTES = 0x3720
+DMA_CONTROL_COMPLETION_BITS = 0x404
+CLOCK_CONTROL_MASK = 0x03
+CLOCK_CONTROL_CLEAR_THRESHOLD = 4410
+CLOCK_CONTROL_SET_THRESHOLD = 9703
+DMA_RING_ADDRESS = 0x9FC24000
+DMA_COMMON_CONTROL_BITS = 0x404
+DMA_START_BIT = 0x01
+DMA_16BIT_CHANNEL_CONTROL = 0x4B02
+DMA_24BIT_CHANNEL_CONTROL = 0x8B02
+DMA_16BIT_SIZE_REGISTER = 14112
+DMA_24BIT_SIZE_REGISTER = 7056
+
+
+@dataclass(frozen=True)
+class DmaStartRegisters:
+    """Recovered register values written when the software ring is started."""
+
+    address: int
+    channel_control: int
+    size_register: int
+    common_control_04: int
+    common_control_08: int
+
+
+@dataclass(frozen=True)
+class DmaCompletionResult:
+    """Observed register state after one USB Audio DMA completion."""
+
+    clock_control: int
+    dma_control: int
+    empty_branch: bool
+
+
+def build_dma_start_registers(
+    format_flag: int,
+    *,
+    common_control_04: int = 0,
+    common_control_08: int = 0,
+) -> DmaStartRegisters:
+    """Return the observed register writes for the ring's DMA start path.
+
+    Only ``format_flag == 1`` selects the 24-bit register values. The size
+    register is kept as a raw value; its hardware unit is unresolved.
+    """
+
+    if not 0 <= format_flag <= 0xFF:
+        raise ValueError("format_flag must fit one byte")
+
+    if not 0 <= common_control_04 <= 0xFFFFFFFF:
+        raise ValueError("common_control_04 must fit a 32-bit register")
+
+    if not 0 <= common_control_08 <= 0xFFFFFFFF:
+        raise ValueError("common_control_08 must fit a 32-bit register")
+
+    if format_flag == 1:
+        channel_control = DMA_24BIT_CHANNEL_CONTROL
+        size_register = DMA_24BIT_SIZE_REGISTER
+    else:
+        channel_control = DMA_16BIT_CHANNEL_CONTROL
+        size_register = DMA_16BIT_SIZE_REGISTER
+
+    return DmaStartRegisters(
+        address=DMA_RING_ADDRESS,
+        channel_control=channel_control | DMA_START_BIT,
+        size_register=size_register,
+        common_control_04=common_control_04 | DMA_COMMON_CONTROL_BITS,
+        common_control_08=common_control_08 | DMA_COMMON_CONTROL_BITS,
+    )
 
 
 @dataclass
@@ -54,3 +123,43 @@ class SoftwareRing:
             self.ready_signal = 1
             return True
         return False
+
+    def complete_dma(self, *, clock_control: int, dma_control: int) -> DmaCompletionResult:
+        """Apply the recovered ``FUN_bfc3125c`` fill and register policy.
+
+        The handler subtracts one 0x3720-byte DMA block from ``available``.
+        It does not read the 16/24-bit format flag; that flag is used by other
+        driver functions when they configure the DMA transfer.
+        """
+
+        if not 0 <= clock_control <= 0xFFFFFFFF:
+            raise ValueError("clock_control must fit a 32-bit register")
+
+        if not 0 <= dma_control <= 0xFFFFFFFF:
+            raise ValueError("dma_control must fit a 32-bit register")
+
+        remaining = self.available - DMA_COMPLETION_BYTES
+        next_dma_control = dma_control | DMA_CONTROL_COMPLETION_BITS
+
+        if remaining < 1:
+            self.available = 0
+            return DmaCompletionResult(
+                clock_control=clock_control,
+                dma_control=next_dma_control,
+                empty_branch=True,
+            )
+
+        self.available = remaining
+
+        if remaining < CLOCK_CONTROL_CLEAR_THRESHOLD:
+            next_clock_control = clock_control & ~CLOCK_CONTROL_MASK
+        elif remaining >= CLOCK_CONTROL_SET_THRESHOLD:
+            next_clock_control = clock_control | CLOCK_CONTROL_MASK
+        else:
+            next_clock_control = clock_control
+
+        return DmaCompletionResult(
+            clock_control=next_clock_control,
+            dma_control=next_dma_control,
+            empty_branch=False,
+        )

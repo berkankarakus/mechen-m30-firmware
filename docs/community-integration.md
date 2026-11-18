@@ -4,6 +4,11 @@ This note records the community fixes incorporated into the M30 candidate
 history and the work that remains. It is intentionally separate from the
 older experimental 24,000-song library work.
 
+> **Flash status:** no candidate image is considered flash-safe. The repository
+> has no complete, repacked HEX whose checksum/trailer and round-trip contents
+> have been verified for the current member changes. Static and p-code results
+> do not establish device behavior.
+
 
 > **Düzeltme (statik analiz, cihazda test edilmedi):** Bu belgedeki "önceki tuş
 > eşiği 5.000 ms → 0 ms" değişikliği `mengine.ap` içinde `0x3a64`'teki hızlı
@@ -30,8 +35,10 @@ The community V1.292 members `config.ap` and `udisk.ap` both contain the same
 one-byte change as the manual-index guard used in this repository:
 `0x22 -> 0x10` at offsets `0x1e0d` and `0x1909`, respectively. This is strong
 evidence that the community image includes an automatic file-list bypass, but
-it is not proof that every trigger path is disabled. In particular, the
-powered card-insertion and cold-boot paths still require a device test.
+it is not proof that every trigger path is disabled. A reported powered
+card-removal/reinsertion test on V1.292.00 still started indexing; that path is
+therefore known to remain active on the tested unit. A separate cold-boot
+trigger test remains outstanding.
 The stock-versus-community control-flow comparison is reproducible in
 [`findings-index-guards.md`](findings-index-guards.md).
 
@@ -94,7 +101,7 @@ FWIMAGE members:
   V1.292.00 baseline.
 - The historical candidate has not been flashed or physically tested and is
   not a release recommendation because of the unsafe `mengine.ap` experiment.
-- The current safe UI recipe keeps `mengine.ap` byte-identical to the
+- The current extracted-member UI recipe keeps `mengine.ap` byte-identical to the
   community baseline and changes only `music.sty` and `setting.sty`; it does
   not currently produce a persistent flashable HEX.
 
@@ -102,10 +109,11 @@ FWIMAGE members:
 
 ### First priority: device checks
 
-1. Obtain/rebuild a complete candidate HEX and record its full hash and
-   round-trip checksums.
-2. Flash it only with the stock HEX kept offline for rollback; then check
-   boot, playback, next/previous, volume, and screen-off controls.
+1. Obtain/rebuild a complete candidate HEX and verify its full hash,
+   checksum/trailer, and round-trip contents. No current candidate meets this
+   gate, and this note does not recommend flashing one.
+2. Only after that gate, plan separately authorized device checks for boot,
+   playback, next/previous, volume, and screen-off controls.
 3. Confirm Previous always restarts the current song.
 4. Test the four red transport icons against the red default artwork.
 5. Cold-boot and manual-update tests remain. On 2026-11-15, the untouched

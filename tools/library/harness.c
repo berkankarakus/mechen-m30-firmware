@@ -154,13 +154,21 @@ u32 stub_text(u32 a, u32 b, u32 c, u32 fn)
     u32 i, n;
     if (fn == 0x1a) {
         /* This is a test stub, not the recovered resident converter. MODE_REPLACE
-         * projects out-of-range UTF-16 code units to FILL and keeps converting;
-         * NUL_ZERO clears the output bytes after the first NUL. The default path
-         * preserves the old stop-at-wide-character hypothesis. */
+         * projects out-of-range UTF-16 code units to FILL and keeps converting.
+         * TERMINAL_OOR_ZERO instead treats an out-of-range unit immediately
+         * before UTF-16 NUL as a terminator; other out-of-range units still use
+         * FILL. NUL_ZERO clears output bytes after NUL. The default path preserves
+         * the old stop-at-wide-character hypothesis. */
         for (i = 0; i + 1 < b; i += 2) {
             u32 ch = p[i] | (p[i + 1] << 8);
             if (ch >= 256) {
 #ifdef MODE_REPLACE
+#ifdef TERMINAL_OOR_ZERO
+                if (i + 3 < b && p[i + 2] == 0 && p[i + 3] == 0) {
+                    p[i / 2] = 0;
+                    break;
+                }
+#endif
                 p[i / 2] = FILL;
                 continue;
 #else

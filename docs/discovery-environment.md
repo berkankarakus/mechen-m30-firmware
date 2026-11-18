@@ -165,4 +165,4 @@ için dosya düz haritalanıyor: adres = `0x30000000` + dosya ofseti,
 | `FUN_3000083c` | 8-bit karakter sınıflandırıcı |
 | `FUN_30008600` | Çok satırlı `put_string` (hizalama `x` hesabı) |
 | `FUN_30009070` | Kayan yazı başlatma: ilk 0x66 bayt içinde sonlandırıcı arar, iki boşluk ekler, BOM'u atlar |
-| `FUN_30009674` | Kayan yazı adımı (`scroll_desc` 0x7c bayt) |
+| `FUN_30009674` | Kayan yazı adımı (`scroll_desc`; `0x7c` bayt uzunluk/işlem argümanı olabilir, piksel genişliği kanıtlanmadı) |

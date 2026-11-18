@@ -1,4 +1,4 @@
-<!-- Statik analiz bulgusu (cihazda test edilmedi). Alt ajan çıktısı; ana oturum aşağıdaki noktaları baytlardan doğruladı: mengine.ap EQ tablosu/frekanslar/sıfır alanı, setting.ap tablosu/sıfır alanı, config.bin öğe 0x116 baytları. Diğer iddialar ajanın okumasına dayanır; VERIFIED/V = dump veya baytta okundu, HYPOTHESIS/H = çıkarım. Kaynak dosya: m30-work/findings/eq_usound.md. -->
+<!-- Statik analiz bulgusu (cihazda test edilmedi). Alt ajan çıktısı; ana oturum mengine.ap EQ tablosu/frekanslar/sıfır alanı, setting.ap tablosu/sıfır alanı, config.bin öğe 0x116 baytları ve config.ap Custom-buffer başlangıç/kapanış yolunu ayrıca doğruladı. VERIFIED/V = dump veya baytta okundu, HYPOTHESIS/H = çıkarım. Kaynak dosya: m30-work/findings/eq_usound.md. -->
 
 # EQ + usound findings (read-only; V=VERIFIED, H=HYPOTHESIS)
 
@@ -14,6 +14,7 @@
   builder writes and call arguments only.
 - V SDK: ap/ap_setting/menu_callback_sound_setting.c: eq_param[8][MAX_EQ_SEG] int8 (none,rock,funk,hiphop,jazz,classic,techno,custom); _set_real_eq() builds mmm_mp_eq_info_t{eq_type, eq_para[12]} and sends MSG_MENGINE_SET_EQ_SYNC (music_set_eq, line 81-88). Engine: mengine_event_volume.c mengine_set_real_eq() -> mmm_mp_cmd(MMM_MP_SET_EQ,&eq_info). Custom = g_setting_vars.music_comval.eq_parameter[12] (int8, setting_common.h:167), edited in music_setmenu_soundset_param.c. EQ_TOTAL=8 (ap_setting.h:27) incl. Off. config.txt SETTING_AP_ID_EQ_SETTING = 0[0..7].
 - V Table A (setting.ap, community==stock): file 0x5a94..0x5b13, 8 rows x 16 B (12 int8 used + 4 pad; rock row 0x5aa4, funk 0x5ab4, hiphop 0x5ac4, jazz 0x5ad4, classic 0x5ae4, techno 0x5af4, custom 0x5b04 = {-9,0,0,0,0,0,6}). Zeros 0x5b14..0x5bff (236 B) then next sector at 0x5c00.
+- A Ghidra 12.2 `LoadAP` scan mapped this table to VA `0x40255294` and checked raw pointer literals plus Ghidra references to all eight row starts (`0x40255294..0x40255304`, stride `0x10`): zero hits. This finds no direct row reader in the loaded `setting.ap` banks. It does not prove the table is dead; a computed address, generic settings reader, or shared resident path could still consume it. The initial `0x38`-byte state initializer separately leaves its own Custom buffer (`+0x2c..+0x32`) untouched.
 - V Table B (mengine.ap, same in stock): presets at 0x440c.., 7 B/row (7 signed-int8 gain values; row index is preset): Off 0x440c, Rock 0x4413, Funk 0x441a, Hip hop 0x4421, Jazz 0x4428, Classical 0x442f, Techno 0x4436 (selector 0..6). Frequencies are u16 values at 0x43ec (80,200,480,980,4000,8000,16000 Hz); Q values are raw u16s at 0x43fc (10,6,4,6,10,5,8). Calling those Q×10 is a hypothesis; the binary establishes the stored values only. Pointer pool file 0x41f4 = {0x601d10ec, 0x601d10fc, 0x9fc1a19c (RAM custom), 0x601d110c}; file = VA - 0x601ccd00.
 - Corpus comparison: the 49-byte block `0x440c..0x443c` is byte-identical in the available stock, official, community, and derived firmware copies. Interpreted as signed int8, the rows are Off `(0,0,0,0,0,0,0)`, Rock `(5,3,0,-1,0,4,5)`, Funk `(3,0,0,0,0,-1,-2)`, Hip-hop `(0,0,1,2,0,1,1)`, Jazz `(3,0,0,-1,0,2,4)`, Classical `(0,0,0,-1,-1,-2,-4)`, and Techno `(5,2,0,0,0,0,6)`. Values span -4..+6. The following bytes through `0x47ff` are zero in those copies, but this alone does not prove they are available patch space.
 - V `FUN_601d0d58` selects one 7-byte table row, or selector 7's seven RAM bytes at `0x9fc1a19c`, sign-extends each gain, multiplies by 10 and writes an s16 into each band. The ×10 conversion is verified; interpreting the result as 0.1 dB units is a strong inference, not a demonstrated DSP unit. Seven active bands use the eight-byte layout `{frequency u16, Q u16, gain s16, enable=1, reserved=0}` beginning at structure offset `0x10 + 8*i`.
@@ -25,7 +26,22 @@
 - `run_eq_chain_probe.sh` closes the message-path gap. The public PD196 reference defines `MSG_MENGINE_SET_EQ_SYNC` as `MENGINE_BASE + 3 = 0x303`; in the M30 binary, `FUN_60090d64` dispatches `0x303` through the pool entry at `0x60091014` to `FUN_601d0f30`. That handler copies the message payload through the resident memory helper and calls the pool entry at `0x601d0f74`, whose raw value is `0x601d0d59` (the MIPS16 entry of `FUN_601d0d58`). The builder then reads the selector from `0x9fc15c88 + 0x41`, chooses Custom only for `idx == 7`, and builds the seven-band structure. The producer side is resolved by the companion `music.ap` probe below.
 - `run_eq_producer_probe.sh` resolves that producer in `music.ap`: `FUN_403d4e20` forwards a two-byte `{eq_type, selector}` payload through `FUN_40614f08`, which sends message `0x303`. The wrappers emit `0,0` for Off and `7,1` through `7,6` for the six built-in presets. `FUN_403d4ed0` copies the seven custom gains and then emits `7,7`. This closes the selector-producer gap; adding a preset would require extending this dispatch/menu set and the engine's coefficient mapping, not merely editing the EQ table.
 - The menu-side static path is now traced: `FUN_40095130` calls `FUN_40094dd4`, which reads the selector byte at state `+0x19` and dispatches through `FUN_40094d4c`; its `case 7` calls `FUN_403d4ed0`. The callback then copies Custom gains and sends `{7,7}` through the already documented producer chain. Stock/community producer and engine probes pass. This proves what the dispatcher does when its selector is 7, but not that the MCG Custom row or framework callback sets that state byte to 7: `music.mcg` has no direct pointer to `FUN_403d4ed0`, and the intervening event mapping is still unknown.
-- The Custom producer's actual source is the `music.ap` pointer literal at file `0x86f8` / VA `0x403d4ef8`, whose baseline value is `0x9fc15720`; the function copies seven bytes through it into the engine-facing Custom buffer at `0x9fc1a19c` before sending `{7,7}`. `config.ap` also writes that same destination during startup, copying seven bytes from `0x9fc15680`; this is a distinct persistent source, not a different destination. The producer pointer is in a separate persistent `0xf0`-byte block at `0x9fc15700` (magic `0x55b9`), while the startup source is in a `0x38`-byte block at `0x9fc15654` (magic `0x55aa`). `patch_eq_custom.py` redirects the producer pointer to a seven-byte constant at `music.ap` file `0x8700` / VA `0x403d4f00`, inside the same loaded `0x403d4c00..0x403d53ff` bank. This bypasses the stored Custom slider gains on that producer path: edits to those values do not change the fixed curve sent by the patched callback. The candidate-specific Ghidra probe checks the pointer and curve; it does not establish that the Custom menu dispatch reaches the callback or that the curve affects audible output.
+- A targeted follow-up traced the MCG Custom callback `FUN_40414c00` one step farther. It reads state bytes `0x9fc15706..0x9fc15707` through `FUN_48a94798`; when that helper returns `-0x7fef`, the handler sends message `0x8000` with `{3,5,0xffff,0x54,0x7e}` through `0x48ad47b1`. That target is in the shared `music.ap` bank, not fixed ROM. The traced event path still does not reach `FUN_403d4ed0` or establish a write of selector `7`; connecting the scene/event dispatch to the selector state remains open. This narrows the next probe to the `0x8000` event receiver and its selector-state writes.
+- Follow-up checked `music.ap` SHA-256 `662e379602707a9c4b0dcd6b94b591dd77c2b5f7a557fcb03b8c2a5c9b1baac3` and found no additional literal reference to `0x9fc15706` or `0x9fc15707` beyond the known Custom handler. A p-code attempt to follow the `0x8000` receiver did not run because Ghidra rejected the temporary script; this is no dynamic evidence. The next useful action is to repair that narrow probe or inspect the receiver's runtime callback registration, not repeat the static pointer scan.
+- `run_setting_confirm_probe.sh` reaches a generic `setting.ap` confirmation request (`0x100a`, payload `0x48554680`); it is not evidence for the Custom EQ slider's confirm/save callback. Do not use that probe to claim the slider-to-persistence path is closed.
+- The Custom producer's actual source is the `music.ap` pointer literal at file `0x86f8` / VA `0x403d4ef8`, whose baseline value is `0x9fc15720`; the function copies seven bytes through it into the engine-facing Custom buffer at `0x9fc1a19c` before sending `{7,7}`. Correction: `0x9fc15720` is **not** the `+0x20` field of the `0xf0`-byte block at `0x9fc15700`. Each overlay reads/writes its own `0x38`-byte persistent block (id `0`, length `0x38`, read op `0x12`, write op `0x13`) and takes its seven-byte Custom source from block offset `+0x2c`:
+
+  | Overlay | Block base | Custom bytes (`base + 0x2c`) | Pool file offset | Reported write helper(s) |
+  |---|---:|---:|---:|---|
+  | `music.ap` | `0x9fc156f4` | `0x9fc15720` | `0x14cc` | `FUN_40054ce8`, `FUN_40294dc0` |
+  | `config.ap` | `0x9fc15654` | `0x9fc15680` | `0x1694` | `FUN_40054f38`, `FUN_40054f84` |
+  | `mainmenu.ap` | `0x9fc155f4` | `0x9fc15620` | `0x1490` | `FUN_40014d74`, `FUN_40014fac` |
+  | `setting.ap` | `0x9fc15408` | `0x9fc15434` | `0x1548` | `FUN_40055200`, `FUN_402550b4` |
+
+  Pool words were checked directly in this session; the per-overlay read/write call chains and negative writer scan are from the Ghidra report and have not been independently rerun here. Each helper uses the same persistent API shape: `(base, id=0, length=0x38, op=0x12/0x13)`. `setting.ap`'s `FUN_402550b4` sends message `0x8001`, writes its block, then sets flag `0x57` before the exit loop; interpreting this as menu-exit persistence is an inference. In `music.ap`, the selector byte is at block `+0x19`. `config.ap` copies its block's `+0x2c` bytes to the engine-facing buffer `0x9fc1a19c` during startup. The separate `0xf0`-byte config block at `0x9fc15700` is not established as EQ storage. The `music.ap` patch redirects the `0x9fc15720` source to its fixed seven-byte curve at file `0x8700` / VA `0x403d4f00`, so it bypasses that stored source on the patched producer path. The probe checks the pointer and curve; it does not establish that the Custom menu dispatch reaches the callback or that the curve affects audible output.
+- `tools/ghidra/run_config_eq_state_probe.sh` checks the `config.ap` startup/exit call chain against SHA-256 `5b5687c0…56357580` and executes the default helper in p-code. `FUN_40054ccc` reads a `0x38`-byte block at `0x9fc15654` and a separate `0xf0`-byte block at `0x9fc15700`, applies their magic/default handling, then copies seven bytes from `0x9fc15680` to `0x9fc1a19c`. `FUN_40054f38` issues the corresponding writes for both blocks. Its cold/invalid `0x38`-byte-block path clears the block and calls `FUN_40dd4c00`; the real helper was run in Ghidra p-code with a sentinel tail and left `+0x2c..+0x32` untouched. Combining that result with the caller's clear-and-copy sequence means the first seven bytes copied to the engine Custom buffer are zero when the persistent block is invalid. This establishes the cold-start buffer value, but not which M30 UI callback later changes any overlay's `+0x2c` source.
+- The slider writer remains unresolved. The reported scan found no direct literal store to the four `base+0x2c` source ranges (apart from copies), and no decompiled seven-value edit loop. The `music.ap` Custom menu entry (`id 0x3301`) starts another scene by sending message `0x8000` with `{3,5,0xffff,{0x54,0x7e}}`; it does not edit the gains there. The preset callbacks send `{7,i}` for `i=1..6`; `FUN_403d4ed0` has no known menu-table caller. `mainmenu.ap` also copies its block's `+0x2c` values into the engine buffer. Thus the actual slider scene/callback, its write timing, and the path that sets the Custom selector are still unknown. These decompile and scan details are the agent report, not independently reproduced in the current session.
+- The earlier PD196 analogy that labeled block `+0x2c` as SRS is not evidence about M30. The four M30 overlay paths independently use their own block `+0x2c` as the seven-byte Custom source; the semantic name and UI writer for each block remain unresolved.
 - The experimental V1.292 candidate combines this Custom source pointer and gain curve with the shared directory marquee timer changed from 80 ms to 50 ms. The initial curve `(4,3,0,-1,1,2,1)` was reported as too subtle, so the current curve is `(6,5,0,-2,0,4,3)`, a bass-forward shape within the corpus-wide observed gain envelope `-4..+6`. The bands are 80, 200, 480, 980, 4000, 8000, and 16000 Hz. This does not assign dB units or prove audibility. The candidate's member-level and full encrypted-HEX round-trip checks verify that only `music.ap` and `browser.ap` differ; `config.ap`, `config.bin`, and saved-settings member bytes remain identical. See [`release-candidate.md`](release-candidate.md#custom-eq--50-ms-experiment). Device execution is still required to establish behavior.
 - `tools/emu/eq_menu_probe.py` verifies the menu-side pointer topology in stock, community, V1.101.11, and V1.101.12: the seven built-in callback entry points occur once each in the `music.ap` table at file `0xdeec..0xdf64` with `0x14` (20-byte) spacing, and three repeated groups in `music.mcg` reference the same seven pointers at `0x2fea`, `0x3554`, and `0x3b90` with `0x2a` (42-byte) spacing. The Custom callback `FUN_403d4ed0` has no direct MCG pointer; its separate parameter-copy path is consistent with the producer decompilation. The probe deliberately does not assign language meaning to the three MCG groups.
 - `tools/sim/m30_model.py` keeps an evidence-backed `FIRMWARE_EQ_PRESETS` contract separate from the older five-band UI proposal. It models raw u16 frequency/Q tables, signed-int8 gain rows, exact selector payloads (`Off = {0,0}`, built-ins `{7,1..6}`, `Custom = {7,7}`), the observed signed-int8 ×10 conversion, and the verified builder writes while preserving unknown bytes. Custom curves require seven explicit values; the model does not silently treat the proposed UI curves as device coefficients.
@@ -56,23 +72,22 @@
   output.
 - V `aud_dev.drv` has two nonempty YQHX segments: the resident module stubs at
   file `0x300` (8 bytes → `0xbfc09f58`) and the 21-word table at file `0x200`
-  (`0x54` bytes → `0x9fc09f00`). Table entry 18 is `0x2c149401`; the corrected
-  bank-5 mapping resolves it to MIPS16 VA `0x9400`, file `0x1f00`. Ghidra
-  decompilation of that banked routine shows an `a0=1` path reading sixteen
-  8-byte bands from the shared-memory pointer and applying additional
-  per-band adjustments. The table-index-equals-op relationship is strong
-  inference because the fixed-ROM dispatcher is unavailable. Therefore this
-  is evidence that the EQ structure reaches an aud_dev consumer, but it does
-  not prove the ROM dispatch rule or audible DSP effect.
-- Dynamic-reanalysis detail: `run_auddev_bank_probe.sh` maps the real bank-5
-  entry at file `0x1f00`, VA `0x9400`, and confirms its `param_1 == 1` path
-  iterates over 16 records. For each record, it calls the indirect helper at
-  `0x98fc` with source `param_2 + 0x10 + 8*i`, destination
-  `_UNK_98f8 + 0x94 + 8*i`, length 8, and flag 0. This is structurally
-  consistent with copying the engine's 8-byte band records into an
-  audio-device working structure. The helper's ROM implementation, dispatch
-  into this entry, later hardware/DSP use, and audible effect remain
-  unresolved. Do not treat the copy boundary as proof of playback.
+  (`0x54` bytes → `0x9fc09f00`). Table entry 18 is `0x2c149401`; the static
+  far-pointer/file correlation associates it with bank 5, candidate MIPS16
+  address `0x9400`, file `0x1f00`. The generic bank-table assumptions in
+  `inspect_drv.py` and `run_auddev_bank_probe.sh` do not validate this loader
+  mapping. The reported static Ghidra analysis of the candidate bytes shows
+  an `a0=1` path that reads sixteen 8-byte bands from the shared-memory pointer
+  and applies per-band adjustments. Treat the code interpretation as static
+  evidence and the bank-to-file execution mapping as a candidate. The
+  table-index-equals-op relationship remains a strong inference because the
+  fixed-ROM dispatcher is unavailable; neither point proves audible DSP effect.
+- The reported static disassembly says the `id=1` path iterates over 16
+  records and calls an indirect helper at `0x98fc` with source
+  `param_2 + 0x10 + 8*i`, destination `_UNK_98f8 + 0x94 + 8*i`, length 8, and
+  flag 0. This shape is consistent with copying engine band records into an
+  audio-device working structure. No device execution or hardware/DSP effect
+  was tested; do not treat this copy boundary as proof of playback.
 - Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
   the user reported no audible difference between `Custom` and `Off`; a
   supplied EQ-screen photo shows all seven displayed sliders at the 0 dB
@@ -109,6 +124,13 @@
   to it, and the EQ frequency table was not found inside the DSP blobs. An EQ
   connection to `coeffi.bin` is therefore unproven. `audiopp.dsp` is listed
   for loading by `mmm_pp.al`, but that alone does not prove it consumes EQ data.
+- V Separate `mmm_pp.al` resident dispatch `FUN_bfc138c0` switches on its
+  second argument; case `0x11` calls the banked `FUN_68013118` through the
+  pointer at `0xbfc13a34` (`0x68013119`, MIPS16 entry). That handler calls
+  module `0x0c`, op `0x12`, with `a0=1` and the object's `+0x9c` handle. This
+  proves the `0x11` dispatch path to the EQ/DAE-shaped consumer call. It does
+  not identify command `0x1f`'s receiver or show that command `0x1f` triggers
+  this path; that message route remains unresolved.
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound
@@ -169,14 +191,46 @@
   `FUN_bfc303c4` request handler with the `0xc0080000..0xc00803ff` MMIO window
   represented as zeroed RAM. It confirms the request-state behavior under
   those modeled registers: SET_CUR frequency writes the supplied 3-byte rate
-  to `0x9fc33c00`, while GET_CUR frequency returns the active descriptor rate
-  at `0x9fc33ca3`; SET_INTERFACE `alt=1` resets the ring, and other alternate
-  values are ACKed without resetting it. The run also exercises mute/volume
+  to `0x9fc33c00`, while GET_CUR frequency always returns the descriptor bytes
+  at `0x9fc33ca3`, even after SET_CUR stores another requested rate.
+  `SET_INTERFACE` resets the ring only for `bRequest=0x0b`, `wValue=1`, and
+  `wIndex=1`; other alternate values are ACKed without resetting it. The run also exercises mute/volume
   GET/SET, HID idle, descriptor lookup, IN packet chunking, and the observed
   ACK/stall register writes. MMIO status transitions and real USB timing were
   not modeled, so these are software-handler results, not a device USB test.
-  The p-code harness/output remain in scratchpad and need a checked-in
-  reproducer before this result is part of the automated suite.
+- `tools/ghidra/run_usound_interface_probe.sh` now replays the real
+  `SET_INTERFACE` handler from the hash-locked `usound.drv` in Ghidra p-code.
+  With synthetic MMIO, alternate setting 1 clears the producer/consumer
+  offsets, queued-byte count, and reset signal; alternate setting 0 is ACKed
+  while those state fields retain their sentinels. This is a narrow
+  reproducible part of the broader scratchpad EP0 run, not a USB-controller
+  or hardware timing model.
+- The same hash-locked p-code probe also runs Feature Unit `GET_MIN`, `GET_MAX`,
+  and `GET_RES` (`bRequest` `0x82`, `0x83`, and `0x84`). It checks the returned
+  two-byte values `0xe3a0`, `0xfff0`, and `0x0030`, the two-byte transfer length,
+  and the ACK bit. `tools/sim/usb_audio.py` exposes this fixed observed mapping;
+  the host model does not claim to emulate setup-packet routing or USB I/O.
+- The tracked probe also round-trips five current controls through the real
+  `FUN_bfc303c4` code: mute for entities `0x09` and `0x0b`, and master/left/right
+  volume for entity `0x09`. Each SET_CUR payload is checked at its recovered RAM
+  address, then GET_CUR must return the same bytes. The host model stores only
+  these observed entity/selector slots and leaves their initial values unknown.
+- The descriptor patcher's firmware-info path now has a tracked p-code case.
+  The first module `0x1b` call is `(buffer, 0x4f, 1)`; its status is read from
+  the output buffer, not `v0`. With status byte `0x02`, the real code calls
+  `(0x9fc33d12, 0x50, 0x10)`. Supplying `M30-SERIAL-12345` there produces a
+  34-byte USB string descriptor at `0x9fc33d10` (`0x22`, type `3`, UTF-16LE).
+  With status `0`, the second call is skipped and the original serial index and
+  descriptor bytes remain unchanged. With status `2` and sixteen zero bytes,
+  the serial index is cleared and the in-place serial payload becomes zero;
+  the existing `0x12, 0x03` descriptor prefix remains. These are synthetic ROM
+  responses, so the real device status and serial value remain unknown.
+- `tools/sim/usb_audio_stream.py::UsbAudioStream.set_interface()` carries that
+  result into the host stream model. It resets the corresponding offsets,
+  available-byte count, and reset signal for alternate setting 1, while
+  preserving PCM storage and the short-read counter. Other alternate settings
+  for interface 1 leave the stream state unchanged; other interfaces remain
+  unmodeled.
 - `tools/sim/usb_audio.py::patch_usound_descriptors()` now models the verified
   descriptor writes. Its hash-checked reproduction command is
   `python3 tools/emu/usound_descriptor_patch_probe.py
@@ -186,6 +240,23 @@
   Unit cases also cover empty ID overrides, empty strings, interface flag 0,
   and item `0x115=1` selecting 24-bit/96 kHz. Item `0x116` remains the separate
   app-mode selector and is not consumed by the descriptor patch.
+- `tools/ghidra/run_usound_descriptor_patch_probe.sh` now executes the real
+  MIPS16 `FUN_bfc31f94` against four synthetic config sets, with the
+  `usound.drv` SHA-256 pinned to `e593bdd2…e600fc`. It checks VID/PID, both
+  generated UTF-16LE string descriptors, interface count, bit depth, sample
+  rate, and endpoint packet size for stock values, 24-bit/96 kHz, a cleared
+  interface flag, and empty VID/PID/string values. Only the ROM copy and
+  firmware-info calls are stubbed; configuration values are synthetic, so
+  this validates the patcher's writes rather than ROM config-item retrieval.
+- `RunUsoundInterfaceProbe.java` also runs the real `FUN_bfc303c4` SET_CUR /
+  GET_CUR sample-rate path against the stock MIPS16 bytes. SET_CUR's three-byte
+  OUT data comes from MMIO `0xc0080140`, is stored as the requested rate at
+  `0x9fc33c00`, and sets the two observed state flags. GET_CUR returns the
+  descriptor's rate bytes from `0x9fc33ca3` even after the request stored a
+  different rate. Reproduce with `bash tools/ghidra/run_usound_interface_probe.sh`;
+  the probe uses 32 kHz SET_CUR against a 48 kHz descriptor.
+  `UsbAudioControlState` models this distinction. It does not model USB
+  controller timing or prove that the hardware accepts the request.
 - Consequence: the firmware contains a device-side UAC1/HID implementation,
   so “M30 as a USB DAC for a USB host” is statically plausible. This does not
   prove that the M30 hardware exposes OTG/VBUS correctly, that the firmware
@@ -271,6 +342,26 @@
   position`. The host model covers direct and wrapped writes plus the
   format-specific ready edge; hardware FIFO timing and the downstream reader
   remain outside the model.
+- A second p-code run executed `FUN_bfc3125c` against synthetic MMIO. It subtracts
+  `0x3720` from the available count and ORs `0x404` into the DMA control word.
+  A signed result below 1 takes the empty path, zeroes available, clears
+  `0x9fc33e13`, and calls `FUN_bfc314e0`, which writes `0x80` to `0xc005001c`.
+  The stop meaning is inferred from the nearby `dac_dma_stop1` string. For
+  nonempty results it clears the
+  low two clock-control bits below 4410, preserves them from 4410 through 9702,
+  and sets both at 9703 or above. The function does not read the format flag;
+  thresholds apply to the post-subtraction count. The host ring model now carries
+  these transitions. MMIO was plain RAM and the ROM service was stubbed, so this
+  verifies code branches and writes, not physical clock or DMA effects.
+- Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
+  producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
+  the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
+  register `0xc00c0044` receives the ring base, never the staging address.
+  `FUN_bfc312e0` writes channel control `0x4b03` and raw size `14112` for the
+  direct format, or `0x8b03` and `7056` for format flag 1; both common control
+  registers receive `|= 0x404`. The host model records these observed register
+  values. DMA size units, hardware wrap behavior, and physical transfer effects
+  remain unverified; this evidence is static disassembly, not a p-code run.
 - `tools/emu/run_qemu_usound_chain_probe.sh` composes the two real driver
   control paths in one guest, but it deliberately relocates the distinct
   firmware ring literals (`0x9fc24000`, capacity `0x6e40`; `0x9fc34000`,

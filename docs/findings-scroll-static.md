@@ -54,25 +54,33 @@ being widened here.
 
 The new Ghidra flat-map decompile adds three useful constraints:
 
-- the initial resident system-operation call receives `(buffer, 0, 0x7c, 1)`;
-  this is an operation envelope, not by itself proof of a solid-color LCD
-  fill;
-- the `0x7c` value is also stored in the temporary region descriptor passed to
-  the two later text/background helpers, so it is the bounded region width
-  used by the marquee path rather than a palette value;
+- the initial resident system-operation call receives `(buffer, 0, 0x7c, 1)`.
+  Its shape matches the known copy/fill service's `(destination, value,
+  length, operation)` form, making a fill of `0x7c` bytes the leading
+  interpretation. The ROM stub body is unavailable here, so this remains an
+  inference; `0x7c` is not evidence for a 124-pixel region;
+- a headless rerun of `run_drvui_runtime_probe.sh` confirmed that the indirect
+  call pointer at runtime address `0x260e52bc` is `0xbfc09c01`. The extracted
+  `drv_ui.drv` also contains the raw module-`0x10` syscall stub bytes
+  `10 6b 05 e8` at file offset `0x1200`, followed by the module-`0x0f` stub.
+  The resident call target's body is not in that extracted bank, and no edge
+  ties it to the local module-`0x10` stub. Thus the raw stub bytes do not settle
+  whether this call fills `0x7c` bytes;
+- the same `0x7c` value is stored in the temporary region descriptor passed to
+  later text/background helpers. Whether this is a descriptor byte size or a
+  field consumed as geometry is unresolved; do not label it a pixel width;
 - the routine consumes two 8-byte string records per pass (`param_3` selects
   the first record and the next record is selected from the state byte),
   measures each record, and then draws it through separate indirect helpers;
 - when measured width is smaller than the available width, the code adjusts
-  the x origin by the remaining width before drawing. This is the concrete
-  source-level reason a stale right-edge rectangle can remain if the helper's
-  background restore is incomplete.
+  the x origin by the remaining width before drawing. This could leave a stale
+  right edge if the helper's background restore is incomplete, but the missing
+  provider prevents attributing the red artifact to that cause.
 
-The public reference implementation now gives a concrete comparison for that
+The public reference implementation gives one possible comparison for that
 indirect path: its `clear_remain_pixel_sdimage()` restores the remaining
-rectangle from the saved selected-row bitmap before issuing LCD DMA. This is
-stronger than the earlier generic “clear helper” hypothesis, but the M30
-function-pointer table still has to be matched to that API before patching.
+rectangle from the saved selected-row bitmap before issuing LCD DMA. No M30
+function-pointer match establishes that it uses the same operation.
 
 The helper addresses are runtime-initialized resident pointers, not file
 literals, so their exact LCD/resource semantics are still unresolved. The

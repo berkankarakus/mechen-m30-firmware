@@ -1,12 +1,13 @@
 import unittest
 
-from usb_audio import UsbAudioContract, patch_usound_descriptors
+from usb_audio import UsbAudioContract, UsbAudioControlState, patch_usound_descriptors
 
 
 def make_device_descriptor() -> bytes:
     descriptor = bytearray(18)
     descriptor[0:2] = bytes((18, 1))
     descriptor[8:12] = bytes((0xD6, 0x10, 0x00, 0xDD))
+    descriptor[14:17] = bytes((1, 2, 3))
     return bytes(descriptor)
 
 
@@ -57,6 +58,66 @@ class UsbAudioContractTests(unittest.TestCase):
         self.assertTrue(self.contract.accepts_sample_rate(48_000))
         self.assertFalse(self.contract.accepts_sample_rate(44_100))
         self.assertFalse(self.contract.accepts_sample_rate(96_000))
+
+    def test_frequency_set_cur_does_not_change_get_cur_descriptor_rate(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+        state.set_current_sample_rate(bytes((0x00, 0x7D, 0x00)))
+
+        self.assertEqual(state.requested_sample_rate_hz, 32_000)
+        self.assertTrue(state.frequency_set)
+        self.assertTrue(state.frequency_changed)
+        self.assertEqual(state.get_current_sample_rate(), bytes((0x80, 0xBB, 0x00)))
+
+    def test_frequency_get_cur_uses_selected_descriptor_rate(self) -> None:
+        contract = UsbAudioContract(sample_rate_hz=96_000)
+        state = UsbAudioControlState(contract=contract)
+
+        self.assertEqual(state.get_current_sample_rate(), bytes((0x00, 0x77, 0x01)))
+
+    def test_feature_unit_range_requests_return_observed_s16_values(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+
+        self.assertEqual(state.get_feature_unit_range(0x82), bytes.fromhex("a0 e3"))
+        self.assertEqual(state.get_feature_unit_range(0x83), bytes.fromhex("f0 ff"))
+        self.assertEqual(state.get_feature_unit_range(0x84), bytes.fromhex("30 00"))
+
+    def test_feature_unit_range_rejects_unobserved_requests(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+
+        with self.assertRaises(ValueError):
+            state.get_feature_unit_range(0x81)
+
+    def test_current_mute_and_volume_values_round_trip(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+        controls = (
+            (0x09, 0x0100, bytes((0x01,))),
+            (0x0B, 0x0100, bytes((0x00,))),
+            (0x09, 0x0200, bytes.fromhex("34 12")),
+            (0x09, 0x0201, bytes.fromhex("78 56")),
+            (0x09, 0x0202, bytes.fromhex("bc 9a")),
+        )
+
+        for entity, selector_and_channel, value in controls:
+            state.set_current_control(entity, selector_and_channel, value)
+            self.assertEqual(
+                state.get_current_control(entity, selector_and_channel),
+                value,
+            )
+
+    def test_current_control_rejects_unobserved_slots_and_wrong_widths(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+
+        with self.assertRaises(ValueError):
+            state.set_current_control(0x0A, 0x0100, bytes((0x01,)))
+
+        with self.assertRaises(ValueError):
+            state.set_current_control(0x09, 0x0200, bytes((0x01,)))
+
+    def test_frequency_set_cur_requires_three_payload_bytes(self) -> None:
+        state = UsbAudioControlState(contract=self.contract)
+
+        with self.assertRaises(ValueError):
+            state.set_current_sample_rate(bytes((0x00, 0x7D)))
 
     def test_only_observed_control_request_codes_are_marked(self) -> None:
         self.assertTrue(self.contract.control_request_is_observed(0x21))
@@ -121,6 +182,50 @@ class UsbAudioContractTests(unittest.TestCase):
         )
 
         self.assertEqual(result.configuration_descriptor[0x36], 1)
+
+    def test_descriptor_patch_encodes_firmware_serial_as_utf16le(self) -> None:
+        serial = b"M30-SERIAL-12345"
+
+        result = patch_usound_descriptors(
+            make_device_descriptor(),
+            make_configuration_descriptor(),
+            make_config_items(),
+            firmware_serial=serial,
+            firmware_serial_status=2,
+        )
+
+        expected_payload = b"".join(bytes((value, 0)) for value in serial)
+        self.assertEqual(
+            result.string_descriptor(3),
+            bytes((len(expected_payload) + 2, 3)) + expected_payload,
+        )
+        self.assertEqual(result.device_descriptor[16], 3)
+
+    def test_descriptor_patch_preserves_serial_index_when_status_skips_serial_lookup(self) -> None:
+        result = patch_usound_descriptors(
+            make_device_descriptor(),
+            make_configuration_descriptor(),
+            make_config_items(),
+        )
+
+        self.assertEqual(result.device_descriptor[16], 3)
+
+        with self.assertRaises(KeyError):
+            result.string_descriptor(3)
+
+    def test_available_status_with_empty_serial_clears_serial_index(self) -> None:
+        result = patch_usound_descriptors(
+            make_device_descriptor(),
+            make_configuration_descriptor(),
+            make_config_items(),
+            firmware_serial=b"",
+            firmware_serial_status=1,
+        )
+
+        self.assertEqual(result.device_descriptor[16], 0)
+
+        with self.assertRaises(KeyError):
+            result.string_descriptor(3)
 
     def test_empty_string_value_produces_empty_usb_string_descriptor(self) -> None:
         config_items = make_config_items()
