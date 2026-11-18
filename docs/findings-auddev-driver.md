@@ -77,6 +77,30 @@ table segment. The aud_dev binary probe checks both nonempty segments and the
 far-table word. This models the file's declared load layout; it does not
 execute the banked code, emulate the ROM dispatcher, or model audio hardware.
 
+`tools/sim/auddev_driver.py` also models the observed MMIO read/modify/write
+effects for candidate operations 4, 6, and 8. The formulas come from the
+banked MIPS16 routines and their literal pools; the model requires callers to
+provide each input register word and returns the observed zero result. It
+does not claim that the missing ROM dispatcher selects these routines with
+`table[op]`.
+
+Operation 6 writes the low nibble of `0xc0000110` to 6, or to 2 for codes
+`0x0b`, `0x16`, and `0x2c`. It selects the low three bits of
+`0xc000100c` from the observed input-code table. When bit 0 of `0xc0052000`
+is set, the selector is adjusted by the modeled branches; interpreting the
+input as a sample-rate code is an inference. The firmware stores the
+`0xc000100c` selector only when its computed value differs from the current
+value; the host model preserves that conditional store.
+
+Operation 4 updates `0xc0000000`, `0xc0050000`, `0xc005001c`, and
+`0xc0050004`. Operation 8 updates either `0xc0051010` or, for argument 0
+equal to 4, `0xc0090060` and `0xc0051000`. The model keeps these operations
+numbered because their higher-level meanings have not been established.
+Seventeen host tests cover the formulas, branch cases, conditional stores,
+input validation, and
+no-partial-write behavior; they validate the model implementation, not the
+firmware-to-ROM dispatch boundary or physical register effects.
+
 Remaining unknowns include whether the ROM dispatcher indexes the table
 directly by op, the exact behavior of non-EQ operations, `spk_comp.dat`
 consumption, and the coefficient/DSP output path. No firmware patch or device

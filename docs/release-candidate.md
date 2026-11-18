@@ -88,13 +88,14 @@ The builder pins source hashes, requires a byte-identical no-op repack, checks
 the extracted-member delta, recomputes container checksums, then decrypts its
 own result and compares every firmware member slot and checksum against the
 candidate tree. The extracted EQ/marquee checks and Ghidra source-pointer and
-Custom producer p-code probes pass. The user tried the experimental image on
-the M30 and reported no audible difference between Custom and Off. A device
-photo showed all seven Custom sliders at 0 dB; the listening conditions and a
-controlled built-in-preset comparison were not recorded. The candidate's
-audible effect and persistence through UI edits remain unestablished. Do not
-treat it as a successful EQ change or tune another curve until the
-message-to-audio consumer path and this negative device result are reconciled.
+Custom producer p-code probes pass. The device report says Custom and Off were
+not audibly different, and a photo showed all seven Custom sliders at 0 dB.
+The device's `music.ap` was not identified by hash or by reading file offset
+`0x86f8`, so the report does not establish that this candidate was active.
+The listening conditions and a controlled built-in-preset comparison were not
+recorded. The candidate's audible effect and persistence through UI edits
+remain unestablished. Do not treat it as a successful EQ change or tune another
+curve until the device image and message-to-audio consumer path are identified.
 The HEX itself was generated in a workstation-specific temporary directory
 and is not present in Git.
 
