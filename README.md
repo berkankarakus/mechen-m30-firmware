@@ -203,6 +203,8 @@ The repository contains these files and folders:
 | `tools/emu/` | Ghidra-guided host framebuffer/UI-dispatch trace and extracted-member candidate verification for the real `music.ap`/`music.sty` path. It is the first layer of the hybrid emulator; it is not a full ATJ2127 boot. |
 | `tools/sim/` | Host-side contracts and the register-level ATJ2127 peripheral model used by emulator harnesses. |
 | `docs/codegraph-workflow.md` | CodeGraph's scope and the repeatable impact checks used around the emulator and analysis tools. |
+| `docs/knowledge-index.md`, `tools/knowledge/` | Searchable, hash-pinned semantic findings and function/message paths using a local SQLite FTS5 index. |
+| `tools/ghidra/export_local_ap_decomp.sh` | Saves recognized `.ap` function decompiles under Git-ignored `analysis/local-evidence/`, keyed by source hashes. |
 | `tools/patch_mengine.py` | Applies the shuffle fix and shuffle-all code to `mengine.ap`. |
 | `tools/bps.py` | Creates and applies the BPS patches that releases use. |
 | `tools/repack_fw.py`, `tools/fwu_repack.py` | Rebuild the FWU, AFI, and FWIMAGE.FW layers with new checksums and encryption. |

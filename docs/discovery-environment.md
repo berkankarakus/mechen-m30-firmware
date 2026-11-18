@@ -137,6 +137,23 @@ $GHIDRA PROJE_DIZINI ad -import X.ap -loader BinaryLoader -processor "MIPS:LE:32
   -scriptPath tools/ghidra -postScript LoadAP.java X.ap -postScript DumpC.java out.c
 ```
 
+Community corpus'taki tüm `.ap` modüllerini hash ile takip edip decompile
+çıktılarını bu makinede kalıcı, Git tarafından dışlanan
+`analysis/local-evidence/decompiled/community/` altında saklamak için:
+
+```sh
+bash tools/ghidra/export_local_ap_decomp.sh
+```
+
+İsteğe bağlı ilk argüman `.ap` dizinini, ikinci argüman çıktı dizinini seçer.
+Her modül için `.c` dökümü ve `manifest.tsv` içindeki kaynak hash'i/fonksiyon
+sayısı tutulur; aynı hash ve mevcut çıktı varsa tekrar çalıştırılmaz. Bu,
+Ghidra'nın `LoadAP.java` tarafından tanımlanan fonksiyonların mekanik C-benzeri
+dökümüdür: MIPS16 prologue taramasının kaçırdığı fonksiyonları, eksik sabit ROM'u
+veya bankalar arası pointer çözümünü tamamladığı anlamına gelmez. Ham çıktılar
+vendor-derived olduklarından public Git geçmişine eklenmez; doğrulanmış
+davranışsal açıklamalar `docs/findings-*.md` altında tutulur.
+
 Üretilen dump'lar (fonksiyon sayısı): `browser` 449, `music` 819, `playlist` 386,
 `drv_ui` 119 (düz haritalama, aşağıya bak); `config`, `setting`, `mengine`,
 `udisk`, `manager`, `usound`, `mainmenu` de üretildi. Fonksiyon adları
