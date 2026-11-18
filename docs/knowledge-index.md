@@ -16,9 +16,10 @@ python3 tools/knowledge/m30kb.py trace 0x405151a0 0x60110ddc
 ```
 
 The initial records cover the mode-4 callback through the `0x304` engine
-dispatcher. Each function record includes input hash, variant, address, ISA
-status, concise behavior, evidence link, and reproduction hint. Typed graph
-edges distinguish direct calls, message sends, and dispatcher routing. Search
+dispatcher, plus the three effective RAM bytes written by its handler. Each
+function/state record includes input hash, variant, address, concise behavior,
+and evidence link. Typed graph edges distinguish direct calls, message sends,
+dispatcher routing, and state writes. Search
 results are only as complete as the curated records; an absent result is not
 evidence that a firmware reference does not exist. Add records only after
 checking the relevant binary and link each one to a finding with its evidence

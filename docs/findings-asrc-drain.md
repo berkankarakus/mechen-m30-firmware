@@ -95,18 +95,48 @@ pointer `0xbfc16409`). In `mengine.ap`, `FUN_60090d64` dispatches `0x304`
 through pool slot `0x60091024` to `FUN_60110ddc` (`0x60110ddd` MIPS16-tagged
 pointer).
 
-The `0x304` handler reads a byte through message `param+4`, writes masked
-fields (`& 0x30`, `& 0x0f`, `& 0xc0`) into state at `0x60110e94 +
-0x2b/+0x2c/+0x2e`, conditionally calls state-transition helpers, and
-acknowledges via another indirect helper. The decompiled handler does not
-call the `0x311` PLAY dispatcher. This closes the *message-dispatch edge*
-from the mode-4 callback, but not the question of what those state fields
-mean or whether another asynchronous consumer later starts playback. This is
-static Ghidra evidence; the message payload and resident service effects were
-not executed in this trace.
+The `0x304` handler reads a byte through message `param+4`. The raw word at
+`mengine.ap` address `0x60110e94` is the pointer literal `0x9fc15c88`, not the
+state object's address. Therefore the effective RAM byte addresses are
+`0x9fc15cb3` (`+0x2b`, assigned `input & 0x30`), `0x9fc15cb4` (`+0x2c`,
+assigned `input & 0x0f`), and `0x9fc15cb6` (`+0x2e`, assigned `input &
+0xc0`). The old value of `0x9fc15cb4` is read before the stores; if the
+incoming low nibble is 3 and the old value was not 3, the handler calls an
+additional transition helper. It then acknowledges via another indirect
+helper. The same handler decompiles identically at the same address in stock
+V1.101.10 `mengine.ap` (SHA-256
+`1340bac3cb68043f7a9651ee7959c2f502e6759c7debe0626f07ef9231896d4d`); its
+pointer pool also contains `0x9fc15c88` at `0x60110e94` and the same resident
+call targets. The field meanings and downstream readers remain unknown. The
+decompiled handler does not call the `0x311` PLAY dispatcher. This is static
+Ghidra evidence; message payload and resident service effects were not
+executed in this trace.
 
-Reproduction: map the hash-pinned community `music.ap` and `mengine.ap` with
-`tools/ghidra/LoadAP.java`, then decompile `0x405151a0`, `0x40394eb4`,
-`0x40614f30`, `0x60090d64`, and `0x60110ddc` using `DumpAt.java`; inspect
-`mengine.ap` words at `0x60091010..0x6009106c` with `DumpWords.java` to verify
-the `0x304` dispatch slot.
+Reproduction: independently map the hash-pinned community `music.ap` and
+`mengine.ap` with `tools/ghidra/LoadAP.java`. Decompile `0x405151a0`,
+`0x40394eb4`, and `0x40614f30` from `music.ap`, and `0x60090d64` and
+`0x60110ddc` from `mengine.ap` using `DumpAt.java`. Inspect `mengine.ap` words
+at `0x60091010..0x6009106c` and `0x60110e94..0x60110ea8` with `DumpWords.java`
+to verify the message dispatch and the RAM base pointer. Repeat the handler
+decompile and `0x60110e94..0x60110ea8` word dump against the stock
+`mengine.ap` hash recorded above to reproduce the cross-version comparison.
+
+### Independent `0x304` producer in `setting.ap`
+
+`setting.ap` contains a second producer. At `FUN_40154c88`, the incoming byte
+is stored at local `s1+0x18`; the function constructs a message whose first
+word is `0x304` and whose next word points to that byte, then calls its
+literal-mediated service with destination `0x0d`. The manager app-name table
+maps entry 13 to `mengine` (the ID-equals-index interpretation is the
+documented assumption). `FUN_40155200` ORs `0x10` into the current byte before
+calling this wrapper; `FUN_40154cd4` replaces the low nibble while preserving
+the high nibble. This independently confirms that `0x304` carries a packed
+one-byte state update into the engine. It still does not identify the
+user-facing setting or the three fields' semantic names.
+
+The key instruction evidence is `0x40154c8c..0x40154c9e` (copy input byte,
+form the payload pointer, store message ID) and `0x40154caa..0x40154cb4`
+(destination `0x0d`, payload pointer, indirect service call). Reproduce with
+`LoadAP.java` and `DumpInstructions.java` on the hash-pinned community
+`setting.ap`, starting at `0x40154c88`; decompile `0x40154c88`,
+`0x40154cd4`, and `0x40155200` with `DumpAt.java`.

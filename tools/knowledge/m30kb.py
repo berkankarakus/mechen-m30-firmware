@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sqlite3
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "docs/knowledge/facts.jsonl"
-DATABASE = ROOT / "analysis/local-evidence/knowledge.sqlite"
+SOURCE = Path(os.environ.get("M30_KNOWLEDGE_SOURCE", ROOT / "docs/knowledge/facts.jsonl"))
+DATABASE = Path(os.environ.get("M30_KNOWLEDGE_DB", ROOT / "analysis/local-evidence/knowledge.sqlite"))
 
 
 def records():
@@ -33,14 +35,30 @@ def connect():
 def build():
     rows = list(records())
     functions = [r for r in rows if r["type"] == "function"]
+    states = [r for r in rows if r["type"] == "state"]
     edges = [r for r in rows if r["type"] == "edge"]
-    if len(functions) + len(edges) != len(rows):
+    if len(functions) + len(states) + len(edges) != len(rows):
         raise SystemExit("unknown record type in facts.jsonl")
-    db = connect()
+    entity_ids = [r["id"] for r in functions + states]
+    if len(entity_ids) != len(set(entity_ids)):
+        raise SystemExit("duplicate function/state id in facts.jsonl")
+    known_ids = set(entity_ids)
+    dangling = sorted({endpoint for r in edges for endpoint in (r["source"], r["target"])
+                       if endpoint not in known_ids})
+    if dangling:
+        raise SystemExit("edge endpoint not defined as a function/state: " + ", ".join(dangling))
+    DATABASE.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=DATABASE.name + ".", suffix=".tmp", dir=DATABASE.parent
+    )
+    os.close(descriptor)
+    temporary_database = Path(temporary_name)
+    db = sqlite3.connect(temporary_database)
     try:
         db.executescript("""
-            DROP TABLE IF EXISTS function_search;
+            DROP TABLE IF EXISTS fact_search;
             DROP TABLE IF EXISTS edges;
+            DROP TABLE IF EXISTS states;
             DROP TABLE IF EXISTS functions;
             CREATE TABLE functions (
               id TEXT PRIMARY KEY, module TEXT NOT NULL, variant TEXT NOT NULL,
@@ -53,25 +71,43 @@ def build():
               message_id TEXT NOT NULL DEFAULT '', evidence TEXT NOT NULL,
               PRIMARY KEY (source, target, kind, message_id)
             );
-            CREATE VIRTUAL TABLE function_search USING fts5(
-              id UNINDEXED, searchable, tokenize='unicode61'
+            CREATE TABLE states (
+              id TEXT PRIMARY KEY, module TEXT NOT NULL, variant TEXT NOT NULL,
+              sha256 TEXT NOT NULL, address TEXT NOT NULL, symbol TEXT NOT NULL,
+              width_bits INTEGER NOT NULL, summary TEXT NOT NULL, evidence TEXT NOT NULL
+            );
+            CREATE VIRTUAL TABLE fact_search USING fts5(
+              id UNINDEXED, kind UNINDEXED, searchable, tokenize='unicode61'
             );
         """)
         for r in functions:
             db.execute("INSERT INTO functions VALUES (?,?,?,?,?,?,?,?,?,?,?)", (
                 r["id"], r["module"], r["variant"], r["sha256"], r["address"],
                 r["symbol"], r["isa"], r["status"], r["summary"], r["evidence"], r["reproduce"]))
-            db.execute("INSERT INTO function_search VALUES (?,?)", (
-                r["id"], " ".join((r["id"], r["module"], r["variant"], r["address"],
+            db.execute("INSERT INTO fact_search VALUES (?,?,?)", (
+                r["id"], "function", " ".join((r["id"], r["module"], r["variant"], r["address"],
                                    r["symbol"], r["isa"], r["status"], r["summary"],
                                    r["evidence"], r["reproduce"]))))
+        for r in states:
+            db.execute("INSERT INTO states VALUES (?,?,?,?,?,?,?,?,?)", (
+                r["id"], r["module"], r["variant"], r["sha256"], r["address"],
+                r["symbol"], r["width_bits"], r["summary"], r["evidence"]))
+            db.execute("INSERT INTO fact_search VALUES (?,?,?)", (
+                r["id"], "state", " ".join((r["id"], r["module"], r["variant"],
+                                               r["address"], r["symbol"], r["summary"], r["evidence"]))))
         for r in edges:
             db.execute("INSERT INTO edges VALUES (?,?,?,?,?)", (
                 r["source"], r["target"], r["kind"], r.get("message_id", ""), r["evidence"]))
         db.commit()
-    finally:
+    except Exception:
         db.close()
-    print(f"Indexed {len(functions)} functions and {len(edges)} edges into {DATABASE}")
+        temporary_database.unlink(missing_ok=True)
+        raise
+    finally:
+        if db:
+            db.close()
+    os.replace(temporary_database, DATABASE)
+    print(f"Indexed {len(functions)} functions, {len(states)} state fields, and {len(edges)} edges into {DATABASE}")
 
 
 def search(query: str):
@@ -83,13 +119,17 @@ def search(query: str):
     match = " OR ".join('"' + t.replace('"', '""') + '"' for t in terms)
     with connect() as db:
         rows = db.execute("""
-            SELECT f.id, f.address, f.symbol, f.module, f.status,
-                   snippet(function_search, 1, '[', ']', '…', 16) AS excerpt
-            FROM function_search JOIN functions f USING (id)
-            WHERE function_search MATCH ? ORDER BY bm25(function_search) LIMIT 30
+            SELECT fact_search.id, fact_search.kind, snippet(fact_search, 2, '[', ']', '…', 16) AS excerpt,
+                   coalesce(f.address, s.address) AS address,
+                   coalesce(f.symbol, s.symbol) AS symbol,
+                   coalesce(f.module, s.module) AS module,
+                   coalesce(f.status, 'observed-state') AS status
+            FROM fact_search
+            LEFT JOIN functions f USING (id) LEFT JOIN states s USING (id)
+            WHERE fact_search MATCH ? ORDER BY bm25(fact_search) LIMIT 30
         """, (match,)).fetchall()
     for row in rows:
-        print(f"{row['address']} {row['symbol']} [{row['module']} / {row['status']}]\n  {row['excerpt']}\n  {row['id']}")
+        print(f"{row['address']} {row['symbol']} [{row['kind']} / {row['module']} / {row['status']}]\n  {row['excerpt']}\n  {row['id']}")
     if not rows:
         print("No matching indexed functions.")
 
@@ -99,9 +139,15 @@ def resolve(db, key):
                          OR lower(address)=lower(?) OR lower(symbol)=lower(?) LIMIT 1""",
                      (key, key, key)).fetchone()
     if row is None:
+        row = db.execute("""SELECT * FROM states WHERE lower(id)=lower(?)
+                             OR lower(address)=lower(?) OR lower(symbol)=lower(?) LIMIT 1""",
+                         (key, key, key)).fetchone()
+    if row is None:
         try:
             address = f"0x{(int(key, 0) & ~1):08x}"
             row = db.execute("SELECT * FROM functions WHERE lower(address)=lower(?)", (address,)).fetchone()
+            if row is None:
+                row = db.execute("SELECT * FROM states WHERE lower(address)=lower(?)", (address,)).fetchone()
         except ValueError:
             pass
     return row
@@ -111,7 +157,7 @@ def show(key):
     with connect() as db:
         row = resolve(db, key)
         if row is None:
-            raise SystemExit(f"function not indexed: {key}")
+            raise SystemExit(f"function/state not indexed: {key}")
         for field in row.keys():
             print(f"{field}: {row[field]}")
         for edge in db.execute("""SELECT kind, message_id, target AS other FROM edges WHERE source=?
