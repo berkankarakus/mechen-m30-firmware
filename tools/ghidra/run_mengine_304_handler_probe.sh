@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Execute the real mengine.ap 0x304 handler with synthetic RAM.
-# Only mmm_mp and message-ack resident boundaries are stubbed.
+# Execute the real mengine.ap 0x304 handler and its in-binary queue helpers.
+# Resident function-pointer boundaries (including mmm_mp and message ack) are stubbed.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -31,8 +31,12 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -postScript RunMengine304HandlerProbe.java \
   >"$WORK/ghidra.log" 2>&1 || { cat "$WORK/ghidra.log"; exit 1; }
 
-grep -q 'MENGINE 0x304 HANDLER DYNAMIC PASS entry=60110ddc' "$WORK/ghidra.log" || {
+grep -q 'MENGINE 0x304 HANDLER DYNAMIC PASS entry=60110ddc statuses=0,1,2' "$WORK/ghidra.log" || {
   cat "$WORK/ghidra.log"
   exit 1
 }
+grep 'MENGINE 0x304 LITERALS' "$WORK/ghidra.log"
+grep 'MENGINE 0x304 HELPER-LITERALS' "$WORK/ghidra.log"
+grep 'MENGINE 0x304 NESTED-LITERALS' "$WORK/ghidra.log"
+grep 'MENGINE 0x304 HANDLER TRACE' "$WORK/ghidra.log"
 grep 'MENGINE 0x304 HANDLER DYNAMIC PASS' "$WORK/ghidra.log"

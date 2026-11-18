@@ -9,10 +9,11 @@ import ghidra.program.model.mem.MemoryBlock;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 
-/** Execute the real mengine 0x304 handler; stub only mmm_mp and message-ack services. */
+/** Execute the real 0x304 handler and in-binary queue helpers; stub resident calls. */
 public class RunMengine304HandlerProbe extends GhidraScript {
     private static final long ENTRY = 0x60110ddcL;
     private static final long MMM_SERVICE = 0xbfc11cc4L;
+    private static final long QUEUE_NESTED_SERVICE = 0xbfc11cc0L;
     private static final long ACK_SERVICE = 0xbfc1197cL;
     private static final long STOP = 0x700300L;
     private static final long RAM = 0x9fc14000L;
@@ -51,6 +52,13 @@ public class RunMengine304HandlerProbe extends GhidraScript {
             | ((data[2] & 255L) << 16) | ((data[3] & 255L) << 24);
     }
 
+    private long readProgramWord(long address) throws Exception {
+        byte[] data = new byte[4];
+        currentProgram.getMemory().getBytes(addr(address), data);
+        return (data[0] & 255L) | ((data[1] & 255L) << 8)
+            | ((data[2] & 255L) << 16) | ((data[3] & 255L) << 24);
+    }
+
     private void require(boolean condition, String message) throws Exception {
         if (!condition) throw new Exception(message);
     }
@@ -61,18 +69,26 @@ public class RunMengine304HandlerProbe extends GhidraScript {
         emu.writeRegister("pc", ra & ~1L);
     }
 
-    private void runCase(String name, int oldMode, int payload, int expectMmmCalls,
-        long expectedSnapshot) throws Exception {
+    private void runCase(String name, int status, int oldMode, int payload, int expectQueueCalls,
+        int expectedQueueArgument, int expectMmmCalls, long expectedSnapshot,
+        long queueService, boolean executeQueueHelper, int expectNestedServiceCalls)
+        throws Exception {
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
+        int queueCalls = 0;
+        int nestedServiceCalls = 0;
         int mmmCalls = 0;
         int ackCalls = 0;
         int steps = 0;
+        long queueReturnPc = 0;
+        long queueReturnValue = -1;
         try {
             bytes(emu, RAM, new byte[(int) RAM_SIZE]);
             bytes(emu, STATE, new byte[0x180]);
             bytes(emu, MESSAGE, new byte[0x30]);
             word(emu, 0x9fc15c0cL, ENGINE_HANDLE);
-            word(emu, STATE, 2); // engine status: selects the 0x1c transition branch
+            word(emu, 0x9fc15f38L, RAM + 0x2000L);
+            word(emu, 0x9fc15f26L, 0x35);
+            word(emu, STATE, status);
             bytes(emu, STATE + 0x2c, new byte[] {(byte) oldMode});
             word(emu, OUTPUT_STATE, 0xabcdef01L);
             word(emu, MESSAGE + 4, PAYLOAD);
@@ -100,6 +116,34 @@ public class RunMengine304HandlerProbe extends GhidraScript {
                     returned = true;
                     break;
                 }
+                if (base == queueService) {
+                    queueCalls++;
+                    require(reg(emu, "a0") == expectedQueueArgument,
+                        String.format("unexpected queue-helper argument: %08x expected %08x",
+                            reg(emu, "a0"), expectedQueueArgument));
+                    if (executeQueueHelper) {
+                        queueReturnPc = reg(emu, "ra") & ~1L;
+                    } else {
+                        emu.writeRegister("v0", 0);
+                        returnFromMips16(emu);
+                        continue;
+                    }
+                }
+                if (base == QUEUE_NESTED_SERVICE) {
+                    int index = nestedServiceCalls++;
+                    long expectedA0 = index == 0 ? 0x9fc15f88L : 0x9fc15f90L;
+                    long expectedA2 = index == 0 ? 8 : 0x20;
+                    require(index < expectNestedServiceCalls
+                            && reg(emu, "a0") == expectedA0
+                            && reg(emu, "a1") == 0
+                            && reg(emu, "a2") == expectedA2
+                            && reg(emu, "a3") == 1,
+                        String.format("unexpected nested service call #%d: %08x %08x %08x %08x",
+                            index, reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"), reg(emu, "a3")));
+                    emu.writeRegister("v0", 0);
+                    returnFromMips16(emu);
+                    continue;
+                }
                 if (base == MMM_SERVICE) {
                     mmmCalls++;
                     long context = reg(emu, "a0");
@@ -123,15 +167,37 @@ public class RunMengine304HandlerProbe extends GhidraScript {
                     returnFromMips16(emu);
                     continue;
                 }
+                if (queueReturnPc != 0 && base == queueReturnPc) {
+                    queueReturnValue = reg(emu, "v0");
+                    queueReturnPc = 0;
+                }
                 if (!emu.step(monitor)) {
                     throw new Exception(String.format("%s stopped at %08x: %s", name, pc, emu.getLastError()));
                 }
             }
             require(returned, name + " handler did not return");
-            println(String.format("MENGINE 0x304 HANDLER TRACE %s status=%08x payload-memory=%02x +2b=%02x +2c=%02x +2e=%02x mmm=%d ack=%d",
-                name, readWord(emu, STATE), readByte(emu, PAYLOAD),
+            println(String.format("MENGINE 0x304 HANDLER TRACE %s status=%d payload=%02x +2b=%02x +2c=%02x +2e=%02x queue=%d nested-service=%d queue-return=%08x mmm=%d ack=%d",
+                name, status, readByte(emu, PAYLOAD),
                 readByte(emu, STATE + 0x2b), readByte(emu, STATE + 0x2c),
-                readByte(emu, STATE + 0x2e), mmmCalls, ackCalls));
+                readByte(emu, STATE + 0x2e), queueCalls, nestedServiceCalls,
+                queueReturnValue, mmmCalls, ackCalls));
+            require(queueCalls == expectQueueCalls,
+                name + " queue-helper call count=" + queueCalls + " expected=" + expectQueueCalls);
+            require(nestedServiceCalls == expectNestedServiceCalls,
+                name + " nested service call count=" + nestedServiceCalls
+                    + " expected=" + expectNestedServiceCalls);
+            if (executeQueueHelper) {
+                require(queueReturnValue == 1,
+                    name + " real queue-helper return=" + queueReturnValue + " expected=1");
+                require(readByte(emu, 0x9fc15f39L) == (payload & 0x0f),
+                    name + " real queue-helper state write mismatch");
+                require(readByte(emu, 0x9fc15f21L) == 0,
+                    name + " queue-helper reset byte mismatch");
+                require(readByte(emu, 0x9fc15f23L) == 1,
+                    name + " queue-helper transition flag mismatch");
+                require(readWord(emu, 0x9fc15f84L) == 0x35,
+                    name + " nested helper parameter write mismatch");
+            }
             require(mmmCalls == expectMmmCalls,
                 name + " mmm_mp call count=" + mmmCalls + " expected=" + expectMmmCalls);
             require(ackCalls == 1, name + " acknowledgement count=" + ackCalls);
@@ -140,8 +206,8 @@ public class RunMengine304HandlerProbe extends GhidraScript {
             require(readByte(emu, STATE + 0x2e) == (payload & 0xc0), name + " +0x2e mask mismatch");
             require(readWord(emu, OUTPUT_STATE) == (expectMmmCalls == 1 ? expectedSnapshot : 0xabcdef01L),
                 name + " snapshot copy behavior mismatch");
-            println(String.format("MENGINE 0x304 HANDLER CASE %s steps=%d payload=0x%02x mmm-requests=%d ack=%d snapshot=0x%08x",
-                name, steps, payload, mmmCalls, ackCalls, readWord(emu, OUTPUT_STATE)));
+            println(String.format("MENGINE 0x304 HANDLER CASE %s steps=%d payload=0x%02x queue-requests=%d mmm-requests=%d ack=%d snapshot=0x%08x",
+                name, steps, payload, queueCalls, mmmCalls, ackCalls, readWord(emu, OUTPUT_STATE)));
         } finally {
             emu.dispose();
         }
@@ -172,9 +238,29 @@ public class RunMengine304HandlerProbe extends GhidraScript {
         BigInteger mode = currentProgram.getProgramContext().getValue(isa, addr(ENTRY), false);
         require(BigInteger.ONE.equals(mode), "0x304 handler does not have MIPS16 context");
 
-        runCase("enter-mode-3", 2, 0xa3, 1, 0x12345678L);
-        runCase("already-mode-3", 3, 0x53, 0, 0x87654321L);
-        println("MENGINE 0x304 HANDLER DYNAMIC PASS entry=60110ddc payloads=0xa3,0x53 "
-            + "state-masks=0x30,0x0f,0xc0 transition-snapshot=verified services=stubbed");
+        println(String.format("MENGINE 0x304 LITERALS queue=0x%08x mmm=0x%08x ack=0x%08x",
+            readProgramWord(0x60110e98L), readProgramWord(0x60110ea0L),
+            readProgramWord(0x60110ea8L)));
+        println(String.format("MENGINE 0x304 HELPER-LITERALS state=%08x+%08x flag=%08x arg=%08x source=%08x nested=%08x",
+            readProgramWord(0x7a052e20L), readProgramWord(0x7a052e1cL),
+            readProgramWord(0x7a052e24L), readProgramWord(0x7a052e28L),
+            readProgramWord(0x7a052e2cL), readProgramWord(0x7a052e30L)));
+        println(String.format("MENGINE 0x304 NESTED-LITERALS flag=%08x call=%08x buffer=%08x parameter=%08x value=%08x",
+            readProgramWord(0x7b1a8190L), readProgramWord(0x7b1a8198L),
+            readProgramWord(0x7b1a8194L), readProgramWord(0x7b1a81bcL),
+            readProgramWord(0x7b1a81c0L)));
+
+        long queueService = readProgramWord(0x60110e98L) & ~1L;
+        runCase("status-0-queue", 0, 2, 0xa3, 1, 0x23, 0, 0x12345678L,
+            queueService, true, 2);
+        runCase("status-1-queue", 1, 2, 0x53, 1, 0x13, 0, 0x87654321L,
+            queueService, true, 2);
+        runCase("enter-mode-3", 2, 2, 0xa3, 0, 0, 1, 0x12345678L,
+            queueService, false, 0);
+        runCase("already-mode-3", 2, 3, 0x53, 0, 0, 0, 0x87654321L,
+            queueService, false, 0);
+        println("MENGINE 0x304 HANDLER DYNAMIC PASS entry=60110ddc statuses=0,1,2 "
+            + "payloads=0xa3,0x53 queue-helper=executed nested-resident-calls=stubbed "
+            + "state-masks=0x30,0x0f,0xc0 transition-snapshot=verified");
     }
 }

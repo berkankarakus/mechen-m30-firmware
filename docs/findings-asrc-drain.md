@@ -168,23 +168,37 @@ also unresolved.
 
 `bash tools/ghidra/run_mengine_304_handler_probe.sh` executes the real
 `mengine.ap` handler `FUN_60110ddc` in p-code. The synthetic message's `param+4`
-points directly to the payload byte; the engine handle at `0x9fc15c0c` and
-both resident service boundaries are controlled test inputs/stubs.
+points directly to the payload byte, and the engine handle at `0x9fc15c0c` is
+a controlled test input. The status-0/1 in-binary helper path executes both
+real helper functions; only their resident function-pointer calls are stubbed.
+In the status-2 path, the `mmm_mp` and acknowledgement resident calls are
+stubbed.
 
-With the handler status byte seeded to `2`, payload `0xa3`, and prior
-`+0x2c == 2`, the handler writes `0x20`, `3`, and `0x80` to state bytes
-`+0x2b`, `+0x2c`, and `+0x2e`, requests command `0x1c`, and copies the stubbed
-snapshot word at output `+0x0c` into `0x9fc15d8c`. With the same status byte,
-payload `0x53`, and prior `+0x2c == 3`, it writes `0x10`, `3`, and `0x40` but
-does not request another snapshot; the previous `0x9fc15d8c` value is
-retained. Both exercised paths acknowledge the message.
+With handler status `2`, payload `0xa3`, and prior `+0x2c == 2`, the handler
+writes `0x20`, `3`, and `0x80` to state bytes `+0x2b`, `+0x2c`, and `+0x2e`,
+requests command `0x1c`, and copies the stubbed snapshot word at output
+`+0x0c` into `0x9fc15d8c`. With status `2`, payload `0x53`, and prior
+`+0x2c == 3`, it writes `0x10`, `3`, and `0x40` but does not request another
+snapshot; the previous `0x9fc15d8c` value is retained.
 
-This verifies only the handler's status-2 path. The `0x1c` request is guarded
-by the payload low nibble being `3` and prior `+0x2c` not being `3`; the
-handler takes a separate queue-helper path when its status byte is `0` or
-`1`. That queue path is not exercised or intercepted by this probe. The
-`mmm_mp` and acknowledgement services are stubbed, so this does not prove
-their real effects or message-queue delivery.
+With status `0` and payload `0xa3`, and again with status `1` and payload
+`0x53`, the handler calls the function pointer stored at `0x60110e98`
+(`0x7a052dd9`, MIPS16 tagged). This resolves to the in-binary function
+`FUN_7a052dd8`, which the probe now executes. For both inputs it writes the
+low nibble to `0x9fc15f39`, clears `0x9fc15f21`, sets `0x9fc15f23`, and calls
+`FUN_7b1a808c` using synthetic selector value `0x35` from `0x9fc15f26`.
+That nested function also executes and requests the resident function pointer
+`0xbfc11cc1` twice, with argument tuples
+`(0x9fc15f88, 0, 8, 1)` and `(0x9fc15f90, 0, 0x20, 1)`. The resident calls
+return synthetic zero; the probe verifies their targets and arguments, then
+checks the in-binary helper's return value and state writes.
+
+This verifies status `0`, `1`, and `2` control paths, both in-binary helpers,
+the payload masks, the nested resident-call requests, and the `0x1c` transition
+guard. It does not execute the resident `0xbfc11cc1` implementation, actual
+`mmm_mp` service, or resident acknowledgement implementation. The synthetic
+selector and RAM are controlled probe inputs; this is not a full engine run or
+proof of the helper's device-time effects.
 
 ### Confirmed engine-side consumers of the `0x304` state
 
