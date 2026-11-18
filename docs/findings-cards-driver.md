@@ -53,7 +53,8 @@ controller's evidence-backed 512-byte transfer boundary through
 sector bounds. The same model exposes capacity as `sector_count * 512` bytes,
 without assigning meaning to the controller's raw geometry registers. It is a
 storage boundary, not an emulation of the controller's
-register polling, IRQ timing, or automatic-index trigger. It does not by itself explain the
-automatic-index trigger: that decision remains in the application/library
-call chain documented in `findings-index-guards.md` and `library-builder.md`.
+register polling, IRQ timing, or automatic-index trigger. It does not explain
+the powered card-reinsertion behavior. The event callback, flash-flag setter,
+or direct builder-start path has not been located; see
+`findings-index-guards.md` and `library-builder.md` for the known startup path.
 No flashable patch is proposed from this analysis.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Compare the stock and community automatic-index entry paths.
-# Static Ghidra analysis only; no firmware image is modified or produced.
+# Compare the stock and community bytes at the two automatic-index guard sites.
+# The decompiler's in_v0 labels are not treated as the semantic condition.
+# No firmware image is modified or produced.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -50,18 +51,11 @@ for label in stock-config community-config stock-udisk community-udisk; do
   grep -q 'DumpAt:' "$WORK/$label.log"
 done
 
-# The stock code branches on the incoming v0 status.  The community patch
-# removes those conditionals, leaving the no-automatic-index path in place.
-grep -Fq 'if (in_v0 == 0)' "$WORK/stock-config.c"
-! grep -Fq 'in_v0' "$WORK/community-config.c"
-grep -Fq 'if (in_v0 != 0)' "$WORK/stock-udisk.c"
-! grep -Fq 'in_v0' "$WORK/community-udisk.c"
+# Compare the full two-byte MIPS16 instructions. The old decompiler summary
+# calling these incoming-v0 conditions was not a reliable semantic reading.
+[ "$(od -An -tx1 -j 0x1e0c -N 2 "$COMMUNITY/config.ap" | tr -d ' \n')" = "0d10" ]
+[ "$(od -An -tx1 -j 0x1908 -N 2 "$COMMUNITY/udisk.ap" | tr -d ' \n')" = "0810" ]
+[ "$(od -An -tx1 -j 0x1e0c -N 2 "$STOCK/config.ap" | tr -d ' \n')" = "0d22" ]
+[ "$(od -An -tx1 -j 0x1908 -N 2 "$STOCK/udisk.ap" | tr -d ' \n')" = "0822" ]
 
-# Keep the byte-level guard in the same probe so a decompiler presentation
-# change cannot make the evidence silently point at a different patch.
-[ "$(od -An -tx1 -j 0x1e0d -N 1 "$COMMUNITY/config.ap" | tr -d ' \n')" = "10" ]
-[ "$(od -An -tx1 -j 0x1909 -N 1 "$COMMUNITY/udisk.ap" | tr -d ' \n')" = "10" ]
-[ "$(od -An -tx1 -j 0x1e0d -N 1 "$STOCK/config.ap" | tr -d ' \n')" = "22" ]
-[ "$(od -An -tx1 -j 0x1909 -N 1 "$STOCK/udisk.ap" | tr -d ' \n')" = "22" ]
-
-echo 'INDEX GUARD PROBE PASS config=in_v0-branch-removed udisk=dirty-branch-removed'
+echo 'INDEX GUARD BYTE PROBE PASS config=0d22-to-0d10 udisk=0822-to-0810'

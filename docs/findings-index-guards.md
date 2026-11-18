@@ -16,56 +16,55 @@ raw bytes at the patch offsets.
 
 ## What the comparison shows
 
-### `config.ap + 0x1e0d`
+### `config.ap + 0x1e0c..0x1e0d`
 
-The stock entry contains an `in_v0 == 0` conditional around the normal
-configuration/update preparation path. The community byte change (`0x22 ->
-0x10`) removes that conditional in the decompiler output; the no-automatic-
-update path is no longer guarded by the incoming status value.
+The community patch changes bytes `0d 22` to `0d 10`. The decompiler's
+`in_v0 == 0` description is an artifact and should not be used as the semantic
+condition. The automatic-index startup decision is a separate four-byte flash
+word at `0x2f0000`: `config.ap` tests bit `0x10000` and, when set, starts
+`playlist.ap` (application 10, parameter `0x4e`). The exact relation between
+this flag and every card-event path remains unresolved.
 
-### `udisk.ap + 0x1909`
+### `udisk.ap + 0x1908..0x1909`
 
-The stock USB/storage entry contains an `in_v0 != 0` block that marks the
-update state dirty and sets the corresponding flag. The community byte change
-removes that block from the decompiled control flow.
+The community patch changes a conditional branch to an unconditional branch.
+This removes that particular dirty-state path; it does not prevent another
+component from setting or consuming the `0x2f0000` flag, or from starting the
+playlist builder directly.
 
-These two findings explain why the community firmware is reasonably described
-as containing an automatic-index bypass while preserving the manual Settings
--> Update Playlist path. They do not prove that unrelated startup code can
-never initiate a rebuild, nor do they replace a cold-boot and powered-card
-physical test.
+`playlist.ap` clears bit `0x10000` only after a successful update, so an
+interrupted build can be retried on a later startup. These two community
+changes affect only their specific guard paths. They do not establish a
+general automatic-index bypass or identify the powered-card insertion path.
 
 ### Dated official-corpus control check
 
-The same raw offsets were checked in the nine newly extracted official
-corpora. Every dated official file retained `0x22` at both `config.ap+0x1e0d`
-and `udisk.ap+0x1909`; the community baseline alone has `0x10` at both
-locations. This supports the hypothesis that the two-byte guard change is a
-community-specific modification rather than a general property of the M30
-firmware line. It still does not identify the separate powered-card event
-path observed on the device.
+The two instruction bytes were checked in the nine newly extracted official
+corpora. Every dated official file retained `0d 22` at `config.ap+0x1e0c` and
+`08 22` at `udisk.ap+0x1908`; the community baseline has `0d 10` and `08 10`,
+respectively. This supports the hypothesis that these byte changes are
+community-specific rather than a general property of the M30 firmware line.
+It still does not identify the separate powered-card event path observed on
+the device.
 
 ## Interpretation of the recent device test
 
-An older stock-based index experiment was not V1.292.00. Therefore its
-indexing after card insertion cannot falsify the community guard. The correct
-physical comparison is the untouched community image:
-
-`<local-workspace>/mechen-m30-community-firmware/releases/v1.292.00/MECHEN_M30.HEX`
-
-with the stock image retained offline for rollback.
+The reported powered-card test used a V1.292.00-based image with the two
+community guard changes. Its exact device image hash was not recorded in the
+evidence supplied here, so record the firmware version separately from a
+byte-verified image identity.
 
 ## Physical result on this M30
 
-User-reported test on 2026-11-15: the untouched community V1.292.00 image was
-flashed successfully, and removing/reinserting the card while the device was
-running started indexing again.
+User-reported test on 2026-11-15: with the two guard changes present in the
+V1.292.00-based image, removing and reinserting the card while powered still
+started indexing.
 
-This is now a device observation, not a static inference. It shows that the
-two community guard sites do not cover this powered card-insertion trigger on
-the tested unit, or that a separate card-event path starts the builder. It
-does not invalidate the decompiled meaning of the two guard sites; it narrows
-the remaining work to the card-event/startup call chain.
+This is a device observation, not a static inference. It shows that those two
+guard changes do not prevent indexing after powered card reinsertion on the
+tested unit. The event may set the flash flag elsewhere or start the builder
+directly. No card-event callback or flag setter has been identified, so the
+call chain remains open.
 
 The host model keeps these outcomes separate: the static guard contract uses
 `CardChangePolicy.MANUAL_UPDATE_REQUIRED`, while the tested powered-card
@@ -73,3 +72,17 @@ observation is represented explicitly by
 `CardChangePolicy.AUTOMATIC_REBUILD`. The latter requires a file count and
 enters the normal bounded update state; it does not claim that every card or
 startup trigger behaves this way.
+
+## Next discriminating observation
+
+If a read-only device flash read is available, compare the four-byte word at
+`0x2f0000` before and after powered card reinsertion. A newly set `0x10000`
+bit would direct the search toward its setter; an unchanged word would favor a
+direct app launch or another trigger. Static candidates include the
+`0x2f0000` reference in `kernel.drv` at file `0x33b8` and the
+`0x9fc155d0` references in `mainmenu.ap`; `card.drv` and `cards.drv` contain
+no known index call or flag literal. A main-menu event path involving message
+`0xf2` carries the value `0x10000`, but no link from that event to card
+detection, the flash-word setter, or playlist launch has been established.
+Treat it only as a candidate. No setter or card-event callback has been
+verified yet.

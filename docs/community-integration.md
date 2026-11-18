@@ -45,10 +45,11 @@ not establish that V1.292 behaves the same way.
 The historical combined candidate took the community payload wholesale, so the
 following are included:
 
-- The community's documented/manual-index change targets automatic file-list
-  regeneration after USB use, card changes, firmware updates, and the
-  dirty-settings path. Manual `Settings -> Update Playlist` remains available;
-  the exact coverage of every trigger is still a physical-test item here.
+- The community's two known manual-index guard changes affect specific USB and
+  startup paths. Powered card reinsertion still started indexing in the
+  reported V1.292.00-based device test, so these changes do not establish a
+  general bypass for card changes. The event callback and flag/direct-launch
+  path remain unknown. Manual `Settings -> Update Playlist` remains available.
 - End-of-track ASRC drain, which is the community fix most relevant to the
   Audacity fade-out clipping report.
 - Bounded metadata and artwork parsing with UTF-8/UTF-16 and ID3 fixes.
