@@ -14,6 +14,7 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | P1 | DAC caller/codec register | `drv_dac.drv` byte-transfer sınırını koru; caller ve register tablosu bulunmadan volume/fade patch’i üretme |
 | P1 | EQ'nin duyulabilir yolu | Deneysel Custom eğri cihazda Off'tan farklı duyulmadı; dört overlay kendi tabanındaki `0x38`-byte kalıcı bloğun `+0x2c..+0x32` alanını Custom kaynağı olarak kullanıyor. `config.ap` bunu açılışta `0x9fc1a19c`'ye kopyalıyor. Gerçek `FUN_40414c00 → FUN_48ad47b0` p-code yürütmesi community ve V1.101.12’de helper sonucu `-0x7fef` enjekte edilip resident system-call ve shared-AP servis stub’ları sıfır döndürdüğünde type `3` dalının `-0x7fec` verdiğini doğruladı. Selector `0x9fc1570d` yazarı, slider sahnesi ve ses tüketicisi hâlâ çözülmedi. Sıradaki iş MCG ID resolver/caller zincirinde selector yazmalarını izlemek; sabit eğriyi değiştirme |
 | P1 | QEMU/exception | sabit ROM exception/provider bulunursa guest boundary’yi genişlet; bulunmazsa mevcut fail-closed probe’ları koru |
+| P1 | Sabit ROM kaynağı | [ROM-dump arama bulgusu](findings-rom-dump-availability.md): diğer Mechen modelleri için doğrulanabilir ham dump bulunmadı; güncelleme paketleri M30 sabit-ROM boşluğunu kapatmıyor. Aynı M30 kartının readback’ini veya adres haritası doğrulanmış eşdeğerini ara |
 | P2 | Playback | ASRC/EOF, fade-out ve gapless için gerçek decoder/ASRC/DAC drain kanıtı ara |
 | P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |
 
