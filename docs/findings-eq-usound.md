@@ -420,13 +420,20 @@
   `(a0=0x0a, a1=0xbfc31115, a2=0, a3=0x14)`. This corrects the earlier
   interpretation that `a1` was the address `0xbfc324ec`: the value passed is
   the odd MIPS16 function pointer stored there. The first target is
-  `FUN_bfc3125c` (file offset `0x26ec`); the second is `FUN_bfc31114` (file
-  offset `0x26e8`). The data at `0xbfc324e8..0xbfc324ff` also contains
+  `FUN_bfc3125c` (file offset `0x145c`); the second is `FUN_bfc31114` (file
+  offset `0x1314`). The former `0x26ec`/`0x26e8` values are the file offsets of
+  the pointer slots, not the function bodies. The data at
+  `0xbfc324e8..0xbfc324ff` also contains
   `0xc008018c`, `0xc0080198`, `0xc008019d`, and `0xc0080191`, but these words
-  are not passed by this call. A function pointer is demonstrably passed;
-  whether operation `0x14` registers or dispatches it, and on what event,
-  remains unknown. This is not evidence of a DMA interrupt vector or a
-  verified runtime dispatcher. No fixed-ROM handler or device was run.
+  are not passed by this call. A separate key-driver finding maps module
+  `0x0f` operations `0x18`, `0x19`, and `0x1a` to message-queue operations,
+  supporting the interpretation that `a3` selects a service operation. Here,
+  setup calls operation `0x14` twice, pairing `a0=0x0a`/`0x14` with callback
+  pointers in `a1`; the return value is not consumed. The strongest current
+  hypothesis is that operation `0x14` installs callbacks keyed by `a0`, but
+  neither that behavior nor the event meanings are proven without the fixed-ROM
+  handler. This is not evidence of a DMA interrupt vector or a verified
+  runtime dispatcher. No fixed-ROM handler or device was run.
 - The first passed function pointer, `0xbfc31115`, resolves to
   `FUN_bfc31114`. Its static body checks the word at `0xc0080191`; when bit
   `0x02` is set, it writes the observed mask value to `0xc0080400` and calls
@@ -434,6 +441,18 @@
   pointer at `0xbfc3119c` (`0xbfc303c5`). This makes `FUN_bfc31114` a plausible
   producer/event handler, but the hardware-bit meaning and whether module
   `0x0f` dispatches this pointer remain unverified.
+- A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
+  the same narrow call shape in `udisk.drv`: `FUN_bfc32abc` calls through the
+  module-`0x0f` stub with `(a0=0x0a,a1=0xbfc30d15,a2=0,a3=0x14)`. The callback
+  target is `FUN_bfc30d14` (file offset `0x0f14`), whose decompile reads and
+  writes USB MMIO state. This independent USB-driver instance strengthens the
+  inference that op `0x14` installs a callback keyed by event `0x0a`; the
+  service body and actual dispatch remain unobserved.
+- The scan was limited to already-local extracted `.drv`/`.ap` artifacts and
+  the narrow recognizable MIPS16 setup sequence. It can miss computed
+  arguments, different register setup, MIPS32 paths, and runtime-loaded banks.
+  The distinct `a0=0x14` callback pairing was observed only in `usound.drv` in
+  that scan.
 - A superficially similar call in `upgrade.ap` is **not** a module-`0x0f`
   analog. `FUN_40054c60` passes `(a0=0x0f, a1=payload, a2=0, a3=6)` through
   the pointer at `0x40055078`, whose value is `0xbfc3b031`. The aligned target

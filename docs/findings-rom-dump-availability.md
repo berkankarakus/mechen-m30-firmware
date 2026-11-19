@@ -71,6 +71,43 @@ patch, but no artifact to compare against ours. The only cross-model firmware
 lead is the D50 update package, which is not a raw ROM dump and has no verified
 hardware match. The official multi-model updater listing may be useful if a
 future local analysis of its contents is authorized, but it is not evidence of
-cross-flash compatibility. Current public evidence does not change the
-priority: continue with M30's own hash-pinned stock/community images and
-fail-closed ROM boundaries.
+cross-flash compatibility. The ATJ2127 ADFU lead below is a separate
+acquisition route and does not justify substituting another model's ROM.
+
+## ADFU boot-ROM readback candidate (2026-11-20)
+
+A public ATJ2127 tool documents a possible route to the missing on-chip ROM:
+[`kilicdev/actions_flash`](https://github.com/kilicdev/actions_flash) and its
+[ATJ2127 payload README](https://github.com/ilyakurdyukov/actions_flash/blob/main/payload/README.md).
+From an already-entered ADFU session, the documented sequence loads
+`adfus.bin` into SRAM at `0xbfc18000` and switches the command handler to it;
+then `read_mem2` copies `0x9fc00000..0x9fc3ffff` to a host-side file. The
+project says the ordinary Boot-ROM `read_mem` path returns zeros for the ROM
+window. It separately documents entering ADFU from mass-storage mode with
+`adfu_reboot` (or a boot-key method). This is a candidate method, not an M30
+readback or proof that this exact M30 board accepts that payload/address map.
+The original ATJ2127 payload README says the payload was tested only on
+ATJ2127; the tool's chip-ID output is described as a guess, not board
+identification.
+
+The documented `simple_switch`/`read_mem2` sequence writes and executes code
+in volatile device memory, then reads memory. That exact sequence contains no
+NAND/SD write command, but it is device execution and has not been run here.
+The general `actions_dump` utility also implements flash-writing commands, so
+the utility itself is not read-only. Its README warns that a hung payload can
+leave some devices difficult to reboot. No device interaction, payload
+download, or device/SD/NAND write was performed for this finding.
+
+### What this changes
+
+- It gives us a concrete route to try to obtain the fixed-ROM bytes missing
+  from the extracted firmware. A successful readback could let us inspect the
+  exception/service dispatch path and replace more emulator stubs with code.
+- Applicability depends on confirming the M30's ADFU identity and exact
+  ATJ2127 memory map. The public project documents ATJ2127 support but does not
+  report an M30 test. Treat M30 compatibility as unverified.
+- Before any device use, the SoC/address match and the exact host command path
+  need review. The intended command sequence must be constrained to SRAM upload,
+  execution, and ROM read; the general utility can issue flash writes. Device
+  execution still requires explicit authorization; this finding is not
+  authorization to run it.
