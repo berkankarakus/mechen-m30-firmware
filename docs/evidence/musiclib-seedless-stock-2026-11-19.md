@@ -85,10 +85,10 @@ GENRE: counts (30, 439, 709) sectors (2182, 2183, 2197, 2220, 2236, 2252)
    node index table: 4000 of 4000 identical
 ```
 
-The harness output above is verbatim except that `libdiff.py` prints only the
-first differing node and table entry per level/table. `libdiff.py` prints
-`counts` from the expected file's section header; the actual emitted counts
-are shown in the preceding `harness_stock.txt` capture.
+The section-comparison output above is verbatim. `libdiff.py` prints only the
+first differing node and table entry per level/table. Its `counts` values come
+from the expected file's section header; the actual emitted counts are shown
+in the preceding harness capture.
 
 ## Interpretation limits
 
