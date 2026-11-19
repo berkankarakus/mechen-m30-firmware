@@ -70,7 +70,7 @@ _start:
 	bnez $t1, fail_alt1_state
 	 nop
 
-	/* Fill one 200-byte packet, then enqueue 70 packets (below ready threshold). */
+	/* Fill one 200-byte packet, then enqueue 71 packets across the ready threshold. */
 	li $t0, 0x80060000
 	sw $zero, 0($t0)
 	sw $zero, 4($t0)
@@ -90,7 +90,7 @@ fill_packet:
 	sb $t1, 0($t0)
 	sb $zero, 1($t0)
 	li $t0, 0x8006f020
-	li $t1, 70
+	li $t1, 71
 	sw $t1, 0($t0)
 producer_packet_loop:
 	li $t0, 0x80060000
@@ -105,7 +105,7 @@ producer_packet_loop:
 	 nop
 	li $t0, 0x800601e8
 	lw $t1, 0($t0)
-	li $t2, 0x36b0
+	li $t2, 0x3778
 	bne $t1, $t2, fail_producer_write
 	 nop
 	li $t0, 0x800601f0
@@ -114,13 +114,30 @@ producer_packet_loop:
 	 nop
 	li $t0, 0x80060213
 	lbu $t1, 0($t0)
-	bnez $t1, fail_producer_ready
+	li $t2, 1
+	bne $t1, $t2, fail_producer_ready
+	 nop
+	/* The threshold helper must program DMA before the separate setup check below. */
+	li $t0, 0x80064044
+	lw $t1, 0($t0)
+	li $t2, 0x80080000
+	bne $t1, $t2, fail_dma_setup
+	 nop
+	li $t0, 0x80064040
+	lw $t1, 0($t0)
+	li $t2, 0x4b03
+	bne $t1, $t2, fail_dma_setup
+	 nop
+	li $t0, 0x80064054
+	lw $t1, 0($t0)
+	li $t2, 0x3720
+	bne $t1, $t2, fail_dma_setup
 	 nop
 	/* Check every copied ring byte against the repeating staged packet. */
 	li $t0, 0x80080000
 	li $t1, 0
 	li $t2, 0
-	li $t5, 0x36b0
+	li $t5, 0x3778
 verify_ring:
 	lbu $t3, 0($t0)
 	bne $t3, $t2, fail_producer_data
@@ -205,7 +222,7 @@ verify_ring_next:
 	 nop
 	li $t0, 0x800601e8
 	lw $t1, 0($t0)
-	li $t2, 0x36b0
+	li $t2, 0x3778
 	bne $t1, $t2, fail_alt0_state
 	 nop
 	li $t0, 0x800601ec
@@ -215,12 +232,13 @@ verify_ring_next:
 	 nop
 	li $t0, 0x800601f0
 	lw $t1, 0($t0)
-	li $t2, 0x36b0
+	li $t2, 0x3778
 	bne $t1, $t2, fail_alt0_state
 	 nop
 	li $t0, 0x80060213
 	lbu $t1, 0($t0)
-	bnez $t1, fail_alt0_state
+	li $t2, 1
+	bne $t1, $t2, fail_alt0_state
 	 nop
 
 	la $a0, pass_text
@@ -329,7 +347,7 @@ puthex_emit:
 .end puthex
 
 .section .rodata
-pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x36b0 dma-ring=shared alt0-preserves=1 ring-copy=all\r\n"
+pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x3778 threshold-cross=1 ready=1 alt0-preserves=1 ring-copy=all\r\n"
 fail_alt1_ack_text: .asciz "REAL USOUND EP0 FAIL alt1-ack\r\n"
 fail_setup_text: .asciz "REAL USOUND EP0 FAIL setup-copy\r\n"
 fail_alt1_state_text: .asciz "REAL USOUND EP0 FAIL alt1-state\r\n"

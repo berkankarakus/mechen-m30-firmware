@@ -77,6 +77,15 @@ producer_expected = {
     0x1384: 0x9FC24000,
     0x1388: 0x9FC33E20,
     0x138C: 0xC00C0054,
+    0x14B8: 0xC0000110,
+    0x14C0: 0xC000100C,
+    0x14C4: 0xC0050024,
+    0x14C8: 0xC0000000,
+    0x14CC: 0xC0050000,
+    0x14D0: 0xC005001C,
+    0x14D4: 0xC0050004,
+    0x14D8: 0xC0050014,
+    0x14DC: 0xC0050018,
 }
 for offset, expected in producer_expected.items():
     actual, = struct.unpack_from("<I", segment, offset)
@@ -113,6 +122,16 @@ producer_literals = {
     0x1384: 0x80080000,  # same ring written by producer
     0x1388: 0x80067020,  # same format flag used by producer
     0x138C: 0x80064054,  # DMA size
+    # FUN_bfc31390's helper MMIO pool, modeled as ordinary guest RAM.
+    0x14B8: 0x80064210,
+    0x14C0: 0x8006420C,
+    0x14C4: 0x80064324,
+    0x14C8: 0x80064000,
+    0x14CC: 0x80064300,
+    0x14D0: 0x8006431C,
+    0x14D4: 0x80064304,
+    0x14D8: 0x80064314,
+    0x14DC: 0x80064318,
 }
 for offset, value in producer_literals.items():
     struct.pack_into("<I", segment, offset, value)

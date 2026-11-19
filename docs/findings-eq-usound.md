@@ -216,23 +216,21 @@
   controller handshakes, malformed requests, or physical audio. The four
   locations are described as ring-state fields by current static analysis;
   this probe itself establishes only their clear/preserve behavior.
-- `tools/emu/run_qemu_usound_ep0_stream_probe.sh` now runs the real EP0 handler
-  and real `FUN_bfc30dc4` producer in one guest with a shared relocation map.
-  After alt 1 clears the four globals, 70 producer calls each enqueue a seeded
-  200-byte staging packet. The full 14,000-byte ring payload is checked, the
-  shared write offset and byte count both reach `0x36b0`, and the ready latch
-  remains clear below its `0x3720` threshold. Real `FUN_bfc312e0` then programs
-  DMA with that same relocated ring base and the observed raw size-register
-  value `0x3720`; this
-  verifies register setup only, not a transfer. A following alt 0 request
-  ACKs while preserving the live queue. A separate attempt's 71st 200-byte
-  packet crossed the ready threshold to `0x3778` and timed out with the current
-  callback shims. Static analysis identifies `FUN_bfc31390` on this path as a
-  control-write helper that calls DMA setup and returns; no polling loop is
-  visible there. The runtime timeout location and cause remain unresolved.
-  This probe therefore stops below the threshold and does not execute
-  completion.
-  USB/FIFO delivery, downstream consumer, and DAC remain outside the test.
+- `tools/emu/run_qemu_usound_ep0_stream_probe.sh` runs the real EP0 handler,
+  producer `FUN_bfc30dc4`, threshold helper `FUN_bfc31390`, and DMA setup
+  `FUN_bfc312e0` in one guest. After alt 1 clears the shared state, 71 producer
+  calls each enqueue a seeded 200-byte packet. The full `0x3778` ring payload is
+  checked. Crossing the `0x3720` threshold sets ready byte `0x9fc33e13`, runs
+  the helper; before any later standalone DMA-setup subcase, the probe checks
+  that this threshold path left ring address `0x80080000`, control `0x4b03`,
+  and size `0x3720` in the RAM-backed register aliases. Alt 0 then ACKs while
+  preserving the queue and ready latch. The probe maps the helper's
+  `0xc000....` and `0xc005....` control literals to RAM-backed guest addresses;
+  this tests real instruction flow and register-value logic, not physical MMIO
+  semantics or a DMA transfer. The earlier 71-packet timeout was a probe
+  failure: its stale assertion expected the ready latch to remain clear, then
+  entered the failure halt loop. USB/FIFO delivery, completion, downstream
+  consumer, and DAC remain outside the test.
   Reproduce with `bash tools/emu/run_qemu_usound_ep0_stream_probe.sh
   <hash-matching-usound.drv>`.
 - `tools/ghidra/run_usound_interface_probe.sh` now replays the real
