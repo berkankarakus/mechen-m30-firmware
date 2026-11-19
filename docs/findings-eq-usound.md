@@ -427,6 +427,12 @@
   runtime caller. The `break 0` stub was cross-checked with GNU MIPS16
   disassembly and the hash-pinned raw bytes; the local stub is dynamically
   exercised under QEMU, but no device or fixed ROM handler was run.
+- A superficially similar call in `upgrade.ap` is **not** a module-`0x0f`
+  analog. `FUN_40054c60` passes `(a0=0x0f, a1=payload, a2=0, a3=6)` through
+  the pointer at `0x40055078`, whose value is `0xbfc3b031`. The aligned target
+  at `0xbfc3b030` decodes to `li v1,0; break 0`, so this call uses module 0;
+  `0x0f` is only its first argument. This comparison does not clarify the
+  module-`0x0f` callback-table service or its operation semantics.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address

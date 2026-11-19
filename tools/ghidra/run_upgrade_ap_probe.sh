@@ -27,6 +27,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -postScript LoadAP.java "$AP" \
   -postScript DumpAt.java '0x40014c30,0x40014d54,0x40054c60,0x40094c00,0x40094e3c,0xbfc37408' "$WORK/flow.c" \
   -postScript DumpWords.java 0x40014e88 0x40014ea0 \
+  -postScript DumpWords.java 0x40055078 0x4005507c \
+  -postScript DumpWords.java 0xbfc3b030 0xbfc3b034 \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -44,6 +46,9 @@ grep -q 'DumpAt: bfc37408 ->' "$WORK/ghidra.log"
 grep -Fq 'bStack_10 < 5' "$WORK/flow.c"
 grep -Fq 'uStack_30 = 0x2001' "$WORK/flow.c"
 grep -Fq 'uStack_30 = 0x2000' "$WORK/flow.c"
+grep -Fq '(*_UNK_40055078)(0xf,_UNK_40055074,0,6)' "$WORK/flow.c"
 grep -Fq 'WORD address=40014e88 value=0x72677075' "$WORK/ghidra.log"
 grep -Fq 'WORD address=40014e94 value=0x6d6d6f63' "$WORK/ghidra.log"
-echo "UPGRADE AP PROBE PASS entry=0x40014c30 screen-loop=5 resource-names=upgrade.sty,common.sty"
+grep -Fq 'WORD address=40055078 value=0xbfc3b031' "$WORK/ghidra.log"
+grep -Fq 'WORD address=bfc3b030 value=0xe8056b00' "$WORK/ghidra.log"
+echo "UPGRADE AP PROBE PASS entry=0x40014c30 screen-loop=5 module=0x00 arg0=0x0f pointer=0xbfc3b031"
