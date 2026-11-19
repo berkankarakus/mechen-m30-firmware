@@ -127,13 +127,16 @@
   to it, and the EQ frequency table was not found inside the DSP blobs. An EQ
   connection to `coeffi.bin` is therefore unproven. `audiopp.dsp` is listed
   for loading by `mmm_pp.al`, but that alone does not prove it consumes EQ data.
-- V Separate `mmm_pp.al` resident dispatch `FUN_bfc138c0` switches on its
-  second argument; case `0x11` calls the banked `FUN_68013118` through the
-  pointer at `0xbfc13a34` (`0x68013119`, MIPS16 entry). That handler calls
-  module `0x0c`, op `0x12`, with `a0=1` and the object's `+0x9c` handle. This
-  proves the `0x11` dispatch path to the EQ/DAE-shaped consumer call. It does
-  not identify command `0x1f`'s receiver or show that command `0x1f` triggers
-  this path; that message route remains unresolved.
+- V Independent Ghidra decompilation of `mmm_pp.al` (SHA-256
+  `9a7a6c2215b2594e2ef816b8a3e592968921afff7747f3cadbd6e71bf74047d6`)
+  confirms resident `FUN_bfc138c0` switches on its second argument. Case
+  `0x11` calls banked `FUN_68013118` through the pointer at `0xbfc13a34`
+  (`0x68013119`, MIPS16 entry); that handler calls module `0x0c`, op `0x12`,
+  with `a0=1` and the object's `+0x9c` handle. Value `0x1f` is not a switch
+  case and reaches the default error path. This rejects a direct
+  `FUN_bfc138c0(event=0x1f) -> FUN_68013118` mapping. It does not establish
+  whether module `0x42` command `0x1f` is translated into another application
+  event or handled outside `mmm_pp.al`; the command receiver remains unknown.
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound
@@ -276,7 +279,9 @@
 - V SDK has no usound. APP_ID_UDISK=0x12 in SDK (case_type.h:55); config_main.c:80-95 MSG_USB_STICK -> gui_usbconnect -> create APP_ID_UDISK (online_device==0) else MTP.
 - V manager.ap name table 12-B entries at 0x2634: music0 browser1 record2 radio3 setting4 user1 user2 linein7 manager8 mainmenu9 playlist10 config11 udisk12 mengine13 fmengine14 alarm15 mtp16 upgrade17 usound18 (0x270c). manager FUN_7f0d6200 (manager_community.c:231) accepts app ids <0x13. H: id==index, so usound=0x12, udisk=0xc, mtp=0x10 (consistent with config values below).
 - V config.ap FUN_40054c00 (config_community.c:55-98), msg 0x90 case: if (*0x9fc155d4==1) data0=0x12 (usound); else if (byte(*0x9fc15654+0xf)==0) data0=0xc (udisk); else 0x10 (mtp); then sends msg 0x201 {data0,param 1}. Pool at file 0x14b4 (addr = file+0x40053800).
-- V Flag 0x9fc155d4 written once in FUN_40054ccc init (config_community.c:134-137): *flag = get_config(0x116). Only config.ap references that RAM address (0x14bc,0x16bc). config.bin id 278 entry (offset 0xe4a) = u16 (0,0,1,1) (community==stock); H: first u16 = default 0, so flag=0 -> usound branch dead by default; H: setting config id 278 default to 1 would make USB cable plug launch usound.ap (and skip udisk) - untested, and it is a config.bin change, no UI.
+- V Flag 0x9fc155d4 written once in FUN_40054ccc init (config_community.c:134-137): *flag = get_config(0x116). The exact 32-bit literal `0x9fc155d4` occurs in config.ap at file offsets 0x14bc and 0x16bc. `mainmenu.ap` separately loads base `0x9fc155d0` and accesses `+4` as a lookup-table count; that computed address is numerically the same byte but belongs to a different overlay structure (see address caveat below), not a proven read of config item 0x116. config.bin id 278 entry (offset 0xe4a) = u16 (0,0,1,1) (community==stock); H: first u16 = default 0, so flag=0 -> usound branch dead by default; H: setting config id 278 default to 1 would make USB cable plug launch usound.ap (and skip udisk) - untested, and it is a config.bin change, no UI.
+- Independent Ghidra decompilation of the current community `config.ap` (SHA-256 `5b5687c0…7580`) confirms the `FUN_40054ccc` initializer and `FUN_40054c00` message-`0x90` branch: the latter reads the byte at `0x9fc155d4`; value 1 selects manager app id `0x12`, while other values use the online-state byte at `0x9fc15654+0x0f` to select `0x0c` or `0x10`, then emit message `0x201`. This verifies config-app routing logic only; it does not prove connector/VBUS behavior or that `usound.ap` reaches an audible hardware path.
+- Address caveat: `mainmenu.ap` has a different overlay function at the same numeric VA `0x40054c00`. Its code interprets `0x9fc155d0` as a lookup-table header (reads a 16-bit count at `+4`, scans 16-bit entries from `+6`, with a limit of 7); that is not evidence that mainmenu consumes config item `0x116`. The overlays have separate code and state lifetimes, and no transfer of the config selector into this mainmenu table has been established.
 - The host selector model in `tools/sim/usb_mode.py` mirrors this exact branch: config item `0x116 == 1` selects `usound` before the online-device check; otherwise the normalized online-device state selects `udisk` or `mtp`. It is intentionally not a flash patch and does not claim that the M30 connector exposes the required USB device/VBUS path.
 - `tools/emu/usound_dac_link_probe.py` adds a read-only cross-check of the next boundary. Across the six local `usound.drv` members there is no direct pointer into the separate `drv_dac.drv` resident range (`0xbfc18d00..0xbfc194ff`); the USB member instead retains the observed `0xbfc326a9` callback and `0xc0080084`/`0xc0080088` word-port pool. This is useful negative evidence only: an indirect resident callback or hardware DMA path could still connect USB samples to playback, so a config-only USB Audio switch is not yet a proven DAC-output feature.
 - V No string "usound" in config/mainmenu/setting/music/udisk .ap; only manager.ap (0x270c). usound.ap loads usound.sty/common.sty/usound.drv (usound.ap 0x1114..). MAINMENU_AP_ID_ARRAY (config.bin id 1) = (1,5,0,1,2,3,4) -> no usound entry.
