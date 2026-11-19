@@ -457,6 +457,10 @@ When user-mode QEMU is available, the script captures the complete renderer
 return value and the event-mutated descriptor. The optional third argument
 selects the real bank path:
 
+Execution is bounded to eight seconds by default; `QEMU_TIMEOUT` overrides the
+limit. If the guest does not exit in time, the Python runner terminates and
+waits for its QEMU child before the temporary output is removed.
+
 ```sh
 for mode in cancel next previous redraw; do
   CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \

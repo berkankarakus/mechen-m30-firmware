@@ -37,7 +37,20 @@ PYTHONPATH="$ROOT/tools/emu" "$PY" "$ROOT/tools/emu/make_qemu_probe.py" "$AP" "$
 echo "probe ELF: $OUT/qemu_probe.elf"
 if command -v "$QEMU" >/dev/null; then
   STATUS="$OUT/qemu-status.bin"
-  "$QEMU" -cpu 24Kc "$OUT/qemu_probe.elf" >"$STATUS"
+  "$PY" - "$QEMU" "$OUT/qemu_probe.elf" "$STATUS" "${QEMU_TIMEOUT:-8}" <<'PY'
+import subprocess
+import sys
+
+qemu, elf, status_path, timeout = sys.argv[1:]
+try:
+    with open(status_path, "wb") as status:
+        result = subprocess.run([qemu, "-cpu", "24Kc", elf], stdout=status,
+                                timeout=float(timeout), check=False)
+except subprocess.TimeoutExpired:
+    raise SystemExit(f"QEMU probe timed out after {timeout}s; guest process was terminated")
+if result.returncode != 0:
+    raise SystemExit(f"QEMU probe exited with status {result.returncode}")
+PY
   ACTUAL=$(
     "$PY" -c 'import struct, sys; data = open(sys.argv[1], "rb").read();
 if len(data) != 20: raise SystemExit(f"expected 20 result bytes, got {len(data)}")

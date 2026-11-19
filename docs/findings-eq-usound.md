@@ -442,12 +442,26 @@
   producer/event handler, but the hardware-bit meaning and whether module
   `0x0f` dispatches this pointer remain unverified.
 - A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
-  the same narrow call shape in `udisk.drv`: `FUN_bfc32abc` calls through the
-  module-`0x0f` stub with `(a0=0x0a,a1=0xbfc30d15,a2=0,a3=0x14)`. The callback
+  the same narrow call shape in `udisk.drv`. The checked-in
+  `tools/ghidra/run_udisk_setup_probe.sh` now executes the real MIPS16
+  `FUN_bfc32abc` in Ghidra p-code (1,163 execution steps) with synthetic MMIO,
+  the driver's initialized data/BSS, and zero-return stubs for local module
+  break boundaries. It captures ten module-`0x0f` calls and one module-`0x01`
+  call. One tuple is `(a0=0x0a,a1=0xbfc30d15,a2=0,a3=0x14)`; the callback
   target is `FUN_bfc30d14` (file offset `0x0f14`), whose decompile reads and
-  writes USB MMIO state. This independent USB-driver instance strengthens the
-  inference that op `0x14` installs a callback keyed by event `0x0a`; the
-  service body and actual dispatch remain unobserved.
+  writes USB MMIO state. The independent execution confirms the call shape,
+  but not the fixed-ROM service behavior or callback dispatch. The strongest
+  inference remains that operation `0x14` registers a callback keyed by
+  `a0=0x0a`; that interpretation is unproven.
+- A targeted check of already-local SDK material found no API name for
+  module-`0x0f` operation `0x14`; the configured `PD196` SDK source path in
+  `docs/discovery-environment.md` is absent from this workspace. The known
+  `0x18`–`0x1a` message-queue mappings do not identify `0x14`.
+- The setup trace also observes module-`0x0f` operations `0x1d`, `0x1b`,
+  `0x09`, and `0x0a`, plus module-`0x01` operation `0x03`. Their semantics
+  remain unknown. All module calls return synthetic zero, and MMIO is
+  zero-initialized RAM; therefore branches, timing, and any callback invocation
+  that depend on real hardware or resident services are outside this probe.
 - The scan was limited to already-local extracted `.drv`/`.ap` artifacts and
   the narrow recognizable MIPS16 setup sequence. It can miss computed
   arguments, different register setup, MIPS32 paths, and runtime-loaded banks.

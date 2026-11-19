@@ -51,6 +51,9 @@ Linux host with MIPS binutils and `qemu-mipsel-static`, it links the real bank
 code and runs the cancel-event path. On this macOS host the probe ELF links
 successfully, but user-mode QEMU is not installed; `qemu-system-mipsel` cannot
 substitute for it because it has no Linux user-mode runner or ATJ2127 machine.
+The tracked system-QEMU probes also use bounded subprocess timeouts. The
+isolated user-mode probe defaults to eight seconds (`QEMU_TIMEOUT` overrides
+it), and terminates and waits for its QEMU child on timeout.
 
 The build-only path was rechecked with Homebrew's available
 `mipsel-linux-gnu-` binutils. It emits `qemu_probe.elf` and patches only the 13
