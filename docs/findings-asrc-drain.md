@@ -266,6 +266,13 @@ message `0x311` comes from the decompiled dispatch table; the other listed
 consumers are linked by their shared state-pointer references and direct
 calls where shown. This section does not claim a dynamic execution trace.
 
+The host model in `tools/sim/mengine_state.py` represents only the observed
+payload masks at offsets `+0x2b`, `+0x2c`, and `+0x2e`, plus the status-2
+condition that requests command `0x1c` when the low nibble changes to `3`.
+It leaves the field names and resident-service effects unresolved. The model's
+tests cover the two captured payloads and the transition guard; they do not
+simulate shuffle effects, playback, or DSP output.
+
 Reproduce the consumers by decompiling `0x60050d00`, `0x600d0e1c`,
 `0x600d1054`, `0x60190eec`, and `0x601910b0` from community `mengine.ap`.
 `FUN_60190eec` is linked to the PLAY path by the existing `0x311` dispatcher
