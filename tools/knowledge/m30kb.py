@@ -13,6 +13,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get("M30_KNOWLEDGE_SOURCE", ROOT / "docs/knowledge/facts.jsonl"))
 DATABASE = Path(os.environ.get("M30_KNOWLEDGE_DB", ROOT / "analysis/local-evidence/knowledge.sqlite"))
+REQUIRED_FIELDS = {
+    "function": ("id", "module", "variant", "sha256", "address", "symbol",
+                 "isa", "status", "summary", "evidence", "reproduce"),
+    "state": ("id", "module", "variant", "sha256", "address", "symbol",
+              "width_bits", "summary", "evidence"),
+    "edge": ("source", "target", "kind", "evidence"),
+}
 
 
 def records():
@@ -25,6 +32,21 @@ def records():
             raise SystemExit(f"{SOURCE}:{line_number}: {exc}")
 
 
+def validate_rows(rows):
+    """Fail early with a record-level error when a fact misses indexed fields."""
+    for record_number, row in enumerate(rows, 1):
+        kind = row.get("type")
+        if kind not in REQUIRED_FIELDS:
+            raise ValueError(f"fact record {record_number}: unknown type {kind!r}")
+        missing = [field for field in REQUIRED_FIELDS[kind] if field not in row]
+        if missing:
+            identifier = row.get("id", row.get("source", "<no id>"))
+            raise ValueError(
+                f"fact record {record_number} ({identifier}): missing required fields: "
+                + ", ".join(missing)
+            )
+
+
 def connect():
     DATABASE.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(DATABASE)
@@ -34,6 +56,10 @@ def connect():
 
 def build():
     rows = list(records())
+    try:
+        validate_rows(rows)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     functions = [r for r in rows if r["type"] == "function"]
     states = [r for r in rows if r["type"] == "state"]
     edges = [r for r in rows if r["type"] == "edge"]
