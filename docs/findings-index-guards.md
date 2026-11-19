@@ -68,7 +68,7 @@ call chain remains open.
 
 The host model keeps these outcomes separate: the static guard contract uses
 `CardChangePolicy.MANUAL_UPDATE_REQUIRED`, while the tested powered-card
-observation is represented explicitly by
+removal-and-reinsertion observation is represented explicitly by
 `CardChangePolicy.AUTOMATIC_REBUILD`. The latter requires a file count and
 enters the normal bounded update state; it does not claim that every card or
 startup trigger behaves this way.

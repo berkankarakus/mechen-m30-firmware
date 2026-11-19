@@ -120,7 +120,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Library scan capacity | `playlist.ap` fixed-array scan loop | PASS; stock 4,000-record stop modeled separately from file-format capacity |
 | MUSIC.LIB file layout | documented library header, `tools/library/libmodel.py` sector writer, independent public hex comparison, and real M30 card image | PASS; header, section directories, padded record area, raw nodes, decoded `cluster_no`/`dir_entry` key, and bounded active-record lookup are modeled; primary location blob, record links, and exact duplicate-key tie-break remain unresolved |
 | Filename natural-order contract | host model | PASS; deterministic host contract |
-| Manual-index policy | host state model + static automatic-index guards | PASS; manual path and tested powered-card automatic-rebuild path are separate; other triggers remain device-specific |
+| Manual-index policy | host state model + static automatic-index guards | PASS; manual path and the one observed powered card-reinsertion rebuild case are separate; event detection and other triggers remain device-specific |
 | Artwork audio-first contract | host state model | PASS |
 | ASRC/EOF advance boundary | archived `music.ap` delta + host model | host contract present; mode-4 community path modeled, audible drain unverified |
 | `mmm_bp` ring/fade boundary | six-corpus `mmm_bp.al` + host model | PASS; wrap-aware source-byte reads, 0x200 refill and fade arithmetic modeled; DSP/callback semantics unresolved |

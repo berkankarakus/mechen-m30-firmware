@@ -49,23 +49,23 @@ class FilenameOrderTests(unittest.TestCase):
 class IndexStatusTests(unittest.TestCase):
     def test_manual_policy_never_starts_an_update_implicitly(self):
         status = IndexStatus()
-        status.card_changed()
+        status.powered_card_reinserted()
         self.assertEqual(status.state, IndexState.DIRTY)
         self.assertEqual(status.progress, 0)
         self.assertIn("Manual", status.message)
 
-    def test_observed_automatic_card_change_starts_an_update(self):
+    def test_observed_powered_reinsertion_starts_an_update(self):
         status = IndexStatus(card_change_policy=CardChangePolicy.AUTOMATIC_REBUILD)
-        status.card_changed(files_total=4)
+        status.powered_card_reinserted(files_total=4)
         self.assertEqual(status.state, IndexState.UPDATING)
         self.assertEqual(status.files_total, 4)
         self.assertEqual(status.progress, 0)
-        self.assertIn("card change", status.message)
+        self.assertIn("powered card reinsertion", status.message)
 
-    def test_automatic_card_change_requires_a_file_count(self):
+    def test_automatic_powered_reinsertion_requires_a_file_count(self):
         status = IndexStatus(card_change_policy=CardChangePolicy.AUTOMATIC_REBUILD)
         with self.assertRaises(ValueError):
-            status.card_changed()
+            status.powered_card_reinserted()
 
     def test_update_progress_and_completion(self):
         status = IndexStatus()

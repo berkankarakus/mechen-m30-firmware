@@ -63,7 +63,7 @@ class IndexState(str, Enum):
 
 
 class CardChangePolicy(str, Enum):
-    """Observed policy for a powered card-change event."""
+    """Policy for the observed powered card removal-and-reinsertion case."""
 
     MANUAL_UPDATE_REQUIRED = "manual-update-required"
     AUTOMATIC_REBUILD = "automatic-rebuild"
@@ -71,7 +71,7 @@ class CardChangePolicy(str, Enum):
 
 @dataclass
 class IndexStatus:
-    """State machine for manual and observed automatic index policies."""
+    """State model for manual updates and one observed powered reinsertion."""
 
     state: IndexState = IndexState.UP_TO_DATE
     progress: int = 100
@@ -80,13 +80,20 @@ class IndexStatus:
     message: str = "Index up to date"
     card_change_policy: CardChangePolicy = CardChangePolicy.MANUAL_UPDATE_REQUIRED
 
-    def card_changed(self, files_total: int | None = None) -> None:
+    def powered_card_reinserted(self, files_total: int | None = None) -> None:
+        """Apply the policy after a powered card removal-and-reinsertion.
+
+        The event is based on one reported device observation. Its detection
+        and dispatch path, removal-only behavior, and other card-change cases
+        are not modeled.
+        """
+
         if self.card_change_policy is CardChangePolicy.AUTOMATIC_REBUILD:
             if files_total is None:
-                raise ValueError("automatic card changes require files_total")
+                raise ValueError("automatic card reinsertion requires files_total")
 
             self.begin(files_total)
-            self.message = "Updating playlist after card change"
+            self.message = "Updating playlist after powered card reinsertion"
             return
 
         self.state = IndexState.DIRTY
