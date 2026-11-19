@@ -204,6 +204,18 @@
   GET/SET, HID idle, descriptor lookup, IN packet chunking, and the observed
   ACK/stall register writes. MMIO status transitions and real USB timing were
   not modeled, so these are software-handler results, not a device USB test.
+- `tools/emu/run_qemu_usound_ep0_probe.sh` executes the actual
+  `FUN_bfc303c4` MIPS16 handler under QEMU/Malta for valid SET_INTERFACE
+  altsetting 1 and 0 requests. It confirms the handler copies both eight-byte
+  setup packets, calls the ACK helper (whose MMIO target is RAM-backed), clears
+  the four seeded state locations for alt 1, and preserves them for alt 0.
+  The driver code is loaded at `0x8fc30000`; its direct MIPS16 calls therefore
+  retain their original region bits. The handler's audited pointer literals
+  and ACK pointer are remapped into guest RAM. These results validate the
+  handler's software behavior under the harness, not USB enumeration, actual
+  controller handshakes, malformed requests, or physical audio. The four
+  locations are described as ring-state fields by current static analysis;
+  this probe itself establishes only their clear/preserve behavior.
 - `tools/ghidra/run_usound_interface_probe.sh` now replays the real
   `SET_INTERFACE` handler from the hash-locked `usound.drv` in Ghidra p-code.
   With synthetic MMIO, alternate setting 1 clears the producer/consumer
