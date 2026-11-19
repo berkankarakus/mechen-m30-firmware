@@ -403,16 +403,26 @@
   to the relocated guest code, where a counter-and-return stub replaces that helper; the
   state and threshold logic is verified, but the helper's hardware shutdown work
   is not.
-- The hash-pinned `usound.drv` also contains a likely callback-table registration
-  site: `FUN_bfc322e4` passes `(0x14, 0xbfc324ec, 0, 0x14)` to an unresolved
-  service. The table at `0xbfc324ec` begins with odd MIPS16 pointer
+- In the hash-pinned `usound.drv`, the function-pointer slot at `0xbfc324c0`
+  contains `0xbfc326ad`, an odd MIPS16 pointer to the local module-`0x0f`
+  break-0 stub at `0xbfc326ac`. At that entry the bytes `0f 6b 05 e8` decode as
+  `li v1,0x0f; break 0`; the adjacent entry at `0xbfc326a8` is
+  `li v1,0x10; break 0`. `FUN_bfc322e4` reaches the module-`0x0f` gateway
+  with `(a0=0x14, a1=0xbfc324ec, a2=0, a3=0x14)`, among other calls. This
+  identifies the trap envelope and arguments, not the fixed handler's meaning
+  for those arguments.
+- The same setup function contains a likely callback-table registration
+  site: `FUN_bfc322e4` passes `(0x14, 0xbfc324ec, 0, 0x14)` through that
+  gateway. The table at `0xbfc324ec` begins with odd MIPS16 pointer
   `0xbfc3125d`, which resolves to `FUN_bfc3125c`; the following words include
   `0xc008018c`, `0xc0080198`, `0xc008019d`, and `0xc0080191`. The target pointer
   is present at driver file offset `0x26ec` and is identical in six local
   driver copies. This strongly suggests the completion function is registered
-  through a service table, but the `0x14` service ABI and dispatch event are
-  unknown. It is not yet evidence of a DMA interrupt vector or a proven runtime
-  caller. Inspect `FUN_bfc322e4` and the table at `0xbfc324ec` in Ghidra.
+  through a service table, but the fixed handler's interpretation and dispatch
+  event are unknown. It is not evidence of a DMA interrupt vector or a proven
+  runtime caller. The `break 0` stub was cross-checked with GNU MIPS16
+  disassembly and the hash-pinned raw bytes; this module-`0x0f` path has not
+  been dynamically executed, and no device or ROM handler was run.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
