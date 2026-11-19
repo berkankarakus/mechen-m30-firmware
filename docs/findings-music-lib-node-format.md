@@ -902,7 +902,10 @@ inverse tables matched 219/251; its node counts were `(2, 2, 0)` versus
 `(1, 1, 0)` in the input. GENRE order and inverse tables also matched
 219/251; its level counts were `(1, 2, 2)` versus `(1, 1, 1)` in the input.
 Their node-index tables matched 250/251. The generated output hash is
-`a6d15d9b6fb9f8c3bade6f9961fd74cd902ef92e42c703514dae67288ae370d2`.
+`a6d15d9b6fb9f8c3bade6f9961fd74cd902ef92e42c703514dae67288ae370d2`. The raw
+harness and detailed comparison outputs, plus input hashes and run parameters,
+are preserved in
+[`docs/evidence/musiclib-terminal-oor-zero-second-lib/`](evidence/musiclib-terminal-oor-zero-second-lib/README.md).
 
 This does not refute the candidate against the 4,000-record device image, and
 the second file is not known to be a device-generated index. It does show that
