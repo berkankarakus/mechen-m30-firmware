@@ -884,6 +884,38 @@ matches one complete device library's index tables but does not identify the
 resident converter; another implementation could yield the same output for
 this corpus. Keep the converter semantics labeled as a hypothesis.
 
+#### Public 251-record MUSIC.LIB cross-check, 2026-11-19
+
+A previously documented public 1,536,000-byte, 251-record `MUSIC.LIB` was
+reused from
+`/Users/berkan/Projects/mechen-m30-evidence/MUSIC.LIB` (SHA-256
+`cc3f476c8edb50ea8493b726d46ac82b139a6e87a86cc04c2cdbc30fd3fb8afe`). Its
+hash and size differ from the 4,000-record device-card image above. Its public
+origin does not establish that it came from a physical M30, so this remains a
+format-level cross-check, not independent device evidence.
+
+Running the same stock MIPS16 indexer with `MODE_REPLACE`,
+`TERMINAL_OOR_ZERO`, and `FILL=1` reproduced the ALLSONG and ALBUM order and
+inverse tables (251/251); ALBUM nodes and its per-record node-index table also
+matched (1/1 and 251/251). ARTIST and GENRE did not match: ARTIST order and
+inverse tables matched 219/251; its node counts were `(2, 2, 0)` versus
+`(1, 1, 0)` in the input. GENRE order and inverse tables also matched
+219/251; its level counts were `(1, 2, 2)` versus `(1, 1, 1)` in the input.
+Their node-index tables matched 250/251. The generated output hash is
+`a6d15d9b6fb9f8c3bade6f9961fd74cd902ef92e42c703514dae67288ae370d2`.
+
+This does not refute the candidate against the 4,000-record device image, and
+the second file is not known to be a device-generated index. It does show that
+the candidate does not reproduce this other file's ARTIST/GENRE tables, so the
+first exact match cannot be generalized to arbitrary M30-format libraries.
+Reproduce with:
+
+```sh
+HEXTRA='-DMODE_REPLACE -DTERMINAL_OOR_ZERO -DFILL=1' \
+  tools/library/test.sh <stock-playlist.ap> <second-MUSIC.LIB> \
+  <workdir> stock
+```
+
 The same module now derives the candidate nested run lengths that feed the
 three node levels in the local builder. `ALBUM` produces its album runs;
 `ARTIST` uses those album group indices as its child grouping; and `GENRE`
