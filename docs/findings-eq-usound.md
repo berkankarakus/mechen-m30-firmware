@@ -91,6 +91,14 @@
   flag 0. This shape is consistent with copying engine band records into an
   audio-device working structure. No device execution or hardware/DSP effect
   was tested; do not treat this copy boundary as proof of playback.
+- `tools/ghidra/run_auddev_eq_copy_probe.sh` executes this candidate bank-5
+  path in Ghidra p-code using a hash-pinned driver and synthetic `id=1`
+  payload. The real instructions issue 16 calls through slot `0x98fc` with
+  destination `0x9fc34094 + 8*i`, source `param_2 + 0x10 + 8*i`, length 8,
+  and flag 0. The probe intercepts each call and returns zero without copying.
+  This verifies the per-band call envelope under the candidate bank mapping;
+  the absent service implementation, copied destination bytes, DSP
+  coefficients, and audible effect remain unknown.
 - Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
   the user reported no audible difference between `Custom` and `Off`; a
   supplied EQ-screen photo shows all seven displayed sliders at the 0 dB

@@ -77,6 +77,19 @@ bands 7–15, while the consumer reads sixteen. That shape is consistent with
 the observed `0xf0`-byte shared-memory structure; it does not show how the
 values become audible DSP coefficients.
 
+`tools/ghidra/run_auddev_eq_copy_probe.sh` executes the candidate bank-5 entry
+at `0x9400` with a synthetic `id=1` payload. It pins the input SHA-256 and the
+Ghidra script checks that the mapped code bytes match file offset `0x1f00`
+before execution. Real MIPS16 instructions make 16
+calls through the slot at `0x98fc`, whose image value is `0xbfc09f59`, the odd
+pointer to the resident module-`0x10` `break 0` stub. The captured call shape is
+`a0=0x9fc34094+8*i`, `a1=source+0x10+8*i`, `a2=8`, `a3=0` for `i=0..15`;
+the run took 907 p-code steps. The probe replaces the service with a stub that
+returns zero and does not copy memory. This confirms the real caller's
+per-band call envelope under the candidate bank mapping, but says nothing
+about the fixed-ROM service implementation, copied values, DSP coefficients,
+or audible output.
+
 The banked code also references `spk_comp.dat`, a speaker-compensation filter
 asset. Its relation to EQ gain processing and the downstream coefficient or
 DSP path remains unknown. `drv_dac.drv` register writes and the fixed-ROM
