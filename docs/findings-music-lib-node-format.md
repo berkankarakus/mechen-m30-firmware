@@ -661,6 +661,13 @@ song-span coverage, and reference-5 mapping to the deepest node indicated by
 the serialized runs. `ALLSONG` has no nodes or reference-5 table, so those
 structural checks do not apply to it.
 
+The captured M30 node depth bytes are uniform by level: `ALBUM=(1)`,
+`ARTIST=(2,1)`, and `GENRE=(3,2,1)`. The host validator now requires each
+present node's depth to equal `populated_level_count - zero_based_level`.
+This rule is verified against this captured image and the recovered node
+layout; it does not establish compatibility with unexamined firmware variants
+or arbitrary third-party `.LIB` files.
+
 Observed node counts are `ALLSONG=(0,0,0)`, `ALBUM=(549,0,0)`,
 `ARTIST=(363,707,0)`, and `GENRE=(30,439,709)`. `ALLSONG` has valid order and
 inverse tables but no node-index table. This confirms the serialized hierarchy

@@ -1,3 +1,4 @@
+from dataclasses import replace
 import struct
 import unittest
 
@@ -307,6 +308,14 @@ class MusicLibraryLayoutTests(unittest.TestCase):
         )
 
         validate_library_section_nodes(nodes, 5)
+
+        invalid_depth_nodes = tuple(
+            tuple(replace(node, depth=node.depth + 7) for node in level)
+            for level in nodes
+        )
+
+        with self.assertRaises(ValueError):
+            validate_library_section_nodes(invalid_depth_nodes, 5)
 
         invalid_nodes = (
             (

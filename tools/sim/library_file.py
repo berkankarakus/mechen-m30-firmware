@@ -330,6 +330,11 @@ def validate_library_section_nodes(
     if len(nodes_by_level) != 3:
         raise ValueError("library index must expose exactly three node levels")
 
+    populated_level_count = max(
+        (level + 1 for level, nodes in enumerate(nodes_by_level) if nodes),
+        default=0,
+    )
+
     for level, nodes in enumerate(nodes_by_level):
         song_total = 0
         has_child_level = (
@@ -342,8 +347,11 @@ def validate_library_section_nodes(
             if node.node_type != 1:
                 raise ValueError("library node type is not the recovered value 1")
 
-            if node.depth == 0:
-                raise ValueError("library node depth must be non-zero")
+            expected_depth = populated_level_count - level
+            if node.depth != expected_depth:
+                raise ValueError(
+                    "library node depth does not match its populated level"
+                )
 
             if node.song_count == 0:
                 raise ValueError("library node must contain at least one record")
