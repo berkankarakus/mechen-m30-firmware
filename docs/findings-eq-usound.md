@@ -363,7 +363,12 @@
   and sets both at 9703 or above. The function does not read the format flag;
   thresholds apply to the post-subtraction count. The host ring model now carries
   these transitions. MMIO was plain RAM and the ROM service was stubbed, so this
-  verifies code branches and writes, not physical clock or DMA effects.
+  verifies code branches and writes, not physical clock or DMA effects. A later
+  QEMU run executes the actual MIPS16 handler with the same six remaining-count
+  boundaries using RAM-backed MMIO. Its direct call to `FUN_bfc314e0` is retargeted
+  to the relocated guest code, where a counter-and-return stub replaces that helper; the
+  state and threshold logic is verified, but the helper's hardware shutdown work
+  is not.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
@@ -378,7 +383,13 @@
   direct format, or `0x8b03` and `7056` for format flag 1; both common control
   registers receive `|= 0x404`. The host model records these observed register
   values. DMA size units, hardware wrap behavior, and physical transfer effects
-  remain unverified; this evidence is static disassembly, not a p-code run.
+  remain unverified. A QEMU probe now executes `FUN_bfc312e0` in both modes
+  against RAM-backed register targets, using the same relocated `0x9fc33e20`
+  format-flag address as the producer; each case sets the flag independently, so
+  producer-to-DMA mode propagation is not tested end to end. It checks the
+  mode-specific control/size values,
+  ring address, and common control bits. This proves guest-side register writes,
+  not DMA transfers or audible output.
 - `tools/emu/run_qemu_usound_chain_probe.sh` composes the two real driver
   control paths in one guest, but it deliberately relocates the distinct
   firmware ring literals (`0x9fc24000`, capacity `0x6e40`; `0x9fc34000`,

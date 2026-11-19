@@ -3,6 +3,44 @@
 	.set	noreorder
 	.set	noat
 
+	.macro completion_case input, remaining, ready, clock, stop_calls
+	lui	$t3, 0x8006
+	ori	$t3, $t3, 0x4000
+	lui	$t7, 0x8006
+	ori	$t7, $t7, 0xf000
+	li	$t1, \input
+	sw	$t1, 0($t7)
+	li	$t1, 1
+	sw	$t1, 4($t7)
+	sw	$zero, 0x30($t7)
+	li	$t1, 0xa5
+	sw	$t1, 0x10($t3)
+	li	$t1, 0x10
+	sw	$t1, 4($t3)
+	jalx	0x8005125c
+	 nop
+	lw	$t1, 0($t7)
+	li	$t5, \remaining
+	bne	$t1, $t5, fail_completion
+	 nop
+	lw	$t1, 4($t7)
+	li	$t5, \ready
+	bne	$t1, $t5, fail_completion
+	 nop
+	lw	$t1, 0x30($t7)
+	li	$t5, \stop_calls
+	bne	$t1, $t5, fail_completion
+	 nop
+	lw	$t1, 0x10($t3)
+	li	$t5, \clock
+	bne	$t1, $t5, fail_completion
+	 nop
+	lw	$t1, 4($t3)
+	li	$t5, 0x414
+	bne	$t1, $t5, fail_completion
+	 nop
+	.endm
+
 	.text
 	.globl	_start
 	.ent	_start
@@ -16,7 +54,9 @@ _start:
 	 * deliberately a no-op, so enter with the poll-pending bit clear. */
 	sw	$zero, 0($t0)
 	sw	$zero, 4($t0)
-	sb	$zero, 0x10($t0)
+	lui	$t6, 0x8006
+	ori	$t6, $t6, 0x2000
+	sb	$zero, 0x20($t6)
 	sb	$zero, 0x24($t0)
 	sb	$zero, 0x28($t0)
 	sw	$zero, 0x18($t0)
@@ -61,7 +101,9 @@ _start:
 	sw	$zero, 0x20($t0)
 	sw	$zero, 0x24($t0)
 	li	$t1, 1
-	sb	$t1, 0x10($t0)
+	lui	$t6, 0x8006
+	ori	$t6, $t6, 0x2000
+	sb	$t1, 0x20($t6)
 	li	$t1, 0xaaaaaaab
 	sw	$t1, 0x14($t0)
 	li	$t1, 0x0c
@@ -80,6 +122,117 @@ _start:
 	lbu	$t1, 0x24($t0)
 	bnez	$t1, fail_expand_ready
 	 nop
+
+	/* Execute the actual DMA setup twice; all MMIO pointers are relocated to guest RAM. */
+	lui	$t3, 0x8006
+	ori	$t3, $t3, 0x4000
+	li	$t1, 0x10
+	sw	$t1, 4($t3)
+	li	$t1, 0x20
+	sw	$t1, 8($t3)
+	sw	$zero, 0x40($t3)
+	sw	$zero, 0x44($t3)
+	sw	$zero, 0x54($t3)
+	lui	$t4, 0x8006
+	ori	$t4, $t4, 0x5004
+	lui	$t6, 0x8006
+	ori	$t6, $t6, 0x2000
+	sw	$zero, 0($t3)
+	sw	$zero, 0($t4)
+	lui	$t6, 0x8006
+	ori	$t6, $t6, 0x2000
+	sb	$zero, 0x20($t6)
+	jalx	0x800512e0
+	 nop
+	lw	$t1, 0x40($t3)
+	li	$t5, 0x4b03
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lw	$t1, 0x54($t3)
+	li	$t5, 14112
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lw	$t1, 0($t3)
+	li	$t5, 1
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lui	$t4, 0x8006
+	ori	$t4, $t4, 0x5004
+	lw	$t1, 0($t4)
+	li	$t5, 1
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lw	$t1, 0x44($t3)
+	li	$t5, 0x80061000
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lw	$t1, 4($t3)
+	li	$t5, 0x414
+	bne	$t1, $t5, fail_dma16
+	 nop
+	lw	$t1, 8($t3)
+	li	$t5, 0x424
+	bne	$t1, $t5, fail_dma16
+	 nop
+
+	/* Reset every observed register so format-1 writes are independently tested. */
+	lui	$t3, 0x8006
+	ori	$t3, $t3, 0x4000
+	li	$t1, 0x10
+	sw	$t1, 4($t3)
+	li	$t1, 0x20
+	sw	$t1, 8($t3)
+	sw	$zero, 0($t3)
+	sw	$zero, 0x40($t3)
+	sw	$zero, 0x44($t3)
+	sw	$zero, 0x54($t3)
+	lui	$t4, 0x8006
+	ori	$t4, $t4, 0x5004
+	sw	$zero, 0($t4)
+	li	$t1, 1
+	lui	$t6, 0x8006
+	ori	$t6, $t6, 0x2000
+	sb	$t1, 0x20($t6)
+	jalx	0x800512e0
+	 nop
+	lw	$t1, 0x40($t3)
+	li	$t5, 0x8b03
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lw	$t1, 0x54($t3)
+	li	$t5, 7056
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lw	$t1, 0($t3)
+	li	$t5, 1
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lui	$t4, 0x8006
+	ori	$t4, $t4, 0x5004
+	lw	$t1, 0($t4)
+	li	$t5, 1
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lw	$t1, 0x44($t3)
+	li	$t5, 0x80061000
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lw	$t1, 4($t3)
+	li	$t5, 0x414
+	bne	$t1, $t5, fail_dma24
+	 nop
+	lw	$t1, 8($t3)
+	li	$t5, 0x424
+	bne	$t1, $t5, fail_dma24
+	 nop
+
+	/* Exercise empty, minimum positive remainder, and both clock threshold edges. */
+	completion_case 0x3720, 0, 0, 0xa5, 1
+	completion_case 0x3721, 1, 1, 0xa4, 0
+	completion_case 0x4859, 4409, 1, 0xa4, 0
+	completion_case 0x485a, 4410, 1, 0xa5, 0
+	completion_case 0x5d06, 9702, 1, 0xa5, 0
+	completion_case 0x5d07, 9703, 1, 0xa7, 0
 
 	la	$a0, pass_text
 	jal	puts
@@ -110,6 +263,18 @@ fail_expand_available:
 	 nop
 fail_expand_ready:
 	la	$a0, expand_ready_text
+	b	fail
+	 nop
+fail_dma16:
+	la	$a0, dma16_text
+	b	fail
+	 nop
+fail_dma24:
+	la	$a0, dma24_text
+	b	fail
+	 nop
+fail_completion:
+	la	$a0, completion_text
 fail:
 	jal	puts
 	 nop
@@ -151,7 +316,7 @@ usound_callback_stub:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND PRODUCER PASS function=FUN_bfc30dc4 linear=1 wrap=1 expand=1\r\n"
+	.asciz	"REAL USOUND PRODUCER PASS function=FUN_bfc30dc4 linear=1 wrap=1 expand=1 dma-init=2 completion=6\r\n"
 linear_text:
 	.asciz	"REAL USOUND PRODUCER FAIL linear\r\n"
 wrap_text:
@@ -164,6 +329,12 @@ expand_available_text:
 	.asciz	"REAL USOUND PRODUCER FAIL expand-available\r\n"
 expand_ready_text:
 	.asciz	"REAL USOUND PRODUCER FAIL expand-ready\r\n"
+dma16_text:
+	.asciz	"REAL USOUND DMA SETUP FAIL format0\r\n"
+dma24_text:
+	.asciz	"REAL USOUND DMA SETUP FAIL format1\r\n"
+completion_text:
+	.asciz	"REAL USOUND DMA COMPLETION FAIL boundary\r\n"
 
 	.section .driver,"ax"
 	.align	2

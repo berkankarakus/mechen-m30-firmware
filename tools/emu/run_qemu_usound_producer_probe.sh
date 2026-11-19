@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Execute the real usound.drv software-ring producer with guest shims.
-# Provider/FIFO callbacks are no-op; this proves producer state and wrap only.
+# Execute real usound producer, DMA setup, and completion code under QEMU.
+# Hardware registers are RAM-backed; external USB and stop-helper effects are shimmed.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -37,7 +37,7 @@ relocations = {
     0x1038: 0x80062000,  # scratch block
     0x103C: stub,        # scratch fill callback
     0x1040: stub,        # word-port callback
-    0x1044: 0x80060010,  # format flag
+    0x1044: 0x80062020,  # shared producer/DMA format flag
     # 0x1048 is the firmware's literal 0xaaaaaaab scale, not a pointer.
     0x104C: 0x80050CE9,  # real MIPS16 3-to-4 leaf
     0x1050: 0x80050CAD,  # real MIPS16 direct-copy leaf
@@ -47,9 +47,26 @@ relocations = {
     0x1060: 0x80060024,  # ready signal
     0x1064: 0x80060028,  # reset flag
     0x1068: stub,         # reset callback
+    0x136C: 0x80064000,  # DMA control 0
+    0x1370: 0x80065004,  # DMA control 1
+    0x1374: 0x80064040,  # channel control
+    0x1378: 0x80064004,  # common control 0
+    0x137C: 0x80064008,  # common control 1
+    0x1380: 0x80064044,  # DMA ring address
+    0x1384: 0x80061000,  # DMA ring in guest RAM
+    0x1388: 0x80062020,  # format flag
+    0x138C: 0x80064054,  # DMA size
+    0x12D0: 0x80064004,  # completion DMA control
+    0x12D4: 0x8006F000,  # available byte count
+    0x12D8: 0x8006F004,  # ready latch
+    0x12DC: 0x80064010,  # clock control
 }
 for offset, value in relocations.items():
     struct.pack_into("<I", segment, offset, value)
+# Empty completion branch enters this MIPS16 helper. The counter-and-return stub
+# isolates FUN_bfc3125c state effects; helper shutdown side effects are not run.
+segment[0x14E0:0x14F0] = bytes.fromhex("03 b2 60 9a 01 4b 20 e8 60 da 00 65 30 f0 06 80")  # increment helper-call counter, then return
+segment[0x1282:0x1286] = bytes.fromhex("20 18 38 45")  # bfc31282 JAL retargeted to guest FUN_bfc314e0 at 0x800514e0
 Path(sys.argv[2]).write_bytes(segment)
 PY
 

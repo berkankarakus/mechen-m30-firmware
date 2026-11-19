@@ -147,6 +147,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
 | Real `usound.drv` DMA completion policy | `FUN_bfc3125c` p-code with boundary matrix | PASS; subtracts `0x3720`; empty path and clock-control thresholds checked; physical MMIO effects are not modeled |
 | usound ring-to-DMA register contract | static MIPS16 `FUN_bfc30dc4`/`FUN_bfc312e0` trace + host value model | PASS; DMA address is the `0x9fc24000` ring base; mode-specific control/size writes modeled, hardware size units unresolved |
+| Real `usound.drv` DMA initialization and completion | `FUN_bfc312e0` + `FUN_bfc3125c` in QEMU with RAM-backed MMIO | PASS; both format modes and six completion boundaries; the internal stop helper is stubbed, so physical DMA/clock behavior remains unverified |
 | Real `usound.drv` producer→consumer chain | exact segment + shared guest ring + real module-call exception shim | PASS across six corpora; producer publishes 16 bytes, `FUN_bfc31654` consumes 16, and module `0x10` traps once; PCM/DAC ownership remains unresolved |
 | Real `drv_lcd.drv` window/orientation execution | exact resident segment + relocated command/data pool + MIPS16 callback shims | PASS; `FUN_bfc0a378` emits the verified `0x2a/0x2b/0x2c` path and `FUN_bfc0a438` emits orientation `2 -> 0x48`; physical panel timing remains unresolved |
 | Real `drv_dac.drv` byte-transfer execution | exact resident segment + translated MIPS16 helper-call alias + synthetic RAM GPIO context | PASS across six corpora; real 8-bit transmit, two-byte public send, and all-high/all-low byte sampling execute; codec/GPIO electrical semantics remain unresolved |
@@ -317,7 +318,18 @@ words, a no-op poll/fill/port callback, and the exact MIPS16 copy helpers. The
 probe passes a linear write, a write split at the `0x6e40` ring end, and the
 format-1 fixed-point `0xaaaaaaab` size path. This verifies the producer's
 control flow and state arithmetic, but not the USB polling callback, hardware
-FIFO, interrupt timing, or DAC/codec output.
+FIFO, interrupt timing, or DAC/codec output. The same probe executes the real
+`FUN_bfc312e0` setup in both format modes, checking channel control, raw size,
+ring address, and both common control writes. The producer and setup share the
+same relocated format flag, although each probe case sets it independently; the
+producer-to-DMA format handoff is not tested end to end.
+
+It also executes `FUN_bfc3125c` with post-subtraction counts `0`, `1`, `4409`,
+`4410`, `9702`, and `9703`. The MIPS16 direct call to `FUN_bfc314e0` is adjusted
+to the relocated guest address; that helper is replaced with a MIPS16 counter-and-return
+stub so the probe verifies the empty branch calls it and isolates completion-state
+writes. The helper shutdown callback, physical clocking, DMA timing, and audio
+output remain untested.
 
 `bash tools/emu/run_qemu_usound_chain_probe.sh` then runs the real producer and
 `FUN_bfc31654` consumer in one guest, with separate recovered state descriptors.
