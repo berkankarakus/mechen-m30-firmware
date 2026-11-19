@@ -811,6 +811,42 @@ HEXTRA='-DMODE_REPLACE -DREPLACE_ONLY_CODEPOINT=0x0131 -DFILL=1' \
   <workdir> stock
 ```
 
+#### Seedless U+2019-only conversion control, 2026-11-19
+
+A separate stock MIPS16 run changed only UTF-16 U+2019 to `0x01` and continued;
+other unsupported units retained the default stop-at-wide behavior. It used
+`REPLACE_ONLY_CODEPOINT=0x2019` and `FILL=1`, with the same stock
+`playlist.ap` (SHA-256
+`184f2c201537e6657024a2a5a054d12fe4a7f134e06205f0786a8d71d2a29403`) and
+device `MUSIC.LIB` (SHA-256
+`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`). No
+seed fixture was used.
+
+This control does **not** reproduce device grouping. ARTIST has 364 level-0
+nodes instead of 363, and GENRE has 440 level-1 nodes instead of 439. The
+`Indelible` / `Indelible’` pair is split in both sections, as in broad
+replacement. ALLSONG order matches 3,963/4,000; ALBUM order matches
+3,973/4,000; ARTIST and GENRE order each match 3,992/4,000. ARTIST and GENRE
+per-record node-index tables still match 4,000/4,000, while ALBUM's matches
+3,981/4,000. Thus replacing U+2019 alone is not sufficient to explain the
+device's merge, and it also does not explain the remaining sort differences.
+
+The `out_stock.lib` SHA-256 is
+`29c2a4f36aed3c9aebaeb659c82484c8ec201d8d0b22acf1c788693e2e146f63`; the
+run log, comparison, and generated output are retained locally under
+`analysis/local-evidence/musiclib-u2019-only-rerun/`. Reproduce with:
+
+```sh
+HEXTRA='-DMODE_REPLACE -DREPLACE_ONLY_CODEPOINT=0x2019 -DFILL=1' \
+  tools/library/test.sh <stock-playlist.ap> <device-MUSIC.LIB> \
+  <workdir> stock
+```
+
+This weakens the narrow “U+2019 maps to `0x01`” explanation. It does not
+recover the resident converter; the terminal-out-of-range-as-NUL candidate
+still matches the indexed tables for this one library, and may be corpus-
+specific.
+
 #### Seedless terminal-out-of-range-as-NUL candidate, 2026-11-19
 
 The final stock MIPS16 run combined the two branches suggested by the controls:
