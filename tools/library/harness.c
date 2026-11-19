@@ -153,16 +153,26 @@ u32 stub_text(u32 a, u32 b, u32 c, u32 fn)
     u8 *p = (u8 *)a;
     u32 i, n;
     if (fn == 0x1a) {
-        /* This is a test stub, not the recovered resident converter. MODE_REPLACE
-         * projects out-of-range UTF-16 code units to FILL and keeps converting.
-         * TERMINAL_OOR_ZERO instead treats an out-of-range unit immediately
-         * before UTF-16 NUL as a terminator; other out-of-range units still use
-         * FILL. NUL_ZERO clears output bytes after NUL. The default path preserves
-         * the old stop-at-wide-character hypothesis. */
+        /* This is a test stub, not the recovered resident converter. By default,
+         * conversion stops at an out-of-range UTF-16 unit. MODE_REPLACE projects
+         * every such unit to FILL and keeps converting. REPLACE_ONLY_CODEPOINT
+         * applies that replacement only to the selected code point and stops at
+         * other unsupported units.
+         * TERMINAL_OOR_ZERO treats an unsupported unit immediately before NUL as
+         * a terminator. NUL_ZERO clears output bytes after NUL. */
         for (i = 0; i + 1 < b; i += 2) {
             u32 ch = p[i] | (p[i + 1] << 8);
             if (ch >= 256) {
-#ifdef MODE_REPLACE
+#ifdef REPLACE_ONLY_CODEPOINT
+                if (ch == REPLACE_ONLY_CODEPOINT) {
+                    p[i / 2] = FILL;
+                    continue;
+                }
+#ifdef TEXT_CONVERSION_STOP_ZERO
+                for (n = i / 2; n < b; n++) p[n] = 0;
+#endif
+                break;
+#elif defined(MODE_REPLACE)
 #ifdef TERMINAL_OOR_ZERO
                 if (i + 3 < b && p[i + 2] == 0 && p[i + 3] == 0) {
                     p[i / 2] = 0;

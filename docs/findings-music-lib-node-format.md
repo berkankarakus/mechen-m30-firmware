@@ -721,6 +721,133 @@ the device converter's semantics. The full-file comparison reports `FAIL`
 because ordering, album nodes, and file extent differ; this was not a
 byte-for-byte reproduction.
 
+#### Seedless stock run with replacement text conversion, 2026-11-19
+
+To check whether the default stop-at-wide-character stub caused the seedless
+order differences, the same unmodified device library was run through the
+stock MIPS16 passes with `MODE_REPLACE` and `FILL=1`. The stub maps every
+out-of-range UTF-16 code unit to `0x01` and continues conversion; it leaves the
+post-NUL tail untouched. This is a broad converter hypothesis, not the
+resident converter. The Docker command used the stock 2025-06-26
+`playlist.ap` (`7b1971f1496318a9682b0abc7681c058ded702aa533c97a32e428f5088b77b64`)
+and device `MUSIC.LIB`
+(`e386db27a9f47641e8755e5a58a903e6e66f83afe2be84c97d5d7e59de0f3c88`), with
+no seed fixture.
+
+All four order and inverse-order tables matched the device at 4,000/4,000.
+The per-record node-index tables present for ALBUM, ARTIST, and GENRE also
+matched 4,000/4,000. ALBUM nodes matched 549/549. ARTIST had 364 level-0
+nodes instead of 363; its level-1 count remained 707. GENRE had 440 level-1
+nodes instead of 439, while its level-0 and level-2 counts remained 30 and
+709. Node bytes in the affected ARTIST and GENRE levels did not all match.
+Both extra nodes come from
+the device-merged `Indelible` / `Indelible’` pair, which this broad replacement
+stub keeps separate. The generated header and node bytes therefore still
+differ; this is not a full-file match.
+
+This run changes the earlier seedless ALLSONG result: the first difference at
+position 65 (`01. Dokunmayarayaparsın.flac` versus the corresponding `.wav`)
+is gone, and the complete order table now matches. Both raw UTF-16 title
+fields contain U+0131 before their extensions. That observation makes the
+stop-at-U+0131 boundary a plausible contributor to the old ordering result,
+but the experiment changed conversion for every unsupported code unit, so it
+does not isolate U+0131 or prove the device's conversion rule.
+
+The output `out_stock.lib` SHA-256 is
+`319d09bf87ca5b3e308f910e77e8331f094dff3a428cd15fbf3520f407525dc9`.
+The full section comparison and harness log are retained in the ignored local
+evidence directory at
+`analysis/local-evidence/musiclib-u0131-replace/libdiff_stock.txt` and
+`analysis/local-evidence/musiclib-u0131-replace/harness_stock.txt`; the output
+library is also retained there. The run used:
+
+```sh
+HEXTRA='-DMODE_REPLACE -DFILL=1' \
+  tools/library/test.sh <stock-playlist.ap> <device-MUSIC.LIB> \
+  <workdir> stock
+```
+
+Interpretation: the stock index pass plus this replacement stub explains the
+seedless ordering and per-record index tables, while one narrow node-grouping
+discrepancy remains. Treat the converter behavior as a useful candidate for
+further comparison, not as recovered firmware behavior.
+
+#### Seedless U+0131-only conversion control, 2026-11-19
+
+A second stock MIPS16 run changed only UTF-16 U+0131 to `0x01` and continued;
+other out-of-range units retained the default stop-at-wide behavior. This
+selective harness mode is `REPLACE_ONLY_CODEPOINT=0x0131` with `FILL=1`. It uses the same
+hash-pinned stock `playlist.ap` and original device library listed above, with
+no seed fixture.
+
+The device header stayed identical. ALLSONG order/inverse remained 3,963/4,000;
+its first mismatch moved from position 65 to position 684. ALBUM order/inverse
+matched 3,971/4,000 and its node-index table 3,981/4,000. ARTIST and GENRE
+order/inverse each matched 3,990/4,000, while their node bytes matched exactly:
+ARTIST 363/363 and 707/707, GENRE 30/30, 439/439, and 709/709. Their node-index
+tables matched 4,000/4,000. The `Indelible` / `Indelible’` grouping matches
+the device under this control, which leaves terminal U+2019 on the default
+stop path; the broad replacement run instead split it. The full output still
+differs in ordering and ALBUM nodes.
+
+This separates two observations: broad replacement of every unsupported unit
+was sufficient for all four order tables to match in the prior run, but
+replacing terminal U+2019 with `0x01` split the Indelible group. This control
+changed U+0131 only and retained the default stop behavior for U+2019. It
+supports preserving terminal U+2019 behavior rather than applying the broad
+replacement to it; it does not distinguish “stop and retain tail” from
+“treat terminal unit as NUL,” nor prove the resident converter's U+0131
+behavior. The control changes U+0131 globally, not only in the Turkish title
+that exposed the earlier order difference.
+
+The selective-run output `out_stock.lib` SHA-256 is
+`0898204750efcb041983e529a78c21ad6acbe1d661fc113a9fa0f256e8c50e4d`. Its
+comparison and harness log are retained under
+`analysis/local-evidence/musiclib-u0131-only/`. Reproduce with:
+
+```sh
+HEXTRA='-DMODE_REPLACE -DREPLACE_ONLY_CODEPOINT=0x0131 -DFILL=1' \
+  tools/library/test.sh <stock-playlist.ap> <device-MUSIC.LIB> \
+  <workdir> stock
+```
+
+#### Seedless terminal-out-of-range-as-NUL candidate, 2026-11-19
+
+The final stock MIPS16 run combined the two branches suggested by the controls:
+an out-of-range UTF-16 unit followed immediately by UTF-16 NUL writes NUL and
+stops conversion; other out-of-range units become `0x01` and conversion
+continues. The harness leaves bytes after the resulting NUL untouched. This
+is still a test converter, not recovered firmware code. It used the same
+hash-pinned stock `playlist.ap` and original device `MUSIC.LIB`, with no
+seed fixture.
+
+This candidate reproduced every indexed table in the original 4,000-record
+library: all four order and inverse-order tables matched 4,000/4,000; ALBUM
+nodes matched 549/549; ARTIST nodes matched 363/363 and 707/707; GENRE nodes
+matched 30/30, 439/439, and 709/709. The ALBUM, ARTIST, and GENRE per-record
+node-index tables also matched 4,000/4,000. The reported output file is
+1,161,216 bytes (`0x11b800`, 2,268 sectors); comparison first differs at
+`0x11b800`, exactly where this harness output ends and the longer device file
+continues. Thus the indexed structures match; the full file is not reproduced.
+
+The output `out_stock.lib` SHA-256 is
+`59f64e94dfb07de28a363ea2123ee45d230549129de7f77198876a584a724865`. The
+comparison and harness log are retained in
+`analysis/local-evidence/musiclib-terminal-oor-zero/`. Reproduce with:
+
+```sh
+HEXTRA='-DMODE_REPLACE -DTERMINAL_OOR_ZERO -DFILL=1' \
+  tools/library/test.sh <stock-playlist.ap> <device-MUSIC.LIB> \
+  <workdir> stock
+```
+
+This is the strongest current host-side explanation of the device's indexed
+results: broad replacement accounts for the sort tables, while treating the
+terminal unsupported unit specially preserves the Indelible grouping. It
+matches one complete device library's index tables but does not identify the
+resident converter; another implementation could yield the same output for
+this corpus. Keep the converter semantics labeled as a hypothesis.
+
 The same module now derives the candidate nested run lengths that feed the
 three node levels in the local builder. `ALBUM` produces its album runs;
 `ARTIST` uses those album group indices as its child grouping; and `GENRE`
