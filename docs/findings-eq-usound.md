@@ -347,13 +347,16 @@
   `0x6e40`: write position `0x9fc33de8`, available count `0x9fc33df0`, direct
   ready threshold `0x3720`, expanded-format threshold `0x1b90`, and the
   observed overrun rule `available > capacity -> available = wrapped write
-  position`. The host model covers direct and wrapped writes plus the
-  format-specific ready edge; hardware FIFO timing and the downstream reader
-  remain outside the model.
+  position`. The producer sets the shared ready latch `0x9fc33e13` when the
+  format-specific threshold is crossed. The host model covers direct and
+  wrapped writes plus that ready edge; hardware FIFO timing and the downstream
+  reader remain outside the model.
 - A second p-code run executed `FUN_bfc3125c` against synthetic MMIO. It subtracts
   `0x3720` from the available count and ORs `0x404` into the DMA control word.
   A signed result below 1 takes the empty path, zeroes available, clears
   `0x9fc33e13`, and calls `FUN_bfc314e0`, which writes `0x80` to `0xc005001c`.
+  The host state model now clears the same ready latch on this path, allowing a
+  later threshold crossing to raise a new edge.
   The stop meaning is inferred from the nearby `dac_dma_stop1` string. For
   nonempty results it clears the
   low two clock-control bits below 4410, preserves them from 4410 through 9702,

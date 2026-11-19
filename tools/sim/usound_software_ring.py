@@ -83,7 +83,12 @@ def build_dma_start_registers(
 
 @dataclass
 class SoftwareRing:
-    """Model ``FUN_bfc30dc4``'s byte producer, without hardware I/O."""
+    """Model the byte producer and ready latch, without hardware I/O.
+
+    ``ready_signal`` corresponds to the shared ``0x9fc33e13`` byte: the
+    producer sets it at the format-specific fill threshold, and the observed
+    empty DMA-completion branch clears it.
+    """
 
     data: bytearray = field(default_factory=lambda: bytearray(RING_CAPACITY))
     write_offset: int = 0
@@ -143,6 +148,7 @@ class SoftwareRing:
 
         if remaining < 1:
             self.available = 0
+            self.ready_signal = 0
             return DmaCompletionResult(
                 clock_control=clock_control,
                 dma_control=next_dma_control,

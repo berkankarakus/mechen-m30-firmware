@@ -53,14 +53,29 @@ class UsoundSoftwareRingTests(unittest.TestCase):
         self.assertEqual(ring.available, 4)
 
     def test_dma_completion_resets_an_empty_fill_and_keeps_clock_bits(self) -> None:
-        ring = SoftwareRing(available=DIRECT_READY_THRESHOLD)
+        ring = SoftwareRing(
+            available=DIRECT_READY_THRESHOLD,
+            ready_signal=1,
+        )
 
         result = ring.complete_dma(clock_control=0xA5, dma_control=0)
 
         self.assertTrue(result.empty_branch)
         self.assertEqual(ring.available, 0)
+        self.assertEqual(ring.ready_signal, 0)
         self.assertEqual(result.clock_control, 0xA5)
         self.assertEqual(result.dma_control, 0x404)
+
+    def test_empty_dma_completion_rearms_the_next_ready_edge(self) -> None:
+        ring = SoftwareRing(
+            available=DIRECT_READY_THRESHOLD,
+            ready_signal=1,
+        )
+
+        ring.complete_dma(clock_control=0, dma_control=0)
+
+        self.assertTrue(ring.produce(bytes(DIRECT_READY_THRESHOLD), expanded=False))
+        self.assertEqual(ring.ready_signal, 1)
 
     def test_dma_completion_clears_clock_mode_below_the_observed_threshold(self) -> None:
         ring = SoftwareRing(available=DIRECT_READY_THRESHOLD + 4409)
