@@ -65,6 +65,10 @@ The new Ghidra flat-map decompile adds three useful constraints:
   delay slot. The literal pool is at file `0x9938` (`2c bd c0 9f 01 9c c0 bf`).
   `drv_ui.drv` stock/community SHA-256 is
   `011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a`;
+  `python3 tools/emu/drvui_clear_call_probe.py analysis/community/fw/drv_ui.drv`
+  reproduces these byte and pointer checks. Its test also pins the stock copy
+  and rejects changed instruction, pool, or stub bytes. The probe reports the
+  service effect as unverified; it does not promote the fill hypothesis.
 - a headless rerun of `run_drvui_runtime_probe.sh` confirmed that the indirect
   call pointer at runtime address `0x260e52bc` is `0xbfc09c01`. The extracted
   `drv_ui.drv` also contains the raw module-`0x10` syscall stub bytes
