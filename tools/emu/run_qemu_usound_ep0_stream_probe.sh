@@ -68,6 +68,10 @@ producer_expected = {
     0x1060: 0x9FC33E13,
     0x1064: 0x9FC33DF8,
     0x1068: 0xBFC30D69,
+    0x12D0: 0xC00C0004,
+    0x12D4: 0x9FC33DF0,
+    0x12D8: 0x9FC33E13,
+    0x12DC: 0xC0000110,
     0x136C: 0xC0000000,
     0x1370: 0xC0001004,
     0x1374: 0xC00C0040,
@@ -123,7 +127,7 @@ producer_literals = {
     0x1388: 0x80067020,  # same format flag used by producer
     0x138C: 0x80064054,  # DMA size
     # FUN_bfc31390's helper MMIO pool, modeled as ordinary guest RAM.
-    0x14B8: 0x80064210,
+    0x14B8: 0x80064010,
     0x14C0: 0x8006420C,
     0x14C4: 0x80064324,
     0x14C8: 0x80064000,
@@ -132,6 +136,11 @@ producer_literals = {
     0x14D4: 0x80064304,
     0x14D8: 0x80064314,
     0x14DC: 0x80064318,
+    # FUN_bfc3125c completion state shares the producer's RAM aliases.
+    0x12D0: 0x80064004,
+    0x12D4: 0x800601F0,
+    0x12D8: 0x80060213,
+    0x12DC: 0x80064010,
 }
 for offset, value in producer_literals.items():
     struct.pack_into("<I", segment, offset, value)

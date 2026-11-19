@@ -241,6 +241,28 @@ verify_ring_next:
 	bne $t1, $t2, fail_alt0_state
 	 nop
 
+	/* One real DMA completion subtracts one threshold from the shared queue. */
+	li $t0, 0x80064010
+	li $t1, 0xa5
+	sw $t1, 0($t0)
+	jalx 0x8fc3125c
+	 nop
+	li $t0, 0x800601f0
+	lw $t1, 0($t0)
+	li $t2, 0x58
+	bne $t1, $t2, fail_completion
+	 nop
+	li $t0, 0x80060213
+	lbu $t1, 0($t0)
+	li $t2, 1
+	bne $t1, $t2, fail_completion
+	 nop
+	li $t0, 0x80064010
+	lw $t1, 0($t0)
+	li $t2, 0xa4
+	bne $t1, $t2, fail_completion
+	 nop
+
 	la $a0, pass_text
 	jal puts
 	 nop
@@ -264,6 +286,10 @@ fail_alt0_ack:
 	 nop
 fail_alt0_state:
 	la $a0, fail_alt0_state_text
+	b fail
+	 nop
+fail_completion:
+	la $a0, fail_completion_text
 	b fail
 	 nop
 fail_producer_write:
@@ -347,12 +373,13 @@ puthex_emit:
 .end puthex
 
 .section .rodata
-pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x3778 threshold-cross=1 ready=1 alt0-preserves=1 ring-copy=all\r\n"
+pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x3778 threshold-cross=1 ready=1 alt0-preserves=1 completion-remains=0x58 ring-copy=all\r\n"
 fail_alt1_ack_text: .asciz "REAL USOUND EP0 FAIL alt1-ack\r\n"
 fail_setup_text: .asciz "REAL USOUND EP0 FAIL setup-copy\r\n"
 fail_alt1_state_text: .asciz "REAL USOUND EP0 FAIL alt1-state\r\n"
 fail_alt0_ack_text: .asciz "REAL USOUND EP0 FAIL alt0-ack\r\n"
 fail_alt0_state_text: .asciz "REAL USOUND EP0 FAIL alt0-state\r\n"
+fail_completion_text: .asciz "REAL USOUND EP0 STREAM FAIL completion-state\r\n"
 fail_producer_write_text: .asciz "REAL USOUND EP0 STREAM FAIL producer-write-offset="
 fail_producer_count_text: .asciz "REAL USOUND EP0 STREAM FAIL producer-byte-count\r\n"
 fail_producer_ready_text: .asciz "REAL USOUND EP0 STREAM FAIL producer-ready-latch\r\n"

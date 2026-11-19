@@ -227,10 +227,15 @@
   preserving the queue and ready latch. The probe maps the helper's
   `0xc000....` and `0xc005....` control literals to RAM-backed guest addresses;
   this tests real instruction flow and register-value logic, not physical MMIO
-  semantics or a DMA transfer. The earlier 71-packet timeout was a probe
-  failure: its stale assertion expected the ready latch to remain clear, then
-  entered the failure halt loop. USB/FIFO delivery, completion, downstream
-  consumer, and DAC remain outside the test.
+  semantics or a DMA transfer. After alt 0's preserve check, the probe calls
+  real `FUN_bfc3125c` against that same queue: `0x3778 - 0x3720` leaves `0x58`,
+  ready remains set, and a synthetic clock value `0xa5` becomes `0xa4`. Control
+  bit OR behavior is checked in the separate completion boundary matrix. This
+  completion call is injected by the harness;
+  no hardware interrupt or DMA completion is observed. The earlier 71-packet
+  timeout was a probe failure: its stale assertion expected the ready latch to
+  remain clear, then entered the failure halt loop. USB/FIFO delivery, actual
+  completion signaling, downstream consumer, and DAC remain outside the test.
   Reproduce with `bash tools/emu/run_qemu_usound_ep0_stream_probe.sh
   <hash-matching-usound.drv>`.
 - `tools/ghidra/run_usound_interface_probe.sh` now replays the real
