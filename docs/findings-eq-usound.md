@@ -218,8 +218,8 @@
   this probe itself establishes only their clear/preserve behavior.
 - `tools/emu/run_qemu_usound_ep0_stream_probe.sh` runs the real EP0 handler,
   producer `FUN_bfc30dc4`, threshold helper `FUN_bfc31390`, and DMA setup
-  `FUN_bfc312e0` in one guest. After alt 1 clears the shared state, 71 producer
-  calls each enqueue a seeded 200-byte packet. The full `0x3778` ring payload is
+  `FUN_bfc312e0` in one guest. After alt 1 clears the shared state, 74 producer
+  calls each enqueue a seeded 192-byte packet. The full `0x3780` ring payload is
   checked. Crossing the `0x3720` threshold sets ready byte `0x9fc33e13`, runs
   the helper; before any later standalone DMA-setup subcase, the probe checks
   that this threshold path left ring address `0x80080000`, control `0x4b03`,
@@ -228,7 +228,7 @@
   `0xc000....` and `0xc005....` control literals to RAM-backed guest addresses;
   this tests real instruction flow and register-value logic, not physical MMIO
   semantics or a DMA transfer. After alt 0's preserve check, the probe calls
-  real `FUN_bfc3125c` against that same queue: `0x3778 - 0x3720` leaves `0x58`,
+  real `FUN_bfc3125c` against that same queue: `0x3780 - 0x3720` leaves `0x60`,
   ready remains set, and a synthetic clock value `0xa5` becomes `0xa4`. Control
   bit OR behavior is checked in the separate completion boundary matrix. This
   completion call is injected by the harness;

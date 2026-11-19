@@ -70,7 +70,7 @@ _start:
 	bnez $t1, fail_alt1_state
 	 nop
 
-	/* Fill one 200-byte packet, then enqueue 71 packets across the ready threshold. */
+	/* Fill a 192-byte audio packet, then enqueue 74 packets across the threshold. */
 	li $t0, 0x80060000
 	sw $zero, 0($t0)
 	sw $zero, 4($t0)
@@ -82,15 +82,15 @@ fill_packet:
 	sb $t2, 0($t0)
 	addiu $t0, $t0, 1
 	addiu $t2, $t2, 1
-	li $t3, 200
+	li $t3, 192
 	bne $t2, $t3, fill_packet
 	 nop
 	li $t0, 0x80060008
-	li $t1, 0xc8
+	li $t1, 0xc0
 	sb $t1, 0($t0)
 	sb $zero, 1($t0)
 	li $t0, 0x8006f020
-	li $t1, 71
+	li $t1, 74
 	sw $t1, 0($t0)
 producer_packet_loop:
 	li $t0, 0x80060000
@@ -105,7 +105,7 @@ producer_packet_loop:
 	 nop
 	li $t0, 0x800601e8
 	lw $t1, 0($t0)
-	li $t2, 0x3778
+	li $t2, 0x3780
 	bne $t1, $t2, fail_producer_write
 	 nop
 	li $t0, 0x800601f0
@@ -137,7 +137,7 @@ producer_packet_loop:
 	li $t0, 0x80080000
 	li $t1, 0
 	li $t2, 0
-	li $t5, 0x3778
+	li $t5, 0x3780
 verify_ring:
 	lbu $t3, 0($t0)
 	bne $t3, $t2, fail_producer_data
@@ -145,7 +145,7 @@ verify_ring:
 	addiu $t0, $t0, 1
 	addiu $t1, $t1, 1
 	addiu $t2, $t2, 1
-	li $t4, 200
+	li $t4, 192
 	bne $t2, $t4, verify_ring_next
 	 nop
 	move $t2, $zero
@@ -222,7 +222,7 @@ verify_ring_next:
 	 nop
 	li $t0, 0x800601e8
 	lw $t1, 0($t0)
-	li $t2, 0x3778
+	li $t2, 0x3780
 	bne $t1, $t2, fail_alt0_state
 	 nop
 	li $t0, 0x800601ec
@@ -232,7 +232,7 @@ verify_ring_next:
 	 nop
 	li $t0, 0x800601f0
 	lw $t1, 0($t0)
-	li $t2, 0x3778
+	li $t2, 0x3780
 	bne $t1, $t2, fail_alt0_state
 	 nop
 	li $t0, 0x80060213
@@ -249,7 +249,7 @@ verify_ring_next:
 	 nop
 	li $t0, 0x800601f0
 	lw $t1, 0($t0)
-	li $t2, 0x58
+	li $t2, 0x60
 	bne $t1, $t2, fail_completion
 	 nop
 	li $t0, 0x80060213
@@ -373,7 +373,7 @@ puthex_emit:
 .end puthex
 
 .section .rodata
-pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x3778 threshold-cross=1 ready=1 alt0-preserves=1 completion-remains=0x58 ring-copy=all\r\n"
+pass_text: .asciz "REAL USOUND EP0 STREAM PASS alt1-reset=1 producer=0x3780 packets=74 packet-bytes=192 threshold-cross=1 ready=1 completion-remains=0x60 ring-copy=all\r\n"
 fail_alt1_ack_text: .asciz "REAL USOUND EP0 FAIL alt1-ack\r\n"
 fail_setup_text: .asciz "REAL USOUND EP0 FAIL setup-copy\r\n"
 fail_alt1_state_text: .asciz "REAL USOUND EP0 FAIL alt1-state\r\n"
