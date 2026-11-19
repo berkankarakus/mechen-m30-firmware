@@ -158,7 +158,7 @@
   interface 0, audio streaming interface 1 (alternate settings 0 and 1),
   and HID interface 3. The audio format descriptor is two-channel, 16-bit
   PCM at the single advertised rate 48000 Hz. The streaming endpoint is
-  isochronous OUT `0x01` with 200-byte packets; the HID endpoint is interrupt
+  isochronous OUT `0x01` with a 200-byte maximum packet size; the HID endpoint is interrupt
   IN `0x82`. The raw strings are `USB Audio` and `Actions`.
 - The configuration topology is now checked by `tools/emu/usound_binary_probe.py`:
   the USB streaming input terminal (`0x0101`) feeds a feature unit and a
@@ -242,7 +242,7 @@
   `python3 tools/emu/usound_descriptor_patch_probe.py
   analysis/community/fw/usound.drv analysis/community/fw/config.bin`. It
   produces VID/PID `10d6:dd01`, `M30`/`USB AUDIO` strings, interface count 3,
-  16-bit/48 kHz fields and 200-byte packets from the stock config values.
+  16-bit/48 kHz fields and a 200-byte packet maximum from the stock config values.
   Unit cases also cover empty ID overrides, empty strings, interface flag 0,
   and item `0x115=1` selecting 24-bit/96 kHz. Item `0x116` remains the separate
   app-mode selector and is not consumed by the descriptor patch.
@@ -365,6 +365,12 @@
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
   register `0xc00c0044` receives the ring base, never the staging address.
+  The producer derives transfer length from USB length registers
+  `0xc0080008/0xc0080009` and forwards that length to the FIFO/ring path; the
+  examined code does not require every packet to equal the descriptor's
+  200-byte maximum. The host packet model therefore accepts shorter complete
+  audio frames up to that maximum. Actual short-packet delivery by the USB
+  controller remains untested.
   `FUN_bfc312e0` writes channel control `0x4b03` and raw size `14112` for the
   direct format, or `0x8b03` and `7056` for format flag 1; both common control
   registers receive `|= 0x404`. The host model records these observed register

@@ -48,11 +48,17 @@ class UsbAudioContractTests(unittest.TestCase):
         self.assertEqual(self.contract.frames_per_packet, 50)
         self.assertEqual(self.contract.validate_packet(bytes(200)), 50)
 
-    def test_packet_size_is_exact(self) -> None:
+    def test_packet_capacity_accepts_short_complete_frames(self) -> None:
+        self.assertEqual(self.contract.validate_packet(bytes()), 0)
+        self.assertEqual(self.contract.validate_packet(bytes(196)), 49)
+        self.assertEqual(self.contract.validate_packet(bytes(200)), 50)
+
+    def test_packet_capacity_rejects_oversized_and_partial_frames(self) -> None:
         with self.assertRaises(ValueError):
-            self.contract.validate_packet(bytes(196))
+            self.contract.validate_packet(bytes(201))
+
         with self.assertRaises(ValueError):
-            self.contract.validate_packet(bytes(204))
+            self.contract.validate_packet(bytes(198))
 
     def test_descriptor_advertises_one_sample_rate(self) -> None:
         self.assertTrue(self.contract.accepts_sample_rate(48_000))

@@ -127,10 +127,10 @@ suite therefore no longer re-imports the same driver eight times.
 | Metadata reader boundary | archived `music.ap` delta + host model | host 0x200 split/flush, source-byte reads and trailing-skip arithmetic present; parser/callback ABI unresolved |
 | Artwork fallback/cache | community `music.ap` decompile + host models | policy and `ALBUM.PIC` record modeled; JPEG decode, SD/CPU timing and UI render unverified |
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
-| USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT |
-| USB Audio descriptor patch | hash-checked `usound.drv`/`config.bin` + host patch model | PASS; configured VID/PID, strings, interface count and 16/48 vs 24/96 fields reproduced; MIPS16 p-code confirmation remains in scratchpad and hardware USB is not modeled |
+| USB Audio descriptor/packet contract | six local `usound.drv` corpora + host model | PASS; UAC1 2ch/16-bit/48 kHz, 200-byte isochronous OUT maximum; frame-aligned shorter packets are accepted by the host stream model because the driver uses the received length |
+| USB Audio descriptor patch | Hash-pinned host model and checked-in Ghidra MIPS16 p-code probe | PASS; six synthetic cases cover stock values, 24-bit/96 kHz, cleared interface flag, empty VID/PID/strings, serial lookup skipped, and empty serial. ROM copy/firmware-info services are stubbed and config values are synthetic; this does not verify config retrieval or hardware USB. Reproduce with `bash tools/ghidra/run_usound_descriptor_patch_probe.sh`. |
 | USB Audio operation-table candidate | hash-checked fourth YQHX segment + host candidate resolver | PASS; final eight pointers and op-3 target match; `table[op]` remains an inference and candidate functions are never executed by this model |
-| USB Audio EP0 request handler | Ghidra MIPS16 p-code, reported scratchpad run | PASS for request state with zeroed RAM-backed MMIO; alternate-setting ACK behavior and descriptor GET paths observed; no checked-in p-code harness or real controller status transitions yet |
+| USB Audio EP0 request handler | Hash-pinned, checked-in Ghidra MIPS16 p-code harness plus broader scratchpad run | PASS for tracked frequency SET_CUR/GET_CUR, GET_MIN/MAX/RES, five mute/volume controls, and SET_INTERFACE alt 1 reset vs alt 0 preserve/ACK. The broader scratchpad run also observed descriptor GET and IN chunking, but does not have a checked-in replay. All runs use synthetic zeroed RAM-backed MMIO; real controller status transitions and USB timing remain unmodeled. Reproduce tracked coverage with `bash tools/ghidra/run_usound_interface_probe.sh`. |
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 `break 0` module call | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes module `0x10` twice on wrap, and resets its read pointer to zero; fixed-ROM service/DAC side effect remains unresolved |
@@ -250,11 +250,17 @@ deterministic tests, not a claim that physical button sampling or repeat timing
 has been recovered.
 
 `tools/sim/usb_audio_stream.py` now composes the observed USB Audio
-descriptor with the 4 KiB ring-consumer boundary. It accepts only the
-descriptor's exact 200-byte stereo packet, preserves packet bytes across the
-ring wrap, and rejects over-capacity writes. This is a host stream contract;
-it does not promote the unresolved `usound` producer callback into a codec,
-DAC, or hardware-DMA implementation.
+descriptor with the 4 KiB ring-consumer boundary. The descriptor's 200-byte
+field is treated as the packet maximum; frame-aligned payloads up to 200 bytes
+are accepted, and oversized or partial-frame payloads are rejected. The host
+model treats an empty payload as zero frames, but the firmware's zero-length
+branch clears its 4 KiB staging buffer; equivalence of those behaviors is not
+established. The driver reads the received length from USB MMIO and passes it
+into the FIFO transfer path instead of requiring exactly 200 bytes. The host
+stream preserves accepted packet bytes across the ring wrap and rejects
+over-capacity writes. This is a host stream contract; it does not promote the
+unresolved `usound` producer callback into a codec, DAC, or hardware-DMA
+implementation.
 
 The recovered packet/ring boundary also has a real QEMU system-CPU smoke probe:
 `bash tools/emu/run_qemu_usb_audio_probe.sh`. It links freestanding little-

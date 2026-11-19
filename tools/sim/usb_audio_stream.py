@@ -10,7 +10,7 @@ from usb_ring import RING_CAPACITY, RingConsumer
 
 @dataclass
 class UsbAudioStream:
-    """Accept exact USB packets and expose a bounded PCM byte stream.
+    """Accept bounded USB packets and expose a bounded PCM byte stream.
 
     This models packet framing and the observed circular-consumer boundary.
     It does not claim to emulate the unresolved firmware producer callback,
@@ -60,7 +60,7 @@ class UsbAudioStream:
         return True
 
     def submit_packet(self, payload: bytes) -> int:
-        """Queue one exact packet and return its stereo-frame count."""
+        """Queue one frame-aligned packet up to the descriptor maximum."""
         frames = self.contract.validate_packet(payload)
         if len(payload) > RING_CAPACITY - self.ring.available:
             raise BufferError("USB audio ring does not have enough free space")

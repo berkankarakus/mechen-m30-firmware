@@ -41,11 +41,19 @@ class UsbAudioStreamTests(unittest.TestCase):
         with self.assertRaises(BufferError):
             stream.submit_packet(packet)
 
-    def test_non_200_byte_packet_is_rejected(self) -> None:
+    def test_short_complete_frame_packet_is_queued(self) -> None:
+        stream = UsbAudioStream()
+        packet = bytes(range(196))
+
+        self.assertEqual(stream.submit_packet(packet), 49)
+        self.assertEqual(stream.available, 196)
+        self.assertEqual(stream.read(196), packet)
+
+    def test_packet_larger_than_descriptor_capacity_is_rejected(self) -> None:
         stream = UsbAudioStream()
 
         with self.assertRaises(ValueError):
-            stream.submit_packet(bytes(196))
+            stream.submit_packet(bytes(204))
 
 
 if __name__ == "__main__":

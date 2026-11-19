@@ -85,12 +85,21 @@ class UsbAudioContract:
         return rate_hz == self.sample_rate_hz
 
     def validate_packet(self, payload: bytes) -> int:
-        """Return frame count for one exact-size isochronous OUT packet."""
+        """Return the frame count for one frame-aligned OUT packet.
 
-        if len(payload) != self.packet_bytes:
+        ``packet_bytes`` is the descriptor's maximum packet capacity. The
+        firmware reads the received packet length from the USB registers and
+        copies that many bytes, so shorter complete-frame packets are valid.
+        """
+
+        if len(payload) > self.packet_bytes:
             raise ValueError(
-                f"expected {self.packet_bytes} bytes, received {len(payload)}"
+                f"packet exceeds {self.packet_bytes}-byte maximum: received {len(payload)}"
             )
+
+        if len(payload) % self.frame_bytes:
+            raise ValueError("packet length must contain complete audio frames")
+
         return len(payload) // self.frame_bytes
 
     @staticmethod

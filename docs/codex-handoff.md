@@ -214,7 +214,7 @@ komutunu tercih et.
   eşik, `0xff` unmapped sonucu, dışarıdan gelen normalize değer tablosu ve
   doğrulanmış repeat/special event sınırı.
 - `tools/sim/usb_audio.py`, `usb_ring.py`, `usb_audio_stream.py`: doğrulanmış
-  USB Audio descriptor, 200-byte packet ve ring sınırları; `RingConsumer`
+  USB Audio descriptor, 200-byte azami paket ve ring sınırları; `RingConsumer`
   gerçek 0x1000-byte kaynak üzerinden wrap-aware bytes okuyabilir.
 - `tools/sim/dac_bus.py`: `drv_dac.drv` içindeki kanıtlanmış byte dizisi
   gönderme/alma ve byte başına 8-bit transfer sınırı; bit sırası, codec
