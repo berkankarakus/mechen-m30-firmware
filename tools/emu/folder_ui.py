@@ -26,8 +26,8 @@ from tools.sim.listbox import (
     DIRECTORY_TEXT_X,
     LIST_SLOT_COUNT,
     M30_DIRECTORY_STYLE,
-    directory_slot_text,
-    firmware_name_payload_bytes,
+    assumed_name_payload_bytes,
+    assumed_directory_slot_text,
 )
 
 
@@ -38,8 +38,8 @@ FOLDER_ICON_SIZE = 22
 FOLDER_GLYPH_WIDTH_PX = M30_DIRECTORY_STYLE.glyph_width_px
 SCROLL_GAP_CHARS = 2
 VISIBLE_DIRECTORY_ROWS = LIST_SLOT_COUNT - 1  # one allocated slot is the title
-SCROLL_SOURCE_SLOT = "firmware-slot"
-SCROLL_SOURCE_FULL_NAME = "full-name"
+SCROLL_SOURCE_SLOT_ASSUMPTION = "slot-assumption"
+SCROLL_SOURCE_PROVIDER_OUTPUT = "provider-output"
 FONT_MEASUREMENT_DISPLAY = "host display glyph advances"
 FONT_MEASUREMENT_FALLBACK = "fixed-cell fallback"
 
@@ -57,12 +57,12 @@ class FolderRow:
     selected: bool = False
 
     @property
-    def slot_text(self) -> str:
-        return directory_slot_text(self.name)
+    def assumed_slot_text(self) -> str:
+        return assumed_directory_slot_text(self.name)
 
     @property
-    def truncated(self) -> bool:
-        return self.slot_text != self.name
+    def assumed_truncated(self) -> bool:
+        return self.assumed_slot_text != self.name
 
 
 def directory_text_width(text: str) -> int:
@@ -79,10 +79,10 @@ def directory_clipping_trace(
     viewport_width: int = DIRECTORY_TEXT_WIDTH,
     *,
     scroll_text: str | None = None,
-    scroll_source: str = SCROLL_SOURCE_SLOT,
+    scroll_source: str = SCROLL_SOURCE_PROVIDER_OUTPUT,
     font: M30Font | None = None,
 ) -> dict[str, object]:
-    """Describe where a directory name is lost before it reaches the LCD."""
+    """Compare the supplied name with renderer and optional slot assumptions."""
     if scroll_text is None:
         scroll_text = slot_text
     source_width = _measured_text_width(name, font)
@@ -90,10 +90,14 @@ def directory_clipping_trace(
     scroll_input_width = _measured_text_width(scroll_text, font)
     raw_record_width = font.record_text_width(scroll_text) if font else None
     fixed_cell_width = len(scroll_text) * FOLDER_GLYPH_WIDTH_PX
-    source_clipped = slot_text != name
+    slot_assumption_would_clip = slot_text != name
     renderer_clipped = scroll_input_width > viewport_width
-    if scroll_source == SCROLL_SOURCE_SLOT and source_clipped:
-        clip_stage = "filesystem-slot"
+    source_clipped = (
+        scroll_source == SCROLL_SOURCE_SLOT_ASSUMPTION
+        and slot_assumption_would_clip
+    )
+    if source_clipped:
+        clip_stage = "slot-assumption"
     elif renderer_clipped:
         clip_stage = "renderer-viewport"
     else:
@@ -104,6 +108,7 @@ def directory_clipping_trace(
         "scroll_input_width_px": scroll_input_width,
         "viewport_width_px": viewport_width,
         "source_clipped": source_clipped,
+        "slot_assumption_would_clip": slot_assumption_would_clip,
         "renderer_clipped": renderer_clipped,
         "clip_stage": clip_stage,
         "scroll_input": scroll_source,
@@ -196,7 +201,7 @@ class FolderList:
     top_y: int = LIST_TOP_Y
     accelerator: ScrollAccelerator = field(default_factory=ScrollAccelerator, repr=False)
     common_style: CommonStyle | None = field(default=None, repr=False)
-    scroll_source: str = SCROLL_SOURCE_SLOT
+    scroll_source: str = SCROLL_SOURCE_PROVIDER_OUTPUT
     font: M30Font | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
@@ -206,7 +211,10 @@ class FolderList:
             raise ValueError("selected_index is outside the folder list")
         if not 0 <= self.top_y < HEIGHT:
             raise ValueError("top_y must be inside the framebuffer")
-        if self.scroll_source not in (SCROLL_SOURCE_SLOT, SCROLL_SOURCE_FULL_NAME):
+        if self.scroll_source not in (
+            SCROLL_SOURCE_SLOT_ASSUMPTION,
+            SCROLL_SOURCE_PROVIDER_OUTPUT,
+        ):
             raise ValueError(f"unsupported scroll source: {self.scroll_source}")
 
     @property
@@ -346,9 +354,11 @@ class FolderList:
             if selected:
                 fb.rect(0, row_y, WIDTH, DIRECTORY_ROW_HEIGHT, selection_color)
             draw_folder_icon(fb, FOLDER_ICON_X, row_y + 4, RED if selected else DIM)
-            slot_text = row.slot_text
+            slot_text = row.assumed_slot_text
             scroll_text = (
-                row.name if self.scroll_source == SCROLL_SOURCE_FULL_NAME else slot_text
+                row.name
+                if self.scroll_source == SCROLL_SOURCE_PROVIDER_OUTPUT
+                else slot_text
             )
             positions = draw_directory_text(
                 fb,
@@ -378,7 +388,7 @@ class FolderList:
                 "slot_text": slot_text,
                 "scroll_text": scroll_text,
                 "scroll_source": self.scroll_source,
-                "truncated": row.truncated,
+                "slot_assumption_truncated": row.assumed_truncated,
                 "selected": selected,
                 "x": DIRECTORY_TEXT_X,
                 "y": row_y + 6,
@@ -412,7 +422,7 @@ class FolderList:
                 "slot_count": LIST_SLOT_COUNT,
                 "visible_directory_rows": VISIBLE_DIRECTORY_ROWS,
                 "name_slot_bytes": 50,
-                "name_payload_bytes": firmware_name_payload_bytes(),
+                "assumed_name_payload_bytes": assumed_name_payload_bytes(),
                 "text_measurement": (
                     FONT_MEASUREMENT_DISPLAY if self.font else FONT_MEASUREMENT_FALLBACK
                 ),
@@ -434,9 +444,9 @@ def main() -> int:
     parser.add_argument("--font", type=Path, help="load the extracted M30 new_m.fnt font")
     parser.add_argument(
         "--scroll-source",
-        choices=(SCROLL_SOURCE_SLOT, SCROLL_SOURCE_FULL_NAME),
-        default=SCROLL_SOURCE_SLOT,
-        help="host comparison mode; full-name is an unverified candidate",
+        choices=(SCROLL_SOURCE_SLOT_ASSUMPTION, SCROLL_SOURCE_PROVIDER_OUTPUT),
+        default=SCROLL_SOURCE_PROVIDER_OUTPUT,
+        help="provider-output renders the supplied text; slot-assumption reserves BOM/NUL bytes",
     )
     parser.add_argument("--selected", type=int, default=0)
     parser.add_argument("--offset", type=int, default=0)
@@ -460,7 +470,10 @@ def main() -> int:
     frame.ppm(args.out)
     if args.trace:
         args.trace.write_text(json.dumps(view.json(), indent=2) + "\n")
-    print(f"rendered {args.out}; {len(view.rows[:VISIBLE_DIRECTORY_ROWS])} rows; name payload {firmware_name_payload_bytes()} bytes")
+    print(
+        f"rendered {args.out}; {len(view.rows[:VISIBLE_DIRECTORY_ROWS])} rows; "
+        f"assumed name payload {assumed_name_payload_bytes()} bytes"
+    )
     return 0
 
 

@@ -18,10 +18,13 @@ host emulator: it does not claim to emulate the proprietary LCD or UI
 dispatcher.
 
 The same host layer contains `tools/emu/folder_ui.py`. It renders browser/list
-slots using the observed 50-byte UTF-16 name slot, the `common.sty` 205x16
-text viewport at x=35, 30-pixel rows, and the 80 ms active scroll period. Its
-JSON trace records the pre-scroll slot text, truncation, pixel offset, source
-row index, and selected-row background restore. The eight allocated list slots
+rows using the observed 50-byte destination slot and 25-unit filesystem
+request (the provider's output encoding and truncation remain unknown), the
+`common.sty` 205x16 text viewport at x=35, 30-pixel rows, and the 80 ms active
+scroll period. Its JSON trace records supplied provider text, optional assumed
+slot clipping, pixel offset, source row index, and selected-row background
+restore. The optional 46-byte text payload assumes a BOM and terminator; it is
+not verified device behavior. The eight allocated list slots
 include one title slot, leaving seven visible directory rows; selection stays
 inside that viewport and wraps at the list edges, matching the real
 browser/music handler boundary matrix. This makes the observed
@@ -140,7 +143,7 @@ suite therefore no longer re-imports the same driver eight times.
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
 | Real `usound.drv` word-port execution | exact segment + relocated bfc3194c/bfc31950/bfc31954 pool | PASS; `FUN_bfc318cc` executes mode 1/2/4 and gate behavior in QEMU; the guest RAM ports are not physical MMIO |
 | usound byte-format boundary | Ghidra copy/3-to-4 helpers + host model | PASS; direct copy and complete 3-byte to 4-byte expansion |
-| usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, and 0x1b90/0x3720 ready thresholds |
+| usound software-ring producer | Ghidra `FUN_bfc30dc4` + host model | PASS; 0x6e40 wrap, overrun rule, 0x1b90/0x3720 thresholds, and ready-latch rearm after empty DMA completion |
 | Real `usound.drv` producer execution | exact segment + relocated literal-pool state + real MIPS16 leaves | PASS; `FUN_bfc30dc4` executes linear, wrapped, and fixed-point 3-to-4 producer paths in QEMU; callbacks and MMIO are shimmed |
 | Real `usound.drv` DMA completion policy | `FUN_bfc3125c` p-code with boundary matrix | PASS; subtracts `0x3720`; empty path and clock-control thresholds checked; physical MMIO effects are not modeled |
 | usound ring-to-DMA register contract | static MIPS16 `FUN_bfc30dc4`/`FUN_bfc312e0` trace + host value model | PASS; DMA address is the `0x9fc24000` ring base; mode-specific control/size writes modeled, hardware size units unresolved |
@@ -229,14 +232,12 @@ which includes the original-style browser/common UI sources and an old Win32
 uses a measured text rectangle and an 80 ms refresh callback. For the M30
 resources, the extracted `common.sty` gives the directory text rectangle as
 `x=35, width=205, height=16`, with the folder icon beginning at `x=5`.
-Those values are now represented in `tools/sim/listbox.py` and covered by
-tests. The model now also applies the M30 directory callback's 50-byte UTF-16
-slot budget before scrolling: 2 bytes for the BOM and 2 for the terminator
-leave 46 payload bytes. The same source defines `LIST_ITEM_BUFFER_LEN` as 52
-bytes for each directory entry, so a name can be truncated before the
-205-pixel marquee ever sees it. This explains why the song/folder text can
-scroll while the full folder name is still missing; it also gives us a concrete
-next target for a safe buffer-size patch instead of guessing from screenshots.
+Those values are represented in `tools/sim/listbox.py` and covered by tests.
+The M30 callback passes a 50-byte destination slot and requests 25 UTF-16 units
+from the filesystem helper. The ROM helper's output encoding, terminator, and
+long-name behavior are unknown. The preview's optional 46-byte text capacity
+is only a BOM-and-terminator assumption, so it does not establish that names
+are truncated before reaching the marquee.
 
 The application-level key filter is now represented by
 `tools/sim/key_filter.py`. It is intentionally below the unresolved physical

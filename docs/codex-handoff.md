@@ -204,7 +204,8 @@ komutunu tercih et.
 ## Kanıt → emulator karşılıkları
 
 - `tools/emu/folder_ui.py` ve `folder_input.py`: gerçek liste geometrisi,
-  50-byte UTF-16 slot, marquee zamanlaması, navigation ve key-filter akışı.
+  50-byte destination slotu ve 25-unit provider isteği; provider'ın uzun ad
+  davranışı bilinmiyor. Marquee zamanlaması, navigation ve key-filter akışı.
 - `tools/sim/browser_row_record.py`: gerçek `0x14` row stride ve
   `list_state + 4 + row * 0x14` kaynağını korur; yalnızca converter'a giden
   `+0x02` halfword'u açar, geri kalan alanları opaque bırakır.

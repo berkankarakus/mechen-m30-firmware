@@ -1029,7 +1029,7 @@ def main() -> int:
             "selected_picboxes": ui.selected_picbox_trace(),
             "header_status_resources": ui.header_status_trace(),
             "clipping": {
-                "directory_input_contract": "fixed 50-byte UTF-16 slot before marquee",
+                "directory_input_contract": "50-byte slot and 25-unit provider request; provider output handling unknown",
                 "metadata": ui.metadata_clip_trace(),
             },
             "resource_controls": {

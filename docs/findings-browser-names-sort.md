@@ -24,10 +24,13 @@ the copied title at `0x40` bytes and writes a two-byte terminator. This is a
 static reproduction of the current AP, not proof that every screen uses the
 same path.
 
-The host listbox model now applies the directory path's UTF-16 budget before
-calling its marquee model: 50 bytes minus the 2-byte BOM and 2-byte terminator
-leave 46 bytes, or 23 BMP characters. This prevents the emulator from showing
-scrolling as if it could recover text already discarded by the browser slot.
+The host listbox can optionally preview a candidate 46-byte text payload
+(50-byte slot minus an assumed two-byte BOM and terminator), but that layout
+is not established for the directory provider. The binary establishes the
+50-byte destination slot and a 25-UTF-16-unit request; it does not establish
+whether the ROM provider writes a BOM, how it terminates a result, or whether
+it truncates long names. The preview therefore defaults to provider text and
+labels 46-byte clipping as an assumption.
 
 - VERIFIED: SDK has the constant. `PD196/case/inc/common_ui.h:32`: `#define LIST_ITEM_BUFFER_LEN 52`
   (GBK comment: "max string size of a list item, 52 bytes"). Unit = BYTES. Users: ap/common/common_ui/ui_directory.c:39
@@ -97,8 +100,11 @@ navigation semantics and is not a safe UI patch.
   Stock twin: `FUN_714126e0` (B:12679). Playlist/other type 2 uses `FUN_71392658`; `FUN_71512628` (B:13936) caps 0x30 (album field).
 - VERIFIED dispatch: `FUN_780db22c` (B:14849) indexes table at 0x780db5c8 (browser.ap file 0x46c8) with fsel type byte at 0x9fc15734:
   [0]=0x71352821 FAT dir, [1]=0x714d2659 library, [2]=0x71392659. Community changed [1] from 0x714126e1 to 0x714d2659 (file 0x46cc, 3 bytes `e12641`->`59264d`).
-- drv_ui scroll scan of 0x66 (102) bytes is larger than the 50-byte list slot, so marquee width is not what cuts names; the 50-byte slot cuts first.
-  The earlier doc guess "52 = chars" is wrong: 50 bytes, about 24 chars.
+- drv_ui scans up to `0x66` (102) bytes, while the directory callback requests
+  25 UTF-16 units into a 50-byte slot. The request size does not establish the
+  provider's returned encoding or truncation behavior, so the point where a
+  long directory name is cut remains unknown. The earlier doc guess
+  "52 = chars" is wrong: the observed slot length is 50 bytes.
 
 ## 2. Sort / compare
 
@@ -173,9 +179,10 @@ its state/context pointer is present. The recovered function:
 This is useful evidence but not yet a safe patch recipe for folder names. It
 shows a conditional playlist/library name-production boundary and a separate
 20-byte row-record source. We must not treat that record as the directory's
-long-name buffer: the folder callback still reads into the fixed 50-byte slot
-through `FUN_71352820`. We also cannot safely enlarge `entry + 8` without
-proving which screen owns the fsel/list-state object.
+long-name buffer: the folder callback passes a 50-byte destination slot and
+requests 25 UTF-16 units through `FUN_71352820`, but the ROM provider's output
+and truncation behavior remain unknown. We also cannot safely enlarge
+`entry + 8` without proving which screen owns the fsel/list-state object.
 The finding is reproducible with:
 
 ```sh

@@ -19,9 +19,9 @@ the caller/resource path or from another image component.
 - The routine scans at most `0x66` bytes (102 bytes) for a terminator.
 - On a terminator it writes two spaces and a second terminator before the
   marquee wraps.
-- This scan happens after the browser has populated its fixed 50-byte slot.
-  Therefore a name lost during list-item copying cannot be recovered by the
-  marquee routine.
+- The browser callback provides a 50-byte destination slot and requests 25
+  UTF-16 units from the filesystem helper. Whether that helper truncates or
+  transforms long names is unknown.
 
 The host contract for this preparation step is `prepare_marquee_utf16()` in
 `tools/sim/listbox.py`. Its tests preserve the byte-level boundary, leading
@@ -204,13 +204,13 @@ the folder-name truncation.
 
 ### Host clipping comparison
 
-The host model now records the two clipping boundaries separately. A
-directory name is first copied into the browser's 50-byte UTF-16 slot and
-only then passed to the marquee renderer. In the reproduced long-name case,
-the source string is wider than the slot, but the resulting 23-character
-slot text is only 184px wide against the 205px directory viewport. The
-marquee therefore has no eligible scroll stream: the loss is at the
-`filesystem-slot` stage, not at the red-row renderer.
+The host model records renderer clipping separately from an optional
+slot-layout assumption. The binary proves a 50-byte destination slot and a
+25-unit request to the filesystem helper, but not the provider's output
+encoding, terminator policy, or long-name handling. The preview's 46-byte
+payload (23 BMP characters) assumes a two-byte BOM and terminator; it is not
+evidence that the device loses the name at that boundary. Provider output is
+the default input to the host marquee.
 
 Now-playing uses the full metadata value and clips it at the real 129px
 TextBox. The same long value is therefore marked `renderer-viewport` and
@@ -218,11 +218,11 @@ remains eligible for scrolling. The comparison can be reproduced without a
 device using the existing folder and now-playing renderers; their JSON traces
 now expose `clip_stage`, both measured widths, and the scroll input source.
 
-The folder renderer also has an explicitly labelled host-only comparison mode:
-`--scroll-source full-name`. It bypasses the proven slot boundary only in the
-visualizer, allowing the expected fix to be seen without implying that the
-firmware already has such a buffer. The default remains
-`--scroll-source firmware-slot`.
+The folder renderer has two host-only inputs: `--scroll-source provider-output`
+uses the supplied text as returned by the filesystem provider, while
+`--scroll-source slot-assumption` applies the candidate BOM-and-terminator
+reserve. The latter is a visualization hypothesis, not a recovered firmware
+truncation rule.
 
 The lowest-risk fix is not to change the four `50 -> 52` length immediates.
 The browser's shared buffer is still only statically proven to be 50-byte

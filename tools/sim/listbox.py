@@ -23,8 +23,8 @@ DIRECTORY_HEAD_X = 5
 DIRECTORY_SCROLL_PERIOD_MS = 50
 DIRECTORY_GLYPH_WIDTH_PX = 8
 # The SDK declares 52 bytes, but the M30 browser binary initializes each
-# directory-list slot with 0x32 (50) bytes.  This is the limit that matters
-# before the marquee renderer gets a chance to scroll the name.
+# directory-list destination slot with 0x32 (50) bytes. The filesystem
+# provider's output encoding and long-name behavior are not established.
 NAME_BUFFER_BYTES = 50
 UTF16_UNIT_BYTES = 2
 UTF16_BOM_BYTES = 2
@@ -111,24 +111,23 @@ def firmware_name_capacity_bytes() -> int:
     return NAME_BUFFER_BYTES
 
 
-def firmware_name_payload_bytes() -> int:
-    """Return UTF-16 payload space after the slot's BOM and terminator."""
+def assumed_name_payload_bytes() -> int:
+    """Return candidate UTF-16 space after an assumed BOM and terminator."""
     return NAME_BUFFER_BYTES - UTF16_BOM_BYTES - UTF16_TERMINATOR_BYTES
 
 
-def directory_slot_text(name: str) -> str:
-    """Model the directory callback's text after copying into a 0x32 slot.
+def assumed_directory_slot_text(name: str) -> str:
+    """Apply the candidate BOM-and-terminator reserve to a directory name.
 
-    The browser's directory path receives a UTF-16 name length of 25 code
-    units, leaving 2 bytes for the BOM and 2 for the terminator.  Apply that
-    limit before the marquee model so the emulator cannot accidentally imply
-    that scrolling can recover bytes the list buffer already discarded.
-    Iterate by Python characters rather than slicing encoded bytes so a
-    non-BMP character is never split into a dangling UTF-16 surrogate.
+    The binary proves a 50-byte slot and a 25-unit request to the filesystem
+    helper. It does not prove that the provider writes a BOM-prefixed string
+    or reserves a terminator inside those 25 units. This preview hypothesis
+    reserves both, yielding 46 bytes for BMP text. Iterate by Python
+    characters so a non-BMP character is not split into a surrogate pair.
     """
     if not name:
         return ""
-    limit = firmware_name_payload_bytes()
+    limit = assumed_name_payload_bytes()
     used = 0
     visible: list[str] = []
     for char in name:

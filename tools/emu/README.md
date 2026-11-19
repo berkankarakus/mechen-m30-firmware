@@ -390,9 +390,11 @@ resource.
 If `new_m.fnt` is beside `common.sty`, the preview loads it automatically and
 uses the host display rasterizer's per-glyph advances for painting and
 marquee timing. These describe the preview renderer, not recovered firmware
-font metrics. To compare the untruncated source name against the fixed-width
-firmware slot, pass `--scroll-source full-name`; this is a diagnostic
-candidate, not a proven device behavior.
+font metrics. The filesystem callback requests 25 UTF-16 units into a 50-byte
+destination, but the ROM provider's encoding and long-name behavior are
+unknown. The preview defaults to supplied provider text. To compare it with a
+candidate 46-byte payload that reserves an assumed BOM and terminator, pass
+`--scroll-source slot-assumption`; this is not proven device behavior.
 
 The browser trace also compares that host width with raw `new_m.fnt` record
 advances and the prior fixed 8-pixel cell model. These are candidate width
@@ -403,7 +405,7 @@ advance is not yet connected to the browser's marquee threshold.
 PYTHONPATH=. python3 tools/emu/folder_ui.py \
   --common-sty analysis/community/fw/common.sty \
   --selected 1 --offset 64 \
-  --scroll-source full-name \
+  --scroll-source provider-output \
   --out /private/tmp/m30-browser.ppm \
   --trace /private/tmp/m30-browser.json \
   Music "A very long folder name that should scroll continuously" Podcasts

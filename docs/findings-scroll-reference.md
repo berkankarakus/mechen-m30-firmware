@@ -100,8 +100,9 @@ at a `0x32`-byte name slot; `FUN_487546d8` fills those descriptors and records
 the same `0x32` slot length. During refresh, `FUN_40cd5218` calls the
 `0x780db22d` dispatcher, whose fsel-type table selects the directory callback
 `FUN_71352820` for directory mode. This matches the style's seven visible
-rows and 205-pixel text area. The 50-byte source-name slots and 30-pixel
-display rows are separate dimensions in the same list path.
+rows and 205-pixel text area. The 50-byte destination slots and 30-pixel
+display rows are separate dimensions in the same list path. The filesystem
+provider's output encoding and long-name handling remain unknown.
 
 This is a structural match, not proof that the browser code passes a pointer
 to this exact `common.sty` control. `FUN_48754574` initializes list state; it

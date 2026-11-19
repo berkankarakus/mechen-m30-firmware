@@ -16,8 +16,8 @@ from listbox import (
     PATH_INFO_ADDR,
     experimental_name_layout,
     firmware_name_capacity_bytes,
-    firmware_name_payload_bytes,
-    directory_slot_text,
+    assumed_name_payload_bytes,
+    assumed_directory_slot_text,
     format_directory_83_name,
     marquee_frame,
     needs_active_scroll,
@@ -38,20 +38,18 @@ class DirectoryListboxTests(unittest.TestCase):
         self.assertEqual(DIRECTORY_SCROLL_PERIOD_MS, 50)
         self.assertEqual(active_redraw_period_ms(), DIRECTORY_SCROLL_PERIOD_MS)
 
-    def test_firmware_name_buffer_is_smaller_than_the_scroll_region(self):
+    def test_directory_destination_slot_has_observed_byte_length(self):
         # The SDK says 52, but M30's browser binary uses 0x32 = 50 bytes.
         self.assertEqual(firmware_name_capacity_bytes(), 50)
-        # A name can be truncated before the renderer gets a chance to scroll.
-        self.assertLess(firmware_name_capacity_bytes(), DIRECTORY_TEXT_WIDTH)
 
-    def test_directory_slot_truncates_before_marquee(self):
-        self.assertEqual(firmware_name_payload_bytes(), 46)
-        prepared = directory_slot_text("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    def test_bom_slot_hypothesis_truncates_before_marquee(self):
+        self.assertEqual(assumed_name_payload_bytes(), 46)
+        prepared = assumed_directory_slot_text("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         self.assertEqual(prepared, "ABCDEFGHIJKLMNOPQRSTUVW")
         self.assertLessEqual(len(prepared.encode("utf-16le")) + 4, firmware_name_capacity_bytes())
 
-    def test_directory_slot_does_not_split_non_bmp_character(self):
-        prepared = directory_slot_text("A" * 22 + "😀B")
+    def test_bom_slot_hypothesis_does_not_split_non_bmp_character(self):
+        prepared = assumed_directory_slot_text("A" * 22 + "😀B")
         self.assertEqual(prepared, "A" * 22)
 
     def test_directory_83_name_conversion_matches_the_runtime_boundary(self):

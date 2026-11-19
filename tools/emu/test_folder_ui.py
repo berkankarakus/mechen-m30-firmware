@@ -4,7 +4,8 @@ from pathlib import Path
 
 from folder_ui import (
     DIRECTORY_TEXT_WIDTH,
-    SCROLL_SOURCE_FULL_NAME,
+    SCROLL_SOURCE_SLOT_ASSUMPTION,
+    SCROLL_SOURCE_PROVIDER_OUTPUT,
     SELECTION_BACKGROUND,
     VISIBLE_DIRECTORY_ROWS,
     FolderList,
@@ -19,40 +20,42 @@ from scroll_accel import NEXT, PREVIOUS
 
 
 class FolderUiTests(unittest.TestCase):
-    def test_slot_truncation_happens_before_scroll(self):
+    def test_slot_assumption_truncates_before_scroll(self):
         row = FolderRow("ABCDEFGHIJKLMNOPQRSTUVWXYZ-long")
-        self.assertTrue(row.truncated)
-        self.assertEqual(len(row.slot_text), 23)
-        self.assertNotIn("long", row.slot_text)
+        self.assertTrue(row.assumed_truncated)
+        self.assertEqual(len(row.assumed_slot_text), 23)
+        self.assertNotIn("long", row.assumed_slot_text)
 
     def test_trace_distinguishes_slot_clipping_from_renderer_clipping(self):
         view = FolderList(
             (FolderRow("Music"), FolderRow("A very long folder name that should scroll smoothly")),
             selected_index=1,
             scroll_offset_px=32,
+            scroll_source=SCROLL_SOURCE_SLOT_ASSUMPTION,
         )
         _, trace = view.render()
         clipping = trace[1]["clipping"]
-        self.assertEqual(clipping["clip_stage"], "filesystem-slot")
+        self.assertEqual(clipping["clip_stage"], "slot-assumption")
         self.assertTrue(clipping["source_clipped"])
         self.assertFalse(clipping["renderer_clipped"])
         self.assertFalse(clipping["scroll_eligible"])
         self.assertGreater(clipping["source_text_width_px"], clipping["slot_text_width_px"])
         self.assertLess(clipping["slot_text_width_px"], clipping["viewport_width_px"])
 
-    def test_full_name_candidate_makes_the_missing_scroll_eligible(self):
+    def test_provider_output_mode_does_not_assume_slot_truncation(self):
         view = FolderList(
             (FolderRow("A very long folder name that should scroll smoothly"),),
             scroll_offset_px=32,
-            scroll_source=SCROLL_SOURCE_FULL_NAME,
+            scroll_source=SCROLL_SOURCE_PROVIDER_OUTPUT,
         )
         _, trace = view.render()
         clipping = trace[0]["clipping"]
         self.assertEqual(clipping["clip_stage"], "renderer-viewport")
-        self.assertTrue(clipping["source_clipped"])
+        self.assertFalse(clipping["source_clipped"])
+        self.assertTrue(clipping["slot_assumption_would_clip"])
         self.assertTrue(clipping["renderer_clipped"])
         self.assertTrue(clipping["scroll_eligible"])
-        self.assertEqual(clipping["scroll_input"], "full-name")
+        self.assertEqual(clipping["scroll_input"], "provider-output")
         self.assertEqual(trace[0]["positions"][0], -32)
 
     def test_short_name_stays_stationary(self):
@@ -71,10 +74,10 @@ class FolderUiTests(unittest.TestCase):
         self.assertNotEqual(measured, len(text) * 8)
         view = FolderList((FolderRow(text),), selected_index=0, font=font)
         _, trace = view.render()
-        self.assertEqual(trace[0]["measured_text_width"], font.text_width(view.rows[0].slot_text))
+        self.assertEqual(trace[0]["measured_text_width"], font.text_width(view.rows[0].name))
         self.assertEqual(
             trace[0]["clipping"]["scroll_input_width_px"],
-            font.text_width(view.rows[0].slot_text),
+            font.text_width(view.rows[0].name),
         )
         self.assertEqual(
             view.json()["geometry"]["text_measurement"],
@@ -88,11 +91,12 @@ class FolderUiTests(unittest.TestCase):
             (FolderRow("A very long folder name that should scroll continuously"),),
             selected_index=0,
             font=font,
+            scroll_source=SCROLL_SOURCE_SLOT_ASSUMPTION,
         )
         _, trace = view.render()
         clipping = trace[0]["clipping"]
 
-        self.assertEqual(view.rows[0].slot_text, "A very long folder name")
+        self.assertEqual(view.rows[0].assumed_slot_text, "A very long folder name")
         self.assertEqual(clipping["raw_font_record_scroll_input_width_px"], 207)
         self.assertTrue(clipping["raw_font_record_scroll_eligible"])
         self.assertEqual(clipping["fixed_8px_scroll_input_width_px"], 184)
@@ -112,7 +116,7 @@ class FolderUiTests(unittest.TestCase):
         self.assertEqual((frame.width, frame.height), (320, 240))
         self.assertFalse(trace[0]["selected"])
         self.assertTrue(trace[1]["selected"])
-        self.assertTrue(trace[1]["truncated"])
+        self.assertTrue(trace[1]["slot_assumption_truncated"])
         self.assertEqual(trace[1]["background"], "selection-red")
         self.assertEqual(trace[1]["restore_mode"], "sdimage-tail")
         self.assertEqual(trace[1]["offset_px"], 7)
