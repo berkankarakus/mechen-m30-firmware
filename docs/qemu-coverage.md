@@ -20,14 +20,14 @@ dispatcher.
 The same host layer contains `tools/emu/folder_ui.py`. It renders browser/list
 rows using the observed 50-byte destination slot and 25-unit filesystem
 request (the provider's output encoding and truncation remain unknown), the
-`common.sty` 205x16 text viewport at x=35, 30-pixel rows, and the 80 ms active
-scroll period. Its JSON trace records supplied provider text, optional assumed
-slot clipping, pixel offset, source row index, and selected-row background
-restore. The optional 46-byte text payload assumes a BOM and terminator; it is
-not verified device behavior. The eight allocated list slots
-include one title slot, leaving seven visible directory rows; selection stays
-inside that viewport and wraps at the list edges, matching the real
-browser/music handler boundary matrix. This makes the observed
+`common.sty` 205x16 text viewport at x=35, 30-pixel rows, and the host model's
+50 ms candidate active-scroll period. Its JSON trace records supplied provider
+text, optional assumed slot clipping, pixel offset, source row index, and
+selected-row background restore. The optional 46-byte text payload assumes a
+BOM and terminator; this is not verified device behavior. The eight allocated
+list slots include one title slot, leaving seven visible directory rows.
+Selection stays inside that viewport and wraps at the list edges, matching
+the real browser/music handler boundary matrix. This makes the observed
 "scrolls but is cut off" behavior and the folder up/down-navigation contract
 testable. `FolderList.move_event()` consumes the same burst gears as the
 existing acceleration model and applies the recovered wrapping callback. This
@@ -35,10 +35,10 @@ still does not claim that the proprietary
 LCD/font/input-timing path is emulated or that physical repeat rates have been
 measured.
 
-`FolderList.render_at()` can render successive host frames at the reference
-listbox's 80 ms active-scroll tick. The timestamped model is deterministic
-and useful for visual regression traces, but it is not evidence that the
-M30's LCD timer or font rasterizer has been recovered.
+`FolderList.render_at()` can render successive host frames at the model's
+50 ms candidate tick. The public SDK reference uses an 80 ms callback, but the
+timestamped host model is deterministic and useful for visual regression
+traces; it is not evidence that the M30 stock timer has been recovered.
 
 `tools/emu/prepare_qemu_banks.py` is the next bridge toward real bank
 execution. It extracts all 87 `music.ap` banks and emits exact-address
