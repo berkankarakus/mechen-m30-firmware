@@ -59,6 +59,12 @@ The new Ghidra flat-map decompile adds three useful constraints:
   length, operation)` form, making a fill of `0x7c` bytes the leading
   interpretation. The ROM stub body is unavailable here, so this remains an
   inference; `0x7c` is not evidence for a 124-pixel region;
+- independent raw MIPS16 disassembly pins this call to `drv_ui.drv` file
+  `0x96b4`: it loads destination `0x9fc0bd2c` and target `0xbfc09c01`, sets
+  `a3=1` and `a1=0`, then uses the `li a2,124` instruction in the `jalr`
+  delay slot. The literal pool is at file `0x9938` (`2c bd c0 9f 01 9c c0 bf`).
+  `drv_ui.drv` stock/community SHA-256 is
+  `011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a`;
 - a headless rerun of `run_drvui_runtime_probe.sh` confirmed that the indirect
   call pointer at runtime address `0x260e52bc` is `0xbfc09c01`. The extracted
   `drv_ui.drv` also contains the raw module-`0x10` syscall stub bytes

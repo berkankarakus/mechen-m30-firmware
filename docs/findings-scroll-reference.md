@@ -82,6 +82,34 @@ background is supported by the M30 resource data.
 
 ## M30-specific truncation point
 
+### Browser list control and `common.sty` geometry
+
+The stock and community `common.sty` files are byte-identical (SHA-256
+`89ef11705f5014dd7a5f33cab7e93421a501daac7aa369c2722b136300577bb1`)
+and parse as RU3 style control 6 at file offset `0xea5e6`. Its list geometry is
+seven visible items at 30-pixel row spacing. The item record sets the text
+area to `(x=35, y=37, width=205, height=16)` and selects active string mode 1
+(`SCROLL`) while inactive mode is 3. These values come from the actual
+resource bytes through `tools/inspect_sty_layout.py`; they are not inferred
+from the public reference UI.
+
+The browser code has a matching structural layout. `FUN_40cd4e00` initializes
+the list through `FUN_48754574` and installs `FUN_487546d8` as a list-state
+callback. `FUN_48754574` prepares seven 12-byte row descriptors, each pointing
+at a `0x32`-byte name slot; `FUN_487546d8` fills those descriptors and records
+the same `0x32` slot length. During refresh, `FUN_40cd5218` calls the
+`0x780db22d` dispatcher, whose fsel-type table selects the directory callback
+`FUN_71352820` for directory mode. This matches the style's seven visible
+rows and 205-pixel text area. The 50-byte source-name slots and 30-pixel
+display rows are separate dimensions in the same list path.
+
+This is a structural match, not proof that the browser code passes a pointer
+to this exact `common.sty` control. `FUN_48754574` initializes list state; it
+is not the final drawing routine. No direct edge from the directory callback
+to the `drv_ui.drv` B3 marquee entry was found, so the 205-pixel width alone
+does not prove the browser's scroll threshold or explain the moving red
+rectangle.
+
 `browser.ap` function `FUN_48754574` contains four `li v0, 50` literals. They
 define both the directory slot stride and the length passed onward to the
 name-reading path. The browser and music applications each contain the same
