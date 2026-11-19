@@ -597,9 +597,13 @@ as zero. Use the per-section `libdiff.py` counts above for index comparison;
 the whole-file failure is not evidence of 1.44 million bad index bytes.
 
 `QUIRK=2` and `QUIRK=3` produced the same section results as the default
-harness; `QUIRK=1` severely corrupted the generated tables. These sector-I/O
-variants do not explain the remaining ALBUM boundary. No experimental
-conversion mode has been promoted into the emulator.
+harness; `QUIRK=1` severely corrupted the generated tables. A seedless
+`QUIRK=4` rerun also produced byte-identical output to the default run. Its
+4 KiB-crossing counter was zero, so the modeled 64 KiB cluster-crossing branch
+was never reached. These sector-I/O variants do not explain the remaining
+ALBUM boundary. The exact rerun hash and scope are recorded in
+[`docs/evidence/musiclib-seedless-stock-2026-11-19.md`](evidence/musiclib-seedless-stock-2026-11-19.md).
+No experimental conversion mode has been promoted into the emulator.
 
 Source: [xleph/MP3.LIB](https://github.com/xleph/MP3.LIB), especially its
 [README](https://github.com/xleph/MP3.LIB/blob/main/README.md) and public

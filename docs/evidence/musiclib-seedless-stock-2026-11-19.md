@@ -99,3 +99,21 @@ flagged by the harness as a known kernel trouble case. This run therefore
 characterizes the stock MIPS index code under the harness's conversion and file
 service semantics; it does not identify the device's text conversion or
 filesystem behavior.
+
+## Cluster-boundary quirk follow-up
+
+The same seedless input was rerun with the harness file-service option
+`HEXTRA=-DQUIRK=4`. It produced the same section summaries and an output file
+byte-identical to the default run; both `out_stock.lib` files have SHA-256
+`ff518da115e2a748b72bc130a15825d5d2ad5b0e44d592cebb3c01782c695546`.
+The harness reported zero transfers crossing a 4 KiB boundary. Since the
+modeled cluster size is 64 KiB, no transfer crossed a cluster boundary either,
+so the `QUIRK=4` truncation branch was not exercised. This eliminates that
+branch as a cause in this particular run; it does not test a fragmented card
+layout or a device filesystem implementation.
+
+Reproduction uses the command above with this additional environment setting:
+
+```sh
+-e HEXTRA=-DQUIRK=4
+```
