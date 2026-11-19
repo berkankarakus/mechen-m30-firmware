@@ -139,7 +139,8 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 `break 0` module call | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes module `0x10` twice on wrap, and resets its read pointer to zero; fixed-ROM service/DAC side effect remains unresolved |
-| Real `usound.drv` module stubs | exact segment + QEMU exception-vector shim | PASS across all six local driver corpora; the real `0xbfc326a9` module-`0x10` stub and `0xbfc326ad` module-`0x0f` stub both raise exception code 9, with their respective four arguments captured. The module-`0x0f` check injects the setup caller's observed `(0x14, table, 0, 0x14)` tuple directly into the stub; it does not execute `FUN_bfc322e4` or the fixed handler, whose service effect remains unresolved. |
+| Real `usound.drv` module stubs | exact segment + QEMU exception-vector shim | PASS across all six local driver corpora; the real `0xbfc326a9` module-`0x10` stub and `0xbfc326ad` module-`0x0f` stub both raise exception code 9, with their respective four arguments captured. The module-`0x0f` check injects a setup-shaped tuple directly into the stub; it does not execute `FUN_bfc322e4` or the fixed handler. The actual caller tuple is captured separately by the Ghidra p-code setup probe below. |
+| Real `usound.drv` setup callsite | `tools/ghidra/run_usound_setup_probe.sh` | PASS; executes `FUN_bfc322e4` in MIPS16 p-code with RAM-backed synthetic MMIO, intercepting module stubs and returning `v0=0`. Captures 10 module-`0x0f` calls and one module-`0x10` call, including actual `(a0=0x14,a1=0xbfc3125d,a2=0,a3=0x14)` and `(a0=0x0a,a1=0xbfc31115,a2=0,a3=0x14)` tuples. Fixed-ROM service effects remain stubbed. |
 | Passive QEMU exception observation | QEMU 11.1.3 TCG plugin + callback probe | PASS; independent observer reports `from=0x800526aa -> to=0x80010180`; guest CP0 trace remains authoritative for Cause/EPC/Status |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
@@ -309,14 +310,26 @@ module-`0x0f` stub at `0xbfc326ad`. The guest redirects CP0 `EBase` to a RAM
 exception vector, catches each `break 0`, records CP0 `Cause`, `EPC`,
 `BadVAddr`, and `Status`, and returns through the interrupted caller
 continuation. Across all six local `usound.drv` corpora, QEMU observes
-exception code 9 for both module IDs. For module `0x0f`, it captures the
-setup caller's observed `(a0=0x14, a1=table, a2=0, a3=0x14)` tuple supplied
-directly by the harness; the probe does not run `FUN_bfc322e4` or the fixed
-handler. This verifies both local trap stubs and argument transport, not the
-module service effect or eventual PCM/DAC side effect. For the final module
+exception code 9 for both module IDs. For module `0x0f`, this direct-stub probe
+captures a harness-supplied tuple; it does not run `FUN_bfc322e4` or the fixed
+handler. The separate Ghidra p-code setup probe executes `FUN_bfc322e4` and
+captures the actual `(a0=0x14,a1=0xbfc3125d,a2=0,a3=0x14)` tuple with synthetic
+MMIO and module returns. Together these checks verify the trap envelope and
+the driver's callsite dataflow, not the module service effect or eventual
+PCM/DAC side effect. For the final module
 `0x0f` call, QEMU reports `EPC=0x800526af`; masking the MIPS16 tag gives
 `0x800526ae`, the address of its `break 0` instruction. This is not evidence
 that the missing fixed-ROM handler is present in the extracted image.
+
+Reproduce the setup callsite execution with:
+
+```sh
+bash tools/ghidra/run_usound_setup_probe.sh analysis/community/fw/usound.drv
+```
+
+It intercepts the module `0x0f` and `0x10` entry stubs before executing their
+`break 0` instructions and returns zero. The register writes and callsite
+arguments come from the real driver code; service behavior is not modeled.
 
 `bash tools/emu/run_qemu_usound_producer_probe.sh` now executes the real
 `FUN_bfc30dc4` producer. Its QEMU guest supplies only the recovered state

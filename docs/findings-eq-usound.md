@@ -408,31 +408,38 @@
   contains `0xbfc326ad`, an odd MIPS16 pointer to the local module-`0x0f`
   break-0 stub at `0xbfc326ac`. At that entry the bytes `0f 6b 05 e8` decode as
   `li v1,0x0f; break 0`; the adjacent entry at `0xbfc326a8` is
-  `li v1,0x10; break 0`. `FUN_bfc322e4` reaches the module-`0x0f` gateway
-  with `(a0=0x14, a1=0xbfc324ec, a2=0, a3=0x14)`, among other calls. This
-  identifies the trap envelope and arguments, not the fixed handler's meaning
-  for those arguments. QEMU now executes the actual module-`0x0f` stub on all
-  six local driver copies and captures that argument shape at a synthetic
-  exception vector. The probe calls the stub directly; it does not execute
-  `FUN_bfc322e4` or the fixed handler.
-- The same setup function contains a likely callback-table registration
-  site: `FUN_bfc322e4` passes `(0x14, 0xbfc324ec, 0, 0x14)` through that
-  gateway. The table at `0xbfc324ec` begins with odd MIPS16 pointer
-  `0xbfc3125d`, which resolves to `FUN_bfc3125c`; the following words include
-  `0xc008018c`, `0xc0080198`, `0xc008019d`, and `0xc0080191`. The target pointer
-  is present at driver file offset `0x26ec` and is identical in six local
-  driver copies. This strongly suggests the completion function is registered
-  through a service table, but the fixed handler's interpretation and dispatch
-  event are unknown. It is not evidence of a DMA interrupt vector or a proven
-  runtime caller. The `break 0` stub was cross-checked with GNU MIPS16
-  disassembly and the hash-pinned raw bytes; the local stub is dynamically
-  exercised under QEMU, but no device or fixed ROM handler was run.
+  `li v1,0x10; break 0`. A QEMU exception-vector probe executes both actual
+  stubs across all six local driver copies and captures their four arguments;
+  its module-`0x0f` call is harness-injected and does not execute the setup
+  caller or fixed handler.
+- `tools/ghidra/run_usound_setup_probe.sh` separately executes the real
+  `FUN_bfc322e4` MIPS16 instructions in Ghidra p-code. Synthetic MMIO is
+  RAM-backed, and module stubs are intercepted with `v0=0`. It observes ten
+  module-`0x0f` calls and one module-`0x10` call. The actual module-`0x0f`
+  tuples include `(a0=0x14, a1=0xbfc3125d, a2=0, a3=0x14)` and
+  `(a0=0x0a, a1=0xbfc31115, a2=0, a3=0x14)`. This corrects the earlier
+  interpretation that `a1` was the address `0xbfc324ec`: the value passed is
+  the odd MIPS16 function pointer stored there. The first target is
+  `FUN_bfc3125c` (file offset `0x26ec`); the second is `FUN_bfc31114` (file
+  offset `0x26e8`). The data at `0xbfc324e8..0xbfc324ff` also contains
+  `0xc008018c`, `0xc0080198`, `0xc008019d`, and `0xc0080191`, but these words
+  are not passed by this call. A function pointer is demonstrably passed;
+  whether operation `0x14` registers or dispatches it, and on what event,
+  remains unknown. This is not evidence of a DMA interrupt vector or a
+  verified runtime dispatcher. No fixed-ROM handler or device was run.
+- The first passed function pointer, `0xbfc31115`, resolves to
+  `FUN_bfc31114`. Its static body checks the word at `0xc0080191`; when bit
+  `0x02` is set, it writes the observed mask value to `0xc0080400` and calls
+  `FUN_bfc30dc4`, the USB FIFO-to-ring producer. The other branch can call the
+  pointer at `0xbfc3119c` (`0xbfc303c5`). This makes `FUN_bfc31114` a plausible
+  producer/event handler, but the hardware-bit meaning and whether module
+  `0x0f` dispatches this pointer remain unverified.
 - A superficially similar call in `upgrade.ap` is **not** a module-`0x0f`
   analog. `FUN_40054c60` passes `(a0=0x0f, a1=payload, a2=0, a3=6)` through
   the pointer at `0x40055078`, whose value is `0xbfc3b031`. The aligned target
   at `0xbfc3b030` decodes to `li v1,0; break 0`, so this call uses module 0;
   `0x0f` is only its first argument. This comparison does not clarify the
-  module-`0x0f` callback-table service or its operation semantics.
+  module-`0x0f` function-pointer service or its operation semantics.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
