@@ -1,4 +1,4 @@
-/* Execute the real usound.drv MIPS16 module-call stub under QEMU. */
+	/* Execute the real usound.drv MIPS16 module-call stubs under QEMU. */
 	.set	mips32
 	.set	noreorder
 	.set	noat
@@ -100,6 +100,11 @@ _start:
 	bne	$t1, $t2, fail
 	 nop
 
+	jal	test_module0f
+	 nop
+	bnez	$v0, fail
+	 nop
+
 	jal	print_exception_trace
 	 nop
 	b	halt
@@ -117,6 +122,65 @@ halt:
 	.end	_start
 
 	.section .text.hex,"ax"
+	.ent	test_module0f
+test_module0f:
+	/* Exercise the adjacent module-0x0f stub with the setup path's observed
+	 * argument shape; this checks the trap envelope, not the fixed handler. */
+	addiu	$sp, $sp, -16
+	sw	$ra, 12($sp)
+	lui	$t0, 0x8006
+	sw	$zero, 0x14($t0)
+	li	$a0, 0x14
+	lui	$a1, 0x8005
+	ori	$a1, $a1, 0x24ec
+	move	$a2, $zero
+	li	$a3, 0x14
+	jalx	0x800526ac
+	 nop
+
+	lui	$t0, 0x8006
+	lw	$t1, 0x14($t0)
+	li	$t2, 1
+	bne	$t1, $t2, module0f_fail
+	 nop
+	lw	$t1, 0x10($t0)
+	li	$t2, 0x0f
+	bne	$t1, $t2, module0f_fail
+	 nop
+	lw	$t1, 0($t0)
+	li	$t2, 0x14
+	bne	$t1, $t2, module0f_fail
+	 nop
+	lw	$t1, 4($t0)
+	li	$t2, 0x800524ec
+	bne	$t1, $t2, module0f_fail
+	 nop
+	lw	$t1, 8($t0)
+	bnez	$t1, module0f_fail
+	 nop
+	lw	$t1, 0xc($t0)
+	li	$t2, 0x14
+	bne	$t1, $t2, module0f_fail
+	 nop
+	lw	$t1, 0x18($t0)
+	srl	$t1, $t1, 2
+	andi	$t1, $t1, 0x1f
+	li	$t2, 9
+	bne	$t1, $t2, module0f_fail
+	 nop
+	move	$v0, $zero
+	lw	$ra, 12($sp)
+	addiu	$sp, $sp, 16
+	jr	$ra
+	 nop
+module0f_fail:
+	li	$v0, 1
+	lw	$ra, 12($sp)
+	addiu	$sp, $sp, 16
+	jr	$ra
+	 nop
+	.end	test_module0f
+
 	.ent	print_exception_trace
 print_exception_trace:
 	lui	$s0, 0x8006
@@ -200,7 +264,7 @@ hex_emit:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND MODULE-CALL PASS module=0x10 args=4 exc=0x"
+	.asciz	"REAL USOUND MODULE-CALL PASS modules=0x10,0x0f args=4 exc=0x"
 epc_text:
 	.asciz	" epc=0x"
 badvaddr_text:

@@ -410,7 +410,10 @@
   `li v1,0x10; break 0`. `FUN_bfc322e4` reaches the module-`0x0f` gateway
   with `(a0=0x14, a1=0xbfc324ec, a2=0, a3=0x14)`, among other calls. This
   identifies the trap envelope and arguments, not the fixed handler's meaning
-  for those arguments.
+  for those arguments. QEMU now executes the actual module-`0x0f` stub on all
+  six local driver copies and captures that argument shape at a synthetic
+  exception vector. The probe calls the stub directly; it does not execute
+  `FUN_bfc322e4` or the fixed handler.
 - The same setup function contains a likely callback-table registration
   site: `FUN_bfc322e4` passes `(0x14, 0xbfc324ec, 0, 0x14)` through that
   gateway. The table at `0xbfc324ec` begins with odd MIPS16 pointer
@@ -421,8 +424,8 @@
   through a service table, but the fixed handler's interpretation and dispatch
   event are unknown. It is not evidence of a DMA interrupt vector or a proven
   runtime caller. The `break 0` stub was cross-checked with GNU MIPS16
-  disassembly and the hash-pinned raw bytes; this module-`0x0f` path has not
-  been dynamically executed, and no device or ROM handler was run.
+  disassembly and the hash-pinned raw bytes; the local stub is dynamically
+  exercised under QEMU, but no device or fixed ROM handler was run.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address

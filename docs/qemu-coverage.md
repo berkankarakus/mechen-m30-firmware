@@ -139,7 +139,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 `break 0` module call | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes module `0x10` twice on wrap, and resets its read pointer to zero; fixed-ROM service/DAC side effect remains unresolved |
-| Real `usound.drv` module call | exact segment + QEMU exception-vector shim | PASS; `0xbfc326a9` executes as MIPS16 `li v1,0x10; break 0`, CP0 records exception code 9 with `EPC=0x800526ab`, and the four arguments survive the trap boundary; module `0x10` service effect remains unresolved |
+| Real `usound.drv` module stubs | exact segment + QEMU exception-vector shim | PASS across all six local driver corpora; the real `0xbfc326a9` module-`0x10` stub and `0xbfc326ad` module-`0x0f` stub both raise exception code 9, with their respective four arguments captured. The module-`0x0f` check injects the setup caller's observed `(0x14, table, 0, 0x14)` tuple directly into the stub; it does not execute `FUN_bfc322e4` or the fixed handler, whose service effect remains unresolved. |
 | Passive QEMU exception observation | QEMU 11.1.3 TCG plugin + callback probe | PASS; independent observer reports `from=0x800526aa -> to=0x80010180`; guest CP0 trace remains authoritative for Cause/EPC/Status |
 | USB mass-storage request boundary | Ghidra `uhost.drv` command builder + host model | PASS; request fields and exact sector-byte transfer through the SD device modeled; CBW/CSW framing, status meaning and controller timing unresolved |
 | usound MMIO word-port boundary | Ghidra literal pool + generic host model | PASS; modes 1/2/4 and gate are modeled without USB/PCM claims |
@@ -304,15 +304,19 @@ guest-RAM stand-ins for the original MMIO addresses; no claim is made about
 the physical USB controller, FIFO timing, or codec/DAC routing.
 
 `bash tools/emu/run_qemu_usound_callback_probe.sh` executes the real odd
-callback target `0xbfc326a9` (aligned MIPS16 entry `0xbfc326a8`). The guest
-redirects CP0 `EBase` to a RAM exception vector, catches the callback's
-`break 0`, records CP0 `Cause`, `EPC`, `BadVAddr`, and `Status`, and returns
-through the interrupted caller continuation. Across all six local
-`usound.drv` corpora, QEMU observes exception code 9, module ID `v1=0x10`, and
-the four arguments used by the ring consumer. This resolves the callback's
-exception envelope, not the kernel service or eventual PCM/DAC side effect.
-The observed `EPC` is the relocated odd MIPS16 callback entry; it is not
-evidence that the missing fixed-ROM handler is present in the extracted image.
+callback target `0xbfc326a9` (aligned MIPS16 entry `0xbfc326a8`) and the adjacent
+module-`0x0f` stub at `0xbfc326ad`. The guest redirects CP0 `EBase` to a RAM
+exception vector, catches each `break 0`, records CP0 `Cause`, `EPC`,
+`BadVAddr`, and `Status`, and returns through the interrupted caller
+continuation. Across all six local `usound.drv` corpora, QEMU observes
+exception code 9 for both module IDs. For module `0x0f`, it captures the
+setup caller's observed `(a0=0x14, a1=table, a2=0, a3=0x14)` tuple supplied
+directly by the harness; the probe does not run `FUN_bfc322e4` or the fixed
+handler. This verifies both local trap stubs and argument transport, not the
+module service effect or eventual PCM/DAC side effect. For the final module
+`0x0f` call, QEMU reports `EPC=0x800526af`; masking the MIPS16 tag gives
+`0x800526ae`, the address of its `break 0` instruction. This is not evidence
+that the missing fixed-ROM handler is present in the extracted image.
 
 `bash tools/emu/run_qemu_usound_producer_probe.sh` now executes the real
 `FUN_bfc30dc4` producer. Its QEMU guest supplies only the recovered state
