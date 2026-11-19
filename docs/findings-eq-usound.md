@@ -403,6 +403,16 @@
   to the relocated guest code, where a counter-and-return stub replaces that helper; the
   state and threshold logic is verified, but the helper's hardware shutdown work
   is not.
+- The hash-pinned `usound.drv` also contains a likely callback-table registration
+  site: `FUN_bfc322e4` passes `(0x14, 0xbfc324ec, 0, 0x14)` to an unresolved
+  service. The table at `0xbfc324ec` begins with odd MIPS16 pointer
+  `0xbfc3125d`, which resolves to `FUN_bfc3125c`; the following words include
+  `0xc008018c`, `0xc0080198`, `0xc008019d`, and `0xc0080191`. The target pointer
+  is present at driver file offset `0x26ec` and is identical in six local
+  driver copies. This strongly suggests the completion function is registered
+  through a service table, but the `0x14` service ABI and dispatch event are
+  unknown. It is not yet evidence of a DMA interrupt vector or a proven runtime
+  caller. Inspect `FUN_bfc322e4` and the table at `0xbfc324ec` in Ghidra.
 - Static MIPS16 analysis of `FUN_bfc30dc4` and `FUN_bfc312e0` now ties the
   producer to the DMA input: FIFO data is staged at `0x9fc34000`, copied into
   the `0x6e40`-byte ring at `0x9fc24000 + write_offset`, and the DMA address
