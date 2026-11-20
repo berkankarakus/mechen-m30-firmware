@@ -167,10 +167,65 @@ arguments and directly calls the table constructor at `0xbfc32bc8` from
 constructor is part of the extracted segment's entry path. It does **not**
 prove that the device bootloader transfers control to `0xbfc32000`: the
 available `fw.log`, `dec.bin`, and module manifest do not contain that
-handoff. Nor is the pre-constructor path dynamically validated: it writes
-CP0 state, accesses SoC MMIO, and calls fixed-ROM reset/copy helpers, whose
-effects need modeling before an entry-level p-code run can be treated as
-meaningful evidence.
+handoff.
+
+The first pre-constructor helper, `FUN_bfc32224`, is now independently
+executed with a hash-pinned p-code probe:
+`tools/ghidra/run_kernel_init_cp0_probe.sh`. A CP0 `setCopReg` callback writes
+the actual Ghidra CP0 register varnodes, while the two fixed-ROM calls are
+logged and return-stubbed (`v0=0`). The code does not consume either return
+value. In 342 steps, the probe verifies `Status=0`, `IntCtl=0`, `SRSCtl=0`,
+`SRSMap=0`, `Cause=0x00800000`, and `EBase=0xbfc08000`; it also verifies
+`0x1fc00000` at `0xc00a004c+4*i` for `i=0..21` and at
+`0xc00a00c0+4*i` for `i=0..3`.
+
+This is a bounded control-flow and register-write check, not a model of the
+two ROM services' possible interrupt side effects. The following
+`FUN_bfc322f8` remains unexecuted: it calls fixed-ROM reset/copy candidates,
+then calls a function pointer loaded from `0x9fc2aad8`. Its copied data and
+call target are not established by the extracted image, and the candidate
+copy routine's argument order is unresolved. Do not substitute host
+`memset`/`memcpy` based only on the call shape. `FUN_bfc32440` also performs
+read-modify-write MMIO operations whose initial device state and helper-call
+effects are unknown. Therefore the complete entry-to-constructor p-code path
+is still unverified.
+
+### What the three entry-path helpers do, and what remains unknown
+
+The extracted instructions support these bounded descriptions:
+
+- `FUN_bfc32224` writes zero to CP0 `Status`, `IntCtl`, `SRSCtl`, and
+  `SRSMap`; it sets `Cause` to `0x00800000`, installs `EBase=0xbfc08000`,
+  and writes the same
+  `0x1fc00000` value to 22 interrupt-controller slots at `0xc00a004c+4*i`
+  and four more at `0xc00a00c0+4*i`. It also calls `0xbfc05000` and
+  `0xbfc05028`; their return values are unused, but their possible hardware
+  side effects are not known.
+- `FUN_bfc322f8` calls `0xbfc045f5` with `(a0=0x9fc2a48c, a1=0,
+  a2=0x7f4)`, then `0xbfc04635` three times with argument triples
+  `(0x9fc2aad8,0x9fc12000,0x14)`,
+  `(0x9fc2a980,0x9fc12014,0x20)`, and
+  `(0xbfc180f8,0x9fc12200,4)`. These shapes are consistent with clear/copy
+  operations, but their ABI and effects are not confirmed. It then loads a
+  word from `0x9fc2aad8` and calls it indirectly with
+  `(a0=0xfffffff0, a1=0xbfc1855d, a2=0)`. The indirect target depends on the
+  unresolved copy/source data. The function later copies a word from
+  `0x9fc12204` to `0xbfc32fc4`; that source word is outside the preceding
+  four-byte copy range.
+- `FUN_bfc32440` writes `0x1a` to `0x9fc2a8a8` and `0x9fc2a8aa`, stores
+  derived timing-like values in nearby RAM, and performs a sequence of
+  read-modify-write operations on `0xc000...`, `0xc002...`, and `0xc012...`
+  registers. It makes five calls to `0xbfc07a51`, one to `0xbfc04fb9`
+  (`a0=1`), and one to `0xbfc04f61` (`a0=120`). The calls' scalar results
+  are not used by the visible code, but their hardware effects and the
+  initial values of the RMW registers are unavailable.
+
+This is not a full semantic interpretation of those functions: the first has
+unknown external side effects, the second depends on an unobserved runtime
+buffer and callback pointer, and the third depends on peripheral reset
+state and ROM services. Accordingly, the call targets remain unnamed and no
+complete initialization behavior is inferred from the helper names or
+argument shapes.
 
 ## Constructor-to-vector integration
 
