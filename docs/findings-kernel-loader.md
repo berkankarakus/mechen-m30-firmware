@@ -169,18 +169,20 @@ prove that the device bootloader transfers control to `0xbfc32000`: the
 available `fw.log`, `dec.bin`, and module manifest do not contain that
 handoff.
 
-The first pre-constructor helper, `FUN_bfc32224`, is now independently
-executed with a hash-pinned p-code probe:
-`tools/ghidra/run_kernel_init_cp0_probe.sh`. A CP0 `setCopReg` callback writes
-the actual Ghidra CP0 register varnodes, while the two fixed-ROM calls are
-logged and return-stubbed (`v0=0`). The code does not consume either return
-value. In 342 steps, the probe verifies `Status=0`, `IntCtl=0`, `SRSCtl=0`,
-`SRSMap=0`, `Cause=0x00800000`, and `EBase=0xbfc08000`; it also verifies
-`0x1fc00000` at `0xc00a004c+4*i` for `i=0..21` and at
-`0xc00a00c0+4*i` for `i=0..3`.
+The first pre-constructor helper, `FUN_bfc32224`, is now executed from the
+actual extracted segment entry with the hash-pinned p-code probe
+`tools/ghidra/run_kernel_init_cp0_probe.sh`. It stops at `0xbfc32040`, after
+the helper returns and before the next fixed-ROM reset call. The entry first
+sets up its stack and writes `1` to `0xc012001c`. A CP0 `setCopReg` callback
+writes the actual Ghidra CP0 register varnodes, while calls from the helper to
+`0xbfc05000` and `0xbfc05028` are logged and return-stubbed (`v0=0`). The code
+does not consume either return value. In 357 steps, the probe verifies
+`Status=0`, `IntCtl=0`, `SRSCtl=0`, `SRSMap=0`, `Cause=0x00800000`, and
+`EBase=0xbfc08000`; it also verifies `0x1fc00000` at
+`0xc00a004c+4*i` for `i=0..21` and at `0xc00a00c0+4*i` for `i=0..3`.
 
-This is a bounded control-flow and register-write check, not a model of the
-two ROM services' possible interrupt side effects. The following
+This is a bounded segment-entry control-flow and register-write check, not a
+model of the two ROM services' possible interrupt side effects. The following
 `FUN_bfc322f8` remains unexecuted: it calls fixed-ROM reset/copy candidates,
 then calls a function pointer loaded from `0x9fc2aad8`. Its copied data and
 call target are not established by the extracted image, and the candidate

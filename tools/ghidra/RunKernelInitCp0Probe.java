@@ -14,12 +14,15 @@ import java.util.List;
 import java.util.Map;
 
 public class RunKernelInitCp0Probe extends GhidraScript {
+    private static final long ENTRY = 0xbfc32000L;
     private static final long FUNCTION = 0xbfc32224L;
-    private static final long RETURN_PC = 0x00700100L;
+    private static final long STOP_PC = 0xbfc32040L;
     private static final long RAM_BASE = 0x9fc00000L;
     private static final int RAM_SIZE = 0x40000;
     private static final long INTC_BASE = 0xc00a0000L;
     private static final int INTC_SIZE = 0x1000;
+    private static final long WD_BASE = 0xc0120000L;
+    private static final int WD_SIZE = 0x1000;
     private static final int MAX_STEPS = 20000;
 
     private Address addr(long value) {
@@ -67,6 +70,7 @@ public class RunKernelInitCp0Probe extends GhidraScript {
         Memory memory = currentProgram.getMemory();
         mapRam(memory, "kernel_cp0_probe_ram", RAM_BASE, RAM_SIZE);
         mapRam(memory, "kernel_cp0_probe_intc", INTC_BASE, INTC_SIZE);
+        mapRam(memory, "kernel_cp0_probe_watchdog", WD_BASE, WD_SIZE);
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         List<String> romReturns = new ArrayList<>();
@@ -99,14 +103,18 @@ public class RunKernelInitCp0Probe extends GhidraScript {
 
             emu.writeRegister("sp", 0x9fc29000L);
             emu.writeRegister("s8", 0x9fc27f00L);
-            emu.writeRegister("ra", RETURN_PC);
-            emu.writeRegister("pc", FUNCTION);
+            emu.writeRegister("a0", 0x11111111L);
+            emu.writeRegister("a1", 0x22222222L);
+            emu.writeRegister("ra", 0x00700100L);
+            emu.writeRegister("pc", ENTRY);
 
             boolean returned = false;
+            boolean helperReached = false;
             int steps = 0;
             for (; steps < MAX_STEPS; steps++) {
                 long pc = reg(emu, "pc");
-                if (pc == RETURN_PC) {
+                if (pc == FUNCTION) helperReached = true;
+                if (pc == STOP_PC) {
                     returned = true;
                     break;
                 }
@@ -127,7 +135,8 @@ public class RunKernelInitCp0Probe extends GhidraScript {
                         "p-code stopped at 0x%08x: %s", pc, emu.getLastError()));
             }
 
-            require(returned, "CP0 helper did not return within step limit");
+            require(returned, "entry did not reach post-CP0 boundary within step limit");
+            require(helperReached, "entry path did not call the CP0 helper");
             require(reg(emu, "Status") == 0, "CP0 Status write mismatch");
             require(reg(emu, "Cause") == 0x00800000L,
                 "CP0 Cause write mismatch");
@@ -151,6 +160,8 @@ public class RunKernelInitCp0Probe extends GhidraScript {
             for (int index = 0; index < 4; index++)
                 require(word(emu, INTC_BASE + index * 4L + 0xc0) == 0x1fc00000L,
                     "interrupt vector bank mismatch at index " + index);
+            require(word(emu, WD_BASE + 0x1c) == 1,
+                "entry watchdog-feed register write mismatch");
             require(romReturns.size() == 2,
                 "unexpected fixed-ROM call count: " + romReturns.size());
 
@@ -161,8 +172,9 @@ public class RunKernelInitCp0Probe extends GhidraScript {
                     String.format("0x%08x", item.getValue()));
             }
             println(String.format(
-                "KERNEL INIT CP0 PASS function=0x%08x steps=%d cp0-writes=%s intc-slots=22+4 fixed-rom-return-stubs=%s result-registers-used=0",
-                FUNCTION, steps, writes, String.join(",", romReturns)));
+                "KERNEL INIT CP0 PASS entry=0x%08x helper=0x%08x stop=0x%08x steps=%d cp0-writes=%s intc-slots=22+4 watchdog=0x%08x fixed-rom-return-stubs=%s result-registers-used=0",
+                ENTRY, FUNCTION, STOP_PC, steps, writes, word(emu, WD_BASE + 0x1c),
+                String.join(",", romReturns)));
         }
         finally {
             emu.dispose();
