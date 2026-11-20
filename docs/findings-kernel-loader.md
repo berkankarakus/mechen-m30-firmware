@@ -137,6 +137,18 @@ bash tools/ghidra/run_kernel_exception_probe.sh
 For the present image, the safest interpretation is “firmware exception entry
 into an unavailable fixed handler”, not “a complete bank loader recovered”.
 
+The extracted kernel's earlier ExcCode-vector path has now also been executed
+in Ghidra p-code by `tools/ghidra/run_kernel_exception_dispatch_probe.sh`.
+It runs the real MIPS32 instructions at `0xbfc08180`, after checking the mapped
+bytes against `kernel.drv` file offset `0x380`. With the handler table seeded
+in synthetic RAM, ExcCode 9 selects the statically installed candidate
+`0xbfc06f18` even with Cause `0x80000027`; ExcCode 8 selects a distinct
+synthetic address with Cause `0x20000023`. These inputs show that bits outside
+`Cause & 0x7c` do not change the selected table slot. Both runs verify the
+saved EPC, RA, and unmasked Cause words. This confirms the vector's table-index
+and branch behavior only: the actual runtime table was not observed, and
+neither fixed-ROM target was executed.
+
 ## `drv_ui.drv` header and public bank formula
 
 For the M30 `drv_ui.drv` header, the group-start fields are:
