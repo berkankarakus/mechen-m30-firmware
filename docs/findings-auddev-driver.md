@@ -84,11 +84,13 @@ before execution. Real MIPS16 instructions make 16
 calls through the slot at `0x98fc`, whose image value is `0xbfc09f59`, the odd
 pointer to the resident module-`0x10` `break 0` stub. The captured call shape is
 `a0=0x9fc34094+8*i`, `a1=source+0x10+8*i`, `a2=8`, `a3=0` for `i=0..15`;
-the run took 907 p-code steps. The probe replaces the service with a stub that
-returns zero and does not copy memory. This confirms the real caller's
-per-band call envelope under the candidate bank mapping, but says nothing
-about the fixed-ROM service implementation, copied values, DSP coefficients,
-or audible output.
+the run took 907 p-code steps. The probe now services each call with an
+explicit candidate `memcpy(a0,a1,a2)` shim and verifies all 16 destination
+bands byte-for-byte against their source. The MIPS16 caller and its addresses
+are real; the copy operation is a hypothesis from the shared call shape, not
+the unavailable fixed-ROM implementation. This closes the caller's local
+data-layout check under that shim, but does not prove ROM dispatch, DSP
+coefficient use, or audible output.
 
 The banked code also references `spk_comp.dat`, a speaker-compensation filter
 asset. Its relation to EQ gain processing and the downstream coefficient or

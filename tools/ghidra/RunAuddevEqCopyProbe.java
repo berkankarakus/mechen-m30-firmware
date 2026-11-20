@@ -66,10 +66,19 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                 long a2 = reg(emu, "a2");
                 long a3 = reg(emu, "a3");
                 long ra = reg(emu, "ra");
+                require(a2 == 8 && a3 == 0,
+                    String.format("unexpected module-0x10 copy request: len=%d flag=%d", a2, a3));
+                require(a0 >= STATE + 0x94 && a0 + a2 <= STATE + 0x114,
+                    String.format("module-0x10 destination outside EQ band region: 0x%08x", a0));
+                require(a1 >= SOURCE + 0x10 && a1 + a2 <= SOURCE + 0x90,
+                    String.format("module-0x10 source outside EQ band region: 0x%08x", a1));
                 calls.add(String.format(
                     "a0=0x%08x a1=0x%08x a2=0x%08x a3=0x%08x ra=0x%08x",
                     a0, a1, a2, a3, ra
                 ));
+                // Candidate module-0x10 memcpy semantics, inferred from call shape.
+                byte[] copied = emu.readMemory(addr(a1), (int)a2);
+                emu.writeMemory(addr(a0), copied);
                 emu.writeRegister("v0", 0);
                 emu.writeRegister("pc", ra & ~1L);
                 continue;
@@ -137,11 +146,17 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                 );
                 require(calls.get(band).startsWith(expected),
                     "band " + band + " call mismatch: " + calls.get(band));
+                byte[] sourceBand = new byte[8];
+                byte[] destinationBand = new byte[8];
+                sourceBand = emu.readMemory(addr(SOURCE + 0x10 + band * 8L), 8);
+                destinationBand = emu.readMemory(addr(STATE + 0x94 + band * 8L), 8);
+                require(Arrays.equals(destinationBand, sourceBand),
+                    "band " + band + " differs after candidate module-0x10 copy");
                 println(String.format("AUDDEV EQ COPY band=%02d %s", band, calls.get(band)));
             }
             println(String.format(
-                "AUDDEV EQ COPY P-CODE PASS entry=0x%08x steps=%d module0x10-calls=%d synthetic-input=1 synthetic-service-return=0",
-                ENTRY, steps, calls.size()
+                "AUDDEV EQ COPY P-CODE PASS entry=0x%08x steps=%d module0x10-calls=%d copied-bands-verified=%d synthetic-module0x10=memcpy-candidate",
+                ENTRY, steps, calls.size(), BANDS
             ));
         }
         finally {
