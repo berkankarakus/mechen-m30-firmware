@@ -42,18 +42,24 @@ it; the `0xbfc32158` instruction decodes as `jal 0xbfc32001`. That edge cannot
 substantiate a call into the even-address MIPS32 entry at `0xbfc32000`. The old
 normalized-xref assertion has been removed.
 
-The source also reveals an important limit in the current probes:
+The source also revealed a limit in the original probes:
 `MIPSEmulateInstructionStateModifier` handles the `setISAMode` p-code op and
-the MIPS ISA context, but our `EmulatorHelper.registerCallOtherCallback`
-overrides that processor behavior. The helper's source explicitly warns that
-registering a callback may bypass processor-module support, and marks
-`EmulatorHelper` deprecated since Ghidra 12.1. The probes initialize the mode
-explicitly, and the reader fixture restores it after synthetic stubs. This
-makes the bounded call-edge checks reproducible; it does not
-validate Ghidra's native MIPS16↔MIPS32 transitions or prove target hardware's
-mode behavior. A small mode-transition probe using the native state modifier
-is a higher-value follow-up than immediately porting the existing scripts to
-the newer API.
+the MIPS ISA context, but `EmulatorHelper.registerCallOtherCallback` overrides
+that processor behavior. Its source warns that registering a callback may
+bypass processor-module support, and marks `EmulatorHelper` deprecated since
+Ghidra 12.1. A new standalone `PcodeEmulator` fixture now exercises a real
+MIPS16 `jalx` into MIPS32 and a `jr ra` return to MIPS16; it reaches the MIPS32
+body at `0x1008`, returns to MIPS16 at `0x1006`, and verifies the body wrote
+`v0=0x1234`. Its assembly source is
+[`mips_native_mode_probe.S`](../tools/ghidra/mips_native_mode_probe.S). The
+NORBREC reader probe now also uses `PcodeEmulator` and the
+native MIPS `setISAMode` userop. It verifies MIPS16 context at both external
+edges and requires an odd MIPS16 return address. The NORBREC setup probe has
+also been moved to `PcodeEmulator`; it verifies the same native MIPS16 context
+and return-address property at all three stubbed ROM edges. This removes the
+legacy callback from these NORBREC probes. It does not emulate the unavailable
+ROM helpers, and the setup probe does not assert arguments at its first
+`0xbfc10a6c` gate.
 
 The QEMU 11.1.3 source archive is already present in the local Homebrew cache
 and matches the installed formula's hash, so source review required no network
@@ -68,6 +74,26 @@ machine is Malta/`none`, not ATJ2127. So QEMU is useful for bounded real-code
 probes and exception-vector observation, not full M30 boot, LCD, or DAC
 fidelity. A source-level ATJ machine would need evidence-backed memory maps and
 peripheral effects before its results would be trustworthy.
+
+### Real extracted exception vector under QEMU/Malta
+
+The real `kernel.drv` exception-vector bytes at file offset `0x380` were also
+run at their firmware address `0xbfc08180` on QEMU's Malta `24Kf` CPU. The
+reproducible harness is `tools/emu/run_malta_exception_vector_probe.py`. It
+builds a temporary 4 MiB Malta BIOS image containing the hash-pinned vector, a
+handler stub at `0xbfc06f18`, and slot 9 preseeded with that handler value—the
+value independently produced by the extracted `ker_init` constructor probe.
+It installs the minimum low-memory TLB pair needed for the vector's stores at
+`0x13dcc..0x13dd4`, raises a real `break` exception, and checks the vector's
+saved EPC, RA, and Cause's ExcCode bits through Malta's FPGA UART. The image builder accounts
+for Malta's MIPS little-endian BIOS word swap. A run against the 2025-06-26
+`kernel.drv` emitted `PASS`.
+
+This is new CPU-level evidence for the extracted vector and its table dispatch
+under QEMU. The constructor was not run inside QEMU: the slot is preseeded
+because Malta maps the relevant `0x9fc1...` region to its read-only BIOS copy.
+The unavailable fixed-ROM handler is a stub, and the probe does not establish
+M30 bootloader invocation, ATJ2127 peripheral behavior, or device fidelity.
 
 ## NOR boot-record observation
 
@@ -152,16 +178,17 @@ followed by two calls to `0xbfc108d8` with arguments
 at `0xbfc10124` and metadata stores at `0x9fc12200`/`0x9fc12204`. The ROM
 calls return synthetic zero; the probe does not emulate the helper's
 copy/transform semantics, so it proves caller behavior only. It also executes
-the `0xbfc3292c` reader wrapper with synthetic arguments and observes a block
-reader call `(sector=25, scratch=0x9fc27000, count=4)` for a `0x601`-byte input,
-followed by the ROM helper with `(0x9fc13000, 0x9fc27000, 0x601)`. This
-validates the wrapper's round-up to four 512-byte blocks for this non-aligned
-fixture and its outgoing arguments; the block reader and ROM helper are
-synthetic stubs, so their semantics are not modeled. The reader probe checks
-that intercepted external edges retain MIPS16 context, but its `setISAMode`
-callback still bypasses Ghidra's native state modifier. The successful script
-prints these observed call edges. It executes no firmware on the player and
-assigns no behavior to missing ROM functions.
+the `0xbfc3292c` reader wrapper with synthetic arguments using the native MIPS
+p-code userop. It observes a block-reader call
+`(sector=25, scratch=0x9fc27000, count=4)` for a `0x601`-byte input, followed
+by the ROM helper with `(0x9fc13000, 0x9fc27000, 0x601)`. The indirect reader
+pointer carries the MIPS16 low-bit tag; the native emulator switches mode and
+the probe checks the MIPS16 context and tagged return address at each stub.
+This validates the wrapper's round-up to four 512-byte blocks for this
+non-aligned fixture and its outgoing arguments; the block reader and ROM
+helper are synthetic stubs, so their semantics are not modeled. The successful
+script prints these observed call edges. It executes no firmware on the player
+and assigns no behavior to missing ROM functions.
 
 This is evidence for a promising next analysis target: identify the NORBREC
 wrapper and determine whether it stages or transforms a later boot image. It
@@ -172,13 +199,10 @@ evidence.
 
 ## Suggested next work
 
-1. Build a small Ghidra p-code fixture that tests MIPS16↔MIPS32 transitions
-   through the processor's native state modifier; then use it to remove manual
-   mode restoration from NORBREC probes where supported.
-2. Recover the ROM/function-pointer dispatch into NORBREC's MIPS16 callbacks
+1. Recover the ROM/function-pointer dispatch into NORBREC's MIPS16 callbacks
    and establish whether the `0x9fc12000` setup runs before firmware `ker_init`.
-3. Identify the data and entry fields in the NORBREC header and test candidate
+2. Identify the data and entry fields in the NORBREC header and test candidate
    length/checksum interpretations against all nine local dated AFI copies.
-4. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
+3. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
    and `NORMBREC.BIN` to identify shared header and loader conventions.
-5. Keep all analysis offline. Do not execute guessed payloads on the player.
+4. Keep all analysis offline. Do not execute guessed payloads on the player.

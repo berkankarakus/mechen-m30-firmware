@@ -23,6 +23,16 @@ WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-norboot.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home" "$WORK/project" "$WORK/javatmp"
 
+require_match() {
+  local file=$1
+  local pattern=$2
+  if ! grep -qE -- "$pattern" "$file"; then
+    echo "missing expected output pattern: $pattern in $file" >&2
+    cat "$file" >&2
+    exit 1
+  fi
+}
+
 GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmpdir=$WORK/javatmp}" \
   "$GHIDRA" "$WORK/project" m30norboot \
     -import "$NORBREC" \
@@ -31,6 +41,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmp
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript MapNorBoot.java "$NORBREC" 0xbfc31f00 \
+    -postScript RunMipsNativeModeProbe.java \
     -postScript RunNorBootSetupProbe.java \
     -postScript RunNorBootReaderProbe.java \
     -postScript DumpC.java "$WORK/norboot.c" \
@@ -39,17 +50,15 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmp
       exit 1
     }
 
-grep -E 'NORBOOT (ROM EDGE|READER EDGE|SETUP P-CODE PASS|READER P-CODE PASS)' "$WORK/run.log"
-grep -q 'NORBOOT READER P-CODE PASS' "$WORK/run.log" || {
-  cat "$WORK/run.log" >&2
-  exit 1
-}
-grep -q 'FUN_bfc3292c @ bfc3292c' "$WORK/norboot.c"
-grep -q 'FUN_bfc32a48 @ bfc32a48' "$WORK/norboot.c"
-grep -q 'func_0xbfc108d8(param_1,uVar1,param_3)' "$WORK/norboot.c"
-grep -q 'func_0xbfc108d8(uVar5,puVar2,0x14)' "$WORK/norboot.c"
-grep -q 'func_0xbfc108d8(_UNK_bfc32ab8,_UNK_bfc32abc,0x20)' "$WORK/norboot.c"
-grep -q 'NORBOOT SETUP P-CODE PASS entry=0xbfc32a48' "$WORK/run.log"
-grep -q 'NORBOOT READER P-CODE PASS entry=0xbfc3292c.*length=0x601 rounded-blocks=4' "$WORK/run.log"
+grep -E '(MIPS NATIVE MODE PASS|NORBOOT (ROM EDGE|READER EDGE|SETUP P-CODE PASS|READER P-CODE PASS))' "$WORK/run.log"
+require_match "$WORK/run.log" 'NORBOOT READER P-CODE PASS'
+require_match "$WORK/run.log" 'MIPS NATIVE MODE PASS'
+require_match "$WORK/norboot.c" 'FUN_bfc3292c @ bfc3292c'
+require_match "$WORK/norboot.c" 'FUN_bfc32a48 @ bfc32a48'
+require_match "$WORK/norboot.c" 'func_0xbfc108d8\(param_1,uVar1,param_3\)'
+require_match "$WORK/norboot.c" 'func_0xbfc108d8\(uVar5,puVar2,0x14\)'
+require_match "$WORK/norboot.c" 'func_0xbfc108d8\(_UNK_bfc32ab8,_UNK_bfc32abc,0x20\)'
+require_match "$WORK/run.log" 'NORBOOT SETUP P-CODE PASS entry=0xbfc32a48.*native-mips-mode=true'
+require_match "$WORK/run.log" 'NORBOOT READER P-CODE PASS entry=0xbfc3292c.*native-mips-mode=true.*length=0x601 rounded-blocks=4'
 
 echo "NORBOOT PROBE PASS mips32-entry=0xbfc32000 reader=0xbfc3292c setup=0xbfc32a48 dynamic-edges=5"
