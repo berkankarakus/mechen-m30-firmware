@@ -72,9 +72,19 @@ implementation is outside the extracted firmware.
 
 The p-code probe was rerun against the community AP. Its synthetic filesystem
 stub returned `FILE    TXT`; the real in-AP formatter produced
-`FILE.TXT\0TXT`, and the callback passed the 25-unit request. This confirms
-that synthetic short-name path only. It does not exercise a long name or
-establish the ROM provider's long-filename behavior.
+`FILE.TXT\0TXT`, and the callback passed the 25-unit request. A new checked
+matrix also feeds the real callback ASCII-only, 23-character BOM-prefixed and
+BOM-less UTF-16 names.
+The BOM-prefixed 23-character name remains intact; the BOM-less name enters
+the 8.3 formatter, which rewrites its beginning as UTF-16 bytes for `Long.`
+followed by bytes taken from the unpadded name. The probe asserts these
+different outputs, as well as list-window positions and failed reads. This
+shows a concrete encoding-sensitive corruption path before display; it does
+not establish which encoding the absent ROM filesystem provider returns on
+the device, nor does it prove the browser callback reaches the marquee
+renderer. The three-row case uses separate `0x32`-byte name slots and checks
+each row's output. Non-ASCII, malformed, and truncated names were not tested.
+Do not treat BOM-less provider output as confirmed device behavior.
 
 The next layer is now separated as well by
 `tools/ghidra/run_browser_fs_dispatch_probe.sh`. `0x780db201` is the

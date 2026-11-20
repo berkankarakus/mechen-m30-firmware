@@ -46,6 +46,34 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
         memory.setBytes(addr(address), bytes);
     }
 
+    private byte[] providerName(String nameCase) throws Exception {
+        if ("short83".equals(nameCase)) {
+            return new byte[] {'F', 'I', 'L', 'E', ' ', ' ', ' ', ' ', 'T', 'X', 'T', 0};
+        }
+        String text;
+        boolean bom;
+        if ("lfn-bom".equals(nameCase)) {
+            text = "VeryLongFolderName12345"; // 23 UTF-16 units after the BOM.
+            bom = true;
+        } else if ("lfn-plain".equals(nameCase)) {
+            text = "LongFolderName123456789"; // 23 UTF-16 units without a BOM.
+            bom = false;
+        } else {
+            throw new Exception("provider-case must be short83, lfn-bom, or lfn-plain");
+        }
+        byte[] bytes = new byte[(bom ? 2 : 0) + text.length() * 2 + 2];
+        int offset = 0;
+        if (bom) {
+            bytes[offset++] = (byte)0xff;
+            bytes[offset++] = (byte)0xfe;
+        }
+        for (int i = 0; i < text.length(); i++) {
+            bytes[offset++] = (byte)text.charAt(i);
+            bytes[offset++] = (byte)(text.charAt(i) >>> 8);
+        }
+        return bytes;
+    }
+
     private long word(EmulatorHelper emu, long address) throws Exception {
         byte[] bytes = emu.readMemory(addr(address), 4);
         return (bytes[0] & 0xffL)
@@ -56,6 +84,12 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
 
     private String hex(long value) {
         return String.format("0x%08x", value & 0xffffffffL);
+    }
+
+    private String hex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte value : bytes) result.append(String.format("%02x", value & 0xff));
+        return result.toString();
     }
 
     private void expectWord(Memory memory, long address, long expected) throws Exception {
@@ -92,20 +126,23 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length != 0 && getScriptArgs().length != 3
-            && getScriptArgs().length != 4) {
+            && getScriptArgs().length != 4 && getScriptArgs().length != 5) {
             throw new Exception(
-                "usage: RunBrowserDirectoryNameProbe.java [current-index start-index row-count [read-result]]"
+                "usage: RunBrowserDirectoryNameProbe.java [current-index start-index row-count [read-result [provider-case]]]"
             );
         }
         int currentIndex = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[0]) : 5;
         int startIndex = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[1]) : 5;
         int rowCount = getScriptArgs().length == 3 ? Integer.parseInt(getScriptArgs()[2]) : 1;
         int readResult = getScriptArgs().length == 4 ? Integer.parseInt(getScriptArgs()[3]) : 0;
-        if (getScriptArgs().length == 4) {
+        String providerCase = getScriptArgs().length == 5 ? getScriptArgs()[4] : "short83";
+        if (getScriptArgs().length >= 4) {
             currentIndex = Integer.parseInt(getScriptArgs()[0]);
             startIndex = Integer.parseInt(getScriptArgs()[1]);
             rowCount = Integer.parseInt(getScriptArgs()[2]);
+            readResult = Integer.parseInt(getScriptArgs()[3]);
         }
+        byte[] providerName = providerName(providerCase);
         if (rowCount <= 0 || rowCount > 3) {
             throw new Exception("row-count must be between one and three");
         }
@@ -124,7 +161,7 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
         for (int row = 0; row < rowCount; row++) {
             long rowAddress = ROWS + row * 0xcL;
             putBytes(memory, rowAddress, new byte[] {0, 0, 0, 0, 0x32, 0, 0, 0, 0, 0, 0, 0});
-            putWord(memory, rowAddress + 8, NAME + row * 0x20L);
+            putWord(memory, rowAddress + 8, NAME + row * 0x32L);
         }
         putBytes(memory, NAME, new byte[] {
             'S', 0, 't', 0, 'a', 0, 'l', 0, 'e', 0, 0, 0
@@ -187,6 +224,39 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                     byte[] name = emu.readMemory(addr(NAME), 12);
                     StringBuilder nameHex = new StringBuilder();
                     for (byte value : name) nameHex.append(String.format("%02x", value & 0xff));
+                    byte[] slot = emu.readMemory(addr(NAME), 0x32);
+                    StringBuilder slotHex = new StringBuilder();
+                    for (byte value : slot) slotHex.append(String.format("%02x", value & 0xff));
+                    if (readResult == 0) {
+                        for (int row = 0; row < rowCount; row++) {
+                            byte[] rowSlot = emu.readMemory(addr(NAME + row * 0x32L), 0x32);
+                            String rowHex = hex(rowSlot);
+                            if ("short83".equals(providerCase)) {
+                                byte[] expected = {'F', 'I', 'L', 'E', '.', 'T', 'X', 'T', 0};
+                                for (int i = 0; i < expected.length; i++) {
+                                    if (rowSlot[i] != expected[i])
+                                        throw new Exception("short 8.3 formatter mismatch row="
+                                            + row + " bytes=" + rowHex);
+                                }
+                            } else if ("lfn-bom".equals(providerCase)) {
+                                for (int i = 0; i < providerName.length; i++) {
+                                    if (rowSlot[i] != providerName[i])
+                                        throw new Exception("BOM-prefixed LFN changed row="
+                                            + row + " bytes=" + rowHex);
+                                }
+                            } else if ("lfn-plain".equals(providerCase)) {
+                                byte[] expectedPrefix = {
+                                    0x4c, 0x00, 0x6f, 0x00, 0x6e, 0x00, 0x67, 0x00,
+                                    0x2e, 0x46, 0x00, 0x6f
+                                };
+                                for (int i = 0; i < expectedPrefix.length; i++) {
+                                    if (rowSlot[i] != expectedPrefix[i])
+                                        throw new Exception("BOM-less LFN formatter path changed row="
+                                            + row + " bytes=" + rowHex);
+                                }
+                            }
+                        }
+                    }
                     int preflightCalls = currentIndex < startIndex
                         ? startIndex - currentIndex
                         : startIndex;
@@ -213,8 +283,9 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                         ));
                     }
                     println(String.format(
-                        "BROWSER DIRECTORY NAME PASS read-result=%d current=%d start=%d rows=%d steps=%d db-calls=%d fs-calls=%d converter-calls=%d row-stride=0xc slot=0x32 fs-length=%d fs-mode=%d converter-limit=0x%x name-bytes=%s",
+                        "BROWSER DIRECTORY NAME PASS read-result=%d provider-case=%s current=%d start=%d rows=%d steps=%d db-calls=%d fs-calls=%d converter-calls=%d row-stride=0xc slot=0x32 fs-length=%d fs-mode=%d converter-limit=0x%x name-bytes=%s slot-bytes=%s",
                         readResult,
+                        providerCase,
                         currentIndex,
                         startIndex,
                         rowCount,
@@ -225,7 +296,8 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                         filesystemLength,
                         filesystemMode,
                         converterLimit,
-                        nameHex
+                        nameHex,
+                        slotHex
                     ));
                     return;
                 }
@@ -244,7 +316,7 @@ public class RunBrowserDirectoryNameProbe extends GhidraScript {
                     if (readResult == 0) {
                         emu.writeMemory(
                             addr(destination),
-                            new byte[] {'F', 'I', 'L', 'E', ' ', ' ', ' ', ' ', 'T', 'X', 'T', 0}
+                            providerName
                         );
                     }
                     emu.writeRegister("v0", readResult);

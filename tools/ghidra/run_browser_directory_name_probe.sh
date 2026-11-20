@@ -23,6 +23,7 @@ run_case() {
   local start_index=$3
   local row_count=$4
   local read_result=${5:-0}
+  local provider_case=${6:-short83}
   local project="$WORK/$label/project"
   local home="$WORK/$label/home"
   local log="$WORK/$label.log"
@@ -39,16 +40,19 @@ run_case() {
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$AP" \
     -postScript RunBrowserDirectoryNameProbe.java \
-      "$current_index" "$start_index" "$row_count" "$read_result" 2>&1 | tee "$log"
+      "$current_index" "$start_index" "$row_count" "$read_result" "$provider_case" 2>&1 | tee "$log"
   local status=${PIPESTATUS[0]}
   set -e
   [ "$status" -eq 0 ] || exit "$status"
   grep -Fq "BROWSER DIRECTORY NAME PASS read-result=$read_result" "$log"
+  grep -Fq "provider-case=$provider_case" "$log"
   grep -Fq "converter-calls=$row_count" "$log"
 }
 
-run_case before 0 5 1
-run_case inside 5 4 3
-run_case after 8 5 1
-run_case read-failure 5 5 1 -1
-echo 'BROWSER DIRECTORY NAME MATRIX PASS cases=before,inside,after,read-result-minus-one'
+run_case before 0 5 1 0 short83
+run_case inside 5 4 3 0 short83
+run_case after 8 5 1 0 short83
+run_case read-failure 5 5 1 -1 short83
+run_case bom-lfn 5 5 1 0 lfn-bom
+run_case plain-lfn 5 5 1 0 lfn-plain
+echo 'BROWSER DIRECTORY NAME MATRIX PASS cases=index-before,index-inside,index-after,read-failure,lfn-bom,lfn-plain'

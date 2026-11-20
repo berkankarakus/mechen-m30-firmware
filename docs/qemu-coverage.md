@@ -121,6 +121,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Folder-list acceleration contract | host model mirroring the real blob | PASS; 700 ms boundary modeled; physical event timing unmeasured |
 | Folder-list handler contract | Ghidra decompile of browser/music next/previous | PASS; stock one-step and redraw calls present |
 | Folder-list handler p-code execution | real browser/music MIPS16 handlers with helper intercepts | PASS; next/previous state assertions in both apps |
+| Browser directory-name encoding boundary | `tools/ghidra/run_browser_directory_name_probe.sh` | PASS; real MIPS16 callback preserves a synthetic ASCII-only BOM-prefixed UTF-16 long name but routes a BOM-less one through its 8.3 formatter, changing the prefix. Three-row slot stride/output, list-window boundaries, and failed reads are checked. Provider output encoding and connection to the marquee renderer remain unverified. |
 | Screen-off media keys | real common key-filter bank, five app contexts | PASS; regression-only, no firmware change retained |
 | Library/index sorting | real stock/new index banks, synthetic 6,000-song library | PASS; byte-for-byte reproduction |
 | Library scan capacity | `playlist.ap` fixed-array scan loop | PASS; stock 4,000-record stop modeled separately from file-format capacity |
