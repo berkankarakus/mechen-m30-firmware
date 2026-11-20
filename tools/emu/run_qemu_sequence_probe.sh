@@ -32,7 +32,9 @@ if ! command -v "$QEMU" >/dev/null; then
 fi
 
 STATUS="$OUT/qemu-sequence-status.bin"
-"$QEMU" -cpu 24Kc "$OUT/qemu_sequence_probe.elf" >"$STATUS"
+"$PY" "$ROOT/tools/emu/run_qemu_bounded.py" \
+  --timeout "${QEMU_TIMEOUT:-8}" \
+  --stdout "$STATUS" -- "$QEMU" -cpu 24Kc "$OUT/qemu_sequence_probe.elf"
 ACTUAL=$(
   "$PY" -c 'import struct, sys; data = open(sys.argv[1], "rb").read();
 if len(data) != 20: raise SystemExit(f"expected 20 result bytes, got {len(data)}")

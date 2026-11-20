@@ -519,6 +519,9 @@ CROSS=mipsel-linux-gnu- QEMU=qemu-mipsel-static \
 
 It executes `next, next, previous, redraw` against the same recovered state
 and requires the final tuple `active=1, previous=2, status=1, y=50`.
+QEMU is bounded to eight seconds by default; set `QEMU_TIMEOUT` to override
+that limit. A timeout terminates and waits for the guest process before the
+wrapper returns.
 
 ## Folder-list acceleration model
 
