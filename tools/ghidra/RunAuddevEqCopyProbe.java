@@ -146,10 +146,8 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                 );
                 require(calls.get(band).startsWith(expected),
                     "band " + band + " call mismatch: " + calls.get(band));
-                byte[] sourceBand = new byte[8];
-                byte[] destinationBand = new byte[8];
-                sourceBand = emu.readMemory(addr(SOURCE + 0x10 + band * 8L), 8);
-                destinationBand = emu.readMemory(addr(STATE + 0x94 + band * 8L), 8);
+                byte[] sourceBand = emu.readMemory(addr(SOURCE + 0x10 + band * 8L), 8);
+                byte[] destinationBand = emu.readMemory(addr(STATE + 0x94 + band * 8L), 8);
                 require(Arrays.equals(destinationBand, sourceBand),
                     "band " + band + " differs after candidate module-0x10 copy");
                 println(String.format("AUDDEV EQ COPY band=%02d %s", band, calls.get(band)));
