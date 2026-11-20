@@ -104,8 +104,15 @@ calls to the directory and setup routines; this does not rule out ROM or
 function-pointer dispatch. Ghidra also warns that decompiling the entry stub
 across its MIPS32-to-MIPS16 boundary is unresolved, so the probe treats that
 cross-mode edge as a limitation rather than emulated behavior. The script
-executes no firmware on the player and assigns no behavior to missing ROM
-functions.
+also runs the extracted `0xbfc32a48` MIPS16 routine in Ghidra p-code with
+synthetic RAM/ROM state. It records three external calls: one to
+`0xbfc10a6c`, followed by two calls to `0xbfc108d8` with arguments
+`(0x9fc12000, 0xbfc10124, 0x14)` and
+`(0x9fc12014, 0xbfc10138, 0x20)`. It verifies the caller's structure writes
+at `0xbfc10124` and metadata stores at `0x9fc12200`/`0x9fc12204`. The ROM
+calls return synthetic zero; the probe does not emulate the helper's
+copy/transform semantics, so it proves caller behavior only. It executes no
+firmware on the player and assigns no behavior to missing ROM functions.
 
 This is evidence for a promising next analysis target: identify the NORBREC
 wrapper and determine whether it stages or transforms a later boot image. It
@@ -116,8 +123,8 @@ evidence.
 
 ## Suggested next work
 
-1. Trace the MIPS16 setup routine's calls involving `0x9fc12000` and determine
-   whether it is called on the path that precedes the firmware's `ker_init`.
+1. Recover the ROM/function-pointer dispatch into NORBREC's MIPS16 callbacks
+   and establish whether the `0x9fc12000` setup runs before firmware `ker_init`.
 2. Identify the data and entry fields in the NORBREC header and test candidate
    length/checksum interpretations against all nine local dated AFI copies.
 3. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
