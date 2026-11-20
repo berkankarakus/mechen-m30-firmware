@@ -6,6 +6,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 COMMUNITY=${1:-$ROOT/analysis/community/fw/mengine.ap}
 STOCK=${2:-$ROOT/analysis/stock/fw/mengine.ap}
+OUTPUT_DIR=${3:-}
 
 [ -f "$COMMUNITY" ] || { echo "missing community mengine.ap: $COMMUNITY" >&2; exit 1; }
 [ -f "$STOCK" ] || { echo "missing stock mengine.ap: $STOCK" >&2; exit 1; }
@@ -28,9 +29,17 @@ verify_hash "$STOCK" 1340bac3cb68043f7a9651ee7959c2f502e6759c7debe0626f07ef92318
 run_probe() {
   local path=$1
   local project_name=$2
+  local output_dir=${3:-}
   local work
   work=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-eq-builder.XXXXXX")
   mkdir -p "$work/home" "$work/project"
+
+  local script_args=(-postScript LoadAP.java "$path")
+  if [ -n "$output_dir" ]; then
+    script_args+=(-postScript RunEqBuilderProbe.java "$output_dir")
+  else
+    script_args+=(-postScript RunEqBuilderProbe.java)
+  fi
 
   if ! JAVA_HOME_OVERRIDE="${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}" \
     GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$work/home}" \
@@ -40,8 +49,7 @@ run_probe() {
       -processor 'MIPS:LE:32:default' \
       -noanalysis \
       -scriptPath "$ROOT/tools/ghidra" \
-      -postScript LoadAP.java "$path" \
-      -postScript RunEqBuilderProbe.java \
+      "${script_args[@]}" \
       >"$work/run.log" 2>&1; then
     cat "$work/run.log" >&2
     rm -rf "$work"
@@ -59,7 +67,7 @@ run_probe() {
   rm -rf "$work"
 }
 
-community_result=$(run_probe "$COMMUNITY" m30eqbuildercommunity)
+community_result=$(run_probe "$COMMUNITY" m30eqbuildercommunity "$OUTPUT_DIR")
 stock_result=$(run_probe "$STOCK" m30eqbuilderstock)
 community_hash=$(printf '%s\n' "$community_result" | sed -nE 's/.*result-sha256=([0-9a-f]{64}).*/\1/p')
 stock_hash=$(printf '%s\n' "$stock_result" | sed -nE 's/.*result-sha256=([0-9a-f]{64}).*/\1/p')

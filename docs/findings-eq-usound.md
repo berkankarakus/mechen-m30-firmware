@@ -92,13 +92,27 @@
   audio-device working structure. No device execution or hardware/DSP effect
   was tested; do not treat this copy boundary as proof of playback.
 - `tools/ghidra/run_auddev_eq_copy_probe.sh` executes this candidate bank-5
-  path in Ghidra p-code using a hash-pinned driver and synthetic `id=1`
-  payload. The real instructions issue 16 calls through slot `0x98fc` with
-  destination `0x9fc34094 + 8*i`, source `param_2 + 0x10 + 8*i`, length 8,
-  and flag 0. The probe intercepts each call and returns zero without copying.
-  This verifies the per-band call envelope under the candidate bank mapping;
-  the absent service implementation, copied destination bytes, DSP
-  coefficients, and audible effect remain unknown.
+  path in Ghidra p-code using a hash-pinned driver and either synthetic `id=1`
+  data or a supplied `0xf0`-byte structure. The real instructions issue 16
+  calls through slot `0x98fc` with destination `0x9fc34094 + 8*i`, source
+  `param_2 + 0x10 + 8*i`, length 8, and flag 0. A candidate `memcpy` shim
+  copies between Ghidra emulation-memory addresses and the probe checks all
+  16 destination bands against their sources. This validates the caller's
+  envelope and data layout under that explicit service hypothesis; ROM
+  service behavior, operation dispatch, DSP coefficients, and audible effect
+  remain unknown.
+- `tools/ghidra/run_eq_auddev_chain_probe.sh` runs the real `mengine.ap` EQ
+  builder for Off, Hip-hop, and default Custom, exports each `0xf0`-byte
+  result, and feeds it to the candidate `aud_dev` probe. The harness seeds the
+  builder buffer with `0xaa`; therefore the seven active band records and
+  zeroed inactive records are builder output, while the trailing adjustment
+  area is a preserved harness sentinel rather than a firmware default. Each
+  preset is checked with that sentinel, a synthetic zeroed adjustment area,
+  and synthetic low/high threshold-and-gain settings. Ghidra p-code execution
+  confirms the candidate consumer's 16 record transfers and resulting gain
+  arithmetic for all nine cases under a synthetic module-`0x10` memcpy shim.
+  The candidate bank mapping, ROM dispatch/service, actual runtime adjustment
+  values, DSP use, and audibility remain unverified.
 - Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
   the user reported no audible difference between `Custom` and `Off`; a
   supplied EQ-screen photo shows all seven displayed sliders at the 0 dB

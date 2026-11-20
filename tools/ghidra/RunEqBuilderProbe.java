@@ -8,6 +8,9 @@ import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -193,6 +196,12 @@ public class RunEqBuilderProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
+        String[] scriptArgs = getScriptArgs();
+        if (scriptArgs.length > 1)
+            throw new Exception("usage: RunEqBuilderProbe.java [OUTPUT_DIRECTORY]");
+        Path outputDirectory = scriptArgs.length == 1 ? Paths.get(scriptArgs[0]) : null;
+        if (outputDirectory != null) Files.createDirectories(outputDirectory);
+
         Memory memory = currentProgram.getMemory();
         MemoryBlock ram = memory.createInitializedBlock(
             "eq_builder_probe_ram",
@@ -216,9 +225,18 @@ public class RunEqBuilderProbe extends GhidraScript {
             digest.update((byte)selector);
             digest.update(result);
             cases++;
+            if (outputDirectory != null && (selector == 0 || selector == 3)) {
+                String name = selector == 0 ? "off.bin" : "hip-hop.bin";
+                Files.write(outputDirectory.resolve(name), result);
+                println("EQ BUILDER EMIT preset=" + selector + " file=" + name + " bytes=" + result.length);
+            }
         }
 
         byte[] customResult = runCase(memory, "custom-default", 7, defaultCustom, 0, 1);
+        if (outputDirectory != null) {
+            Files.write(outputDirectory.resolve("custom-default.bin"), customResult);
+            println("EQ BUILDER EMIT preset=custom-default file=custom-default.bin bytes=" + customResult.length);
+        }
         digest.update((byte)8);
         digest.update(customResult);
         cases++;

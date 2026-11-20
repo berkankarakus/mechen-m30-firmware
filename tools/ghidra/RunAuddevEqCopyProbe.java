@@ -46,6 +46,38 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
         if (!condition) throw new Exception(message);
     }
 
+    private int u16(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xff) | ((bytes[offset + 1] & 0xff) << 8);
+    }
+
+    private short s16(byte[] bytes, int offset) {
+        return (short)u16(bytes, offset);
+    }
+
+    private byte[] expectedBand(byte[] source, byte[] structure, String expectation) {
+        byte[] expected = Arrays.copyOf(source, source.length);
+        int frequency = u16(source, 0);
+        int mode = source[6] & 0xff;
+        int delta = 0;
+        if ("decoded-adjustments".equals(expectation) && mode == 1) {
+            int lowThreshold = u16(structure, 0xc4) & 0x7fff;
+            int highThreshold = u16(structure, 0xc8) & 0x7fff;
+            if (frequency <= lowThreshold) delta += s16(structure, 0xc6);
+            if (highThreshold <= frequency) delta += s16(structure, 0xca);
+            for (int index = 0; index < 3; index++) {
+                int adjustmentOffset = 0xc2 + index * 4;
+                int exactFrequencyOffset = 0xcc + index * 4;
+                if (s16(structure, adjustmentOffset) != 0
+                        && frequency == u16(structure, exactFrequencyOffset))
+                    delta += s16(structure, adjustmentOffset);
+            }
+        }
+        int gain = (short)(s16(source, 4) + delta);
+        expected[4] = (byte)gain;
+        expected[5] = (byte)(gain >>> 8);
+        return expected;
+    }
+
     private int execute(EmulatorHelper emu) throws Exception {
         emu.writeRegister("sp", STACK);
         emu.writeRegister("ra", STOP | 1L);
@@ -79,6 +111,8 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                 // Candidate module-0x10 memcpy semantics, inferred from call shape.
                 byte[] copied = emu.readMemory(addr(a1), (int)a2);
                 emu.writeMemory(addr(a0), copied);
+                require(Arrays.equals(copied, emu.readMemory(addr(a0), (int)a2)),
+                    "candidate module-0x10 shim write did not reach emulator memory");
                 emu.writeRegister("v0", 0);
                 emu.writeRegister("pc", ra & ~1L);
                 continue;
@@ -92,8 +126,8 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length != 1)
-            throw new Exception("usage: RunAuddevEqCopyProbe.java AUD_DEV.DRV");
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 3)
+            throw new Exception("usage: RunAuddevEqCopyProbe.java AUD_DEV.DRV [EQ_STRUCTURE.bin [neutral|decoded-adjustments|observe]]");
         byte[] driver = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         if (driver.length < 0x2500) throw new Exception("aud_dev.drv is truncated before bank 5");
@@ -122,13 +156,29 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
         state.setRead(true);
         state.setWrite(true);
 
-        // One active EQ/DAE payload with 16 distinct 8-byte bands.  Other
-        // mode flags remain zero so unrelated file/filter paths stay inactive.
-        byte[] input = new byte[0x180];
-        input[7] = 1;
-        for (int band = 0; band < BANDS; band++) {
-            for (int j = 0; j < 8; j++) input[0x10 + band * 8 + j] = (byte)(band * 8 + j + 1);
+        byte[] input;
+        if (getScriptArgs().length >= 2) {
+            input = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(getScriptArgs()[1]));
+            require(input.length == 0xf0,
+                String.format("EQ structure must be 0xf0 bytes, got 0x%x", input.length));
+            require(input[7] == 1, "EQ structure ready byte +7 must be 1");
+        } else {
+            // Synthetic fallback: one active structure with distinct bands.
+            input = new byte[0xf0];
+            input[7] = 1;
+            for (int band = 0; band < BANDS; band++) {
+                for (int j = 0; j < 8; j++)
+                    input[0x10 + band * 8 + j] = (byte)(band * 8 + j + 1);
+            }
         }
+        boolean neutralAdjustments = true;
+        for (int offset = 0xc0; offset < 0xcc; offset++)
+            neutralAdjustments &= input[offset] == 0;
+        String expectation = getScriptArgs().length == 3 ? getScriptArgs()[2] : "observe";
+        require(expectation.equals("neutral") || expectation.equals("decoded-adjustments")
+                || expectation.equals("observe"), "unknown adjustment expectation: " + expectation);
+        if (expectation.equals("neutral"))
+            require(neutralAdjustments, "neutral expectation requires zero adjustment words");
         memory.setBytes(addr(SOURCE), input);
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
@@ -148,17 +198,32 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                     "band " + band + " call mismatch: " + calls.get(band));
                 byte[] sourceBand = emu.readMemory(addr(SOURCE + 0x10 + band * 8L), 8);
                 byte[] destinationBand = emu.readMemory(addr(STATE + 0x94 + band * 8L), 8);
-                require(Arrays.equals(destinationBand, sourceBand),
-                    "band " + band + " differs after candidate module-0x10 copy");
-                println(String.format("AUDDEV EQ COPY band=%02d %s", band, calls.get(band)));
+                if (!expectation.equals("observe")) {
+                    byte[] expectedBytes = expectedBand(sourceBand, input, expectation);
+                    require(Arrays.equals(destinationBand, expectedBytes),
+                        "band " + band + " final bytes differ: expected=" + hex(expectedBytes)
+                            + " actual=" + hex(destinationBand) + " expectation=" + expectation);
+                }
+                boolean unchangedAfterHandler = Arrays.equals(destinationBand, sourceBand);
+                println(String.format("AUDDEV EQ COPY band=%02d after-handler=%s source=%s destination=%s %s",
+                    band, unchangedAfterHandler ? "same" : "adjusted",
+                    hex(sourceBand), hex(destinationBand), calls.get(band)));
             }
             println(String.format(
-                "AUDDEV EQ COPY P-CODE PASS entry=0x%08x steps=%d module0x10-calls=%d copied-bands-verified=%d synthetic-module0x10=memcpy-candidate",
-                ENTRY, steps, calls.size(), BANDS
+                "AUDDEV EQ COPY P-CODE PASS entry=0x%08x steps=%d module0x10-calls=%d copy-writes-verified=%d expectation=%s input=%s module0x10=synthetic-memcpy-candidate",
+                ENTRY, steps, calls.size(), BANDS,
+                expectation,
+                getScriptArgs().length >= 2 ? "mengine-builder-output" : "synthetic-pattern"
             ));
         }
         finally {
             emu.dispose();
         }
+    }
+
+    private String hex(byte[] bytes) {
+        StringBuilder result = new StringBuilder();
+        for (byte value : bytes) result.append(String.format("%02x", value & 0xff));
+        return result.toString();
     }
 }

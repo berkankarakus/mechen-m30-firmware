@@ -78,9 +78,9 @@ the observed `0xf0`-byte shared-memory structure; it does not show how the
 values become audible DSP coefficients.
 
 `tools/ghidra/run_auddev_eq_copy_probe.sh` executes the candidate bank-5 entry
-at `0x9400` with a synthetic `id=1` payload. It pins the input SHA-256 and the
-Ghidra script checks that the mapped code bytes match file offset `0x1f00`
-before execution. Real MIPS16 instructions make 16
+at `0x9400` with either a synthetic payload or an optional `0xf0`-byte EQ
+structure. It pins the driver SHA-256 and the Ghidra script checks that the
+mapped code bytes match file offset `0x1f00` before execution. Real MIPS16 instructions make 16
 calls through the slot at `0x98fc`, whose image value is `0xbfc09f59`, the odd
 pointer to the resident module-`0x10` `break 0` stub. The captured call shape is
 `a0=0x9fc34094+8*i`, `a1=source+0x10+8*i`, `a2=8`, `a3=0` for `i=0..15`;
@@ -91,6 +91,21 @@ are real; the copy operation is a hypothesis from the shared call shape, not
 the unavailable fixed-ROM implementation. This closes the caller's local
 data-layout check under that shim, but does not prove ROM dispatch, DSP
 coefficient use, or audible output.
+
+`tools/ghidra/run_eq_auddev_chain_probe.sh` runs the real `mengine.ap` builder
+for Off, Hip-hop, and default Custom, then feeds the resulting `0xf0`-byte
+buffers to the candidate `aud_dev` consumer. The harness initializes the
+builder buffer with `0xaa`, so the seven active band records and zeroed
+inactive band region are produced by the builder, while trailing adjustment
+bytes are deliberately preserved sentinels, not firmware defaults. For each
+preset, the chain passes three tail cases: preserved sentinels, a synthetic
+zeroed adjustment area, and synthetic low/high threshold-and-gain settings.
+The candidate MIPS16 code's observed gain adjustments match those settings
+band by band, and all 16 destination records are checked under the same
+synthetic module-`0x10` memcpy shim. This verifies the candidate consumer's
+record layout and adjustment arithmetic for these inputs; it does not prove
+ROM dispatch, the actual service implementation, runtime tail values, DSP
+consumption, or audible difference.
 
 The banked code also references `spk_comp.dat`, a speaker-compensation filter
 asset. Its relation to EQ gain processing and the downstream coefficient or
