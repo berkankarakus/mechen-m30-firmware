@@ -5,12 +5,14 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 NORBREC=${1:?usage: run_norboot_probe.sh NORBREC.BIN}
-GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
-JAVA_HOME_OVERRIDE=${JAVA_HOME_OVERRIDE:-/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home}
+GHIDRA=${GHIDRA:-$(command -v analyzeHeadless || true)}
 NORBREC_SHA256=8b11f25209e6a79474559b4b48d3a9d7f29d5f07633d234fe0eada9b8cd4e93d
 
 [ -f "$NORBREC" ] || { echo "missing NORBREC: $NORBREC" >&2; exit 1; }
-[ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+[ -n "$GHIDRA" ] && [ -x "$GHIDRA" ] || {
+  echo "analyzeHeadless not found; install Ghidra or set GHIDRA to its executable path" >&2
+  exit 1
+}
 actual_sha=$(shasum -a 256 "$NORBREC" | awk '{print $1}')
 [ "$actual_sha" = "$NORBREC_SHA256" ] || {
   echo "NORBREC SHA-256 $actual_sha != $NORBREC_SHA256" >&2
