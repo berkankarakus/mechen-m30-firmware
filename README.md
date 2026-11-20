@@ -204,6 +204,7 @@ The repository contains these files and folders:
 | `tools/sim/` | Host-side contracts and the register-level ATJ2127 peripheral model used by emulator harnesses. |
 | `docs/codegraph-workflow.md` | CodeGraph's scope and the repeatable impact checks used around the emulator and analysis tools. |
 | `docs/knowledge-index.md`, `tools/knowledge/` | Searchable, hash-pinned semantic findings and function/message paths using a local SQLite FTS5 index. |
+| `docs/related-projects.md` | Evidence-graded review of external M30 transfer, Rockbox-scaffold, and community-firmware repositories. |
 | `tools/ghidra/export_local_ap_decomp.sh` | Saves recognized `.ap` function decompiles under Git-ignored `analysis/local-evidence/`, keyed by source hashes. |
 | `tools/patch_mengine.py` | Applies the shuffle fix and shuffle-all code to `mengine.ap`. |
 | `tools/bps.py` | Creates and applies the BPS patches that releases use. |

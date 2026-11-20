@@ -25,9 +25,11 @@ Options:
                         required with --execute; confirms no flash write
   -h, --help            show this help
 
-The player must already be in ADFU mode. If it is still in normal mass
-storage mode, switch it separately with actions_dump's explicit adfu_reboot
-command, then rerun this script.
+The player must already enumerate as ADFU (10d6:10d6). Do not assume that
+adfu_reboot switches this M30 from normal mass-storage mode: a public M30
+analysis reports that its attempt left the player in FlashDisk mode. This
+script does not issue adfu_reboot; only rerun after ADFU mode is independently
+observed. See docs/related-projects.md for the scoped report.
 EOF
 }
 

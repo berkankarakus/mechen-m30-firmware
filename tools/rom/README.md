@@ -14,11 +14,15 @@ the ROM. The command sequence is:
 The wrapper's command vector does not call `write_flash`, `read_lfi`, or any
 NAND-writing operation. The supplied payload is executed, however, and its
 safety is not established by this wrapper.
-The player must already be in ADFU mode (`10d6:10d6`). A normal mass-storage
-player should be switched separately with `adfu_reboot`, which itself sends a
-device command and is outside this script. An `ATJ2127` identity result only
-checks the chip-family guess; it does not verify the M30 board or prove that
-the payload is compatible with it.
+The player must already be in ADFU mode (`10d6:10d6`). Do not assume that
+`adfu_reboot` moves this M30 from mass-storage mode into ADFU: a public M30
+analysis reports that its attempt returned `ACTIONSUSBD` and left the player
+in FlashDisk mode. That report is a diagnostic lead, not a confirmed result
+for every unit. This script does not issue `adfu_reboot`; proceed only after
+the device is independently observed as `10d6:10d6`. An `ATJ2127` identity
+result only checks the chip-family guess; it does not verify the M30 board or
+prove that the payload is compatible with it. See
+[`related-projects.md`](../../docs/related-projects.md#adfuusb-lead-not-a-working-rom-read-path).
 
 Without `--execute`, the script prints both the identity preflight and ROM
 readback command. It sends no USB command and creates no output path. Pass
