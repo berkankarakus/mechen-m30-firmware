@@ -149,6 +149,16 @@ saved EPC, RA, and unmasked Cause words. This confirms the vector's table-index
 and branch behavior only: the actual runtime table was not observed, and
 neither fixed-ROM target was executed.
 
+The table constructor is now separately exercised from the hash-pinned
+`ker_init.bin`: `tools/ghidra/run_kernel_exception_table_init_probe.sh` maps
+the extracted init code beside `kernel.drv`, runs the real MIPS32 constructor
+and MIPS16 setter, and stops at `0xbfc32c5c` before later global
+initialization. With a sentinel table, all entries 0..13 match the statically
+recovered defaults and overrides, while entries 14..31 remain untouched.
+This closes the p-code check for extracted table-construction logic; it does
+not prove that the device executed this constructor during boot, and it does
+not execute fixed-ROM handlers or the later ROM `memset` calls.
+
 ## `drv_ui.drv` header and public bank formula
 
 For the M30 `drv_ui.drv` header, the group-start fields are:

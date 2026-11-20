@@ -167,6 +167,17 @@ that ROM handler to `ker_xsys.bin` entry `0xbfc34074`; that possible handoff
 remains a hypothesis. The M30 key normalization table at B+8..B+15 is a
 different table and remains unresolved.
 
+The extracted `ker_init.bin` constructor at `0xbfc32bc8` has now been
+executed in Ghidra p-code with its real MIPS16 setter at `0xbfc330a0` and a
+sentinel-backed synthetic RAM table. `tools/ghidra/run_kernel_exception_table_init_probe.sh`
+stops at `0xbfc32c5c`, immediately after the setter calls and before later
+global initialization or fixed-ROM calls. The run verified all 14 accepted
+slots: indices 0, 9, and 10 contain their constructor overrides, while the
+other 11 contain `0xbfc19a75`; all 18 out-of-range slots 14..31 retain their
+sentinels. This executes the extracted constructor logic, not the device boot
+sequence; it does not establish that a particular device actually invoked
+this constructor or reveal fixed-ROM behavior.
+
 The public firmware changelog supplies a second, application-level distinction:
 2022-08-16 says that the scroll wheel and all buttons are disabled while
 locked, while 2022-08-05 and 2024-02-28 explicitly retain play/pause,
