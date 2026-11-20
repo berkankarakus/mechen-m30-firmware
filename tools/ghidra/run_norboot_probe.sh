@@ -42,6 +42,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmp
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript MapNorBoot.java "$NORBREC" 0xbfc31f00 \
     -postScript RunMipsNativeModeProbe.java \
+    -postScript RunNorBootCallbackBridgeProbe.java \
     -postScript RunNorBootSetupProbe.java \
     -postScript RunNorBootReaderProbe.java \
     -postScript DumpC.java "$WORK/norboot.c" \
@@ -50,9 +51,10 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmp
       exit 1
     }
 
-grep -E '(MIPS NATIVE MODE PASS|NORBOOT (ROM EDGE|READER EDGE|SETUP P-CODE PASS|READER P-CODE PASS))' "$WORK/run.log"
+grep -E '(MIPS NATIVE MODE PASS|NORBOOT (CALLBACK BRIDGE|ROM EDGE|READER EDGE|SETUP P-CODE PASS|READER P-CODE PASS))' "$WORK/run.log"
 require_match "$WORK/run.log" 'NORBOOT READER P-CODE PASS'
 require_match "$WORK/run.log" 'MIPS NATIVE MODE PASS'
+require_match "$WORK/run.log" 'NORBOOT CALLBACK BRIDGE PASS function=0xbfc32058 slot=0xbfc02608 a2-0x28-calls=1 a2-0x29-calls=0 callback-body=stubbed'
 require_match "$WORK/norboot.c" 'FUN_bfc3292c @ bfc3292c'
 require_match "$WORK/norboot.c" 'FUN_bfc32a48 @ bfc32a48'
 require_match "$WORK/norboot.c" 'func_0xbfc108d8\(param_1,uVar1,param_3\)'
@@ -61,4 +63,4 @@ require_match "$WORK/norboot.c" 'func_0xbfc108d8\(_UNK_bfc32ab8,_UNK_bfc32abc,0x
 require_match "$WORK/run.log" 'NORBOOT SETUP P-CODE PASS entry=0xbfc32a48.*native-mips-mode=true'
 require_match "$WORK/run.log" 'NORBOOT READER P-CODE PASS entry=0xbfc3292c.*native-mips-mode=true.*length=0x601 rounded-blocks=4'
 
-echo "NORBOOT PROBE PASS mips32-entry=0xbfc32000 reader=0xbfc3292c setup=0xbfc32a48 dynamic-edges=5"
+echo "NORBOOT PROBE PASS callback-bridge=0xbfc32058 reader=0xbfc3292c setup=0xbfc32a48 dynamic-edges=6"

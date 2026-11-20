@@ -225,17 +225,28 @@ helper are synthetic stubs, so their semantics are not modeled. The successful
 script prints these observed call edges. It executes no firmware on the player
 and assigns no behavior to missing ROM functions.
 
-This is evidence for a promising next analysis target: identify the NORBREC
-wrapper and determine whether it stages or transforms a later boot image. It
-does **not** yet identify that code as the active ROM bootstrap, nor prove that
-`0xbfc32000` is the runtime address at the relevant boot stage. The repeated
-NORBREC hash means decompiling each dated copy would add no independent code
-evidence.
+The candidate MIPS16 bridge at `0xbfc32058` is now also stepped in the same
+native p-code run by `RunNorBootCallbackBridgeProbe.java`. With synthetic
+external state (`*(0xbfc10118)=0x20`, `*(0xbfc1011c)=0x9fc11000`, and a
+halfword value `7` at `0x9fc1100c`), the real code loads a MIPS16-tagged
+callback from synthetic slot `0xbfc02608`. For `a2=0x28` (40), it calls that
+target with `(a0=0x5400, a1=0x9fc13000, a2=0x5000)` and returns through
+`ra=0xbfc32085`; for `a2=0x29` (41), it returns without the indirect call.
+The target body is stubbed. This verifies the code's branch and outgoing ABI
+under the stated fixture, not the actual fixed-ROM values, callback identity,
+parent caller, or boot-time execution.
+
+This narrows the NORBREC callback ABI, but does not identify the bridge's actual
+fixed-ROM state or prove that it is called during boot. It also does **not**
+identify NORBREC as the active ROM bootstrap, nor prove that `0xbfc32000` is the
+runtime address at the relevant boot stage. The repeated NORBREC hash means
+decompiling each dated copy would add no independent code evidence.
 
 ## Suggested next work
 
-1. Recover the ROM/function-pointer dispatch into NORBREC's MIPS16 callbacks
-   and establish whether the `0x9fc12000` setup runs before firmware `ker_init`.
+1. Recover the actual caller and fixed-ROM values behind the `0xbfc32058`
+   callback bridge; establish whether the `0x9fc12000` setup runs before
+   firmware `ker_init`.
 2. Identify the data and entry fields in the NORBREC header and test candidate
    length/checksum interpretations against all nine local dated AFI copies.
 3. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
