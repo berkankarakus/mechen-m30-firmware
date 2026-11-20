@@ -159,6 +159,19 @@ This closes the p-code check for extracted table-construction logic; it does
 not prove that the device executed this constructor during boot, and it does
 not execute fixed-ROM handlers or the later ROM `memset` calls.
 
+The `ker_init.bin` segment entry at `0xbfc32000` has now been disassembled
+from the hash-pinned extracted bytes. Its straight-line setup calls
+`FUN_bfc32224`, `FUN_bfc322f8`, and `FUN_bfc32440`, then loads the saved
+arguments and directly calls the table constructor at `0xbfc32bc8` from
+`0xbfc32074` (delay-slot instruction at `0xbfc32078`). This proves the
+constructor is part of the extracted segment's entry path. It does **not**
+prove that the device bootloader transfers control to `0xbfc32000`: the
+available `fw.log`, `dec.bin`, and module manifest do not contain that
+handoff. Nor is the pre-constructor path dynamically validated: it writes
+CP0 state, accesses SoC MMIO, and calls fixed-ROM reset/copy helpers, whose
+effects need modeling before an entry-level p-code run can be treated as
+meaningful evidence.
+
 ## Constructor-to-vector integration
 
 `tools/ghidra/run_kernel_initialized_exception_probe.sh` now composes the
