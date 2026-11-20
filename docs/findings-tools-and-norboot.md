@@ -46,13 +46,44 @@ Observed bytes and disassembly:
 - The bytes at file offset `0x100` disassemble as MIPS32 when mapped at
   `0xbfc32000`. The first instructions set SP to `0x9fc3fe00`, move incoming
   arguments, then call `0xbfc10191` at `0xbfc32010`.
+- The same bytes are not MIPS16 instructions. Later regions do contain
+  readable MIPS16 code; disassembling this mixed-mode member with `-m mips:16`
+  is substantially more useful than treating the whole file as MIPS32.
+- At file offset `0xa2c` (candidate runtime address `0xbfc3292c` under the
+  header's `0xbfc32000` mapping), a MIPS16 routine computes a 512-byte block
+  count, calls an indirect routine obtained through `0xbfc02600`, then calls
+  fixed-ROM address `0xbfc108d9` with `(original a0, 0x9fc27000, original
+  a2)`. This establishes the call shape, not the ROM helper's semantics.
+- At file offset `0xb48` (candidate runtime address `0xbfc32a48`), another
+  MIPS16 routine populates the first 16 bytes of a structure at `0xbfc10124`, then calls
+  `0xbfc108d9(0x9fc12000, 0xbfc10124, 0x14)` and
+  `0xbfc108d9(0x9fc12014, 0xbfc10138, 0x20)`. The two calls are consistent
+  with copying/building a small boot structure in the `0x9fc12000` region,
+  but a copy interpretation remains a hypothesis until the ROM helper is
+  identified. This is a concrete lead for explaining the later kernel's
+  reads from the same address window.
 - The code does not match the start of the separately extracted, hash-pinned
-  `ker_init.bin`, despite both appearing at `0xbfc32000` in the current static
-  address model. Their first 32 bytes differ and neither byte prefix occurs
-  in the other member.
-- The later bytes are not yet classified. The fixed-ROM call body at
-  `0xbfc10191`, the NORBREC header semantics, any internal transform, and the
-  runtime memory mapping remain unknown.
+  `ker_init.bin`, despite both candidate mappings using `0xbfc32000`. Their
+  first 32 bytes differ. The NOR record's early wrapper and the firmware's
+  later `ker_init` segment may occupy the same address at different boot
+  stages; the actual handoff and mapping are still unverified.
+
+The central MIPS16 call sequence can be reproduced with the installed GNU
+binutils (the input path is local to the analysis host):
+
+```sh
+mipsel-linux-gnu-objdump -D -b binary -m mips:16 -EL \
+  --adjust-vma=0xbfc31f00 \
+  --start-address=0xbfc3292c --stop-address=0xbfc32ac0 \
+  /path/to/NORBREC.BIN
+```
+
+The `0xbfc31f00` adjustment accounts for the observed code at file offset
+`0x100` mapping to `0xbfc32000`. It is a candidate mapping derived from the
+record, not yet independently verified runtime state. The fixed-ROM bodies at
+`0xbfc10191`, `0xbfc108d9`, and the indirect target reached through
+`0xbfc02600` remain unavailable; NORBREC's complete header and loader ABI are
+not yet decoded.
 
 This is evidence for a promising next analysis target: identify the NORBREC
 wrapper and determine whether it stages or transforms a later boot image. It
@@ -63,11 +94,10 @@ evidence.
 
 ## Suggested next work
 
-1. Parse the NORBREC header conservatively and test candidate length, entry,
-   and checksum fields against all local dated AFI copies.
-2. Find the MIPS16/MIPS32 boundary and data ranges in the first `0x100`-mapped
-   region; treat `0xbfc10191` as an unresolved call edge.
-3. Compare NORBREC with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`, and
-   `NORMBREC.BIN` to locate shared header/payload conventions before trying
-   speculative decoders.
+1. Trace the MIPS16 setup routine's calls involving `0x9fc12000` and determine
+   whether it is called on the path that precedes the firmware's `ker_init`.
+2. Identify the data and entry fields in the NORBREC header and test candidate
+   length/checksum interpretations against all nine local dated AFI copies.
+3. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
+   and `NORMBREC.BIN` to identify shared header and loader conventions.
 4. Keep all analysis offline. Do not execute guessed payloads on the player.
