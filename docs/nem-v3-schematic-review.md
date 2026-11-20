@@ -8,7 +8,12 @@ an `ATJ2127-ID`; pages 2 and 3 show the display/analog sections and a
 RTL8761AT-CG Bluetooth module. The document title block does not identify
 MECHEN M30 or a commercial device. Treat it as a highly relevant ATJ2127
 hardware reference, but do not call its wiring the M30 board until the board
-identity/revision is independently matched.
+identity/revision is independently matched. The [M30 user manual](https://ae01.alicdn.com/kf/S0d75602fca7a458fbef00b7e4ca728355.pdf)
+does match the two-inch, 320x240 display class and documents physical buttons
+and a scroll wheel, but does not document a touch interface. In contrast, this
+schematic has a separate five-wire CTP/touch-panel section. That mismatch
+lowers confidence that this is the exact M30 board, even though the SoC and
+display size are suggestive.
 
 ## High-value schematic observations
 
@@ -78,7 +83,8 @@ board fact without the exact build/revision.
 
 1. First compare the M30 board/revision or known component and connector
    layout against this NEM_V3 drawing. The two-inch TFT and ATJ2127 match are
-   suggestive, not unique identification.
+   suggestive, not unique identification; the unmentioned touch interface is
+   counterevidence that must be resolved before adopting its wiring.
 2. If matched, cross-check the `drv_lcd.drv` command/data path against the
    shared `NF_ALE`/`NF_RDB`/`NF_WRB`/`FD[0..7]` pins. This can constrain the
    LCD bus-width and transport model, but register values still need binary
