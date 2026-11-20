@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Prepare or perform a read-only ATJ2127 Boot ROM dump.
+# Prepare or perform an ATJ2127 Boot ROM readback.
 #
-# This wrapper deliberately exposes only simple_switch + read_mem2.  It never
-# calls write_flash, read_lfi, or any other NAND-writing operation.  Without
-# --execute it only prints the exact command that would be run.
+# The wrapper's command vector does not call write_flash, read_lfi, or a
+# NAND-writing operation. Execution uploads and runs the supplied code in
+# device SRAM before reading ROM; payload safety is not established. Without
+# --execute, it performs no USB or disk writes.
 set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 
 usage() {
   cat <<'EOF'
@@ -22,7 +25,7 @@ Options:
                         required with --execute; confirms no flash write
   -h, --help            show this help
 
-The player must already be in ADFU mode.  If it is still in normal mass
+The player must already be in ADFU mode. If it is still in normal mass
 storage mode, switch it separately with actions_dump's explicit adfu_reboot
 command, then rerun this script.
 EOF
@@ -52,6 +55,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ -z "$actions_dump" ] && [ -n "${ACTIONS_DUMP:-}" ]; then
+  actions_dump=$ACTIONS_DUMP
+fi
+
 if [ -z "$actions_dump" ]; then
   if command -v actions_dump >/dev/null 2>&1; then
     actions_dump=$(command -v actions_dump)
@@ -60,9 +67,22 @@ if [ -z "$actions_dump" ]; then
   fi
 fi
 
+actions_flash_root=${ACTIONS_FLASH_ROOT:-}
+if [ -z "$actions_flash_root" ]; then
+  common_git_dir=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  main_checkout=""
+  if [ -n "$common_git_dir" ]; then main_checkout=$(dirname "$common_git_dir"); fi
+  for candidate in "$ROOT/../actions_flash" "$main_checkout/../actions_flash"; do
+    if [ -d "$candidate" ]; then actions_flash_root=$candidate; break; fi
+  done
+fi
+
+if [ -z "$adfus" ] && [ -n "${ADFUS_BIN:-}" ]; then
+  adfus=$ADFUS_BIN
+fi
 if [ -z "$adfus" ]; then
   for candidate in \
-    "$(dirname "$0")/../../../actions_flash/payload/adfus.bin" \
+    "$actions_flash_root/payload/adfus.bin" \
     "payload/adfus.bin"; do
     if [ -f "$candidate" ]; then adfus=$candidate; break; fi
   done
@@ -83,28 +103,31 @@ if [ -e "$out" ] && [ "$force" -ne 1 ]; then
   echo "output exists; choose another --out or pass --force: $out" >&2
   exit 1
 fi
-mkdir -p "$(dirname "$out")"
-
+info_cmd=("$actions_dump" --id "$usb_id" --wait "$wait_seconds" chip 2127 adfu_info)
 cmd=("$actions_dump" --id "$usb_id" --wait "$wait_seconds" chip 2127 blk_size 0x4000
   simple_switch 0xbfc18000 "$adfus"
   read_mem2 0x9fc00000 0x40000 "$out")
 
-printf '%s\n' "ATJ2127 read-only Boot ROM dump"
+printf '%s\n' "ATJ2127 Boot ROM readback (executes supplied SRAM code; no flash-write command)"
 printf '%s\n' "  source: $adfus"
 printf '%s\n' "  range:  0x9fc00000..0x9fc3ffff (256 KiB)"
 printf '%s\n' "  output: $out"
+printf '  preflight:'
+printf ' %q' "${info_cmd[@]}"
+printf '\n'
 printf '  command:'
 printf ' %q' "${cmd[@]}"
 printf '\n'
 
 if [ "$execute" -ne 1 ]; then
-  printf '%s\n' 'DRY RUN: no USB command was sent. Add --execute only after the device is in ADFU mode.'
+  printf '%s\n' 'DRY RUN: no USB command was sent and no output path was created.'
+  printf '%s\n' 'Execution first queries ADFU identity, then uploads/runs SRAM code and reads ROM.'
   exit 0
 fi
 
 if [ "$ack_ram_only" -ne 1 ]; then
   echo "refusing to access USB without --acknowledge-ram-only" >&2
-  echo "this wrapper only uploads to RAM and reads ROM; it never writes flash" >&2
+  echo "the wrapper has no flash-write command, but the supplied SRAM payload is executed" >&2
   exit 2
 fi
 
@@ -123,6 +146,8 @@ if ! grep -Fq 'guess: chip = ATJ2127' "$INFO_LOG"; then
   exit 1
 fi
 printf '%s\n' 'ADFU identity PASS: ATJ2127'
+printf '%s\n' 'This confirms only the chip-family guess; it does not prove M30-board or payload compatibility.'
 
+mkdir -p "$(dirname "$out")"
 "${cmd[@]}"
 python3 "$(dirname "$0")/inspect_bootrom.py" "$out"

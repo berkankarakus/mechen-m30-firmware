@@ -1,15 +1,28 @@
 #!/usr/bin/env bash
-# Build the read-only-capable actions_flash host client on macOS.
+# Build the actions_flash host client used by the ROM readback wrapper.
 # This compiles only; it does not open USB or talk to a player.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-SOURCE=${ACTIONS_FLASH_SOURCE:-$ROOT/../actions_flash/actions_dump.c}
+actions_flash_root=${ACTIONS_FLASH_ROOT:-}
+if [ -z "$actions_flash_root" ]; then
+  common_git_dir=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  main_checkout=""
+  if [ -n "$common_git_dir" ]; then main_checkout=$(dirname "$common_git_dir"); fi
+  for candidate in "$ROOT/../actions_flash" "$main_checkout/../actions_flash"; do
+    if [ -d "$candidate" ]; then actions_flash_root=$candidate; break; fi
+  done
+fi
+default_source=""
+if [ -n "$actions_flash_root" ]; then
+  default_source=$actions_flash_root/actions_dump.c
+fi
+SOURCE=${ACTIONS_FLASH_SOURCE:-$default_source}
 OUTPUT=${1:-/private/tmp/actions_dump}
 
 [ -f "$SOURCE" ] || {
-  echo "missing actions_dump.c: $SOURCE" >&2
-  echo "set ACTIONS_FLASH_SOURCE to the actions_flash checkout" >&2
+  if [ -n "$SOURCE" ]; then echo "missing actions_dump.c: $SOURCE" >&2; fi
+  echo "set ACTIONS_FLASH_ROOT or ACTIONS_FLASH_SOURCE to the actions_flash checkout" >&2
   exit 1
 }
 command -v cc >/dev/null 2>&1 || { echo "cc not found" >&2; exit 1; }

@@ -91,7 +91,10 @@ ATJ2127; the tool's chip-ID output is described as a guess, not board
 identification.
 
 The documented `simple_switch`/`read_mem2` sequence writes and executes code
-in volatile device memory, then reads memory. That exact sequence contains no
+in volatile device memory, then reads memory. The checked local
+`actions_dump.c` implementation of `read_mem2` uploads a MIPS16 byte-copy
+helper at `0xbfc1e000` and uses its buffer at `0xbfc1e020`; this clarifies the
+SRAM activity beyond the top-level command names. That exact sequence contains no
 NAND/SD write command, but it is device execution and has not been run here.
 The general `actions_dump` utility also implements flash-writing commands, so
 the utility itself is not read-only. Its README warns that a hung payload can

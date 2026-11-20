@@ -1,15 +1,29 @@
 # ATJ2127 Boot ROM dump
 
-`dump_bootrom.sh` prepares a read-only dump of the ATJ2127 Boot ROM window.
-It is intentionally a dry run unless `--execute` is supplied. The command
-sequence contains only:
+`dump_bootrom.sh` prepares a 256 KiB readback of the ATJ2127 Boot ROM window.
+Its dry run is the default. Execution is not passive: it first
+queries ADFU identity, then uploads and runs code in device SRAM before reading
+the ROM. The command sequence is:
 
-1. `simple_switch 0xbfc18000 adfus.bin` — upload the ADFU server to RAM;
-2. `read_mem2 0x9fc00000 0x40000 ...` — read 256 KiB from the ROM window.
+1. Separate `adfu_info` invocation — query the ADFU chip-family guess;
+2. Main invocation selects `chip 2127` and `blk_size 0x4000`;
+3. `simple_switch 0xbfc18000 adfus.bin` — upload the ADFU server to SRAM;
+4. `read_mem2 0x9fc00000 0x40000 ...` — upload and run its MIPS16 helper at
+   `0xbfc1e000`, then read 256 KiB. The helper uses a buffer at `0xbfc1e020`.
 
-It does not call `write_flash`, `read_lfi`, or any NAND-writing operation.
+The wrapper's command vector does not call `write_flash`, `read_lfi`, or any
+NAND-writing operation. The supplied payload is executed, however, and its
+safety is not established by this wrapper.
 The player must already be in ADFU mode (`10d6:10d6`). A normal mass-storage
-player should be switched separately and explicitly with `adfu_reboot`.
+player should be switched separately with `adfu_reboot`, which itself sends a
+device command and is outside this script. An `ATJ2127` identity result only
+checks the chip-family guess; it does not verify the M30 board or prove that
+the payload is compatible with it.
+
+Without `--execute`, the script prints both the identity preflight and ROM
+readback command. It sends no USB command and creates no output path. Pass
+`--execute --acknowledge-ram-only` only after independently confirming ADFU
+mode and accepting that code will be uploaded to and run from SRAM.
 
 ## Build the host client on macOS
 
@@ -24,15 +38,20 @@ cc -O2 -Wall -Wextra -std=c99 -pedantic -Wno-unused -DUSE_LIBUSB=1 \
   -o /private/tmp/actions_dump actions_dump.c -lusb-1.0
 ```
 
-The same build is reproducible from this repository and does not access USB:
+The same build is reproducible from this repository and does not access USB.
+It locates an adjacent `actions_flash` checkout from the main repository
+checkout when possible. Otherwise set `ACTIONS_FLASH_ROOT` or
+`ACTIONS_FLASH_SOURCE` explicitly:
 
 ```sh
 bash tools/rom/build_actions_dump.sh /private/tmp/actions_dump
 ```
 
-The MIPS `adfus.bin` payload is still needed. The source is present in
-`actions_flash/payload`; this Mac currently has the MIPS binutils but not a
-MIPS C compiler, so the payload has not been rebuilt here.
+The MIPS `adfus.bin` payload is still needed. Its source is present in
+`actions_flash/payload`, but no built payload is present in the local checkout.
+The installed Apple Clang has no MIPS target, so this environment cannot build
+the payload with its current toolchain. A prebuilt payload from another
+ATJ2127 device remains unverified for M30.
 
 ## Where the missing payload may come from
 
@@ -75,9 +94,10 @@ bash tools/rom/dump_bootrom.sh \
   --execute --acknowledge-ram-only
 ```
 
-Before loading the payload, the wrapper calls `adfu_info` as a read-only
-identity check and refuses to upload unless the client reports
-`guess: chip = ATJ2127`. The verifier requires exactly 256 KiB, prints a SHA-256, and shows the bytes
+Before loading the payload, the wrapper calls `adfu_info` and refuses to
+upload unless the client reports `guess: chip = ATJ2127`. This is not a
+device-board or payload-compatibility check. The verifier requires exactly
+256 KiB, prints a SHA-256, and shows the bytes
 at dump offsets `0x5f90` and `0x6d6c`. These are candidates for the
 `0xbfc05f90` and `0xbfc06d6c` targets observed in `ker_xsys.bin`; the alias
 mapping must be confirmed from the dump, not assumed.

@@ -12,6 +12,7 @@ SCRIPT = ROOT / "tools/rom/dump_bootrom.sh"
 
 FAKE_ACTIONS_DUMP = """#!/bin/sh
 set -eu
+printf '%s\\n' "$*" >> "${FAKE_ADFU_LOG:-/dev/null}"
 case " $* " in
   *' adfu_info '*)
     if [ "${FAKE_ADFU_IDENTITY:-ATJ2127}" = ATJ2127 ]; then
@@ -39,9 +40,10 @@ class DumpBootRomTests(unittest.TestCase):
         client = self.make_fake_client(directory)
         adfus = directory / "adfus.bin"
         adfus.write_bytes(b"payload")
-        output = directory / "rom.bin"
+        output = directory / "dump" / "rom.bin"
         env = os.environ.copy()
         env["FAKE_ADFU_IDENTITY"] = identity
+        env["FAKE_ADFU_LOG"] = str(directory / "client.log")
         return subprocess.run(
             [
                 "bash",
@@ -61,13 +63,23 @@ class DumpBootRomTests(unittest.TestCase):
             capture_output=True,
         )
 
-    def test_atj2127_identity_allows_read_only_dump(self):
+    def test_atj2127_identity_allows_ram_rom_readback(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             result = self.run_dump(directory, "ATJ2127")
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("ADFU identity PASS: ATJ2127", result.stdout)
-            self.assertEqual((directory / "rom.bin").stat().st_size, 0x40000)
+            self.assertEqual((directory / "dump" / "rom.bin").stat().st_size, 0x40000)
+            calls = (directory / "client.log").read_text().splitlines()
+            self.assertEqual(len(calls), 2)
+            self.assertIn("adfu_info", calls[0])
+            self.assertIn("chip 2127", calls[1])
+            self.assertLess(calls[1].index("blk_size 0x4000"), calls[1].index("simple_switch"))
+            self.assertIn("blk_size 0x4000", calls[1])
+            self.assertIn("simple_switch", calls[1])
+            self.assertIn("read_mem2", calls[1])
+            self.assertLess(calls[1].index("simple_switch"), calls[1].index("read_mem2"))
+            self.assertNotIn("write_flash", calls[1])
 
     def test_other_identity_refuses_payload_upload(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -75,7 +87,31 @@ class DumpBootRomTests(unittest.TestCase):
             result = self.run_dump(directory, "ATJ2157")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("identity is not confirmed", result.stderr)
-            self.assertFalse((directory / "rom.bin").exists())
+            self.assertFalse((directory / "dump").exists())
+            calls = (directory / "client.log").read_text().splitlines()
+            self.assertEqual(len(calls), 1)
+            self.assertIn("adfu_info", calls[0])
+
+    def test_dry_run_has_no_usb_or_filesystem_side_effects(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            client = self.make_fake_client(directory)
+            adfus = directory / "adfus.bin"
+            adfus.write_bytes(b"payload")
+            log = directory / "client.log"
+            output = directory / "not-created" / "rom.bin"
+            env = os.environ.copy()
+            env["FAKE_ADFU_LOG"] = str(log)
+            result = subprocess.run(
+                ["bash", str(SCRIPT), "--actions-dump", str(client),
+                 "--adfus", str(adfus), "--out", str(output)],
+                cwd=ROOT, env=env, text=True, capture_output=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("adfu_info", result.stdout)
+            self.assertIn("simple_switch", result.stdout)
+            self.assertFalse(log.exists())
+            self.assertFalse(output.parent.exists())
 
 
 if __name__ == "__main__":
