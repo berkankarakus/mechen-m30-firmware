@@ -118,6 +118,56 @@ value for exact MMIO, interrupt, DMA, LCD, storage, and audio behavior.
 References: [ATJ2157 datasheet with model comparison](https://www.digchip.com/datasheets/download_datasheet.php?id=1540586&part-number=ATJ2157&type=pn2),
 [Actions Technology filing](https://static.sse.com.cn/stock/disclosure/announcement/c/202110/000833_20211019_I9Z3.pdf).
 
+## RUIZU X02 ATJ2127 reverse-engineering reference
+
+The [RUIZU X02 custom firmware kit](https://gitlab.com/reverse2682701/ruizu-x02-rev)
+is the strongest related-device implementation lead found in this Reddit
+review. The author reports reverse-engineering the Windows `RDiskUpdate`
+flasher, extracting its decrypted SQLite firmware database in memory, building
+MIPS16 patches with `mipsel-linux-gnu` binutils, identifying usable application
+banks, and injecting a small LCD/UI patch. The public README describes a
+firmware-database `FileTable` editing utility, RGB565 image converters, and
+hooks that substitute a patched database into the updater. It explicitly says
+the project adds code to the existing firmware rather than replacing the OS.
+These are useful techniques to compare with our M30 patch/repack workflow.
+
+The X02 evidence is a close architectural reference, not an M30 port. Its
+Reddit post identifies MIPS32r2 plus MIPS16E; independent X02 teardown/model
+references identify ATJ2127. This supports comparing instruction sequences,
+toolchain behavior, and patch organization. It does not establish identical
+memory-bank placement, driver ABI, board wiring, update protocol, or safe code
+caves. The repository README still lists an LCD emulator as future work, so it
+does not provide a ready-made full emulator. Its README also warns that its
+flashing procedure can damage hardware; none of its updater or flash steps
+were run for this review.
+
+The [r/embedded ATJ2127 build discussion](https://www.reddit.com/r/embedded/comments/1h9ik3s/help_building_firmware_for_atj2127/)
+adds an important limit: users report that the leaked US212A SDK source is
+missing proprietary `SimKernel.lib`, `SimBase.lib`, and `comlib.lib`, blocking
+the documented Visual C++ 6.0 full build. That makes a clean-room rebuild of
+the complete vendor firmware an unproven route; the known M30 container and
+binary-patching workflow remains the concrete path. The same thread links the
+US212A application-design guide that is already indexed elsewhere in this
+repository.
+
+The targeted Reddit scan across `r/embedded` and `r/hardwarehacking` did not
+turn up an M30 ROM dump, board-level debug trace, verified M30 ADFU session, or
+working M30 custom OS. The surfaced `MECHEN_D50` and `ATJ2237` discussions are
+different hardware and do not fill those gaps. For M30 behavior reports,
+playlist and metadata complaints recur, but they are user reports rather than
+binary evidence; see the dated community notes in
+[`findings-rom-dump-availability.md`](findings-rom-dump-availability.md).
+
+### How this changes the next steps
+
+- Compare the X02 patch's MIPS16 encoding and app-bank patch layout against our
+  existing M30 Ghidra segments; borrow only general mechanics after validating
+  them against M30 bytes and free-space analysis.
+- Do not spend effort trying to recreate the complete vendor SDK build until
+  the missing libraries or a reproducible substitute are found.
+- Treat the kit as a patching-method reference, not as a source of M30 addresses
+  or permission to use its flasher.
+
 ## How to use these findings
 
 - Cross-check technical claims against exact M30 binaries, call paths, and
