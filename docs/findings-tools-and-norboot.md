@@ -171,6 +171,34 @@ entry, but does not prove that the payloads are identical or that this exact
 sequence ran on the M30. The reference's later `write_flash` commands were not
 run.
 
+### NORFWSC ADFU result descriptor
+
+The local [`actions_flash` ADFU implementation](https://github.com/kilicdev/actions_flash/blob/007efc8/payload/adfus.c)
+defines an execution result as `{ addr, size }`: command `0x21` stores the
+function's returned pointer, command `0x22` reads its `size`, and command
+`0x23` sends bytes from `addr`. Its host helper in
+[`actions_dump.c`](https://github.com/kilicdev/actions_flash/blob/007efc8/actions_dump.c)
+uses that interface for `exec_ret`.
+
+At candidate NORFWSC address `0xbfc1e2a8`, a Ghidra p-code probe executes the
+real conditional return tail with the helper result and saved stack frame
+seeded. The tested nonzero-result branch stores data pointer `0x9fc24ca4` at
+`0x9fc24cfc`, writes size `0x58` at `0x9fc24d00`, returns `0x9fc24cfc` in
+`v0`, and reaches the seeded return address. This matches the
+`actions_flash` result-descriptor shape. Reproduce with
+`GHIDRA=/path/to/analyzeHeadless bash tools/ghidra/run_nor_fwsc_probe.sh
+/path/to/NORFWSC.BIN`.
+
+This is a bounded code-path execution, not a run of the complete NORFWSC entry:
+the prior helper bodies and the zero-result branch are not modeled. The AFI
+entry does not explicitly declare `0xbfc1e200` as an entry point, so its
+relationship to the public recipe remains a high-confidence address/layout
+correlation rather than proof of M30 runtime invocation. The recipe requests
+512 bytes with fixed `exec_ret ... 512`; in the tested NORFWSC branch the
+descriptor advertises `0x58` bytes. The host implementation uses the explicit
+512-byte request without first querying the descriptor size, so the request
+length alone must not be interpreted as NORFWSC's reported result size.
+
 Observed bytes and disassembly:
 
 - At file offset `0x1c`, the little-endian word is `0xbfc32000`.
