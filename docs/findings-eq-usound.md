@@ -260,6 +260,17 @@
   completion signaling, downstream consumer, and DAC remain outside the test.
   Reproduce with `bash tools/emu/run_qemu_usound_ep0_stream_probe.sh
   <hash-matching-usound.drv>`.
+- `tools/emu/run_qemu_usound_rate_state_probe.sh` compares the real producer and
+  threshold/DMA-setup functions after manually seeding the rate bytes and flags
+  observed in the Ghidra `SET_CUR` probe. With the hash-locked `usound.drv`,
+  both 48 kHz and 32 kHz runs
+  passed: the three rate bytes differed as expected, while the 74-packet ring
+  payload/checksum, byte count, ready latch, DMA address, control, and size were
+  identical. Thus the tested producer/threshold path does not observably use
+  those seeded rate bytes. The harness does not invoke EP0 `SET_CUR`, the
+  consumer/module-`0x10` service, or a physical DAC; it cannot establish
+  end-to-end rate support or lack of rate use elsewhere. Reproduce with
+  `bash tools/emu/run_qemu_usound_rate_state_probe.sh <hash-matching-usound.drv>`.
 - `tools/ghidra/run_usound_interface_probe.sh` now replays the real
   `SET_INTERFACE` handler from the hash-locked `usound.drv` in Ghidra p-code.
   With synthetic MMIO, alternate setting 1 clears the producer/consumer
