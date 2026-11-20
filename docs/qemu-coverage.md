@@ -143,6 +143,7 @@ suite therefore no longer re-imports the same driver eight times.
 | USB Audio ring-consumer/stream boundary | Ghidra `usound.drv` + bounded host stream | PASS; 0x1000-byte wrapped byte reads, firmware's zero-on-wrap read-pointer reset, and 100-short-read reset; decoder/PCM ownership remains separate |
 | Real `usound.drv` leaf execution | exact 0xbfc30000 segment + QEMU/MIPS16 JALX wrapper | PASS; `FUN_bfc30cac` byte copy and `FUN_bfc30ce8` 3-to-4 expansion execute in QEMU; globals/peripherals remain outside |
 | Real `usound.drv` ring-consumer execution | exact segment + relocated literal-pool state + real MIPS16 `break 0` module call | PASS; `FUN_bfc31654` consumes linear and wrapped requests, invokes module `0x10` twice on wrap, and resets its read pointer to zero; fixed-ROM service/DAC side effect remains unresolved |
+| USB consumer module-0x10 candidate copy ABI | `tools/emu/run_qemu_usound_chain_probe.sh` | PASS; real producer/consumer arguments are trapped; a synthetic exception shim constrained to `(a0=0x80065000,a1=ring source,a2=16,a3=0)` copies the source into a sentinel-filled destination, which is verified byte-for-byte. The tuple matches the independent `aud_dev` candidate copy shape, but the ROM service implementation and PCM/DAC meaning remain unverified. |
 | Real `usound.drv` module stubs | exact segment + QEMU exception-vector shim | PASS across all six local driver corpora; the real `0xbfc326a9` module-`0x10` stub and `0xbfc326ad` module-`0x0f` stub both raise exception code 9, with their respective four arguments captured. The module-`0x0f` check injects a setup-shaped tuple directly into the stub; it does not execute `FUN_bfc322e4` or the fixed handler. The actual caller tuple is captured separately by the Ghidra p-code setup probe below. |
 | Real `usound.drv` setup callsite | `tools/ghidra/run_usound_setup_probe.sh` | PASS; executes `FUN_bfc322e4` in MIPS16 p-code with RAM-backed synthetic MMIO, intercepting module stubs and returning `v0=0`. Captures 10 module-`0x0f` calls and one module-`0x10` call, including actual `(a0=0x14,a1=0xbfc3125d,a2=0,a3=0x14)` and `(a0=0x0a,a1=0xbfc31115,a2=0,a3=0x14)` tuples. Fixed-ROM service effects remain stubbed. |
 | Passive QEMU exception observation | QEMU 11.1.3 TCG plugin + callback probe | PASS; independent observer reports `from=0x800526aa -> to=0x80010180`; guest CP0 trace remains authoritative for Cause/EPC/Status |
@@ -366,12 +367,13 @@ and `0x9fc34000`/`0x1000` consumer ring) are deliberately relocated to the same
 guest base `0x80061000`. The probe seeds the producer's scratch with bytes
 `0x10..0x1f`, checks the real producer copy helper writes them into the ring,
 and checks that the consumer's module-`0x10` callback receives the same source
-address and bytes. Across all six local `usound.drv` corpora, state reaches 16
-and the real break-0 call traps once. The exception shim does not copy into the
-consumer destination, so this is synthetic aliased-ring data-flow coverage;
-it does not prove that firmware naturally connects these rings or that the
-stock USB callback, kernel service, PCM owner, or DAC consumes the same data on
-hardware.
+address and bytes. The module-`0x10` exception shim checks the observed
+destination/length tuple, applies the candidate memcpy behavior, and verifies
+the destination bytes. The nine local `usound.drv` artifacts have an identical
+SHA-256; the representative community binary passes. This is synthetic
+aliased-ring and candidate-ABI coverage, not proof that firmware naturally
+connects these rings or that the stock ROM service, PCM owner, or DAC consumes
+the same data on hardware.
 
 `bash tools/emu/run_qemu_lcd_probe.sh` executes the real LCD resident helpers
 `FUN_bfc0a378` and `FUN_bfc0a438`. The guest relocates only the driver's

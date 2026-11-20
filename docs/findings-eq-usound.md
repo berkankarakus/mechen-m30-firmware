@@ -384,6 +384,16 @@
   proves that the synthetic vector receives a genuine MIPS breakpoint trap;
   it does not identify the unavailable fixed-ROM service that the stock vector
   would invoke. Re-run it with `bash tools/emu/run_qemu_usound_callback_probe.sh`.
+- The module-`0x10` arguments from `FUN_bfc31654` match the independent
+  `aud_dev` caller's candidate copy shape `(destination, source, length, 0)`.
+  `tools/emu/run_qemu_usound_chain_probe.sh` now tests that hypothesis with an
+  explicit exception-vector `memcpy` shim: it checks the USB consumer's
+  destination and length, copies 16 synthetic ring bytes into a sentinel-filled
+  destination, and verifies the destination byte-for-byte afterward. The real
+  consumer and argument tuple execute in QEMU; the copy shim is synthetic. This
+  demonstrates a consistent candidate ABI, not that the unavailable ROM
+  module-`0x10` service performs this copy or that the data is PCM/DAC input.
+  The two ring addresses remain deliberately aliased.
 - `m30_preview_session.py` can now carry an explicitly supplied exception frame
   into its JSON trace with `--callback-exception CODE EPC BADVADDR STATUS`.
   The values are optional and the field is omitted when no context is supplied.
@@ -534,10 +544,12 @@
   corpora pass: producer state reaches 16, its real byte-copy helper writes a
   seeded `0x10..0x1f` pattern into the aliased ring, `FUN_bfc31654` returns 16,
   and the module-`0x10` break-0 call observes the same source address and
-  sixteen bytes. The exception shim still does not copy into the consumer
-  destination at `0x80065000`. This verifies data flow under an injected alias,
-  not the firmware's natural ring connection, the fixed-ROM service, PCM
-  ownership, USB interrupt path, or DAC routing.
+  sixteen bytes. A candidate memcpy exception shim now also copies those bytes
+  into a sentinel-filled destination and verifies the result. The nine local
+  corpora contain the same driver hash; the representative community binary
+  passes. This is synthetic aliased-ring data-flow and candidate-ABI coverage,
+  not proof that firmware naturally connects these rings or that the stock ROM
+  service, PCM owner, or DAC consumes the data on hardware.
 - uhost.drv (9216 B): V 6 aligned literals "USBC" (CBW sig 0x43425355) at 0xa08,0xd44,0xed0,0x18bc,0x1984,0x1ad0, no "USBS"; Ghidra also shows SCSI READ(10)/WRITE(10) and 512-byte transfers. It is therefore the Bulk-Only-Transport mass-storage host path (USB flash), not evidence of USB Audio host support. V referenced by config/mainmenu/music/setting .ap.
 
 ## Product-documentation cross-check

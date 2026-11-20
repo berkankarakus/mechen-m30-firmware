@@ -28,6 +28,12 @@ general_exception:
 	li	$k1, 16
 	bne	$a2, $k1, callback_bad_data
 	 nop
+	lui	$k1, 0x8006
+	ori	$k1, $k1, 0x5000
+	bne	$a0, $k1, callback_bad_data
+	 nop
+	bnez	$a3, callback_bad_data
+	 nop
 	lw	$k1, 0($a1)
 	lui	$k0, 0x1312
 	ori	$k0, $k0, 0x1110
@@ -48,6 +54,28 @@ general_exception:
 	ori	$k0, $k0, 0x1d1c
 	bne	$k1, $k0, callback_bad_data
 	 nop
+	/* Candidate module-0x10 memcpy(a0=dst,a1=src,a2=len,a3=0) shim.
+	 * The same tuple shape is observed in the independent aud_dev probe. */
+	lui	$k0, 0x8006
+	ori	$k0, $k0, 0x4010
+	sw	$t0, 0($k0)
+	or	$k0, $a0, $zero
+	or	$k1, $a1, $zero
+	or	$t0, $a2, $zero
+callback_copy_loop:
+	beqz	$t0, callback_copy_done
+	 nop
+	lbu	$at, 0($k1)
+	sb	$at, 0($k0)
+	addiu	$k0, $k0, 1
+	addiu	$k1, $k1, 1
+	addiu	$t0, $t0, -1
+	b	callback_copy_loop
+	 nop
+callback_copy_done:
+	lui	$k0, 0x8006
+	ori	$k0, $k0, 0x4010
+	lw	$t0, 0($k0)
 	b	callback_data_checked
 	 nop
 callback_bad_data:
@@ -157,6 +185,17 @@ _start:
 	sw	$zero, 0xc($t1)
 	/* a1 is the destination passed through the real callback envelope. */	lui	$a1, 0x8006
 	ori	$a1, $a1, 0x5000
+	/* Start with a sentinel so a successful candidate copy is observable. */
+	li	$t1, 0xa5
+	li	$t2, 16
+init_destination:
+	sb	$t1, 0($a1)
+	addiu	$a1, $a1, 1
+	addiu	$t2, $t2, -1
+	bnez	$t2, init_destination
+	 nop
+	lui	$a1, 0x8006
+	ori	$a1, $a1, 0x5000
 	/* a2 is the consumer's available/read state descriptor. */	or	$a2, $t0, $zero
 	jalx	0x80051654
 	 nop
@@ -182,6 +221,20 @@ _start:
 	 nop
 	lw	$t1, 0xc($t0)
 	bnez	$t1, fail_callback_data
+	 nop
+	/* Verify that the explicit candidate service shim copied the 16 bytes. */
+	lui	$t0, 0x8006
+	ori	$t0, $t0, 0x5000
+	li	$t1, 0x10
+	li	$t2, 16
+verify_destination:
+	lbu	$t3, 0($t0)
+	bne	$t3, $t1, fail_destination_copy
+	 nop
+	addiu	$t0, $t0, 1
+	addiu	$t1, $t1, 1
+	addiu	$t2, $t2, -1
+	bnez	$t2, verify_destination
 	 nop
 
 	la	$a0, pass_text
@@ -213,6 +266,10 @@ fail_callback_module_id:
 	 nop
 fail_callback_data:
 	la	$a0, callback_data_text
+	b	fail
+	 nop
+fail_destination_copy:
+	la	$a0, destination_copy_text
 
 fail:
 	jal	puts
@@ -245,7 +302,7 @@ puts_done:
 
 	.section .rodata
 pass_text:
-	.asciz	"REAL USOUND CHAIN PASS alias=0x80061000 producer=16 consumer=16 source_bytes=16 callback_source_verified=1 destination_copy_unchecked=1 module=0x10\r\n"
+	.asciz	"REAL USOUND CHAIN PASS alias=0x80061000 producer=16 consumer=16 source_bytes=16 module10_candidate_memcpy=1 destination_verified=1 module=0x10 service_is_hypothesis\r\n"
 producer_text:
 	.asciz	"REAL USOUND CHAIN FAIL producer\r\n"
 producer_bytes_text:
@@ -258,6 +315,8 @@ module_id_text:
 	.asciz	"REAL USOUND CHAIN FAIL module-id\r\n"
 callback_data_text:
 	.asciz	"REAL USOUND CHAIN FAIL callback-source\r\n"
+destination_copy_text:
+	.asciz	"REAL USOUND CHAIN FAIL destination-copy\r\n"
 
 	.section .driver,"ax"
 	.align	2
