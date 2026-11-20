@@ -133,6 +133,25 @@ The AFI archives already extracted from dated M30 updates contain a
 2022-09-14 and 2025-06-26 images, and the corpus note records the same hash for
 the other compared releases.
 
+The outer AFI directory entry was also checked directly by decrypting the
+already-local 2025-06-26 HEX with Rockbox `atjboottool` in ATJ2127 mode, then
+unpacking its AFI. The `NORBREC.BIN` entry has type `B`, AFI address `0`, file
+offset `0x34c00`, size `0x28a00`, and additive checksum `0x96b22f89`; the AFI
+checksum verifier passes. The extracted member is byte-identical to the
+existing local copy (SHA-256 above). Because the AFI address is zero, it does
+not explain the internal word `0xbfc32000` at member offset `0x1c` or prove a
+runtime load address. It only confirms the outer member boundary and checksum.
+This prevents treating the internal address candidate as an AFI directory
+load-address field.
+
+The local tool invocation was performed with output confined to a unique
+temporary directory; no image was downloaded and no device or card was
+written. To repeat on another already-local image, run `atjboottool
+--fwu --atj2127 -o <temporary-dir>/decoded.afi <input.HEX>`, then run
+`atjboottool --afi -o <temporary-dir>/members/ <temporary-dir>/decoded.afi`
+after creating the empty `members/` directory. The AFI output reports the
+directory entry and verifies its checksum before extracting members.
+
 Observed bytes and disassembly:
 
 - At file offset `0x1c`, the little-endian word is `0xbfc32000`.
@@ -247,8 +266,11 @@ decompiling each dated copy would add no independent code evidence.
 1. Recover the actual caller and fixed-ROM values behind the `0xbfc32058`
    callback bridge; establish whether the `0x9fc12000` setup runs before
    firmware `ker_init`.
-2. Identify the data and entry fields in the NORBREC header and test candidate
-   length/checksum interpretations against all nine local dated AFI copies.
-3. Compare `NORBREC.BIN` with `CARDPRDU.BIN`, `NORHWSC.BIN`, `NORFWSC.BIN`,
-   and `NORMBREC.BIN` to identify shared header and loader conventions.
+2. Identify the internal NORBREC header's data and entry fields. The outer AFI
+   record is now known but supplies no load address; the nine local dated
+   NORBREC copies are byte-identical, so they cannot independently validate
+   candidate field meanings.
+3. Treat other AFI members as separate boot components unless code-level
+   evidence connects them; their stable hashes alone do not establish shared
+   loader conventions.
 4. Keep all analysis offline. Do not execute guessed payloads on the player.
