@@ -159,6 +159,23 @@ This closes the p-code check for extracted table-construction logic; it does
 not prove that the device executed this constructor during boot, and it does
 not execute fixed-ROM handlers or the later ROM `memset` calls.
 
+## Constructor-to-vector integration
+
+`tools/ghidra/run_kernel_initialized_exception_probe.sh` now composes the
+hash-pinned `ker_init.bin` constructor/setter with the real MIPS32 vector from
+`kernel.drv` in one Ghidra p-code machine. The constructor writes ExcCode 9's
+entry at `0x9fc1a9c8`; the vector then runs with Cause `0x80000027`, computes
+the table byte offset `Cause & 0x7c == 0x24` (ExcCode slot 9), saves EPC/RA/Cause at the recovered state words, and
+branches to `0xbfc06f18`. The probe passed after 1,177 constructor steps and
+17 vector steps. It stops on the handler address before executing it.
+
+This closes the extracted-code connection between the table writer and vector
+consumer; unlike the earlier isolated dispatch probe, the handler table is
+populated by the real constructor rather than seeded with a synthetic ExcCode
+9 value. It still uses synthetic RAM for the table/state and does not prove
+the device boot sequence called this constructor. The fixed-ROM handler body
+and its behavior remain unavailable.
+
 ## `drv_ui.drv` header and public bank formula
 
 For the M30 `drv_ui.drv` header, the group-start fields are:
