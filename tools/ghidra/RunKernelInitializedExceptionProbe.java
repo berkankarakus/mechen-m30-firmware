@@ -73,9 +73,8 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
         require(init.length >= 0xc60, "ker_init.bin truncated before table constructor");
 
         Memory memory = currentProgram.getMemory();
-        mapRam(memory, "initialized_exception_table", 0x9fc09000L, 0x13000);
+        mapRam(memory, "initialized_exception_table", 0x9fc18000L, 0x4000);
         mapRam(memory, "initialized_exception_state", STATE, 0x100);
-        mapRam(memory, "initialized_exception_rom_data", 0xbfc19000L, 0x1000);
         for (int offset = 0; offset < TABLE_BYTES; offset += 4)
             putWord(memory, TABLE + offset, SENTINEL);
 

@@ -17,8 +17,11 @@ public class RunKernelInitCp0Probe extends GhidraScript {
     private static final long ENTRY = 0xbfc32000L;
     private static final long FUNCTION = 0xbfc32224L;
     private static final long STOP_PC = 0xbfc32040L;
-    private static final long RAM_BASE = 0x9fc00000L;
-    private static final int RAM_SIZE = 0x40000;
+    // Public ADFU tooling reports a Boot-ROM view over the first 96 KiB at
+    // this alias. Runtime mapping outside ADFU is unverified, so this bounded
+    // probe maps only the higher addresses it uses for its synthetic stack.
+    private static final long RAM_BASE = 0x9fc18000L;
+    private static final int RAM_SIZE = 0x28000;
     private static final long INTC_BASE = 0xc00a0000L;
     private static final int INTC_SIZE = 0x1000;
     private static final long WD_BASE = 0xc0120000L;

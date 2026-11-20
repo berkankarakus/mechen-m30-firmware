@@ -101,6 +101,18 @@ the utility itself is not read-only. Its README warns that a hung payload can
 leave some devices difficult to reboot. No device interaction, payload
 download, or device/SD/NAND write was performed for this finding.
 
+### Kernel-init offsets worth inspecting in a readback
+
+Static disassembly of `ker_init.bin` references `0x9fc12000`,
+`0x9fc12014`, `0x9fc12200`, and `0x9fc12204`. Under the candidate
+copy-helper ABI, the first two ranges supply 20 and 32 bytes to RAM structures;
+the first copied word is then called as a function pointer. These addresses
+fall at offsets `0x12000`, `0x12014`, `0x12200`, and `0x12204` in the
+documented ADFU readback window. A ROM dump could therefore resolve the
+candidate template bytes and callback value. It would not by itself prove
+that normal boot maps these addresses to the same ROM bytes; the runtime map
+and `0xbfc04635` behavior still need confirmation.
+
 ### What this changes
 
 - It gives us a concrete route to try to obtain the fixed-ROM bytes missing

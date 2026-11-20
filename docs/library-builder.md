@@ -81,6 +81,13 @@ The chip has 256 KB of RAM at physical `0x1fc00000` to `0x1fc40000`, seen as `0x
 (cached) or `0xbfc00000` (uncached). Apps run uncached at `0xbfc16400`. The builder's buffers,
 set up by `FUN_40055068` (bank `0x40054c00`, file `0x2868`), are:
 
+This is the normal-firmware address interpretation used by the recovered
+application pointers. Do not conflate it with the ADFU readback view: public
+ATJ2127 tooling reports Boot ROM in the first 96 KiB of the `0x9fc00000`
+window while in ADFU. The mapping at `0x9fc12000` during normal kernel
+initialization remains unresolved; see
+[`findings-kernel-loader.md`](findings-kernel-loader.md#what-the-three-entry-path-helpers-do-and-what-remains-unknown).
+
 | Variable | Buffer | Size | Stock use |
 |---|---|---|---|
 | `0x9fc154d4` | `0x9fc22000` | 8 KB | Record staging buffer during the scan: 32 records, flushed with the append write. |

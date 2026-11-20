@@ -19,6 +19,24 @@ drv_ui.drv  011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a
 This means the loader observations below apply to the firmware versions we
 have been comparing, rather than to one community-only variant.
 
+The nine dated extracted images currently available in the local corpus
+(`2022-09-14`, `2022-11-17`, `2023-02-20`, `2023-07-26`, `2024-02-28`,
+`2024-03-19`, `2024-04-24`, `2025-02-17`, and `2025-06-26`) also contain
+byte-identical `ker_init.bin`, `ker_data.bin`, `ker_text.bin`, `ker_xsys.bin`,
+and `kernel.drv` members. The hashes are respectively:
+
+```text
+ker_init.bin  f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
+ker_data.bin  bea7c4c2df49b43717f1fc61e23fa75a3adad6c974489272760d1d924cce4158
+ker_text.bin  035a58572630e59cccf7fd1f01e2d0bafbc8d04860e8f7b72555dffcf71288ac
+ker_xsys.bin  deaf67edce7eca6397abd1ca91f742ccbe70f451bb4926c75c7e46862e3b2988
+kernel.drv    58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6
+```
+
+For these nine dated releases, repeating kernel-support decompilation would
+not add independent code evidence. This does not establish identity for the
+two earlier dated releases that are absent from the extracted local corpus.
+
 ## Resident addresses
 
 The firmware's `dec.bin` contains the fixed kernel-component address table.
@@ -208,11 +226,26 @@ The extracted instructions support these bounded descriptions:
   `(0x9fc2aad8,0x9fc12000,0x14)`,
   `(0x9fc2a980,0x9fc12014,0x20)`, and
   `(0xbfc180f8,0x9fc12200,4)`. These shapes are consistent with clear/copy
-  operations, but their ABI and effects are not confirmed. It then loads a
-  word from `0x9fc2aad8` and calls it indirectly with
+  operations, but the fixed-ROM implementations are unavailable. The
+  argument direction has a stronger data-flow constraint than the helper
+  name: the preceding clear covers `0x9fc2a48c..0x9fc2ac80`, including
+  `0x9fc2aad8`; after the three candidate copy calls, the code loads the
+  first word at `0x9fc2aad8` and uses it as a `jalr` target. If
+  `0xbfc04635` is a conventional copy routine, its first argument must be the
+  destination for the first call for this path to install that callback
+  pointer. This is a strong ABI hypothesis from the consumer data flow, not
+  execution evidence for the unavailable ROM helper. The source addresses
+  `0x9fc12000`, `0x9fc12014`, and `0x9fc12200` lie in the first 96 KiB of the
+  `0x9fc00000` address window. Public ATJ2127 tooling reports a Boot-ROM view
+  in this range during ADFU: ordinary `read_mem` returns zeros, while a
+  ROM-reading payload uses `read_mem2`. This makes the offsets useful ROM-dump
+  targets, but does not establish the address mapping during normal M30
+  kernel initialization. They could be ROM-backed there or a preinitialized
+  RAM source; the runtime mapping and bytes remain unknown. It then calls the
+  loaded word indirectly with
   `(a0=0xfffffff0, a1=0xbfc1855d, a2=0)`. The indirect target depends on the
-  unresolved copy/source data. The function later copies a word from
-  `0x9fc12204` to `0xbfc32fc4`; that source word is outside the preceding
+  unresolved source contents. The function later reads a word from
+  `0x9fc12204` into `0xbfc32fc4`; that source word is outside the preceding
   four-byte copy range.
 - `FUN_bfc32440` writes `0x1a` to `0x9fc2a8a8` and `0x9fc2a8aa`, stores
   derived timing-like values in nearby RAM, and performs a sequence of
@@ -223,11 +256,15 @@ The extracted instructions support these bounded descriptions:
   initial values of the RMW registers are unavailable.
 
 This is not a full semantic interpretation of those functions: the first has
-unknown external side effects, the second depends on an unobserved runtime
-buffer and callback pointer, and the third depends on peripheral reset
+unknown external side effects, the second depends on unavailable source bytes,
+the fixed-ROM copy helper, and the normal-boot memory map, and the third depends on peripheral reset
 state and ROM services. Accordingly, the call targets remain unnamed and no
 complete initialization behavior is inferred from the helper names or
 argument shapes.
+
+The ATJ2127 Boot ROM map is documented in the public
+[`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).
+This is chip-family evidence, not a ROM dump or M30 hardware confirmation.
 
 ## Constructor-to-vector integration
 

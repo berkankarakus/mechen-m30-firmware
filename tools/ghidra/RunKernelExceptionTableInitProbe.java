@@ -60,9 +60,8 @@ public class RunKernelExceptionTableInitProbe extends GhidraScript {
             throw new Exception("usage: RunKernelExceptionTableInitProbe.java KER_INIT.BIN");
 
         Memory memory = currentProgram.getMemory();
-        mapRam(memory, "exception_table_init_ram", 0x9fc09000L, 0x13000);
+        mapRam(memory, "exception_table_init_ram", 0x9fc18000L, 0x4000);
         mapRam(memory, "exception_table_init_low_state", 0x00013d00L, 0x100);
-        mapRam(memory, "exception_table_init_rom_data", 0xbfc19000L, 0x1000);
 
         for (int offset = 0; offset < TABLE_BYTES; offset += 4)
             putWord(memory, TABLE + offset, SENTINEL);
