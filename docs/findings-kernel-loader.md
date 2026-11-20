@@ -189,20 +189,26 @@ handoff.
 
 The first pre-constructor helper, `FUN_bfc32224`, is now executed from the
 actual extracted segment entry with the hash-pinned p-code probe
-`tools/ghidra/run_kernel_init_cp0_probe.sh`. It stops at `0xbfc32040`, after
-the helper returns and before the next fixed-ROM reset call. The entry first
-sets up its stack and writes `1` to `0xc012001c`. A CP0 `setCopReg` callback
-writes the actual Ghidra CP0 register varnodes, while calls from the helper to
-`0xbfc05000` and `0xbfc05028` are logged and return-stubbed (`v0=0`). The code
-does not consume either return value. In 357 steps, the probe verifies
+`tools/ghidra/run_kernel_init_cp0_probe.sh`. The probe continues through the
+next caller instructions and stops at the first unresolved reset-helper
+pointer `0xbfc045f5` (aligned execution PC `0xbfc045f4`), before executing it.
+It verifies that the caller prepared `a0=0x9fc13d00`, `a1=0`, `a2=0xe0`,
+with return address `0xbfc32060`. The entry first sets up its stack and writes
+`1` to `0xc012001c`. A CP0 `setCopReg` callback writes the actual Ghidra CP0
+register varnodes, while calls from the helper to `0xbfc05000` and
+`0xbfc05028` are logged and return-stubbed (`v0=0`). The code does not
+consume either return value. In 364 steps, the probe verifies
 `Status=0`, `IntCtl=0`, `SRSCtl=0`, `SRSMap=0`, `Cause=0x00800000`, and
 `EBase=0xbfc08000`; it also verifies `0x1fc00000` at
 `0xc00a004c+4*i` for `i=0..21` and at `0xc00a00c0+4*i` for `i=0..3`.
 
 This is a bounded segment-entry control-flow and register-write check, not a
-model of the two ROM services' possible interrupt side effects. The following
-`FUN_bfc322f8` remains unexecuted: it calls fixed-ROM reset/copy candidates,
-then calls a function pointer loaded from `0x9fc2aad8`. Its copied data and
+model of the `0xbfc05000`/`0xbfc05028` services' possible interrupt side
+effects or the `0xbfc045f5` reset helper. It verifies the actual caller
+arguments at that first unresolved edge, but does not prove that the helper
+clears the requested range. `FUN_bfc322f8` remains unexecuted: it calls
+fixed-ROM reset/copy candidates, then calls a function pointer loaded from
+`0x9fc2aad8`. Its copied data and
 call target are not established by the extracted image, and the candidate
 copy routine's argument order is unresolved. Do not substitute host
 `memset`/`memcpy` based only on the call shape. `FUN_bfc32440` also performs
@@ -257,10 +263,16 @@ The extracted instructions support these bounded descriptions:
 
 This is not a full semantic interpretation of those functions: the first has
 unknown external side effects, the second depends on unavailable source bytes,
-the fixed-ROM copy helper, and the normal-boot memory map, and the third depends on peripheral reset
-state and ROM services. Accordingly, the call targets remain unnamed and no
-complete initialization behavior is inferred from the helper names or
-argument shapes.
+the fixed-ROM copy helper, and the normal-boot memory map, and the third
+depends on peripheral reset state and ROM services. Accordingly, the call
+targets remain unnamed and no complete initialization behavior is inferred
+from the helper names or argument shapes.
+
+The `0xbfc045f5` call shape is better constrained than its name: segment entry
+also calls it with `(0x9fc13d00, 0, 0xe0)`, and `FUN_bfc322f8` later calls it
+with `(0x00013d00, 0, 0xe0)`. All three callsites pass a start address, zero,
+and an end-minus-start length. This strongly supports a clear/zero routine,
+but its MIPS16 body is absent, so the effect remains a hypothesis.
 
 The ATJ2127 Boot ROM map is documented in the public
 [`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).

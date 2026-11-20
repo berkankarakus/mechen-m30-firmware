@@ -35,8 +35,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
       exit 1
     }
 
-grep -Fq 'KERNEL INIT CP0 PASS entry=0xbfc32000 helper=0xbfc32224 stop=0xbfc32040' "$WORK/run.log" || {
+grep -Fq 'KERNEL INIT ENTRY PASS entry=0xbfc32000 helper=0xbfc32224 first-rom-edge=0xbfc045f5 stop=0xbfc045f5' "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }
-grep 'KERNEL INIT CP0 PASS' "$WORK/run.log"
+grep 'KERNEL INIT ENTRY PASS' "$WORK/run.log"

@@ -1,5 +1,5 @@
-// Execute the extracted MIPS32 kernel-init CP0/interrupt setup helper.
-// Fixed-ROM calls are intercepted only after recording their call site/target.
+// Execute the extracted MIPS32 kernel-init entry to its first unresolved ROM edge.
+// Earlier fixed-ROM calls are intercepted; the first reset helper is not run.
 import ghidra.app.emulator.EmulatorHelper;
 import ghidra.app.script.GhidraScript;
 import ghidra.pcode.emulate.BreakCallBack;
@@ -16,7 +16,7 @@ import java.util.Map;
 public class RunKernelInitCp0Probe extends GhidraScript {
     private static final long ENTRY = 0xbfc32000L;
     private static final long FUNCTION = 0xbfc32224L;
-    private static final long STOP_PC = 0xbfc32040L;
+    private static final long STOP_PC = 0xbfc045f5L;
     // Public ADFU tooling reports a Boot-ROM view over the first 96 KiB at
     // this alias. Runtime mapping outside ADFU is unverified, so this bounded
     // probe maps only the higher addresses it uses for its synthetic stack.
@@ -113,12 +113,17 @@ public class RunKernelInitCp0Probe extends GhidraScript {
 
             boolean returned = false;
             boolean helperReached = false;
+            long edgeA0 = 0, edgeA1 = 0, edgeA2 = 0, edgeRa = 0;
             int steps = 0;
             for (; steps < MAX_STEPS; steps++) {
                 long pc = reg(emu, "pc");
                 if (pc == FUNCTION) helperReached = true;
-                if (pc == STOP_PC) {
+                if ((pc & ~1L) == (STOP_PC & ~1L)) {
                     returned = true;
+                    edgeA0 = reg(emu, "a0");
+                    edgeA1 = reg(emu, "a1");
+                    edgeA2 = reg(emu, "a2");
+                    edgeRa = reg(emu, "ra");
                     break;
                 }
                 if (pc == 0xbfc05000L || pc == 0xbfc05028L) {
@@ -138,8 +143,13 @@ public class RunKernelInitCp0Probe extends GhidraScript {
                         "p-code stopped at 0x%08x: %s", pc, emu.getLastError()));
             }
 
-            require(returned, "entry did not reach post-CP0 boundary within step limit");
+            require(returned, "entry did not reach first unresolved ROM edge within step limit");
             require(helperReached, "entry path did not call the CP0 helper");
+            require(edgeA0 == 0x9fc13d00L && edgeA1 == 0 && edgeA2 == 0xe0,
+                String.format("first reset-helper arguments mismatch: a0=0x%08x a1=0x%08x a2=0x%08x",
+                    edgeA0, edgeA1, edgeA2));
+            require(edgeRa == 0xbfc32060L,
+                String.format("first reset-helper return address mismatch: 0x%08x", edgeRa));
             require(reg(emu, "Status") == 0, "CP0 Status write mismatch");
             require(reg(emu, "Cause") == 0x00800000L,
                 "CP0 Cause write mismatch");
@@ -175,8 +185,9 @@ public class RunKernelInitCp0Probe extends GhidraScript {
                     String.format("0x%08x", item.getValue()));
             }
             println(String.format(
-                "KERNEL INIT CP0 PASS entry=0x%08x helper=0x%08x stop=0x%08x steps=%d cp0-writes=%s intc-slots=22+4 watchdog=0x%08x fixed-rom-return-stubs=%s result-registers-used=0",
-                ENTRY, FUNCTION, STOP_PC, steps, writes, word(emu, WD_BASE + 0x1c),
+                "KERNEL INIT ENTRY PASS entry=0x%08x helper=0x%08x first-rom-edge=0x%08x stop=0x%08x args=0x%08x,0x%08x,0x%08x ra=0x%08x steps=%d cp0-writes=%s intc-slots=22+4 watchdog=0x%08x fixed-rom-return-stubs=%s result-registers-used=0",
+                ENTRY, FUNCTION, STOP_PC, STOP_PC, edgeA0, edgeA1, edgeA2, edgeRa,
+                steps, writes, word(emu, WD_BASE + 0x1c),
                 String.join(",", romReturns)));
         }
         finally {

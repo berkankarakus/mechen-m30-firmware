@@ -113,6 +113,19 @@ candidate template bytes and callback value. It would not by itself prove
 that normal boot maps these addresses to the same ROM bytes; the runtime map
 and `0xbfc04635` behavior still need confirmation.
 
+The local `actions_dump.c` accepts an arbitrary 32-bit address and size for
+`read_mem2`, splitting requests into chunks of at most `0x1d8` bytes. Once
+`adfus.bin` is already active in ADFU, the focused read is:
+
+```text
+read_mem2 0x9fc12000 0x208 /path/to/kernel-init-source.bin
+```
+
+This returns `0x9fc12000..0x9fc12207` inclusive in a `0x208`-byte file. The
+helper code is uploaded to and executed from volatile SRAM; this is not a
+passive USB read, and the M30/ADFU payload match remains unverified. The
+repository's existing `dump_bootrom.sh` remains dry-run by default.
+
 ### What this changes
 
 - It gives us a concrete route to try to obtain the fixed-ROM bytes missing
