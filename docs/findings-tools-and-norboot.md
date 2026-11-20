@@ -75,6 +75,29 @@ probes and exception-vector observation, not full M30 boot, LCD, or DAC
 fidelity. A source-level ATJ machine would need evidence-backed memory maps and
 peripheral effects before its results would be trustworthy.
 
+### Other locally available analysis tools
+
+The local tool survey is focused on tools that can materially inspect or run
+these firmware images; it is not an audit of every application installed on
+the host.
+
+- GNU MIPS binutils (`as`, `ld`, `objcopy`, `objdump`) are the useful mixed-mode
+  path here: they assemble MIPS probes and disassemble both MIPS32 and MIPS16.
+- Capstone's installed `cstool` was tested on the extracted kernel vector. Its
+  MIPS32 output independently agrees with the vector bytes, but the installed
+  Capstone API exposes MicroMIPS mode and no MIPS16 mode. It is therefore a
+  cross-check for MIPS32, not a replacement for binutils/Ghidra on MIPS16.
+- CodeGraph is available for source-level navigation in this repository. Its
+  index can connect callers and dependencies among our scripts and emulator
+  code; it does not disassemble firmware blobs or recover firmware semantics.
+  The index was synced after the latest probe commit.
+- The targeted command/app/module check found no Binary Ninja, radare2, Rizin,
+  Unicorn, angr, `mipsel-linux-gnu-gdb`, or `gdb-multiarch`. The current
+  combination already covers the demonstrated needs: Ghidra for MIPS16 p-code,
+  binutils for mixed-mode assembly/disassembly, and QEMU for MIPS CPU execution.
+  No extra tool was installed because none of the absent candidates currently
+  offers a demonstrated gap-filling capability for this work.
+
 ### Real extracted exception vector under QEMU/Malta
 
 The real `kernel.drv` exception-vector bytes at file offset `0x380` were also
@@ -85,9 +108,9 @@ handler stub at `0xbfc06f18`, and slot 9 preseeded with that handler value—the
 value independently produced by the extracted `ker_init` constructor probe.
 It installs the minimum low-memory TLB pair needed for the vector's stores at
 `0x13dcc..0x13dd4`, raises a real `break` exception, and checks the vector's
-saved EPC, RA, and Cause's ExcCode bits through Malta's FPGA UART. The image builder accounts
-for Malta's MIPS little-endian BIOS word swap. A run against the 2025-06-26
-`kernel.drv` emitted `PASS`.
+saved EPC, RA, and Cause's ExcCode bits through Malta's FPGA UART. The image
+builder accounts for Malta's MIPS little-endian BIOS word swap. A run against
+the 2025-06-26 `kernel.drv` emitted `PASS`.
 
 This is new CPU-level evidence for the extracted vector and its table dispatch
 under QEMU. The constructor was not run inside QEMU: the slot is preseeded
@@ -134,6 +157,11 @@ Observed bytes and disassembly:
   but a copy interpretation remains a hypothesis until the ROM helper is
   identified. This is a concrete lead for explaining the later kernel's
   reads from the same address window.
+- A separate byte/disassembly cross-check confirms that the reader's literal
+  at file offset `0xa64` and the setup routine's literal at `0xb9c` are used
+  as bases for pointer loads at `0xbfc02600`. Their use in these two call
+  paths is visible in the instructions; the fixed-ROM table contents and the
+  runtime value selected by other references remain unknown.
 - The code does not match the start of the separately extracted, hash-pinned
   `ker_init.bin`, despite both candidate mappings using `0xbfc32000`. Their
   first 32 bytes differ. The NOR record's early wrapper and the firmware's
