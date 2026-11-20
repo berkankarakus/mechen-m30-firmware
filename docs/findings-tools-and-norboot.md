@@ -152,6 +152,25 @@ written. To repeat on another already-local image, run `atjboottool
 after creating the empty `members/` directory. The AFI output reports the
 directory entry and verifies its checksum before extracting members.
 
+The same AFI directory records `Addr=0xbfc1e000` for both `NORHWSC.BIN`
+(type `H`, file offset `0x5800`, size `0x800`) and `NORFWSC.BIN` (type `F`,
+file offset `0x6000`, size `0x2a00`). Their verified AFI checksums are
+`0xa0bfabaa` and `0x80578010`, respectively. `NORFWSC.BIN` has an all-zero
+`0x200`-byte prefix; MIPS32 code begins at file offset `0x200`. If the AFI
+`Addr` is used as its load base, the in-image MIPS16 calls resolve to addresses
+such as `0xbfc1e681` and `0xbfc1f099`.
+
+This aligns with the staged execution addresses in the local
+[`actions_flash` reference](https://github.com/kilicdev/actions_flash/blob/007efc8/README.md#repeating-the-factory-flashing-sequence-atj2127-reference),
+checked at commit `007efc8`: it loads `nandhwsc.bin` at `0xbfc1e000` and runs
+that address, then loads `fwsc.bin` at `0xbfc1e000` and runs
+`0xbfc1e200`. The names differ (`NORHWSC`/`NORFWSC` versus `nandhwsc`/`fwsc`),
+and no binary hash match was established. This supports interpreting the AFI
+`Addr` as the load base and `NORFWSC` offset `0x200` as a candidate execution
+entry, but does not prove that the payloads are identical or that this exact
+sequence ran on the M30. The reference's later `write_flash` commands were not
+run.
+
 Observed bytes and disassembly:
 
 - At file offset `0x1c`, the little-endian word is `0xbfc32000`.
@@ -270,7 +289,8 @@ decompiling each dated copy would add no independent code evidence.
    record is now known but supplies no load address; the nine local dated
    NORBREC copies are byte-identical, so they cannot independently validate
    candidate field meanings.
-3. Treat other AFI members as separate boot components unless code-level
-   evidence connects them; their stable hashes alone do not establish shared
-   loader conventions.
+3. Compare the `NORHWSC`/`NORFWSC` member contents with the public staged
+   execution recipe at the byte/function level. The load and entry addresses
+   align, but the renamed payloads have not been hash-matched and the M30
+   invocation remains unobserved.
 4. Keep all analysis offline. Do not execute guessed payloads on the player.
