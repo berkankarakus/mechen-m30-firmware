@@ -295,6 +295,17 @@ populated by the real constructor rather than seeded with a synthetic ExcCode
 the device boot sequence called this constructor. The fixed-ROM handler body
 and its behavior remain unavailable.
 
+The same constructor-to-vector sequence now also runs in QEMU/Malta using
+`tools/emu/run_malta_constructor_vector_probe.py`. It executes the hash-pinned
+constructor and MIPS16 setter, then reaches the same `0xbfc32c5c` stop boundary
+used by the p-code probe. The BIOS builder redirects the setter table-base
+literal and vector table-base instruction into synthetic RAM, and replaces
+the boundary instruction plus its delay slot with a jump to the harness
+checker. All table entries and the subsequent ExcCode 9 vector dispatch pass
+on QEMU `24Kf` and `34Kf`. This is evidence for the extracted code path under
+QEMU's CPU model; it is not evidence of the device's bootloader transfer,
+fixed-ROM handler behavior, or ATJ2127 peripheral behavior.
+
 ## `drv_ui.drv` header and public bank formula
 
 For the M30 `drv_ui.drv` header, the group-start fields are:

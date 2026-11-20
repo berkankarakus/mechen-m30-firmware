@@ -113,10 +113,17 @@ builder accounts for Malta's MIPS little-endian BIOS word swap. A run against
 the 2025-06-26 `kernel.drv` emitted `PASS`.
 
 This is new CPU-level evidence for the extracted vector and its table dispatch
-under QEMU. The constructor was not run inside QEMU: the slot is preseeded
-because Malta maps the relevant `0x9fc1...` region to its read-only BIOS copy.
-The unavailable fixed-ROM handler is a stub, and the probe does not establish
-M30 bootloader invocation, ATJ2127 peripheral behavior, or device fidelity.
+under QEMU. A second harness, `tools/emu/run_malta_constructor_vector_probe.py`,
+also executes the hash-pinned MIPS32 constructor and its real MIPS16 setter on
+Malta. It redirects the setter's table-base literal from BIOS to RAM and the
+vector's table-base instruction to the same RAM table. At the audited boundary
+`0xbfc32c5c`, the harness redirects control into its slot checks; it verifies
+slots 0..13 and untouched sentinels at 14 and 31, then raises ExcCode 9 and
+checks the real vector's saved EPC/RA/Cause. Runs passed on QEMU `24Kf` and
+`34Kf`. The boundary instrumentation replaces the first two instructions at
+that point, and the fixed-ROM handler remains a stub. These probes do not
+establish M30 bootloader invocation, ATJ2127 peripheral behavior, or device
+fidelity.
 
 ## NOR boot-record observation
 
