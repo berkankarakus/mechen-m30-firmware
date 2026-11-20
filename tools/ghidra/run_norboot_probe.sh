@@ -29,6 +29,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home -Djava.io.tmp
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript MapNorBoot.java "$NORBREC" 0xbfc31f00 \
+    -postScript FindFunctionRefs.java 0xbfc32000 \
     -postScript DumpC.java "$WORK/norboot.c" \
     >"$WORK/run.log" 2>&1 || {
       cat "$WORK/run.log" >&2
@@ -40,5 +41,7 @@ grep -q 'FUN_bfc32a48 @ bfc32a48' "$WORK/norboot.c"
 grep -q 'func_0xbfc108d8(param_1,uVar1,param_3)' "$WORK/norboot.c"
 grep -q 'func_0xbfc108d8(uVar5,puVar2,0x14)' "$WORK/norboot.c"
 grep -q 'func_0xbfc108d8(_UNK_bfc32ab8,_UNK_bfc32abc,0x20)' "$WORK/norboot.c"
+grep -q 'FUNCTION_REF target=0xbfc32000 from=bfc32158 kind=UNCONDITIONAL_CALL' "$WORK/run.log"
+grep -q 'FUNCTION_TOTAL target=0xbfc32000 count=1' "$WORK/run.log"
 
-echo "NORBOOT PROBE PASS mips32-entry=0xbfc32000 mips16-reader=0xbfc3292c setup=0xbfc32a48 rom-helper=0xbfc108d8"
+echo "NORBOOT PROBE PASS mips32-entry=0xbfc32000 caller=0xbfc32158 mips16-reader=0xbfc3292c setup=0xbfc32a48 rom-helper=0xbfc108d8"

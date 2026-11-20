@@ -98,9 +98,13 @@ The Ghidra mapping and decompilation are reproducible with
 [`run_norboot_probe.sh`](../tools/ghidra/run_norboot_probe.sh). It pins the
 member hash, maps the first `0x18` bytes of the code entry as MIPS32, marks the
 observed body from file offset `0x158` as MIPS16, and checks the decompiled
-call shapes for `FUN_bfc3292c` and `FUN_bfc32a48`. The script executes only
-these extracted instructions in Ghidra's analysis/decompiler pipeline; it
-does not execute firmware on the player or assign behavior to missing ROM
+call shapes for `FUN_bfc3292c` and `FUN_bfc32a48`. Its xref check finds one
+direct call to the `0xbfc32000` entry from `0xbfc32158`. It finds no direct
+calls to the directory and setup routines; this does not rule out ROM or
+function-pointer dispatch. Ghidra also warns that decompiling the entry stub
+across its MIPS32-to-MIPS16 boundary is unresolved, so the probe treats that
+cross-mode edge as a limitation rather than emulated behavior. The script
+executes no firmware on the player and assigns no behavior to missing ROM
 functions.
 
 This is evidence for a promising next analysis target: identify the NORBREC
