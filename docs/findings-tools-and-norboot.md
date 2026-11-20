@@ -52,8 +52,17 @@ Observed bytes and disassembly:
 - At file offset `0xa2c` (candidate runtime address `0xbfc3292c` under the
   header's `0xbfc32000` mapping), a MIPS16 routine computes a 512-byte block
   count, calls an indirect routine obtained through `0xbfc02600`, then calls
-  fixed-ROM address `0xbfc108d9` with `(original a0, 0x9fc27000, original
-  a2)`. This establishes the call shape, not the ROM helper's semantics.
+  the fixed-ROM MIPS16 entry `0xbfc108d9` with `(original a0, 0x9fc27000,
+  original a2)`. Ghidra normalizes this MIPS16 target to `0xbfc108d8`. This
+  establishes the call shape, not the ROM helper's semantics.
+- At candidate address `0xbfc3296c`, a MIPS16 routine reads a directory block
+  by passing a sector derived from the word at `0xbfc10138`, destination
+  `0x9fc12000`, and count `1` to an indirect helper. It then scans 32-byte
+  records in that buffer for `KER_TEXT.BIN`, `KER_DATA.BIN`, `KER_INIT.BIN`,
+  and `KER_XSYS.BIN`, and passes matching record fields at offsets `+0x10` and
+  `+0x14` to a fixed-ROM helper. This ties the NOR record to selection of the
+  extracted kernel components; exact directory and helper semantics remain
+  partly unresolved.
 - At file offset `0xb48` (candidate runtime address `0xbfc32a48`), another
   MIPS16 routine populates the first 16 bytes of a structure at `0xbfc10124`, then calls
   `0xbfc108d9(0x9fc12000, 0xbfc10124, 0x14)` and
@@ -84,6 +93,15 @@ record, not yet independently verified runtime state. The fixed-ROM bodies at
 `0xbfc10191`, `0xbfc108d9`, and the indirect target reached through
 `0xbfc02600` remain unavailable; NORBREC's complete header and loader ABI are
 not yet decoded.
+
+The Ghidra mapping and decompilation are reproducible with
+[`run_norboot_probe.sh`](../tools/ghidra/run_norboot_probe.sh). It pins the
+member hash, maps the first `0x18` bytes of the code entry as MIPS32, marks the
+observed body from file offset `0x158` as MIPS16, and checks the decompiled
+call shapes for `FUN_bfc3292c` and `FUN_bfc32a48`. The script executes only
+these extracted instructions in Ghidra's analysis/decompiler pipeline; it
+does not execute firmware on the player or assign behavior to missing ROM
+functions.
 
 This is evidence for a promising next analysis target: identify the NORBREC
 wrapper and determine whether it stages or transforms a later boot image. It
