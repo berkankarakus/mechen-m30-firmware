@@ -29,11 +29,13 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private static final long ENTRIES = RAM + 0x600L;
     private static final long TITLE = RAM + 0x800L;
     private static final long NAMES = RAM + 0x900L;
+    private static final long FALLBACK_STATE = RAM + 0x3000L;
     private static final long STUB_BASE = RAM + 0x4000L;
     private static final long STACK = RAM + 0x7000L;
     private static final int ROWS = 7;
     private int listCount = ROWS;
     private int listBase;
+    private String nameEncoding = "utf16";
 
     private static final int NOOP = 1;
     private static final int INIT = 2;
@@ -67,8 +69,10 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private long listStateTitleLength;
     private long listStateRowLength;
     private final int[] listStateRowFlags = new int[ROWS];
+    private final int[] listStateRowMarkers = new int[ROWS];
     private boolean listStateRowsValid = true;
     private boolean listStateFlagsValid = true;
+    private boolean listStateMarkersValid = true;
     private long sceneReturn;
     private long sceneContext;
 
@@ -100,6 +104,10 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
         emu.writeMemory(addr(address), new byte[] {(byte)value, (byte)(value >>> 8)});
     }
 
+    private void putByte(EmulatorHelper emu, long address, int value) throws Exception {
+        emu.writeMemory(addr(address), new byte[] {(byte)value});
+    }
+
     private void putBytes(EmulatorHelper emu, long address, byte[] bytes) throws Exception {
         emu.writeMemory(addr(address), bytes);
     }
@@ -113,6 +121,10 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private long half(EmulatorHelper emu, long address) throws Exception {
         byte[] bytes = emu.readMemory(addr(address), 2);
         return (bytes[0] & 0xffL) | ((bytes[1] & 0xffL) << 8);
+    }
+
+    private int byteValue(EmulatorHelper emu, long address) throws Exception {
+        return emu.readMemory(addr(address), 1)[0] & 0xff;
     }
 
     private void ramBlock(Memory memory, String name, long base, int size) throws Exception {
@@ -137,6 +149,8 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
         putWord(emu, 0x9fc15598L, 0);
         putHalf(emu, 0x9fc1559aL, ROWS);
         putHalf(emu, 0x9fc15598L, listBase);
+        putWord(emu, 0x9fc1558cL, FALLBACK_STATE);
+        putByte(emu, FALLBACK_STATE + 0xeL, 0x42);
         putWord(emu, 0x9fc155a0L, TITLE);
         putHalf(emu, 0x9fc155a6L, ROWS);
         putWord(emu, 0x9fc155f8L, 0);
@@ -147,10 +161,19 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
         for (int row = 0; row < ROWS; row++) {
             long name = NAMES + row * 0x40L;
             putWord(emu, 0x9fc155a4L + row * 0xcL + 8, name);
-            putBytes(emu, name, new byte[] {
-                (byte)0xff, (byte)0xfe, 'F', 0, 'o', 0, 'l', 0, 'd', 0,
-                (byte)('1' + row), 0, 0, 0
-            });
+            if (nameEncoding.equals("utf16")) {
+                putBytes(emu, name, new byte[] {
+                    (byte)0xff, (byte)0xfe, 'F', 0, 'o', 0, 'l', 0, 'd', 0,
+                    (byte)('1' + row), 0, 0, 0
+                });
+            } else if (nameEncoding.equals("utf8")) {
+                putBytes(emu, name, new byte[] {
+                    (byte)0xef, (byte)0xbb, (byte)0xbf, 'F', 'o', 'l', 'd',
+                    (byte)('1' + row), 0
+                });
+            } else {
+                putBytes(emu, name, new byte[] {'F', 'o', 'l', 'd', (byte)('1' + row), 0});
+            }
         }
     }
 
@@ -234,17 +257,25 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length > 2) {
-            throw new Exception("usage: RunBrowserSceneRefreshChainProbe.java [synthetic-list-count [synthetic-list-base]]");
+        if (getScriptArgs().length > 3) {
+            throw new Exception("usage: RunBrowserSceneRefreshChainProbe.java [synthetic-list-count [synthetic-list-base [utf16|utf8|plain]]]");
         }
         if (getScriptArgs().length == 1) {
             listCount = Integer.decode(getScriptArgs()[0]);
         } else if (getScriptArgs().length == 2) {
             listCount = Integer.decode(getScriptArgs()[0]);
             listBase = Integer.decode(getScriptArgs()[1]);
+        } else if (getScriptArgs().length == 3) {
+            listCount = Integer.decode(getScriptArgs()[0]);
+            listBase = Integer.decode(getScriptArgs()[1]);
+            nameEncoding = getScriptArgs()[2];
         }
         if (listCount < 0 || listCount > 0xffff || listBase < 0 || listBase > 0xffff) {
             throw new Exception("synthetic list count/base must fit unsigned halfwords");
+        }
+        if (!nameEncoding.equals("utf16") && !nameEncoding.equals("utf8")
+            && !nameEncoding.equals("plain")) {
+            throw new Exception("name encoding must be utf16, utf8, or plain");
         }
         Memory memory = currentProgram.getMemory();
         ramBlock(memory, "browser_scene_chain_ram", RAM, 0x8000);
@@ -298,10 +329,15 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
                         long rowPointer = word(emu, PATH_INFO + 0xc + row * 0xcL);
                         long rowLength = half(emu, PATH_INFO + 0x12 + row * 0xcL);
                         int rowFlags = (int)half(emu, PATH_INFO + 0x14 + row * 0xcL);
+                        int rowMarker = byteValue(emu, PATH_INFO + 0x10 + row * 0xcL);
                         listStateRowsValid &= rowPointer == NAMES + row * 0x40L;
                         listStateRowsValid &= rowLength == 0x32;
                         if (listStateOutputCalls == 0) {
                             listStateRowFlags[row] = rowFlags;
+                            listStateRowMarkers[row] = rowMarker;
+                            int expectedMarker = nameEncoding.equals("utf16") ? 0x7d
+                                : nameEncoding.equals("utf8") ? 0x7c : 0x42;
+                            listStateMarkersValid &= rowMarker == expectedMarker;
                             int rowIndex = row + 1;
                             int expectedFlags = 0;
                             if (listCount < rowIndex) {
@@ -371,22 +407,25 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
                         || listStateCalls != 2 || eventPredicateCalls != 2 || listStateOutputCalls != 2
                         || listStateTitleOutput != TITLE || listStateRowOutput != NAMES
                         || listStateTitleLength != 0x32 || listStateRowLength != 0x32
-                        || !listStateRowsValid || !listStateFlagsValid || !listStateSourceLoadsValid
+                        || !listStateRowsValid || !listStateFlagsValid || !listStateMarkersValid
+                        || !listStateSourceLoadsValid
                         || listStateTitleLoadCalls != 2 || listStateRowLoadCalls != ROWS * 2) {
                         throw new Exception(String.format(
-                            "chain incomplete row-calls=%d ready-calls=%d init-calls=%d reset-calls=%d event-predicates=%d list-state-calls=%d list-state-returns=%d title-source=0x%08x title-loads=%d row-source=0x%08x row-loads=%d title-out=0x%08x title-length=0x%x row0-out=0x%08x row0-length=0x%x all-row-slots-valid=%s row-flags-valid=%s flags=%s source-loads-valid=%s final-title=0x%08x final-row0=0x%08x",
+                            "chain incomplete row-calls=%d ready-calls=%d init-calls=%d reset-calls=%d event-predicates=%d list-state-calls=%d list-state-returns=%d title-source=0x%08x title-loads=%d row-source=0x%08x row-loads=%d title-out=0x%08x title-length=0x%x row0-out=0x%08x row0-length=0x%x all-row-slots-valid=%s row-flags-valid=%s flags=%s row-markers-valid=%s markers=%s source-loads-valid=%s final-title=0x%08x final-row0=0x%08x",
                             rowCalls, readyCalls, initCalls, resetCalls, eventPredicateCalls, listStateCalls,
                             listStateOutputCalls, listStateTitleSource, listStateTitleLoadCalls,
                             listStateRowSource, listStateRowLoadCalls,
                             listStateTitleOutput, listStateTitleLength, listStateRowOutput,
                             listStateRowLength, listStateRowsValid, listStateFlagsValid,
-                            java.util.Arrays.toString(listStateRowFlags), listStateSourceLoadsValid,
+                            java.util.Arrays.toString(listStateRowFlags), listStateMarkersValid,
+                            java.util.Arrays.toString(listStateRowMarkers), listStateSourceLoadsValid,
                             word(emu, PATH_INFO), word(emu, PATH_INFO + 0xc)));
                     }
                     println(String.format(
-                        "BROWSER SCENE REFRESH CHAIN PASS loop-iterations=%d guest-steps=%d scene=0x%08x event-predicate-forced-zero=%d list-state=0x%08x refresh=0x40cd5218 context=0x%08x rows=%d indices=0..%d synthetic-count=%d synthetic-base=%d row-flags=%s",
+                        "BROWSER SCENE REFRESH CHAIN PASS loop-iterations=%d guest-steps=%d scene=0x%08x event-predicate-forced-zero=%d list-state=0x%08x refresh=0x40cd5218 context=0x%08x rows=%d indices=0..%d synthetic-count=%d synthetic-base=%d encoding=%s row-flags=%s row-markers=%s",
                         steps, guestSteps, SCENE, eventPredicateCalls, LIST_STATE_CALLBACK, sceneContext,
-                        rowCalls, ROWS - 1, listCount, listBase, java.util.Arrays.toString(listStateRowFlags)));
+                        rowCalls, ROWS - 1, listCount, listBase, nameEncoding,
+                        java.util.Arrays.toString(listStateRowFlags), java.util.Arrays.toString(listStateRowMarkers)));
                     return;
                 }
                 Integer id = stubs.get(base);

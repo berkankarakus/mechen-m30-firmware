@@ -7,6 +7,7 @@ ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 AP=${1:-$ROOT/analysis/community/fw/browser.ap}
 LIST_COUNT=${2:-7}
 LIST_BASE=${3:-0}
+NAME_ENCODING=${4:-utf16}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 COMMUNITY_SHA256=10b0e5d8ed725a76ebce0bfa6e843427115d55b59216fd461a22703e3fed34b3
 STOCK_SHA256=b6e25204d0844b3731292016936b327d70c958e8f2ba46c59216c7633eb8f2f4
@@ -31,7 +32,7 @@ if ! GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$AP" \
-    -postScript RunBrowserSceneRefreshChainProbe.java "$LIST_COUNT" "$LIST_BASE" \
+    -postScript RunBrowserSceneRefreshChainProbe.java "$LIST_COUNT" "$LIST_BASE" "$NAME_ENCODING" \
     >"$WORK/run.log" 2>&1; then
   cat "$WORK/run.log" >&2
   exit 1

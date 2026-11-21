@@ -62,5 +62,8 @@ grep -Fq 'if ((uint)*(ushort *)(_UNK_48754938 + 2) < (uint)*(ushort *)(param_1 +
 grep -Fq 'if ((uint)*_UNK_4875492c + (uint)*(ushort *)(_UNK_48754938 + 2) <' "$WORK/decomp.c"
 grep -Fq '0x8000' "$WORK/decomp.c"
 grep -Fq '| 0x100' "$WORK/decomp.c"
+grep -Fq '0x7d' "$WORK/decomp.c"
+grep -Fq '0x7c' "$WORK/decomp.c"
+grep -Fq '*_UNK_48754930 + 0xe' "$WORK/decomp.c"
 
 echo 'BROWSER LIST COUNT READER PASS consumer=0x40094e08 state=0x9fc155f8+2 initial-reset=0 indirect-targets=0x780db201,0x780db28d,0x780db22d'

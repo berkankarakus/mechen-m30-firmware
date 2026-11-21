@@ -378,6 +378,23 @@ bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw
 bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/stock/fw/browser.ap 2 5
 ```
 
+The same callback emits an encoding-sensitive byte at row descriptor `+4`.
+The real callback produces marker `0x7d` for synthetic UTF-16LE `FF FE`,
+`0x7c` for UTF-8 `EF BB BF`, and a controlled fallback value (`0x42`) when
+there is no BOM. In the no-BOM case it reads the pointer stored at
+`0x9fc1558c`, then reads byte `pointer + 0x0e`; the harness seeds both in RAM.
+The marker names/semantics are not recovered, and these formats
+are test inputs, not captured filesystem output. This is a concrete
+encoding-dependent row-metadata branch that could affect folder presentation,
+but it does not prove a scroll effect or a B3 call edge. Reproduce with:
+
+```sh
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 7 0 utf16
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 7 0 utf8
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 7 0 plain
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/stock/fw/browser.ap 7 0 plain
+```
+
 The row callback/provider boundary is now executed by
 `tools/ghidra/run_browser_row_provider_probe.sh`. It runs the real
 `FUN_48714a20` and `FUN_48594510` functions while stubbing only the resident
