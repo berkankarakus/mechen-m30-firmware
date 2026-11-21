@@ -222,6 +222,41 @@ This dynamically verifies the branch and callback argument contract that the
 static decompile exposed. By itself it uses synthetic context values, so it
 does not identify the screen type that owns the state.
 
+### Directory callback through refresh fallback
+
+The two indirect callbacks in `FUN_40cd5218` are distinct: literal
+`0x40cd52d8` points to `FUN_48714a20`, while `0x40cd52dc` points to the
+`FUN_780db22c` fsel dispatcher. The ordinary seven-row branch above stubs the
+first callback and does not reach the second. The new
+`tools/ghidra/run_browser_directory_refresh_probe.sh` runs the real refresh
+function, dispatcher, and `FUN_71352820` directory callback together. It uses
+a synthetic `list_state + 2 = 0` to leave all seven requested rows for the
+refresh fallback; the dispatcher receives mode `3`, count `7`, start index
+`1`, and the synthetic row table. Fsel type `0` selects `FUN_71352820`.
+Before the harness rewrites callback-backed words in emulated memory, it
+checks that the original update-callback literal is `0x780db22d`, confirming
+that dispatch edge exists in the firmware itself.
+
+The directory callback then makes seven calls to a synthetic filesystem
+provider: each destination is a distinct 50-byte name slot, with a request for
+25 UTF-16 units and mode `2`. A BOM-prefixed 23-unit test name survives the
+real in-AP formatter in all seven slots. The database and converter service
+leaves are also stubbed. Length and mode are checked on each of the seven
+filesystem calls. This dynamically links the refresh fallback, fsel
+dispatcher, and directory name callback in both stock V1.101.10 and community
+V1.292.00. It does not prove that normal device browsing reaches this
+fallback, reveal the ROM provider's actual output, or connect the names to the
+listbox paint/marquee path. Reproduce with:
+
+```sh
+bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/stock/fw/browser.ap
+bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/community/fw/browser.ap
+```
+
+The next dynamic boundary is the state that chooses the ordinary per-row path
+versus this fallback, followed by the framework call that paints and scrolls
+the resulting names. The moving red rectangle remains unexplained.
+
 That outer caller boundary is now dynamically measured as well by
 `tools/ghidra/run_browser_scene_caller_probe.sh`. The resident
 `FUN_bfc16600` path calls the extracted GUI entry `0x40cd4e01` with

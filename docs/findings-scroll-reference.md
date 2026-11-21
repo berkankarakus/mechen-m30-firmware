@@ -97,9 +97,13 @@ The browser code has a matching structural layout. `FUN_40cd4e00` initializes
 the list through `FUN_48754574` and installs `FUN_487546d8` as a list-state
 callback. `FUN_48754574` prepares seven 12-byte row descriptors, each pointing
 at a `0x32`-byte name slot; `FUN_487546d8` fills those descriptors and records
-the same `0x32` slot length. During refresh, `FUN_40cd5218` calls the
-`0x780db22d` dispatcher, whose fsel-type table selects the directory callback
-`FUN_71352820` for directory mode. This matches the style's seven visible
+the same `0x32` slot length. `FUN_40cd5218` has two separate callbacks:
+`0x40cd52d8` points to `FUN_48714a20`, and `0x40cd52dc` points to the
+`0x780db22d` dispatcher. The latter selects directory callback `FUN_71352820`
+for fsel type 0. A p-code probe now executes this dispatcher and directory
+callback from the refresh fallback under a synthetic list-state condition;
+ordinary device browsing has not yet been shown to take that fallback. This
+matches the style's seven visible
 rows and 205-pixel text area. The 50-byte destination slots and 30-pixel
 display rows are separate dimensions in the same list path. The filesystem
 provider's output encoding and long-name handling remain unknown.
