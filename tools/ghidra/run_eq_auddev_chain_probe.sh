@@ -18,7 +18,7 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-for name in ("off", "hip-hop", "custom-default"):
+for name in ("off", "hip-hop", "custom-default", "custom-candidate"):
     source = (root / f"{name}.bin").read_bytes()
     if len(source) != 0xF0:
         raise SystemExit(f"{name}: expected 0xf0-byte builder output")
@@ -41,7 +41,7 @@ for name in ("off", "hip-hop", "custom-default"):
     (root / f"{name}-ranges.bin").write_bytes(ranges)
 PY
 
-for preset in off hip-hop custom-default; do
+for preset in off hip-hop custom-default custom-candidate; do
   for variant in preserved-tail neutral-adjustments two-range-adjustments; do
     suffix=""
     expectation=decoded-adjustments
@@ -65,11 +65,11 @@ from pathlib import Path
 import sys
 
 root = Path(sys.argv[1])
-for name in ("off", "hip-hop", "custom-default"):
+for name in ("off", "hip-hop", "custom-default", "custom-candidate"):
     data = (root / f"{name}.bin").read_bytes()
     if len(data) != 0xF0:
         raise SystemExit(f"{name}: expected 0xf0 bytes, got 0x{len(data):x}")
     print(f"EQ STRUCTURE preset={name} sha256={sha256(data).hexdigest()}")
 PY
 
-echo "EQ PRODUCER->AUDDEV CANDIDATE PASS variants=preserved-tail-neutral-two-range service=synthetic-memcpy dispatcher=unverified dsp-output=unverified"
+echo "EQ PRODUCER->AUDDEV CANDIDATE PASS presets=off-hip-hop-custom-default-custom-candidate variants=preserved-tail-neutral-two-range service=synthetic-memcpy dispatcher=unverified dsp-output=unverified"

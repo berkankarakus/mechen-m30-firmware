@@ -56,7 +56,7 @@ run_probe() {
     return 1
   fi
 
-  if ! grep -q 'EQ BUILDER P-CODE PASS cases=11 result-sha256=' "$work/run.log"; then
+  if ! grep -q 'EQ BUILDER P-CODE PASS cases=12 result-sha256=' "$work/run.log"; then
     cat "$work/run.log" >&2
     rm -rf "$work"
     echo "EQ builder Ghidra probe did not report PASS for $path" >&2

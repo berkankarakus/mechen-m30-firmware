@@ -241,13 +241,26 @@ public class RunEqBuilderProbe extends GhidraScript {
         digest.update(customResult);
         cases++;
 
-        byte[] busyResult = runCase(memory, "busy", 3, sentinel, 1, 1);
+        // The exact experimental music.ap curve previously reported as
+        // inaudible: exercise it through the real builder without packaging
+        // or modifying a firmware image.
+        byte[] candidateCustom = {6, 5, 0, (byte)0xfe, 0, 4, 3};
+        byte[] candidateResult = runCase(memory, "custom-candidate", 7, candidateCustom, 0, 1);
+        if (outputDirectory != null) {
+            Files.write(outputDirectory.resolve("custom-candidate.bin"), candidateResult);
+            println("EQ BUILDER EMIT preset=custom-candidate file=custom-candidate.bin bytes=" + candidateResult.length);
+        }
         digest.update((byte)9);
+        digest.update(candidateResult);
+        cases++;
+
+        byte[] busyResult = runCase(memory, "busy", 3, sentinel, 1, 1);
+        digest.update((byte)10);
         digest.update(busyResult);
         cases++;
 
         byte[] inactiveResult = runCase(memory, "inactive", 3, sentinel, 0, 0);
-        digest.update((byte)10);
+        digest.update((byte)11);
         digest.update(inactiveResult);
         cases++;
 

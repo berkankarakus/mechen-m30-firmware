@@ -102,7 +102,8 @@
   service behavior, operation dispatch, DSP coefficients, and audible effect
   remain unknown.
 - `tools/ghidra/run_eq_auddev_chain_probe.sh` runs the real `mengine.ap` EQ
-  builder for Off, Hip-hop, and default Custom, exports each `0xf0`-byte
+  builder for Off, Hip-hop, default Custom, and the tested Custom candidate,
+  exports each `0xf0`-byte
   result, and feeds it to the candidate `aud_dev` probe. The harness seeds the
   builder buffer with `0xaa`; therefore the seven active band records and
   zeroed inactive records are builder output, while the trailing adjustment
@@ -110,7 +111,7 @@
   preset is checked with that sentinel, a synthetic zeroed adjustment area,
   and synthetic low/high threshold-and-gain settings. Ghidra p-code execution
   confirms the candidate consumer's 16 record transfers and resulting gain
-  arithmetic for all nine cases under a synthetic module-`0x10` memcpy shim.
+  arithmetic for all twelve cases under a synthetic module-`0x10` memcpy shim.
   The candidate bank mapping, ROM dispatch/service, actual runtime adjustment
   values, DSP use, and audibility remain unverified.
 - Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
