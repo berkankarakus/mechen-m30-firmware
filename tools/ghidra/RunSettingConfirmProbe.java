@@ -1,5 +1,4 @@
-// Trace the confirmation control request in setting.ap; all resident UI calls
-// are intercepted and no firmware/device state is changed.
+// Trace setting.ap confirmation and synthetic event paths; host only, no device state changes.
 import ghidra.app.emulator.EmulatorHelper;
 import ghidra.app.script.GhidraScript;
 import ghidra.pcode.emulate.BreakCallBack;
@@ -71,6 +70,19 @@ public class RunSettingConfirmProbe extends GhidraScript {
             | ((bytes[2] & 0xffL) << 16) | ((bytes[3] & 0xffL) << 24);
     }
 
+    // Inputs 2-7 select the six fallback {key,mask,result} records in setting.ap.
+    private int[] syntheticEvent(int input) throws Exception {
+        switch (input) {
+            case 2: return new int[] {0x05, 0x0400, 0x0021};
+            case 3: return new int[] {0x06, 0x0400, 0x0021};
+            case 4: return new int[] {0x09, 0x1800, 0x2202};
+            case 5: return new int[] {0x08, 0x1800, 0x2201};
+            case 6: return new int[] {0x80, 0x1000, 0x0108};
+            case 7: return new int[] {0x7f, 0x3f00, 0x0024};
+            default: throw new Exception("synthetic event input must be 2 through 7");
+        }
+    }
+
     @Override
     public void run() throws Exception {
         int input = getScriptArgs().length == 0 ? 1 : Integer.decode(getScriptArgs()[0]);
@@ -98,6 +110,9 @@ public class RunSettingConfirmProbe extends GhidraScript {
 
             boolean sawTextId = false;
             boolean sawEntryControl = false;
+            boolean injectedEvent = false;
+            boolean enteredEventDispatch = false;
+            boolean forcedPrimaryEventMiss = false;
             for (int steps = 0; steps < 100000; steps++) {
                 long pc = emu.readRegister("pc").longValue() & 0xffffffffL;
                 // MIPS16 return pointers may have bit 0 set. The context register
@@ -107,12 +122,48 @@ public class RunSettingConfirmProbe extends GhidraScript {
                     emu.writeRegister("pc", pc);
                 }
                 if (pc == STOP) {
+                    if (input >= 2 && input <= 7 && injectedEvent && enteredEventDispatch) {
+                        println("SETTING SYNTHETIC EVENT RETURN PASS code="
+                            + hex(syntheticEvent(input)[2]));
+                        return;
+                    }
                     throw new Exception("confirmation API was not reached");
                 }
                 if (pc == MODE_HELPER) {
                     emu.writeRegister("v0", 1);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
                     continue;
+                }
+                if (input >= 2 && injectedEvent && !enteredEventDispatch
+                    && pc == 0x48bd4600L) {
+                    long eventCode = emu.readRegister("a0").longValue() & 0xffffffffL;
+                    int expectedCode = syntheticEvent(input)[2];
+                    if (eventCode != expectedCode) {
+                        throw new Exception("event map result mismatch: expected="
+                            + hex(expectedCode) + " actual=" + hex(eventCode));
+                    }
+                    enteredEventDispatch = true;
+                    println("SETTING EVENT DISPATCH ENTER code=" + hex(eventCode));
+                }
+                if (input >= 2 && injectedEvent && enteredEventDispatch
+                    && pc == 0xbfc16582L) {
+                    long selector = emu.readRegister("v1").longValue() & 0xffffffffL;
+                    long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+                    long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
+                    long a2 = emu.readRegister("a2").longValue() & 0xffffffffL;
+                    long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
+                    long ra = emu.readRegister("ra").longValue() & 0xffffffffL;
+                    if ((input != 2 && input != 3) || selector != 0x10
+                        || a0 != 0 || a1 != RAM + 0x2ea8 || a2 != 3
+                        || a3 != 0x0a || ra != 0x48a549c3L) {
+                        throw new Exception("unexpected event dispatcher trap: selector="
+                            + hex(selector) + " args=" + hex(a0) + "," + hex(a1) + ","
+                            + hex(a2) + "," + hex(a3) + " ra=" + hex(ra));
+                    }
+                    println("SETTING SYNTHETIC EVENT ABI TRAP BOUNDARY selector="
+                        + hex(selector) + " args=" + hex(a0) + "," + hex(a1) + ","
+                        + hex(a2) + "," + hex(a3) + " ra=" + hex(ra));
+                    return;
                 }
 
                 boolean handled = false;
@@ -146,6 +197,60 @@ public class RunSettingConfirmProbe extends GhidraScript {
                     }
                     println("UI API " + hex(target) + " args=" + hex(a0) + ","
                         + hex(a1) + "," + hex(a2) + "," + hex(a3) + detail);
+                    if (target == 0xbfc16585L && input == 8 && !forcedPrimaryEventMiss) {
+                        if (a0 != 6 || a1 != RAM + 0x2f68 || a2 != 0 || a3 != 0x19) {
+                            throw new Exception("unexpected primary event request: args="
+                                + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3));
+                        }
+                        emu.writeRegister("v0", 1);
+                        emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
+                        forcedPrimaryEventMiss = true;
+                        println("SETTING PRIMARY EVENT MISS INJECTED service-return=1");
+                        handled = true;
+                        break;
+                    }
+                    if (target == 0xbfc16585L && input == 8 && forcedPrimaryEventMiss) {
+                        if (a0 != 0 || a1 != RAM + 0x2f98 || a2 != 0 || a3 != 0x19
+                            || !isZeroBuffer(emu, a1, 8)) {
+                            throw new Exception("unexpected alternate event-source boundary: args="
+                                + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3)
+                                + " buffer=" + dumpStack(emu, a1, 8));
+                        }
+                        println("SETTING ALTERNATE EVENT SOURCE BOUNDARY args="
+                            + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3)
+                            + " buffer=" + dumpStack(emu, a1, 8));
+                        return;
+                    }
+                    if (target == 0xbfc16585L && input >= 2 && input <= 7 && !injectedEvent) {
+                        if (a0 != 6 || a1 != RAM + 0x2f68 || a2 != 0 || a3 != 0x19) {
+                            throw new Exception("unexpected synthetic-event poll: args="
+                                + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3));
+                        }
+                        int[] spec = syntheticEvent(input);
+                        byte[] event = new byte[] {0, (byte)spec[0],
+                            (byte)spec[1], (byte)(spec[1] >>> 8), 0, 0, 0, 0};
+                        emu.writeMemory(addr(a1), event);
+                        emu.writeRegister("v0", 0);
+                        emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
+                        injectedEvent = true;
+                        println("SETTING SYNTHETIC EVENT INJECTED key=" + hex(spec[0])
+                            + " mask=" + hex(spec[1]) + " expected-code=" + hex(spec[2])
+                            + " raw=" + dumpStack(emu, a1, 8) + " service-return=0");
+                        handled = true;
+                        break;
+                    }
+                    if (target == 0xbfc16585L && input >= 2 && input <= 7 && injectedEvent) {
+                        if (input != 4 && input != 5 && input != 7) {
+                            throw new Exception("unexpected follow-up service boundary for input " + input);
+                        }
+                        if (a0 != 1 || a1 != 0 || a2 != 0 || a3 != 0x31) {
+                            throw new Exception("unexpected follow-up service args: "
+                                + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3));
+                        }
+                        println("SETTING SYNTHETIC EVENT FOLLOW-UP SERVICE BOUNDARY args="
+                            + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3));
+                        return;
+                    }
                     if (target == 0xbfc16585L && input == 0 && sawEntryControl
                         && a0 == 6 && a3 == 0x19) {
                         if (steps != 178 || a1 != RAM + 0x2f68 || a2 != 0

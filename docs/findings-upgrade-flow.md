@@ -127,9 +127,25 @@ but that interaction is not yet modeled.
 `run_setting_confirm_probe.sh ... 0` now stops at that verified boundary in
 178 emulated steps and asserts the poll arguments plus all eight
 pre-call-buffer bytes. It does not synthesize a keypress or render the screen.
-The event translation table was statically decompiled and inspected, not
-dynamically exercised. One earlier state read remains uninitialized in the
-host setup. No corresponding RU3 TextBox geometry was found in
+The probe also accepts `input=2..7`, injects event-buffer tuples matching the
+six fallback event-map records at `0x485547c0`, and checks the translated
+event code at the real dispatcher entry `FUN_48bd4600`. The observed
+synthetic cases are:
+
+| Probe input | Injected key / mask | Dispatcher code | Path observed |
+|---:|---|---:|---|
+| 2 | `0x05 / 0x0400` | `0x0021` | Enters dispatcher, then reaches an unresolved trap selector `0x10` with `(0,0x10002ea8,3,0x0a)` |
+| 3 | `0x06 / 0x0400` | `0x0021` | Same dispatcher and trap boundary |
+| 4 | `0x09 / 0x1800` | `0x2202` | Stops at follow-up service call `(1,0,0,0x31)` |
+| 5 | `0x08 / 0x1800` | `0x2201` | Stops at follow-up service call `(1,0,0,0x31)` |
+| 6 | `0x80 / 0x1000` | `0x0108` | Returns from the emulated entry function |
+| 7 | `0x7f / 0x3f00` | `0x0024` | Stops at follow-up service call `(1,0,0,0x31)` |
+
+These are synthetic event records, not observed physical key values. For the
+`0x21` path the probe logs an additional uninitialized read at `0x48a947f2`
+and stops before executing the selector-`0x10` trap. The trap's service
+meaning and the post-trap UI state remain unknown. The no-event path also has
+an earlier uninitialized state read in the host setup. No corresponding RU3 TextBox geometry was found in
 `setting.sty`, so the prompt rectangle and event result rendering remain
 unresolved. The preview trace labels text origin so example wording cannot be
 mistaken for device output. Both `input=0` and `input=1` probes also pass against
@@ -137,6 +153,17 @@ stock V1.101.10 `setting.ap` (SHA-256
 `c0693d3750e1b92ad18b0ed741e893e5cffe3bc4517abdc086c54d539e2eb7d5`); this
 confirms the same observed UI boundary shapes in that binary, not byte identity
 or physical-device behavior.
+
+Probe `input=8` forces the first event service to return `1` without changing
+its buffer. The real AP then takes the alternate branch through
+`FUN_bfc16528`; with probe-start bytes `0x9fc15602..03` and `0x9fc15608`
+left zero, it reaches a second selector-`0x0f` service boundary at
+`0xbfc16585` with
+`(a0=0,a1=0x10002f98,a2=0,a3=0x19)`. The eight-byte buffer is still zero. The
+wrapper's fixed code reads state at `0x9fc15600` and has a callback pointer at
+`0xbfc1656c` (`0x48694899`), but the service's return/data contract and the
+runtime writer for callback state at `0x9fc15608` are unresolved. This is a
+controlled nonzero-return branch probe, not an observed event or device trace.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 
