@@ -98,6 +98,36 @@ the `mmm_bp.al` hash is identical. This was a direct-literal scan, not a full
 disassembly of every loader or a proof against computed addresses and runtime
 registration.
 
+## Targeted audio/runtime caller checks
+
+I also mapped the likely extracted owners from the 2025-06-26 corpus in
+Ghidra 12.2 and scanned their mapped bytes for the AP entry pointer and its
+aligned address. The entry word in `mmm_bp.al` is `0xbfc218a9` (execution
+address `0xbfc218a8`). The following candidate images produced no direct
+literal occurrence of either value:
+
+| Candidate image | SHA-256 | Ghidra mapping result | `0xbfc218a9` / `0xbfc218a8` occurrences |
+| --- | --- | --- | --- |
+| `fw/mengine.ap` | `1340bac3cb68043f7a9651ee7959c2f502e6759c7debe0626f07ef9231896d4d` | `LoadAP`: 35 blocks, 219 prologue functions, entry `0x60010d30` | 0 / 0 |
+| `fw/music.ap` | `faa6b68a68de78ef45c2a9d9ad664b6b6310a93f21f9a07b29467827abd49193` | `LoadAP`: 126 blocks, 785 prologue functions, entry `0x40014c30` | 0 / 0 |
+| `fw/kernel.drv` | `58f9d0c62bdbdab7cfeee1c5e65bbe8b88ee962f8eecd3dd0515d1a1056d8bd6` | `FlatLoad`: 18,944 resident bytes from file `0x200` at `0xbfc08000`; 130 prologue functions | 0 / 0 |
+
+The Ghidra scripts were `LoadAP.java`, `FlatLoad.java`, and
+`FindPointerRefs.java` from `tools/ghidra`; analysis was static and used
+temporary projects. The extracted `mengine.ap` exposes the ASCII filename
+`mmm_mp.al`, and `music.ap` exposes `mmm_id.al`; neither exposes
+`mmm_bp.al`. The nearby `mmm_mp.al` function `FUN_68312d00` is already traced
+as a format-index-to-`.dsp` filename selector; its recovered table does not
+select `mmm_bp.al` and is not evidence for the missing decoder-module loader.
+
+The package record remains the only positive external observation in this
+scope: `MMM_BP  AL` occurs at `dec.bin` offset `0x62c20` and at
+`afi/FWIMAGE.FW` offset `0x420`. That establishes a named package entry, not a
+runtime caller, load address, or transfer of control to `0xbfc218a9`. These
+negative scans rule out only direct pointer literals in the mapped candidate
+images; a computed lookup, resident ROM service, or unextracted loader can
+still provide the edge. No exact loader function/caller has been established.
+
 ## Reproduction and next probe
 
 The existing static member probe passes against the mounted stock and
@@ -113,6 +143,12 @@ The dispatch edge and literals can be rechecked with `LoadAP.java`,
 `tools/ghidra`; the observed references are Ghidra static computed-call
 references, not dynamic execution. No device, firmware, or SD data was
 written.
+
+The candidate-caller scan used `LoadAP.java` followed by
+`FindPointerRefs.java 0xbfc218a9,0xbfc218a8` for the two APs, and
+`FlatLoad.java <kernel.drv> 0xbfc07e00 0x200` followed by the same pointer scan
+for `kernel.drv`. The `FlatLoad` base accounts for the `0x200` file header so
+the resident payload begins at `0xbfc08000`.
 
 Next, trace the audio/runtime loader that selects the `MMM_BP  AL` package
 member and invokes its header entry, then identify the resident implementation
