@@ -32,6 +32,8 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private static final long STUB_BASE = RAM + 0x4000L;
     private static final long STACK = RAM + 0x7000L;
     private static final int ROWS = 7;
+    private int listCount = ROWS;
+    private int listBase;
 
     private static final int NOOP = 1;
     private static final int INIT = 2;
@@ -64,7 +66,9 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private long listStateRowOutput;
     private long listStateTitleLength;
     private long listStateRowLength;
+    private final int[] listStateRowFlags = new int[ROWS];
     private boolean listStateRowsValid = true;
+    private boolean listStateFlagsValid = true;
     private long sceneReturn;
     private long sceneContext;
 
@@ -132,10 +136,11 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
     private void seedListStateSources(EmulatorHelper emu) throws Exception {
         putWord(emu, 0x9fc15598L, 0);
         putHalf(emu, 0x9fc1559aL, ROWS);
+        putHalf(emu, 0x9fc15598L, listBase);
         putWord(emu, 0x9fc155a0L, TITLE);
         putHalf(emu, 0x9fc155a6L, ROWS);
         putWord(emu, 0x9fc155f8L, 0);
-        putHalf(emu, 0x9fc155faL, ROWS);
+        putHalf(emu, 0x9fc155faL, listCount);
         putBytes(emu, TITLE, new byte[] {
             (byte)0xff, (byte)0xfe, 'R', 0, 'o', 0, 'o', 0, 't', 0, 0, 0
         });
@@ -229,6 +234,18 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
+        if (getScriptArgs().length > 2) {
+            throw new Exception("usage: RunBrowserSceneRefreshChainProbe.java [synthetic-list-count [synthetic-list-base]]");
+        }
+        if (getScriptArgs().length == 1) {
+            listCount = Integer.decode(getScriptArgs()[0]);
+        } else if (getScriptArgs().length == 2) {
+            listCount = Integer.decode(getScriptArgs()[0]);
+            listBase = Integer.decode(getScriptArgs()[1]);
+        }
+        if (listCount < 0 || listCount > 0xffff || listBase < 0 || listBase > 0xffff) {
+            throw new Exception("synthetic list count/base must fit unsigned halfwords");
+        }
         Memory memory = currentProgram.getMemory();
         ramBlock(memory, "browser_scene_chain_ram", RAM, 0x8000);
         ramBlock(memory, "browser_scene_chain_guest_ram", 0x9fc10000L, 0x30000);
@@ -280,8 +297,19 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
                     for (int row = 0; row < ROWS; row++) {
                         long rowPointer = word(emu, PATH_INFO + 0xc + row * 0xcL);
                         long rowLength = half(emu, PATH_INFO + 0x12 + row * 0xcL);
+                        int rowFlags = (int)half(emu, PATH_INFO + 0x14 + row * 0xcL);
                         listStateRowsValid &= rowPointer == NAMES + row * 0x40L;
                         listStateRowsValid &= rowLength == 0x32;
+                        if (listStateOutputCalls == 0) {
+                            listStateRowFlags[row] = rowFlags;
+                            int rowIndex = row + 1;
+                            int expectedFlags = 0;
+                            if (listCount < rowIndex) {
+                                expectedFlags = 0x8000;
+                                if (listBase + listCount < rowIndex) expectedFlags |= 0x0100;
+                            }
+                            listStateFlagsValid &= rowFlags == expectedFlags;
+                        }
                     }
                     listStateSourceLoadsValid &= currentListStateRowLoads == ROWS;
                     listStateOutputCalls++;
@@ -343,20 +371,22 @@ public class RunBrowserSceneRefreshChainProbe extends GhidraScript {
                         || listStateCalls != 2 || eventPredicateCalls != 2 || listStateOutputCalls != 2
                         || listStateTitleOutput != TITLE || listStateRowOutput != NAMES
                         || listStateTitleLength != 0x32 || listStateRowLength != 0x32
-                        || !listStateRowsValid || !listStateSourceLoadsValid
+                        || !listStateRowsValid || !listStateFlagsValid || !listStateSourceLoadsValid
                         || listStateTitleLoadCalls != 2 || listStateRowLoadCalls != ROWS * 2) {
                         throw new Exception(String.format(
-                            "chain incomplete row-calls=%d ready-calls=%d init-calls=%d reset-calls=%d event-predicates=%d list-state-calls=%d list-state-returns=%d title-source=0x%08x title-loads=%d row-source=0x%08x row-loads=%d title-out=0x%08x title-length=0x%x row0-out=0x%08x row0-length=0x%x all-row-slots-valid=%s source-loads-valid=%s final-title=0x%08x final-row0=0x%08x",
+                            "chain incomplete row-calls=%d ready-calls=%d init-calls=%d reset-calls=%d event-predicates=%d list-state-calls=%d list-state-returns=%d title-source=0x%08x title-loads=%d row-source=0x%08x row-loads=%d title-out=0x%08x title-length=0x%x row0-out=0x%08x row0-length=0x%x all-row-slots-valid=%s row-flags-valid=%s flags=%s source-loads-valid=%s final-title=0x%08x final-row0=0x%08x",
                             rowCalls, readyCalls, initCalls, resetCalls, eventPredicateCalls, listStateCalls,
                             listStateOutputCalls, listStateTitleSource, listStateTitleLoadCalls,
                             listStateRowSource, listStateRowLoadCalls,
                             listStateTitleOutput, listStateTitleLength, listStateRowOutput,
-                            listStateRowLength, listStateRowsValid, listStateSourceLoadsValid,
+                            listStateRowLength, listStateRowsValid, listStateFlagsValid,
+                            java.util.Arrays.toString(listStateRowFlags), listStateSourceLoadsValid,
                             word(emu, PATH_INFO), word(emu, PATH_INFO + 0xc)));
                     }
                     println(String.format(
-                        "BROWSER SCENE REFRESH CHAIN PASS loop-iterations=%d guest-steps=%d scene=0x%08x event-predicate-forced-zero=%d list-state=0x%08x refresh=0x40cd5218 context=0x%08x rows=%d indices=0..%d",
-                        steps, guestSteps, SCENE, eventPredicateCalls, LIST_STATE_CALLBACK, sceneContext, rowCalls, ROWS - 1));
+                        "BROWSER SCENE REFRESH CHAIN PASS loop-iterations=%d guest-steps=%d scene=0x%08x event-predicate-forced-zero=%d list-state=0x%08x refresh=0x40cd5218 context=0x%08x rows=%d indices=0..%d synthetic-count=%d synthetic-base=%d row-flags=%s",
+                        steps, guestSteps, SCENE, eventPredicateCalls, LIST_STATE_CALLBACK, sceneContext,
+                        rowCalls, ROWS - 1, listCount, listBase, java.util.Arrays.toString(listStateRowFlags)));
                     return;
                 }
                 Integer id = stubs.get(base);

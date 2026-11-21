@@ -359,6 +359,25 @@ bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/stock/fw/bro
 bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap
 ```
 
+The registered row callback `FUN_487546d8` also reads the count halfword at
+`0x9fc155fa` and writes per-row status bits into each 12-byte descriptor. With
+the harness's seven-row window (indices 1..7), a synthetic count of 0 and base
+0 yields `0x8100` for all rows; count 2/base 0 yields `0, 0, 0x8100...`; count
+2/base 5 yields `0, 0, 0x8000...`; count 7/base 0 yields all zeroes. The
+extended probe checks those computed bits against the callback's count/base
+conditions and prints them. This proves the count and base affect row metadata
+passed out of the real callback. The meanings of `0x8000`/`0x0100`, and any
+connection to text painting, scrolling, clipping, or the red rectangle, are
+still unknown. Inputs remain synthetic. Reproduce the matrix with:
+
+```sh
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 0 0
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 2 0
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 2 5
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap 7 0
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/stock/fw/browser.ap 2 5
+```
+
 The row callback/provider boundary is now executed by
 `tools/ghidra/run_browser_row_provider_probe.sh`. It runs the real
 `FUN_48714a20` and `FUN_48594510` functions while stubbing only the resident

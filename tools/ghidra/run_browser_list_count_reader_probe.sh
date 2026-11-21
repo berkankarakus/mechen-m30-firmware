@@ -31,7 +31,8 @@ if ! GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -postScript LoadAP.java "$AP" \
     -postScript DumpWords.java 0x40094f80 0x40094fc0 \
     -postScript DumpWords.java 0x40cd5014 0x40cd5018 \
-    -postScript DumpAt.java 0x40094e08,0x40cd4e00,0x48754574 "$WORK/decomp.c" \
+    -postScript DumpWords.java 0x48754938 0x4875493c \
+    -postScript DumpAt.java 0x40094e08,0x40cd4e00,0x48754574,0x487546d8 "$WORK/decomp.c" \
     >"$WORK/run.log" 2>&1; then
   cat "$WORK/run.log" >&2
   exit 1
@@ -41,6 +42,7 @@ for marker in \
   'DumpAt: 40094e08 -> FUN_40094e08' \
   'DumpAt: 40cd4e00 -> FUN_40cd4e00' \
   'DumpAt: 48754574 -> FUN_48754574' \
+  'DumpAt: 487546d8 -> FUN_487546d8' \
   'WORD address=40cd5014 value=0x9fc155f8' \
   'WORD address=40094f84 value=0x9fc155f8' \
   'WORD address=40094f8c value=0x780db201' \
@@ -48,11 +50,17 @@ for marker in \
   'WORD address=40094fa8 value=0x780db22d'; do
   grep -Fq "$marker" "$WORK/run.log" || { cat "$WORK/run.log" >&2; exit 1; }
 done
+grep -Fq 'WORD address=48754938 value=0x9fc155f8' "$WORK/run.log"
 
 grep -Fq 'uStack_10 = *(short *)(_UNK_40094f80 + 0xe) - *(short *)(_UNK_40094f84 + 2);' "$WORK/decomp.c"
 grep -Fq '*(undefined2 *)(_UNK_40cd5014 + 2) = 0;' "$WORK/decomp.c"
 grep -Fq '(*_UNK_40094f8c)(0,0,auStack_38);' "$WORK/decomp.c"
 grep -Fq '(*_UNK_40094f90)(uStack_10);' "$WORK/decomp.c"
 grep -Fq '(*_UNK_40094fa8)(&uStack_28,auStack_20);' "$WORK/decomp.c"
+grep -Fq '*(ushort *)(_UNK_48754938 + 2)' "$WORK/decomp.c"
+grep -Fq 'if ((uint)*(ushort *)(_UNK_48754938 + 2) < (uint)*(ushort *)(param_1 + 8) + (uint)bStack_10)' "$WORK/decomp.c"
+grep -Fq 'if ((uint)*_UNK_4875492c + (uint)*(ushort *)(_UNK_48754938 + 2) <' "$WORK/decomp.c"
+grep -Fq '0x8000' "$WORK/decomp.c"
+grep -Fq '| 0x100' "$WORK/decomp.c"
 
 echo 'BROWSER LIST COUNT READER PASS consumer=0x40094e08 state=0x9fc155f8+2 initial-reset=0 indirect-targets=0x780db201,0x780db28d,0x780db22d'
