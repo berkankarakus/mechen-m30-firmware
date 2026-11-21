@@ -115,6 +115,31 @@ SRAM writes and execution, but no NAND/SD write command. It remains an ADFU
 operation, not a passive USB read.
 The public payload README says it was tested only on ATJ2127, and M30
 compatibility is still unverified.
+
+### ADFU server command boundary
+
+The matching public [`payload/adfus.c`](https://github.com/kilicdev/actions_flash/blob/007efc8/payload/adfus.c)
+source clarifies what that host sequence means inside the server. Vendor
+command `0x13` transfers bytes directly between the USB endpoint and the
+address supplied by the host: host command `0x93` is `0x13` with the IN bit
+set, so it sends bytes from that memory address back to the host. The
+`dump_mem2` sequence uses the OUT form to place its helper and arguments in
+RAM, command `0x21` to call the helper, and `0x93` to read the output buffer.
+That exact sequence does not call the server's flash command path.
+
+This distinction is narrow. The same server dispatches vendor command
+`0x10` to a flash routine at `0xbfc1e400`, and command `0x60` to a second
+flash operation; `0x13` itself can write arbitrary RAM. Loading and starting
+the server also runs `init_chip()` and `init_usb()`, which write system,
+USB, DMA, and watchdog-related registers. Therefore the documented recipe
+has no flash/NAND command in its readback sequence, but it is not a passive
+or side-effect-free operation, and the server's initialization and memory
+map have not been checked on an M30. The `10d6:10d6` USB identity and the
+payload's `ATJ2127` guess do not establish that the complete server is
+compatible with this board.
+
+These command semantics come from source inspection, not a USB capture or
+execution of `adfus.bin`. No device commands were sent.
 The general `actions_dump` utility also implements flash-writing commands, so
 the utility itself is not read-only. Its README warns that a hung payload can
 leave some devices difficult to reboot. No device interaction, payload
