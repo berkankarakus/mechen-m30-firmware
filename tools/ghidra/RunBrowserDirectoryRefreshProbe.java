@@ -10,6 +10,8 @@ import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
     private static final long ENTRY = 0x40cd5218L;
@@ -42,6 +44,8 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
     private int filesystemCalls;
     private int converterCalls;
     private int rowStubCalls;
+    private final List<Long> rowCallbackIndices = new ArrayList<>();
+    private int listStateCount;
     private long dispatchMode;
     private long dispatchCount;
     private long dispatchStart;
@@ -112,9 +116,9 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
         block.setExecute(true);
     }
 
-    private void seed(Memory memory) throws Exception {
-        ramBlock(memory, "browser_directory_refresh_ram", RAM, 0x4000);
-        ramBlock(memory, "browser_directory_refresh_guest_ram", 0x9fc10000L, 0x30000);
+    private void seed(Memory memory, int totalRows) throws Exception {
+        listStateCount = totalRows;
+        memory.setBytes(addr(RAM), new byte[0x4000]);
 
         byte[] callbackWord = new byte[4];
         memory.getBytes(addr(0x40cd52dcL), callbackWord);
@@ -143,9 +147,9 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
         putHalf(memory, CONTROL + 10, ROWS);
         putByte(memory, CONTROL + 0x14, 3);
         putWord(memory, PATH + 8, RAM + 0x280);
-        // A stale list-state end forces FUN_40cd5218 into its update-callback
-        // branch, where the genuine fsel dispatcher receives all seven rows.
-        putHalf(memory, LIST_STATE + 2, 0);
+        // Sweep this boundary to measure how much of the requested row window
+        // takes the ordinary callback before the real fsel fallback runs.
+        putHalf(memory, LIST_STATE + 2, totalRows);
         putHalf(memory, MODE_VALUE, 0);
         putByte(memory, 0x9fc15734L, 0); // fsel type 0: directory
         putWord(memory, CURRENT, 1);
@@ -160,7 +164,11 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
     @Override
     public void run() throws Exception {
         Memory memory = currentProgram.getMemory();
-        seed(memory);
+        ramBlock(memory, "browser_directory_refresh_ram", RAM, 0x4000);
+        ramBlock(memory, "browser_directory_refresh_guest_ram", 0x9fc10000L, 0x30000);
+        int totalRows = getScriptArgs().length == 0 ? 0 : Integer.decode(getScriptArgs()[0]);
+        if (totalRows < 0 || totalRows > 8) throw new Exception("list-state count must be between 0 and 8");
+        seed(memory, totalRows);
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         try {
@@ -182,7 +190,7 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
                 long pc = emu.readRegister("pc").longValue() & 0xffffffffL;
                 long base = pc & ~1L;
                 if (base == STOP) {
-                    verify(emu, steps);
+                    verify(emu, steps, totalRows);
                     return;
                 }
                 if (base == DISPATCHER) {
@@ -204,9 +212,11 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
                     continue;
                 } else if (base == FS_STUB) {
                     long destination = emu.readRegister("a1").longValue() & 0xffffffffL;
+                    long expectedDestination = NAMES + Math.min(listStateCount, ROWS) * 0x40L
+                        + filesystemCalls * 0x40L;
                     filesystemDestinationsValid &= filesystemCalls < ROWS;
                     filesystemDestinationsValid &= filesystemCalls < ROWS
-                        && destination == NAMES + filesystemCalls * 0x40L;
+                        && destination == expectedDestination;
                     filesystemCalls++;
                     if (filesystemCalls == 1) firstFilesystemDestination = destination;
                     int callIndex = filesystemCalls - 1;
@@ -235,6 +245,7 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
                     continue;
                 } else if (base == ROW_STUB) {
                     rowStubCalls++;
+                    rowCallbackIndices.add(emu.readRegister("a2").longValue() & 0xffffffffL);
                     emu.writeRegister("v0", 1);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
                     continue;
@@ -250,24 +261,39 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
         }
     }
 
-    private void verify(EmulatorHelper emu, int steps) throws Exception {
+    private void verify(EmulatorHelper emu, int steps, int totalRows) throws Exception {
+        int normalRows = Math.min(totalRows, ROWS);
+        int fallbackRows = ROWS - normalRows;
+        long expectedTable = ENTRIES + normalRows * 0xcL;
+        long expectedName = NAMES + normalRows * 0x40L;
+        boolean callbackIndicesValid = rowCallbackIndices.size() == normalRows;
+        for (int index = 0; index < rowCallbackIndices.size(); index++) {
+            callbackIndicesValid &= rowCallbackIndices.get(index) == index;
+        }
+        boolean fallbackValid = fallbackRows == 0
+            ? dispatchCalls == 0 && directoryCalls == 0 && filesystemCalls == 0
+                && converterCalls == 0 && databaseCalls == 0
+            : dispatchCalls == 1 && dispatchMode == 3 && dispatchCount == fallbackRows
+                && dispatchStart == 1 && dispatchTable == expectedTable
+                && directoryCalls == 1 && directoryRows == dispatchDescriptor
+                && directoryTable == expectedTable && filesystemCalls == fallbackRows
+                && converterCalls == fallbackRows && databaseCalls == fallbackRows + 1
+                && firstFilesystemDestination == expectedName
+                && firstConverterRow == expectedTable && firstConverterContext == CONTEXT
+                && firstConverterLimit == 4;
         if (originalUpdateCallback != (DISPATCHER | 1L)
-            || dispatchCalls != 1 || dispatchMode != 3 || dispatchCount != ROWS || dispatchStart != 1
-            || dispatchTable != ENTRIES || directoryCalls != 1 || directoryRows != dispatchDescriptor
-            || directoryTable != ENTRIES || rowStubCalls != 0 || filesystemCalls != ROWS
-            || !filesystemDestinationsValid || !filesystemArgumentsValid
-            || converterCalls != ROWS || databaseCalls != ROWS + 1
-            || firstFilesystemDestination != NAMES
-            || firstConverterRow != ENTRIES || firstConverterContext != CONTEXT || firstConverterLimit != 4) {
+            || !fallbackValid || rowStubCalls != normalRows || !callbackIndicesValid
+            || !filesystemDestinationsValid || !filesystemArgumentsValid) {
             throw new Exception(String.format(
-                "directory refresh mismatch steps=%d original-callback=0x%08x expected=0x%08x dispatch=%d descriptor=0x%08x mode=%d count=%d start=%d table=0x%08x dir=%d dir-rows=0x%08x dir-table=0x%08x row-stub=%d db=%d fs=%d dest=0x%08x destinations-valid=%s fs-args-valid=%s convert=%d row=0x%08x context=0x%08x limit=%d",
-                steps, originalUpdateCallback, DISPATCHER | 1L, dispatchCalls, dispatchDescriptor, dispatchMode, dispatchCount, dispatchStart, dispatchTable,
-                directoryCalls, directoryRows, directoryTable, rowStubCalls, databaseCalls,
-                filesystemCalls, firstFilesystemDestination, filesystemDestinationsValid, filesystemArgumentsValid,
+                "directory refresh mismatch steps=%d list-count=%d original-callback=0x%08x expected=0x%08x dispatch=%d descriptor=0x%08x mode=%d count=%d start=%d table=0x%08x dir=%d dir-rows=0x%08x dir-table=0x%08x row-stub=%d callback-indices-valid=%s db=%d fs=%d dest=0x%08x destinations-valid=%s fs-args-valid=%s convert=%d row=0x%08x context=0x%08x limit=%d",
+                steps, listStateCount, originalUpdateCallback, DISPATCHER | 1L, dispatchCalls, dispatchDescriptor,
+                dispatchMode, dispatchCount, dispatchStart, dispatchTable, directoryCalls, directoryRows,
+                directoryTable, rowStubCalls, callbackIndicesValid, databaseCalls, filesystemCalls,
+                firstFilesystemDestination, filesystemDestinationsValid, filesystemArgumentsValid,
                 converterCalls, firstConverterRow, firstConverterContext, firstConverterLimit));
         }
         byte[] expected = providerName();
-        for (int row = 0; row < ROWS; row++) {
+        for (int row = normalRows; row < ROWS; row++) {
             byte[] actual = emu.readMemory(addr(NAMES + row * 0x40L), expected.length);
             for (int index = 0; index < expected.length; index++) {
                 if (actual[index] != expected[index]) {
@@ -275,8 +301,15 @@ public class RunBrowserDirectoryRefreshProbe extends GhidraScript {
                 }
             }
         }
-        println(String.format(
-            "BROWSER DIRECTORY REFRESH PASS steps=%d original-callback=0x%08x dispatcher=0x%08x fsel-type=0 directory=0x%08x rows=%d fs-length=25 units fs-mode=2 slot=0x32 bytes",
-            steps, originalUpdateCallback, DISPATCHER, DIRECTORY_CALLBACK, filesystemCalls));
+        if (fallbackRows == 0) {
+            println(String.format(
+                "BROWSER REFRESH BOUNDARY PASS list-count=%d normal-rows=%d fallback-rows=0 steps=%d original-callback=0x%08x dispatcher=0x%08x filesystem-calls=0",
+                listStateCount, normalRows, steps, originalUpdateCallback, DISPATCHER));
+        } else {
+            println(String.format(
+                "BROWSER REFRESH BOUNDARY PASS list-count=%d normal-rows=%d fallback-rows=%d steps=%d original-callback=0x%08x dispatcher=0x%08x fsel-type=0 directory=0x%08x fs-length=25 units fs-mode=2 slot=0x32 bytes",
+                listStateCount, normalRows, fallbackRows, steps, originalUpdateCallback, DISPATCHER,
+                DIRECTORY_CALLBACK));
+        }
     }
 }

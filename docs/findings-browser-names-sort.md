@@ -242,20 +242,37 @@ provider: each destination is a distinct 50-byte name slot, with a request for
 25 UTF-16 units and mode `2`. A BOM-prefixed 23-unit test name survives the
 real in-AP formatter in all seven slots. The database and converter service
 leaves are also stubbed. Length and mode are checked on each of the seven
-filesystem calls. This dynamically links the refresh fallback, fsel
-dispatcher, and directory name callback in both stock V1.101.10 and community
-V1.292.00. It does not prove that normal device browsing reaches this
-fallback, reveal the ROM provider's actual output, or connect the names to the
-listbox paint/marquee path. Reproduce with:
+filesystem calls. The probe also sweeps `list_state + 2` through `0, 1, 6, 7,
+8`: the ordinary callback handles `min(count, 7)` rows with indices starting
+at zero, and the fallback handles the remaining rows. The dispatcher table
+pointer advances by 12 bytes for each ordinary row; once the count reaches
+seven, the fallback is not called. This boundary is identical in stock
+V1.101.10 and community V1.292.00. It still does not establish who supplies
+the real list count, reveal the ROM provider's actual output, or connect the
+names to the listbox paint/marquee path. Reproduce with:
 
 ```sh
-bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/stock/fw/browser.ap
-bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/community/fw/browser.ap
+for count in 0 1 6 7 8; do
+  bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/stock/fw/browser.ap "$count"
+  bash tools/ghidra/run_browser_directory_refresh_probe.sh analysis/community/fw/browser.ap "$count"
+done
 ```
 
-The next dynamic boundary is the state that chooses the ordinary per-row path
-versus this fallback, followed by the framework call that paints and scrolls
-the resulting names. The moving red rectangle remains unexplained.
+The next target is the producer of `list_state + 2`, then the framework call
+that paints and scrolls the resulting names. The moving red rectangle remains
+unexplained.
+
+### List-count initialization boundary
+
+The scene constructor `FUN_40cd4e00` writes zero to the halfword at
+`0x9fc155f8 + 2` before calling the directory initializer `FUN_48754574`.
+The refresh loop later reads that halfword as the upper bound for ordinary
+row callbacks. The decompiled directory initializer prepares seven 12-byte
+row descriptors and performs filesystem setup, but its visible body does not
+write this count field. This locates the reset and the read, not the later
+writer: a list framework or a service reached indirectly may set the count
+after initialization. The matrix supplies this value synthetically and does
+not establish the normal device value.
 
 That outer caller boundary is now dynamically measured as well by
 `tools/ghidra/run_browser_scene_caller_probe.sh`. The resident
