@@ -27,18 +27,32 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AP" \
-  -postScript DumpAt.java 0x40054de0,0x40094e88,0x400950c0,0x48494640,0x48494758 "$WORK/app.c" 2>&1 | tee "$WORK/ghidra.log"
+  -postScript FindPointerRefs.java 0xbfc166ad \
+  -postScript DumpAt.java 0x40054c00,0x40054de0,0x40094c00,0x40094e88,0x400950c0,0x48494640,0x48494758 "$WORK/app.c" 2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
 [ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 grep -q 'LoadAP: blocks=15 prologue functions=87 entry=40014c30' "$WORK/ghidra.log"
+for address in 40054cac 40094cc8 4009507c 40095208; do
+  grep -Fq "POINTER_REF value=0xbfc166ad address=$address " "$WORK/ghidra.log"
+done
+grep -Fq 'POINTER_TOTAL value=0xbfc166ad count=4' "$WORK/ghidra.log"
+grep -q 'DumpAt: 40054c00 -> FUN_40054c00' "$WORK/ghidra.log"
+grep -q 'DumpAt: 40094c00 -> FUN_40094c00' "$WORK/ghidra.log"
 grep -q 'DumpAt: 40054de0 -> FUN_40054de0' "$WORK/ghidra.log"
 grep -q 'DumpAt: 40094e88 -> FUN_40094e88' "$WORK/ghidra.log"
 grep -q 'DumpAt: 400950c0 -> FUN_400950c0' "$WORK/ghidra.log"
 grep -q 'DumpAt: 48494640 -> FUN_48494640' "$WORK/ghidra.log"
 grep -q 'DumpAt: 48494758 -> FUN_48494758' "$WORK/ghidra.log"
 grep -Fq 'uStack_10 = 0x201;' "$WORK/app.c"
+grep -Fq '(*_UNK_40054cac)(0,auStack_18,6,3);' "$WORK/app.c"
+grep -Fq '(*_UNK_40054cac)(5,auStack_18,1,3);' "$WORK/app.c"
+grep -Fq '(*_UNK_40094cc8)(1,8,0,6);' "$WORK/app.c"
+grep -Fq '(*_UNK_4009507c)(_UNK_40095078,0,0,1);' "$WORK/app.c"
+grep -Fq '(*_UNK_4009507c)(0,0,0,2);' "$WORK/app.c"
+grep -Fq '(*_UNK_40095208)(0,0,0,7);' "$WORK/app.c"
+grep -Fq '(*_UNK_40095208)(5,0,0,6);' "$WORK/app.c"
 grep -Fq '(*_UNK_40054f04)(8,&uStack_10);' "$WORK/app.c"
 grep -Fq 'uVar1 = 0x861c;' "$WORK/app.c"
 grep -Fq 'uVar1 = 0x800f;' "$WORK/app.c"

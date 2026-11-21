@@ -365,6 +365,19 @@
   established. This narrows the missing boundary to indirect callbacks or
   resident services; it does not prove that the application has no audio-data
   handoff.
+- A raw-pointer scan finds four uses of resident entry `0xbfc166ad` in the
+  hash-pinned `usound.ap`; Ghidra decompilation identifies their callsites as
+  `FUN_40054c00`, `FUN_40094c00`, `FUN_40094e88`, and `FUN_400950c0`. Their
+  fourth arguments are respectively operation selectors `3`, `6`, `1/2`, and
+  `7/0/6`; the operation-3 calls enumerate scalar indices 0..5 and copy
+  lengths 6, 6, 8, 16, 1, and 1. No operation-4 call occurs in these AP
+  callsites. If the current inferred module-5 `a3=operation` interpretation
+  holds, the AP does not directly request `FUN_bfc31654` through slot 4. This
+  does not exclude a fixed-ROM callback, another app, or computed dispatch.
+  Reproduce the pointer locations with
+  `python3 tools/emu/dac_caller_scan.py analysis --value 0xbfc166ad`; inspect
+  the callsites with `bash tools/ghidra/run_usound_ap_probe.sh
+  analysis/community/fw/usound.ap`.
 - The callback slots are now verified against the raw, SHA-pinned
   `usound.ap`: file offsets `0x1188` and `0x1328` map to `0x40095088` and
   `0x40095228`, and both words contain MIPS16 pointer `0x40054de1` (target
