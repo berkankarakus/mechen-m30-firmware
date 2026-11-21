@@ -28,6 +28,22 @@ repository.
   JuLi2167. These are mutually inconsistent secondary claims, not a board
   photo or schematic.
 
+### WM8965 datasheet lookup (2026-11-21)
+
+The user supplied an [Alldatasheet WM8965 search page](https://www.alldatasheet.com/view.jsp?Searchword=WM8965).
+The page title reflects the search query, but its result table contains WM8960,
+WM8961, and WM8962 documents and no exact WM8965 part-number result. Cirrus's
+official site currently exposes a WM8962 datasheet, but no WM8965 datasheet
+was found in this lookup. The WM8962 document is a family-adjacent reference
+only: its register map and electrical details must not be applied to WM8965
+without an independently verified compatibility statement.
+
+This lookup does not establish which codec is physically fitted to the M30;
+the public M30 component claims remain inconsistent. A legible chip marking,
+vendor-provided WM8965 document, or controlled M30 codec-bus trace would be
+needed before naming registers or modeling volume/EQ behavior. The existing
+`drv_dac.drv` probe establishes byte-transfer mechanics only.
+
 ## What these sources change
 
 - The 320x240 display and 4,000-track boundary already have corresponding
