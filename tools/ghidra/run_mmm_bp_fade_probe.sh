@@ -39,6 +39,8 @@ JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
   -postScript DumpWords.java 0x680a2020 0x680a202c \
+  -postScript FindPointerRefs.java 0x9fc21b04,0xbfc277f1,0xbfc27939 \
+  -postScript DumpRefsTo.java 0x9fc21b04,0xbfc277f1,0xbfc27939 \
   -postScript DumpInstructions.java 0xbfc21a3c 8 \
   -postScript DumpInstructions.java 0xbfc21708 100 \
   -postScript DumpC.java "$WORK/all.c" \
@@ -101,6 +103,23 @@ grep -q 'WORD address=680a2028 value=0xbfc27939' "$WORK/ghidra.log"
 grep -q 'UNK_bfc2769c + 4' "$WORK/decomp.c"
 grep -q 'FUN_bfc277f0' "$WORK/ring-callbacks.c"
 grep -q 'FUN_bfc27938' "$WORK/ring-callbacks.c"
+grep -Fq 'puVar11 = *(ushort **)(param_1 + 0x70);' "$WORK/ring-callbacks.c"
+grep -Fq 'puVar3 = *(ushort **)(param_1 + 0x70);' "$WORK/ring-callbacks.c"
+grep -Fq 'iVar5 = *(int *)(puVar3 + 4);' "$WORK/ring-callbacks.c"
+grep -Fq 'puVar11[1] = (ushort)in_hi;' "$WORK/ring-callbacks.c"
+grep -Fq 'puVar3[1] = (ushort)in_hi;' "$WORK/ring-callbacks.c"
+grep -q 'POINTER_REF value=0x9fc21b04 address=680a2020 owner=<no-function>' "$WORK/ghidra.log"
+grep -q 'POINTER_REF value=0xbfc277f1 address=680a2024 owner=<no-function>' "$WORK/ghidra.log"
+grep -q 'POINTER_REF value=0xbfc27939 address=680a2028 owner=<no-function>' "$WORK/ghidra.log"
+grep -q 'REF target=9fc21b04 from=680a1f4e type=WRITE function=FUN_680a1ed4' "$WORK/ghidra.log"
+grep -q 'REF target=9fc21b04 from=680a1ffc type=WRITE function=FUN_680a1ed4' "$WORK/ghidra.log"
+grep -q 'REF target=bfc277f1 from=680a1f4e type=DATA function=FUN_680a1ed4' "$WORK/ghidra.log"
+grep -q 'REF target=bfc27939 from=680a1ffc type=DATA function=FUN_680a1ed4' "$WORK/ghidra.log"
+grep -Fq 'case 0xb:' "$WORK/all.c"
+grep -Fq "if ((char)param_1[3] == '\\0') {" "$WORK/all.c"
+grep -Fq "if ((char)param_1[3] == '\\x01') {" "$WORK/all.c"
+grep -Fq 'param_1[2] = 0x80;' "$WORK/all.c"
+grep -Fq 'param_1[2] = 0x400;' "$WORK/all.c"
 
 # The unresolved callback target is recorded at instruction level.  A missing
 #/bad decode here is evidence to keep it outside the patch model, not a reason
@@ -114,16 +133,22 @@ grep -q 'INSN address=bfc21a3e bytes=05 e8 break' "$WORK/ghidra.log"
 # that a DAC/ASRC queue is empty.
 grep -q 'INSN address=bfc21712 .*jal 0xbfc276ac' "$WORK/ghidra.log"
 grep -q 'INSN address=bfc21794 .*jal 0xbfc27520' "$WORK/ghidra.log"
-grep -q 'INSN address=bfc217a2 .*cmpi s1' "$WORK/ghidra.log"
-grep -q 'INSN address=bfc217a4 .*bteqz 0xbfc217b4' "$WORK/ghidra.log"
-grep -q 'INSN address=bfc217ba .*sw a2' "$WORK/ghidra.log"
-grep -q 'INSN address=bfc217c8 .*jrc ra' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217a2 bytes=03 71 cmpi s1' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217a4 bytes=07 60 bteqz 0xbfc217b4' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217b2 bytes=aa 61 btnez 0xbfc21708' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217b6 bytes=02 6e li a2' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217ba bytes=c7 d8 sw a2' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217c8 bytes=a0 e8 jrc ra' "$WORK/ghidra.log"
+grep -Fq 'if ((iVar6 == 3) ||' "$WORK/all.c"
+grep -Fq '100 < (uint)(*(int *)(iVar4 + 0xec) - *(int *)(iVar4 + 0xf0))' "$WORK/all.c"
+grep -Fq 'FUN_bfc276ac(iVar9);' "$WORK/all.c"
 
 # DumpC covers every recovered function in this image.  The fade-control byte
 # is only read/cleared in the mapped set; no mapped function writes the value
 # that arms the fade transition, so that setter remains outside this image's
 # recovered call graph.
-grep -q 'DumpC: functions=30' "$WORK/ghidra.log"
+# Includes the two callback targets explicitly decompiled above.
+grep -q 'DumpC: functions=38' "$WORK/ghidra.log"
 grep -q '^// ===== FUN_680a1ed4 ' "$WORK/all.c"
 grep -q '^// ===== FUN_bfc21530 ' "$WORK/all.c"
 [ "$(grep -c '+ 0x81' "$WORK/all.c")" -eq 4 ]
