@@ -46,10 +46,14 @@ kapısı dikkate alınarak yazılmıştır; hiçbir madde tek başına cihazda f
 denemesi anlamına gelmez.
 
 1. **M30 sabit-ROM exception/dispatch yolunu daralt:** `ker_xsys` içindeki
-   `0xbfc34074 -> 0xbfc06d6c` handoff'u, mevcut boot-ROM/ROM kanıtı veya yeni
-   salt-okunur cihaz gözlemi olmadan tamamlanmış kabul etme. Önce yeni bir
-   extracted üye içinde handler/provider kopyası var mı tekrar doğrula; yoksa
-   `module=0x10` etkisini fail-closed bırak.
+   `0xbfc34074 -> 0xbfc06d6c` handoff'u için AP/DRV kopya taraması tamamlandı:
+   346 artifact içinde `0xbfc166ad` ham pointer'ı yalnız 12 byte-identical
+   `usound.ap` kopyasında bulundu; bunlarda `a3=4` çağrısı yok. Bu, `a3` ile
+   operation-table slot'u arasındaki eşlemeyi çözmüyor. `module=0x10` etkisini
+   fail-closed bırak; sıradaki belirleyici kaynak aynı M30 kartından alınmış
+   ROM veya sabit-ROM handler gövdesinin eşdeğer kanıtı. ROM okuma payload'ı
+   yerel olarak bulunmadığı ve uyumluluğu doğrulanmadığı için cihaza yükleme
+   yapılmadı.
 2. **DONE — upgrade akışını trace-only modelle:** doğrulanmış beş seçenekli
    ekran, `FUN_40014c30` selector'ları, decrypt/search metinleri ve
    `FUN_bfc37408` ilerleme normalizer'ı `tools/emu/upgrade_flow.py` ve

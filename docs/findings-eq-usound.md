@@ -374,10 +374,19 @@
   callsites. If the current inferred module-5 `a3=operation` interpretation
   holds, the AP does not directly request `FUN_bfc31654` through slot 4. This
   does not exclude a fixed-ROM callback, another app, or computed dispatch.
-  Reproduce the pointer locations with
-  `python3 tools/emu/dac_caller_scan.py analysis --value 0xbfc166ad`; inspect
+  Reproduce the AP/DRV corpus scan with
+  `python3 tools/emu/usound_resident_ref_scan.py . --value 0xbfc166ad`; inspect
   the callsites with `bash tools/ghidra/run_usound_ap_probe.sh
   analysis/community/fw/usound.ap`.
+  A repository-wide scan of 346 `.ap`/`.drv` artifacts found this raw pointer
+  only in byte-identical `usound.ap` copies (12 paths across extracted and
+  build trees; SHA-256 `e67af2588eea49bf1f81a588ac252636e3678a756d39013e46605cc16afa96cf`),
+  at offsets `0x9ac`, `0xdc8`, `0x117c`, and `0x1308`. No other app or driver
+  has a raw little- or big-endian occurrence. This rules out a direct literal
+  reference in that file set, not computed dispatch or code outside AP/DRV
+  artifacts. Since the selector mapping remains unproved, the slot-4 question
+  now depends on the unavailable fixed-ROM handler or a matching M30 ROM
+  readback; more scans of the same AP/DRV copies cannot settle it.
 - The callback slots are now verified against the raw, SHA-pinned
   `usound.ap`: file offsets `0x1188` and `0x1328` map to `0x40095088` and
   `0x40095228`, and both words contain MIPS16 pointer `0x40054de1` (target
