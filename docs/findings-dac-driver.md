@@ -81,9 +81,10 @@ protocol** with MSB-first bytes and active-low ACK. The address/data line
 identities here describe the helper context's two masked lines; there is no
 board trace proving physical pin names, voltage, timing, pull-ups, or the
 codec's register/address map. The machine-readable shape check runs as part of
-`tools/ghidra/run_dac_probe.sh`; the QEMU probe separately confirms that the
-unchanged helpers execute through their byte-transfer paths with synthetic
-GPIO RAM.
+`tools/ghidra/run_dac_probe.sh`; it checks the low/high helper semantics and
+condition-to-level mapping for ACK, NACK, and the final receive byte. The QEMU
+probe separately confirms that the unchanged helpers execute through their
+byte-transfer paths with synthetic GPIO RAM.
 
 ## Consequence for the requested playback work
 
