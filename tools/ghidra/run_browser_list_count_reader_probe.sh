@@ -33,6 +33,7 @@ if ! GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -postScript DumpWords.java 0x40cd5014 0x40cd5018 \
     -postScript DumpWords.java 0x48754938 0x4875493c \
     -postScript DumpAt.java 0x40094e08,0x40cd4e00,0x48754574,0x487546d8 "$WORK/decomp.c" \
+    -postScript DumpAt.java 0x487546d8 "$WORK/row_callback.c" \
     >"$WORK/run.log" 2>&1; then
   cat "$WORK/run.log" >&2
   exit 1
@@ -62,8 +63,8 @@ grep -Fq 'if ((uint)*(ushort *)(_UNK_48754938 + 2) < (uint)*(ushort *)(param_1 +
 grep -Fq 'if ((uint)*_UNK_4875492c + (uint)*(ushort *)(_UNK_48754938 + 2) <' "$WORK/decomp.c"
 grep -Fq '0x8000' "$WORK/decomp.c"
 grep -Fq '| 0x100' "$WORK/decomp.c"
-grep -Fq '0x7d' "$WORK/decomp.c"
-grep -Fq '0x7c' "$WORK/decomp.c"
-grep -Fq '*_UNK_48754930 + 0xe' "$WORK/decomp.c"
+grep -Fq '0x7d' "$WORK/row_callback.c"
+grep -Fq '0x7c' "$WORK/row_callback.c"
+grep -Fq '*_UNK_48754930 + 0xe' "$WORK/row_callback.c"
 
 echo 'BROWSER LIST COUNT READER PASS consumer=0x40094e08 state=0x9fc155f8+2 initial-reset=0 indirect-targets=0x780db201,0x780db28d,0x780db22d'
