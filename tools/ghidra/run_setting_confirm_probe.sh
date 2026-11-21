@@ -13,6 +13,10 @@ trap 'rm -rf "$WORK"' EXIT
 
 [ -f "$AP" ] || { echo "missing setting AP: $AP" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+case "$INPUT" in
+  0|1) ;;
+  *) echo "input must be 0 (entry event boundary) or 1 (confirmation request)" >&2; exit 1 ;;
+esac
 if [ -n "$JAVA_HOME_OVERRIDE" ]; then
   export JAVA_HOME="$JAVA_HOME_OVERRIDE"
 fi
@@ -37,4 +41,8 @@ if grep -q 'ERROR REPORT SCRIPT ERROR' "$LOG"; then
   echo "Ghidra script reported an error; probe is not considered a pass" >&2
   exit 1
 fi
-grep -q 'SETTING CONFIRM REQUEST PASS' "$LOG"
+if [ "$INPUT" -eq 0 ]; then
+  grep -q 'SETTING EVENT POLL BOUNDARY PASS' "$LOG"
+else
+  grep -q 'SETTING CONFIRM REQUEST PASS' "$LOG"
+fi

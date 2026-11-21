@@ -92,15 +92,15 @@ resource-name literals. It does not execute the overlay or write a candidate.
   `fa 00 01 01 80 46 55 48 ...` (capacity `250`, two flag bytes `1`, payload
   pointer `0x48554680`). The AP bank map places `0x48554600..0x48554bff` at
   file offset `0xe100`, so this pointer addresses file offset `0xe180` inside
-  `setting.ap`. The 250-byte target disassembles as MIPS16e-like instructions
-  but is not a recognized function start or an identifiable RU3 geometry
-  record. The same pointer value also occurs at file offset `0x127c0` / mapped
-  address `0x489146c0`; that reference's role is unknown. This is a reproducible
-  AP-to-UI boundary capture, not a rendered-frame trace; one earlier state read
-  remains uninitialized in the host setup. No corresponding RU3 TextBox
-  geometry was found in `setting.sty`, so the prompt rectangle and event/caller
-  chain remain unresolved. The preview trace labels text origin so example
-  wording cannot be mistaken for device output.
+  `setting.ap`. That address is not executable code or RU3 geometry: the event
+  translator `FUN_485547ec` reads six-byte mapping records from it. The table
+  begins with `{key=0x04, mask=0x0400, result=0}` and is terminated by a zero
+  record. Its fallback table at `0x485547c0` has six entries mapping raw key
+  and mask pairs to results `0x24`, `0x21`, `0x21`, `0x2202`, `0x2201`, and
+  `0x0108`. The same `0x48554680` address is also passed as the 250-byte data
+  pointer in the `0x100a` request. That dual use is confirmed; whether the UI
+  mutates or reinterprets the storage at runtime remains unknown.
+
 - The timer callback target at `0x40014e2c` is odd MIPS16 `0xbfc37409`, with
   aligned body `FUN_bfc37408`. It computes
   `((field+0x18 + field+0x08) >> 9)`, scales `field+0x20` by 10, maps raw
@@ -108,6 +108,35 @@ resource-name literals. It does not execute the overlay or write a candidate.
   value changes to an even value. `normalize_upgrade_progress` mirrors these
   raw offsets and rules without invoking the callback or inventing a
   progress-bar resource.
+
+### setting.ap event-poll path
+
+The alternate `param_1 == 0` path is an interactive event loop, not a failed
+confirmation request. `FUN_489146e8` sets state `2`, registers control
+`0x1009`, and polls until its event flag changes or the event handler returns a
+result. `FUN_48914600` obtains an event through `FUN_bfc164bc`, whose mapped
+AP-local trap stub at `0xbfc16584` contains `li v1,0x0f; break` and is called
+with `(6, buffer, 0, 0x19)`. The adjacent stub at `0xbfc16588` contains
+`li v1,6; break`. These are ABI trap selectors, not resolved service names.
+With the probe's service interception, `input=0` reaches this ABI boundary before the
+stub executes. The event buffer is zero immediately before the call because
+the synthetic RAM starts zeroed; the probe does not observe the call's return,
+copy an event, or execute a repeat iteration. Static control flow shows the AP
+continues polling until its flag changes or the event handler returns a result,
+but that interaction is not yet modeled.
+`run_setting_confirm_probe.sh ... 0` now stops at that verified boundary in
+178 emulated steps and asserts the poll arguments plus all eight
+pre-call-buffer bytes. It does not synthesize a keypress or render the screen.
+The event translation table was statically decompiled and inspected, not
+dynamically exercised. One earlier state read remains uninitialized in the
+host setup. No corresponding RU3 TextBox geometry was found in
+`setting.sty`, so the prompt rectangle and event result rendering remain
+unresolved. The preview trace labels text origin so example wording cannot be
+mistaken for device output. Both `input=0` and `input=1` probes also pass against
+stock V1.101.10 `setting.ap` (SHA-256
+`c0693d3750e1b92ad18b0ed741e893e5cffe3bc4517abdc086c54d539e2eb7d5`); this
+confirms the same observed UI boundary shapes in that binary, not byte identity
+or physical-device behavior.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 

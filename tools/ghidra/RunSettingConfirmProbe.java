@@ -58,6 +58,13 @@ public class RunSettingConfirmProbe extends GhidraScript {
         return emu.readMemory(addr(address), 1)[0] & 0xff;
     }
 
+    private boolean isZeroBuffer(EmulatorHelper emu, long address, int length) throws Exception {
+        for (int i = 0; i < length; i++) {
+            if (byteAt(emu, address + i) != 0) return false;
+        }
+        return true;
+    }
+
     private long wordAt(EmulatorHelper emu, long address) throws Exception {
         byte[] bytes = emu.readMemory(addr(address), 4);
         return (bytes[0] & 0xffL) | ((bytes[1] & 0xffL) << 8)
@@ -90,6 +97,7 @@ public class RunSettingConfirmProbe extends GhidraScript {
             emu.writeRegister("pc", ENTRY);
 
             boolean sawTextId = false;
+            boolean sawEntryControl = false;
             for (int steps = 0; steps < 100000; steps++) {
                 long pc = emu.readRegister("pc").longValue() & 0xffffffffL;
                 // MIPS16 return pointers may have bit 0 set. The context register
@@ -130,8 +138,27 @@ public class RunSettingConfirmProbe extends GhidraScript {
                         detail = " control=" + dumpStack(emu, a0, 8)
                             + " data=" + dumpStack(emu, a1, 16);
                     }
+                    if (target == 0xbfc16589L && input == 0
+                        && a3 == 2 && byteAt(emu, a0) == 0x09
+                        && byteAt(emu, a0 + 1) == 0x10
+                        && byteAt(emu, a0 + 2) == 1) {
+                        sawEntryControl = true;
+                    }
                     println("UI API " + hex(target) + " args=" + hex(a0) + ","
                         + hex(a1) + "," + hex(a2) + "," + hex(a3) + detail);
+                    if (target == 0xbfc16585L && input == 0 && sawEntryControl
+                        && a0 == 6 && a3 == 0x19) {
+                        if (steps != 178 || a1 != RAM + 0x2f68 || a2 != 0
+                            || !isZeroBuffer(emu, a1, 8)) {
+                            throw new Exception("unexpected event-poll boundary: steps=" + steps
+                                + " args=" + hex(a0) + "," + hex(a1) + "," + hex(a2)
+                                + "," + hex(a3) + " buffer=" + dumpStack(emu, a1, 8));
+                        }
+                        println("SETTING EVENT POLL BOUNDARY PASS steps=" + steps
+                            + " control=0x1009 event-buffer-before-call="
+                            + dumpStack(emu, a1, 8));
+                        return;
+                    }
                     if (target == 0x48a14601L) {
                         println("SETTING CONFIRM REQUEST PASS steps=" + steps
                             + " control=0x100a status=1 field-capacity=250 payload=0x48554680");
