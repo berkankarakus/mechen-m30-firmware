@@ -91,12 +91,57 @@ embedded `mmm_bp.al` content, not separate callers. The firmware package
 directory labels the member `MMM_BP  AL`, but that packaging record does not
 show who loads it or what arguments the runtime loader supplies.
 
+The package-table record is byte-identical in stock and community containers:
+it begins at `dec.bin+0x62c20` and `FWIMAGE.FW+0x420`. The 0x3000-byte module
+payload is at `dec.bin+0x8e800` and `FWIMAGE.FW+0x2c000`; each payload matches
+the extracted `mmm_bp.al` exactly (SHA-256
+`ab5d98b578406c4e04fb7b546317fbec0d36ce4a7c139ef0922b06bb4b753c5b`). Thus
+the container pointer hits are explained by the embedded member itself.
+
+The only nearby decoder-related filenames found in the extracted AP images
+are `mmm_mp.al` in `mengine.ap` (file offset `0x144c`) and `mmm_id.al` in
+`music.ap` (file offset `0xeef0`). `manager.ap` is byte-identical in stock and
+community (SHA-256 `d94d2406d5e88efee1ffacff2d399ce7d865410ac7458efdb9f185eae359af7a`)
+and contains no `mmm_bp` name. These filename/manifest facts do not identify a
+runtime loader or connect the named modules to the `MMM_BP  AL` record.
+
 The corpus container hashes differ (stock `afi/FWIMAGE.FW`:
 `edb04f1119f2caa4710dbfad67e3c79eee8fb0a7446c66224768f0cf9dbfd7dc`; community:
 `c87035fa32bd83a2c2d36f5564ff4ab049d3f8cdc3ec9a2a75a8eb7a4cb7d745`), while
 the `mmm_bp.al` hash is identical. This was a direct-literal scan, not a full
 disassembly of every loader or a proof against computed addresses and runtime
 registration.
+
+## Dynamic entry/init p-code boundary
+
+`tools/ghidra/run_mmm_bp_init_probe.sh <mmm_bp.al>` runs the extracted MIPS16
+entry at `0xbfc218a8` with synthetic caller arguments. The real entry's
+operation-0 dispatch executes `FUN_680a1ed4`, which calls the real initializer
+`FUN_68061c00`; the dispatcher returns `0x9fc21b08` through the caller's
+result pointer. The probe uses a RAM-backed context initialized with
+`0xa5` sentinels, a bounded stack, a step limit, and no AP code or literal
+rewrites. Both the stock and community files pass with the same pinned
+`mmm_bp.al` SHA-256.
+
+The run captures eight calls across two unresolved resident stubs. Stub
+`0xbfc21a38` receives `(context,0,0xec,1)`, then `(context+0x40,0,0,0x17)` and
+`(context+0x44,0,0,0x12)`. Stub `0xbfc21a3c` receives two shared-memory
+requests with selectors `0x49`, then registration requests `0x33`,
+`(stack_record,3,0xff,0x4a)`, and cleanup selector `0x34`. The probe provides
+only synthetic nonzero handles for the two `0x49` calls so the AP path can
+continue; all resident side effects are omitted. The resulting context
+contains those handles at `+0x58` and `+0x70`, and explicit initializer fields
+match the decompilation.
+
+Ghidra's memory-write tracker is enabled only after synthetic setup and tracks
+all writes during the AP run. Under the no-effect model for intercepted stub
+`0xbfc21a38`, it reports no writes to any of the four bytes at context `+0xd0`,
+and the final word remains `0xa5a5a5a5`. The tracker also records known AP
+writes to the result pointer, context base, and synthetic handle field, which
+checks that write tracking is active. This is direct evidence about the
+executed AP path under that bounded stub model. It does not establish what the
+real resident service does, prove a zero-fill contract, or identify the
+device's runtime loader/caller. Those remain open.
 
 ## Targeted audio/runtime caller checks
 
