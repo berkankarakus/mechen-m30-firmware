@@ -242,19 +242,27 @@ long-folder-name store.
 The end-to-end caller-to-refresh control path is now also executed by
 `tools/ghidra/run_browser_scene_refresh_chain_probe.sh`. It runs the real
 resident `FUN_bfc16600`, extracted scene `FUN_40cd4e00`, and refresh
-`FUN_40cd5218`/`FUN_40cd52e0` bodies in one p-code session. The scene's control
-object, row table, list state, and callback targets are redirected to synthetic
-RAM; initialization, readiness, and state-reset service boundaries are stubbed.
+`FUN_40cd5218`/`FUN_40cd52e0` bodies in one p-code session. It now also calls
+the real `FUN_487546d8` list-state callback twice instead of replacing it with
+a no-op. The scene's control object, row table, list state, and callback
+targets are redirected to synthetic RAM; initialization, readiness, and
+state-reset service boundaries are stubbed. The callback reads a synthetic
+title pointer at resident address `0x9fc155a0` and seven synthetic row-name
+pointers from `0x9fc155ac + 12*i`. The probe samples the loaded pointer
+registers at the callback's title and row store instructions and compares them
+with those source fields. At return, it checks the title pointer and all seven
+row pointers; each row uses a 12-byte descriptor whose slot-length field is
+`0x32` (50 bytes).
 With the observed scene arguments and a bounded seven-row window, the real
 refresh loop emits seven row callbacks for indices `0..6`; the successful run
-has 783 emulator-loop iterations, of which 760 call `emu.step()` successfully.
-The predicate/readiness/finish callbacks return selected values to drive the
-scene path; this is not evidence that the real services would naturally reach
-refresh. The experiment shows that the real guest instructions execute the
-row loop under those injected outcomes. It does not execute the directory-name
-provider or prove that these rows represent filesystem folders. Treat the
-callback records and list window as synthetic inputs, not captured device
-state. The pinned script passes on stock V1.101.10 (`browser.ap` SHA-256
+has 2,283 host-loop iterations, of which 2,248 call `emu.step()` successfully.
+The event-predicate callback is forced to zero twice to reach the refresh path;
+this does not establish that real services naturally reach refresh. The
+experiment executes the real list-state and refresh instructions with
+synthetic name data, but does not execute the directory-name provider or prove
+that these rows represent filesystem folders. Treat the callback records and
+list window as synthetic inputs, not captured device state. The pinned script
+passes on stock V1.101.10 (`browser.ap` SHA-256
 `b6e25204…3eb8f2f4`) and community (`10b0e5d8…e3fed34b3`). The local
 V1.101.11 `browser.ap` has the community member's identical SHA-256, so it is
 the same binary-level observation, not an independent variant result. Re-run
