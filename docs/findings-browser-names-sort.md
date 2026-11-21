@@ -274,6 +274,40 @@ writer: a list framework or a service reached indirectly may set the count
 after initialization. The matrix supplies this value synthetically and does
 not establish the normal device value.
 
+A second consumer is `FUN_40094e08`. Its decompile reads the same halfword and
+subtracts it from the list-state halfword at `0x9fc15612`, then calls through
+the literal targets `0x780db201`, `0x780db28d`, and `0x780db22d` (verified in
+the adjacent literal table). `0x780db201` is the known filesystem wrapper and
+`0x780db22d` the known fsel dispatcher; the role of `0x780db28d` remains
+unidentified. This places the count in a separate list-state update path as
+well as the refresh loop, but does not show a write to the count or prove that
+this function draws or scrolls text. The new static probe checks both the
+count-address literal and the call expressions, and reproduces these facts on
+stock and community APs:
+
+```sh
+bash tools/ghidra/run_browser_list_count_reader_probe.sh analysis/stock/fw/browser.ap
+bash tools/ghidra/run_browser_list_count_reader_probe.sh analysis/community/fw/browser.ap
+```
+
+The caller is now dynamically executed by
+`tools/ghidra/run_browser_list_count_consumer_probe.sh`. With synthetic count
+`2` and state position `5`, the real function computes row `3`, calls the real
+`FUN_780db28c` state setter and the real `FUN_780db22c` dispatcher, then reaches
+the real directory callback `FUN_71352820` for one row. The callback writes a
+synthetic BOM-prefixed name through the real in-AP formatter to slot
+`0x9fc154e0`. The count query, path/metadata/list services, filesystem,
+database, converter, and fixed-ROM calls are stubbed. The code path and result
+match in stock and community V1.101.10/V1.292.00 APs. This links a count-based
+list update to name production; it still does not connect the produced slot to
+the listbox paint/marquee routine or show the device's real count/provider
+output. Reproduce with:
+
+```sh
+bash tools/ghidra/run_browser_list_count_consumer_probe.sh analysis/stock/fw/browser.ap
+bash tools/ghidra/run_browser_list_count_consumer_probe.sh analysis/community/fw/browser.ap
+```
+
 That outer caller boundary is now dynamically measured as well by
 `tools/ghidra/run_browser_scene_caller_probe.sh`. The resident
 `FUN_bfc16600` path calls the extracted GUI entry `0x40cd4e01` with
