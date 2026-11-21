@@ -165,6 +165,27 @@ wrapper's fixed code reads state at `0x9fc15600` and has a callback pointer at
 runtime writer for callback state at `0x9fc15608` are unresolved. This is a
 controlled nonzero-return branch probe, not an observed event or device trace.
 
+### `0x9fc15608` callback-slot writer
+
+`FUN_48494600` is a conditional writer for the callback pointer cell at
+`0x9fc15608`. The reproducible p-code probe
+`tools/ghidra/run_setting_callback_writer_probe.sh <setting.ap>` executes the
+real MIPS16 function against both hash-pinned community v1.292.00 and stock
+V1.101.10 `setting.ap` inputs. It seeds a synthetic descriptor pointer in
+`0x9fc15600`; when descriptor byte `+2` is zero, the function makes one
+selector-`0x1a` service call with `(9,0,0,0x1a)` and leaves the callback slot's
+`0xdeadbeef` sentinel unchanged. When byte `+2` is one, it first calls the
+same selector with `(6,0,0,0x1a)`, stores the supplied MIPS16 callback pointer
+`0x40054d79` into `0x9fc15608`, then makes the `(9,0,0,0x1a)` call. Both cases
+return through the seeded sentinel in 17 and 25 steps respectively.
+
+The descriptor, service results, callback-slot sentinel, and callback argument
+are synthetic. This proves the writer's gate, store, and service-call order in
+both binaries; it does not prove which runtime dispatch reaches the writer,
+whether the real descriptor's `+2` byte is one, or that this callback executes
+on the physical device. The indirect caller and descriptor initializer remain
+the high-value gaps.
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
