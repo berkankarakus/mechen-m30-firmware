@@ -89,10 +89,10 @@ external/indirect boundary rather than another hidden `mmm_bp` function.
 
 This proves a firmware fade state machine and its buffer-facing boundary, but
 not yet whether a particular Audacity-rendered tail is lost before this state
-machine, during buffer exhaustion, or in the downstream DSP. The remaining
-static trace target is the external callback behind the step calls and the
-caller that supplies `param + 0x81`/`+0xba`; then compare a short-tail file
-against the `available-count` and `0x200`-byte refill conditions.
+machine, during buffer exhaustion, or in the downstream DSP. Remaining targets
+are the external callback behind the fade-step calls and the caller that
+supplies `param + 0x81`/`+0xba`; then compare a short-tail file against the
+`available-count` and `0x200`-byte refill conditions.
 
 ## Emulator boundary
 
@@ -125,16 +125,28 @@ allows a preceding `FUN_bfc27520` pass, but exits before another refill-loop
 iteration; the recovered code does not show a loop that waits for a downstream
 queue to become empty before returning.
 
-This is a concrete ordering fact, **not** proof that `FUN_bfc27520` drains the
-ASRC/DAC queue: its indirect callback implementation remains unresolved, and
-no device queue level or audible tail was measured. Nor does this function
-call the separate `music.ap` track-index advance callback. The relation between
-this decoder-side terminal state and the `music.ap` mode-4 advance path is
-still unproven. `mmm_bp.al` SHA-256 is identical in stock V1.101.10 and
+The callback slot used by `FUN_bfc27520` is no longer opaque. The literal pool
+at `0x680a2020..0x680a2028` resolves to slot `0x9fc21b04` and two MIPS16
+entries, `0xbfc277f1` (`FUN_bfc277f0`) and `0xbfc27939` (`FUN_bfc27938`).
+`FUN_680a1ed4`'s operation-11 branch writes one of those entries into
+`0x9fc21b04` according to the byte at context `+0x0c`. `FUN_bfc27520` calls
+the selected entry with the decoder context and a mode value; both targets
+operate on the input ring described by context `+0x70` and scan/advance its
+byte positions. This is evidence for an input-ring callback, not a downstream
+ASRC/DAC drain callback.
+
+Therefore the ordering above proves only that this decoder-side input-ring
+helper gets a pass before the state-3 exit. It does **not** prove that the
+ASRC/DAC queue drains; no device queue level or audible tail was measured.
+Nor does this function call the separate `music.ap` track-index advance
+callback. The relation between this decoder-side terminal state and the
+`music.ap` mode-4 advance path is still unproven. `mmm_bp.al` SHA-256 is
+identical in stock V1.101.10 and
 community V1.292.00 (`ab5d98b578406c4e04fb7b546317fbec0d36ce4a7c139ef0922b06bb4b753c5b`),
 so this ordering is not a community-only change.
 
-The Ghidra runner now pins the instruction addresses above in addition to the
-decompilation checks. Reproduce against either extracted member with the two
-commands above. The code was statically disassembled/decompiled; this new
-ordering check does not execute the decoder callbacks.
+The Ghidra runner now pins the instruction addresses, callback slot, and
+callback entries above in addition to the decompilation checks. Reproduce
+against either extracted member with the two commands above. The code was
+statically disassembled/decompiled; these checks do not execute the decoder
+callbacks.

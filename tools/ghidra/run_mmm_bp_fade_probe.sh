@@ -33,10 +33,12 @@ JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript LoadAP.java "$AL" \
   -postScript DumpAt.java 0xbfc21530,0xbfc21590,0xbfc216a8,0x68021c8c,0xbfc27400,0xbfc274c8,0xbfc27520,0xbfc276ac,0x680a1ed4 "$WORK/decomp.c" \
+  -postScript DumpAt.java 0xbfc277f0,0xbfc27938 "$WORK/ring-callbacks.c" \
   -postScript DumpWords.java 0xbfc21694 0xbfc21698 \
   -postScript DumpWords.java 0xbfc21698 0xbfc2169c \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
+  -postScript DumpWords.java 0x680a2020 0x680a202c \
   -postScript DumpInstructions.java 0xbfc21a3c 8 \
   -postScript DumpInstructions.java 0xbfc21708 100 \
   -postScript DumpC.java "$WORK/all.c" \
@@ -55,6 +57,8 @@ grep -q 'DumpAt: bfc274c8 -> FUN_bfc274c8' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc27520 -> FUN_bfc27520' "$WORK/ghidra.log"
 grep -q 'DumpAt: bfc276ac -> FUN_bfc276ac' "$WORK/ghidra.log"
 grep -q 'DumpAt: 680a1ed4 -> FUN_680a1ed4' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc277f0 -> FUN_bfc277f0' "$WORK/ghidra.log"
+grep -q 'DumpAt: bfc27938 -> FUN_bfc27938' "$WORK/ghidra.log"
 
 # The first check is a real cross-reference to the diagnostic text.  The
 # second and third checks identify the adjacent decoder state/buffer paths;
@@ -91,6 +95,12 @@ grep -q 'WORD address=bfc2769c value=0x9fc21b00' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc276a0 value=0xbfc21a3d' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc2772c value=0xbfc274c9' "$WORK/ghidra.log"
 grep -q 'WORD address=bfc27730 value=0xbfc2748d' "$WORK/ghidra.log"
+grep -q 'WORD address=680a2020 value=0x9fc21b04' "$WORK/ghidra.log"
+grep -q 'WORD address=680a2024 value=0xbfc277f1' "$WORK/ghidra.log"
+grep -q 'WORD address=680a2028 value=0xbfc27939' "$WORK/ghidra.log"
+grep -q 'UNK_bfc2769c + 4' "$WORK/decomp.c"
+grep -q 'FUN_bfc277f0' "$WORK/ring-callbacks.c"
+grep -q 'FUN_bfc27938' "$WORK/ring-callbacks.c"
 
 # The unresolved callback target is recorded at instruction level.  A missing
 #/bad decode here is evidence to keep it outside the patch model, not a reason
