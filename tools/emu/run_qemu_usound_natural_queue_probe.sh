@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the real producer and consumer with firmware-shared rings and counters.
-# USB FIFO is RAM-backed; module-0x10 is observed without emulating its service.
+# USB FIFO is RAM-backed; the expected result is a captured staging divergence.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -105,7 +105,7 @@ output = bytearray()
 deadline = time.monotonic() + float(os.environ.get("QEMU_TIMEOUT", "12"))
 selector = selectors.DefaultSelector()
 selector.register(process.stdout, selectors.EVENT_READ)
-marker = b"NATURAL USOUND SOURCE PASS"
+marker = b"NATURAL USOUND DIVERGENCE CONFIRMED"
 failure = b"NATURAL USOUND QUEUE FAIL"
 try:
     while process.poll() is None and time.monotonic() < deadline:

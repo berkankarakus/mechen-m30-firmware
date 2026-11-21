@@ -7,7 +7,7 @@
 	.globl	general_exception
 	.ent	general_exception
 general_exception:
-	/* Observe module-0x10 arguments; the fixed-ROM copy effect is not modeled. */
+	/* Observe module-0x10 arguments; the fixed-ROM service effect stays opaque. */
 	lui	$k0, 0x8006
 	ori	$k0, $k0, 0x4000
 	lw	$k1, 0($k0)
@@ -31,13 +31,13 @@ general_exception:
 	bnez	$a3, exception_bad
 	 nop
 
-	/* Check every source byte but leave the fixed-ROM service effect opaque. */
+	/* Validate every source byte against the current packet's expected pattern. */
 	lw	$t6, 0x24($k0)
 	or	$t7, $a1, $zero
 	li	$t9, 192
 exception_source_check:
 	lbu	$t0, 0($t7)
-	bne	$t0, $t6, exception_bad
+	bne	$t0, $t6, exception_source_bad
 	 nop
 	addiu	$t7, $t7, 1
 	addiu	$t9, $t9, -1
@@ -45,6 +45,10 @@ exception_source_check:
 	 nop
 	b	exception_return
 	 nop
+exception_source_bad:
+	sw	$t0, 0x30($k0)	/* actual byte */
+	sw	$t7, 0x34($k0)	/* source address */
+	sw	$t6, 0x38($k0)	/* expected byte */
 exception_bad:
 	li	$k1, 1
 	sw	$k1, 0x14($k0)
@@ -83,6 +87,17 @@ _start:
 	sb	$zero, 0x24($t0)
 	sw	$zero, 0x28($t0)
 	sw	$zero, 0x2c($t0)
+	lui	$t0, 0x8006
+	ori	$t0, $t0, 0x4000
+	sw	$zero, 0($t0)
+	sw	$zero, 4($t0)
+	sw	$zero, 8($t0)
+	sw	$zero, 0xc($t0)
+	sw	$zero, 0x10($t0)
+	sw	$zero, 0x14($t0)
+	sw	$zero, 0x30($t0)
+	sw	$zero, 0x34($t0)
+	sw	$zero, 0x38($t0)
 	lui	$t0, 0x8006
 	ori	$t0, $t0, 0x2000
 	sb	$zero, 0x20($t0)	/* direct format */
@@ -128,6 +143,7 @@ seed_shared_buffer:
 	lw	$t1, 0x20($t0)
 bnez	$t1, fail_first_available
 	 nop
+	ori	$t0, $t0, 0x4000
 	lw	$t1, 0x14($t0)
 	bnez	$t1, fail_exception
 	 nop
@@ -152,11 +168,42 @@ bnez	$t1, fail_first_available
 	lw	$t1, 0x20($t0)
 bnez	$t1, fail_second_available
 	 nop
+	ori	$t0, $t0, 0x4000
 	lw	$t1, 0x14($t0)
-	bnez	$t1, fail_exception
+	beqz	$t1, fail_no_divergence
+	 nop
+	lw	$t1, 0x30($t0)
+	li	$t2, 0x11
+	bne	$t1, $t2, fail_unexpected_byte
+	 nop
+	lw	$t1, 0x34($t0)
+	li	$t2, 0x800680c0
+	bne	$t1, $t2, fail_unexpected_address
+	 nop
+	lw	$t1, 0x38($t0)
+	li	$t2, 0x22
+	bne	$t1, $t2, fail_unexpected_byte
+	 nop
+	/* Confirm the whole second source remained at the initial 0x11 fill. */
+	li	$t0, 0x800680c0
+	li	$t1, 192
+	li	$t2, 0x11
+verify_stale_source:
+	lbu	$t3, 0($t0)
+	bne	$t3, $t2, fail_unexpected_byte
+	 nop
+	addiu	$t0, $t0, 1
+	addiu	$t1, $t1, -1
+	bnez	$t1, verify_stale_source
+	 nop
+	/* The producer replaced staging slot zero with B, while +0xc0 stayed A. */
+	li	$t0, 0x80068000
+	lbu	$t1, 0($t0)
+	li	$t2, 0x22
+	bne	$t1, $t2, fail_staging_base
 	 nop
 
-	/* Producer ring retains A/B; consumer calls expose the same two source packets. */
+	/* Check the first bytes in the separate DMA ring. */
 	lui	$t0, 0x8006
 	ori	$t0, $t0, 0x1000
 	lbu	$t1, 0($t0)
@@ -166,6 +213,30 @@ bnez	$t1, fail_second_available
 	lbu	$t1, 0xc0($t0)
 	li	$t2, 0x22
 	bne	$t1, $t2, fail_dma_b
+	 nop
+	lui	$t0, 0x8006
+	ori	$t0, $t0, 0x1000
+	li	$t1, 192
+	li	$t2, 0x11
+verify_dma_a:
+	lbu	$t3, 0($t0)
+	bne	$t3, $t2, fail_dma_a
+	 nop
+	addiu	$t0, $t0, 1
+	addiu	$t1, $t1, -1
+	bnez	$t1, verify_dma_a
+	 nop
+	lui	$t0, 0x8006
+	ori	$t0, $t0, 0x10c0
+	li	$t1, 192
+	li	$t2, 0x22
+verify_dma_b:
+	lbu	$t3, 0($t0)
+	bne	$t3, $t2, fail_dma_b
+	 nop
+	addiu	$t0, $t0, 1
+	addiu	$t1, $t1, -1
+	bnez	$t1, verify_dma_b
 	 nop
 	lui	$t0, 0x8006
 	ori	$t0, $t0, 0x4000
@@ -289,6 +360,23 @@ fail_second_length:
 	la	$a0, second_length_text
 	b	fail
 	 nop
+
+fail_no_divergence:
+	la	$a0, no_divergence_text
+	b	fail
+	 nop
+fail_unexpected_byte:
+	la	$a0, unexpected_byte_text
+	b	fail
+	 nop
+fail_unexpected_address:
+	la	$a0, unexpected_address_text
+	b	fail
+	 nop
+fail_staging_base:
+	la	$a0, staging_base_text
+	b	fail
+	 nop
 fail_dma_a:
 	la	$a0, dma_a_text
 	b	fail
@@ -334,7 +422,7 @@ noop_callback:
 
 	.section .rodata
 observation_text:
-	.asciz	"NATURAL USOUND SOURCE PASS callbacks=2 real_port_helper=1 shared_state=1 producer_dma_ring=A,B consumer_source_offsets=0,0xc0 source_bytes=A,B module10=argument-only fixed-service-copy-unmodeled FIFO=ram-backed-word-port\r\n"
+	.asciz	"NATURAL USOUND DIVERGENCE CONFIRMED callbacks=2 real_port_helper=1 DMA_ring=A,B[192+192] staging[0]=B consumer_source[0xc0]=stale-0x11[192] module10=observed-only FIFO=ram-backed-word-port\r\n"
 first_count_text:
 	.asciz	"NATURAL USOUND QUEUE FAIL first-consumed-count\r\n"
 first_read_text:
@@ -359,6 +447,14 @@ second_source_text:
 	.asciz	"NATURAL USOUND QUEUE FAIL second-consumer-source\r\n"
 second_length_text:
 	.asciz	"NATURAL USOUND QUEUE FAIL second-consumer-length\r\n"
+no_divergence_text:
+	.asciz	"NATURAL USOUND QUEUE FAIL expected-stale-source-not-observed\r\n"
+unexpected_byte_text:
+	.asciz	"NATURAL USOUND QUEUE FAIL unexpected-source-byte\r\n"
+unexpected_address_text:
+	.asciz	"NATURAL USOUND QUEUE FAIL unexpected-source-address\r\n"
+staging_base_text:
+	.asciz	"NATURAL USOUND QUEUE FAIL second-event-did-not-replace-staging-base\r\n"
 
 	.section .driver,"ax"
 	.align	2

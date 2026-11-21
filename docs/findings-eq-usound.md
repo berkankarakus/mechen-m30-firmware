@@ -544,15 +544,21 @@
   <hash-matching-usound.drv>`.
 - `tools/emu/run_qemu_usound_natural_queue_probe.sh` composes the real event
   callback, producer, word-port helper `FUN_bfc318cc`, and consumer while
-  retaining the firmware's separate `0x9fc24000` DMA ring and shared
-  `0x9fc34000` staging/consumer ring. With RAM-backed port words A/B, the real
-  producer DMA ring begins with A/B at offsets 0 and `0xc0`, and the real consumer advances its
-  shared read offset from 0 to `0xc0`; the intercepted module-`0x10` calls
-  receive the corresponding complete 192-byte sources at `0x9fc34000` and
-  `0x9fc340c0`. The probe validates all source bytes and call arguments but
-  does not emulate the fixed-ROM service's destination-side effect. FIFO words,
-  event/MMIO, and DMA remain synthetic; physical DMA, service dispatch, PCM/DAC
-  ownership, and audible output remain unverified. Reproduce with
+  retaining separate firmware addresses for the `0x9fc24000` DMA ring and
+  `0x9fc34000` staging/consumer area. With RAM-backed port words A/B, the DMA
+  ring contains 192 bytes of A at offset 0 and 192 bytes of B at `0xc0`. The shared
+  available count and consumer read offset advance by 192 bytes, and the
+  consumer's second module-`0x10` call receives source `0x9fc340c0`; however,
+  all 192 bytes there remain the initial `0x11` fill even though the first byte
+  at staging base `0x9fc34000` is now B. The probe therefore confirms a
+  producer/consumer staging divergence under the synthetic FIFO setup; it does
+  not establish that real USB packets or ROM dispatch behave identically.
+  An earlier PASS report was invalid: the exception shim wrote its validation
+  error to `0x80064014`, while the harness checked `0x80060014`, so the second
+  packet's byte mismatch was ignored. The probe now checks the correct error
+  slot and requires the complete stale-source pattern before reporting this
+  observation. The fixed-ROM module-`0x10` destination effect, physical FIFO/DMA,
+  PCM/DAC ownership, and audible output remain unverified. Reproduce with
   `bash tools/emu/run_qemu_usound_natural_queue_probe.sh
   <hash-matching-usound.drv>`.
 - A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
