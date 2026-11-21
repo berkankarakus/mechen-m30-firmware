@@ -561,16 +561,19 @@
   `0x9fc24000`; it does not establish that firmware invokes this consumer
   after each producer callback or that real USB packets or ROM dispatch behave
   identically.
-  A raw pointer scan of 673 local analysis files (excluding duplicate
-  `dec.bin` containers) found `0xbfc31655` only in the eight-word table inside
-  each of six identical `usound.drv` copies and the corresponding embedded
-  `FWIMAGE.FW` copy; it found no separate AP/driver pointer to this consumer.
-  The `dec.bin` hit is the same embedded driver bytes (`usound.drv` starts at
-  `0x83a00`, so the table entry at file `0x2a44` lands at `0x86444`). This rules
-  out only a literal direct pointer in the scanned artifacts, not computed
-  registration, selector dispatch, or fixed-ROM callers. Reproduce the direct
-  scan with `python3 tools/emu/dac_caller_scan.py analysis --value
-  0xbfc31655 --exclude-name dec.bin`.
+  A raw-pointer scan of 673 local analysis files (excluding `dec.bin` by
+  default) found the exact little-endian value `0xbfc31655` only at the
+  operation-table word inside six `usound.drv` files and at the same table
+  word in their six embedded `FWIMAGE.FW` copies. Separately including
+  `dec.bin` finds one additional copy per corpus: `usound.drv` begins at
+  `0x83a00`, so its table word at file offset `0x2a44` appears at `0x86444`.
+  These are duplicate copies of the driver's own table, not independent call
+  sites. This establishes only that no other exact 32-bit little-endian
+  pointer was found in the scanned files; it does not rule out computed
+  registration, selector dispatch, or fixed-ROM callers. Reproduce both scans:
+  `python3 tools/emu/dac_caller_scan.py analysis --value 0xbfc31655` and
+  `python3 tools/emu/dac_caller_scan.py analysis --value 0xbfc31655
+  --include-name dec.bin`.
   An earlier PASS report was invalid: the exception shim wrote its validation
   error to `0x80064014`, while the harness checked `0x80060014`, so the second
   packet's byte mismatch was ignored. The probe now checks the correct error

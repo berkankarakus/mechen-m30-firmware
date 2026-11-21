@@ -64,6 +64,12 @@ def main() -> int:
         help="basename to skip (repeatable; default: dec.bin)",
     )
     parser.add_argument(
+        "--include-name",
+        action="append",
+        default=[],
+        help="basename to include even when it is listed by --exclude-name",
+    )
+    parser.add_argument(
         "--require-zero",
         action="store_true",
         help="return failure if any requested value is found",
@@ -72,10 +78,11 @@ def main() -> int:
 
     values = tuple(args.values) if args.values else DEFAULT_VALUES
     needles = {value: struct.pack("<I", value) for value in values}
+    excluded_names = set(args.exclude_name) - set(args.include_name)
     totals = {value: 0 for value in values}
     files = 0
     for path in sorted(p for p in args.root.rglob("*") if p.is_file()):
-        if path.name in args.exclude_name:
+        if path.name in excluded_names:
             continue
         files += 1
         for value, offset in scan_file(path, needles):
