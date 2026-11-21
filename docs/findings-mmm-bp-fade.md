@@ -75,6 +75,14 @@ treated as a callback body. It is consistent with a runtime-relocated/filled
 slot, but that part is an inference; the slot remains unsupported and is not a
 safe patch site.
 
+The whole-module `DumpC` pass now also checks the `+0xd0` status field across
+the recovered function set. It requires at least the 30 seeded prologue
+functions, fails if any decompilation fails, and finds exactly two explicit
+reads, both in `FUN_bfc216a8`, with no direct store through that same context
+expression. This narrows the producer outside the currently recovered direct
+dataflow; it does not rule out an alias, computed pointer, setup performed by
+a caller, or resident/fixed-ROM initialization.
+
 The ownership boundary is also clearer now: `FUN_bfc21530` consumes the
 control flag at `param + 0x81`, clears it, and initializes fade mode `2` plus
 the step counter at `+0x8a`; `FUN_bfc21590` later changes mode `2` to `3` when

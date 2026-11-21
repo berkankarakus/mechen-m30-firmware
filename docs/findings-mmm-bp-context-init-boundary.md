@@ -37,11 +37,12 @@ containing the context pointer is passed through the separate stub pointer at
 These are not calls via the `0xbfc21a39` pointer discussed here. Their meanings
 and any side effects on `0x9fc21bd0` remain unresolved.
 
-The whole recovered set (`DumpC: functions=38`) contains two explicit reads
-through context `+0xd0`, both in `FUN_bfc216a8`, and no explicit store through
-that expression. Ghidra references to absolute `0x9fc21bd0` likewise show the
-two reads and no write. This does not rule out a write through a computed
-alias or an unresolved service.
+The recovered functions contain two explicit reads through context `+0xd0`,
+both in `FUN_bfc216a8`, and no explicit store through that expression. Ghidra
+references to absolute `0x9fc21bd0` likewise show the two reads and no write.
+The total function count reported by `DumpC` can vary with function discovery,
+so it is not used as a completeness criterion. This does not rule out a write
+through a computed alias or an unresolved service.
 
 ## Static call shapes through `0xbfc21a39`
 

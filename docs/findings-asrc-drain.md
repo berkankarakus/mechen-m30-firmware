@@ -64,8 +64,10 @@ load reads `0x40494e95` from callback literal `0x400d509c`; the following
 indirect call enters `FUN_40494e94` once and returns to `0x400d4fdf`. The
 probe checks both the actual call operand value and the emulated literal before
 and after execution. No AP code or callback literal is rewritten. The
-resident snapshot callback at `0xbfc164dc` returns a controlled value of 100,
-while resident event/UI/end-notification boundaries are captured stubs.
+resident service at `0xbfc164dc` is stubbed at the two calls reached in this
+tick-to-EOF path: the probe writes `100` to each first-argument output buffer
+and returns `0` in `v0`. Resident event/UI/end-notification boundaries are
+captured stubs.
 Playback state, index, threshold, and the remote UI event byte are synthetic
 RAM inputs. The tested direct callees have MIPS16 context, every callback
 pointer is MIPS16-tagged, and every intercepted return address is checked for
@@ -76,6 +78,34 @@ directory; synthetic RAM blocks are discarded when each run exits.
 At the last item (index 2 of 3) above the threshold, stock mode 2 wraps to
 index 0 and calls the advance/index-update callback with argument 0. Stock
 mode 4 instead leaves the index at 3 and takes the end-notification/UI path.
+
+### Resident entry `0xbfc164dc` call-site boundary
+
+`bash tools/ghidra/run_resident_service_xref_probe.sh <community-music.ap>
+<community-usound.ap> <community-udisk.ap> <stock-music.ap>
+<stock-usound.ap> <stock-udisk.ap>` checks computed-call references and
+aligned MIPS16 pointer literals in six pinned APs. Each stock/community
+`music.ap` contains exactly five direct literal references to `0xbfc164dd`,
+with calls from
+`FUN_400d4edc`, `FUN_401d51b8`, `FUN_40394f48`, `FUN_40494e94`, and
+`FUN_405151a0`. Both `usound.ap` variants have one call at
+`FUN_40094ccc` and one literal at `0x40094d24`; both `udisk.ap` variants have
+one call at `FUN_40014ccc` and one literal at `0x40014da0`.
+
+Four callers pass a local result buffer as their first argument and consume
+its first word as an elapsed/progress-like value. The separate
+`FUN_401d51b8` call passes `(param_1 + 4, *param_1)`, so the resident entry
+cannot be described from these call sites as a dedicated one-purpose
+snapshot getter. The `usound.ap` caller passes an eight-byte local buffer to
+the entry, checks for a successful byte result, and forwards that buffer to
+another handler. The `udisk.ap` caller uses the same buffer-and-status shape;
+it decodes the returned record and sets flags for event `0x2d01`. This is
+consistent with a shared event/result service, but does not establish its
+resident implementation or full ABI. In the EOF probe, only the two calls
+actually reached through `FUN_400d4edc` and `FUN_40494e94` are stubbed; the
+probe writes a synthetic word to each first-argument buffer and returns zero.
+That establishes caller control/data flow, not the resident service's real
+output or side effects.
 Community mode 4 wraps to index 0 and calls that same callback with argument
 0, matching mode 2. The integrated tick probe confirms the literal-mediated
 `lw` → `jalrc` edge enters the real handler in both variants. Stock then emits

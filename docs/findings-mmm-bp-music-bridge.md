@@ -26,8 +26,11 @@ In `music.ap`, `FUN_400d4edc` loads the EOF/tick callback pointer from literal
 `0x400d509c` and calls `FUN_40494e94`. At the final-item boundary, community
 mode 4 reaches `FUN_405151a0(0)` and updates the music selection; stock mode 4
 takes the end-notification/UI route. The dynamic probe supplies a synthetic
-progress snapshot through resident callback `0xbfc164dc`; playback RAM and the
-snapshot result are controlled inputs. Thus the call into mode 4 is real AP
+progress value through the shared resident service at `0xbfc164dc`; playback
+RAM and that service result are controlled inputs. The entry has five
+verified `music.ap` call sites, including a distinct two-argument caller; the
+`usound.ap` and `udisk.ap` callers also pass event/result buffers. It is not
+established as a dedicated snapshot API. Thus the call into mode 4 is real AP
 execution, but the decoder status is not among the probe's inputs. See
 [the ASRC/EOF note](findings-asrc-drain.md).
 
@@ -60,11 +63,15 @@ disposable Ghidra projects.
 
 ## Missing bridge
 
-The most useful next boundary is the implementation/producer of
-`music.ap`'s resident snapshot callback at `0xbfc164dc`, alongside the owner
-that writes the indirect status pointer at decoder context `+0xd0`. The
-current p-code probe stubs the former and the decoder analysis does not recover
-the latter's producer. Recovering those two endpoints may show a shared engine
+The most useful next boundary is the owner that writes the indirect status
+pointer at decoder context `+0xd0`, plus the full resident-service ABI behind
+`0xbfc164dc`. Call sites across `music.ap`, `usound.ap`, and `udisk.ap` are
+mapped in
+[the ASRC/EOF note](findings-asrc-drain.md#resident-entry-0xbfc164dc-call-site-boundary),
+but its ROM implementation is absent, and callers use both event/result
+buffers and a two-argument form. The current p-code probe stubs only the two
+calls in the tick/EOF path, and the decoder analysis does not recover the
+status pointer's producer. Recovering those endpoints may show a shared engine
 event or state update; until then, connecting status 3 to the mode-4 change
 would be speculation. The resident call with selector `0x1c` in `mmm_bp` and
 the `mmm_mp` command byte `0x1c` are separate interfaces and are not treated as

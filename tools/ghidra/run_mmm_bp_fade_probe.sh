@@ -18,6 +18,11 @@ fi
 
 [ -f "$AL" ] || { echo "missing mmm_bp.al: $AL" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+ACTUAL_SHA256=$(shasum -a 256 "$AL" | awk '{print $1}')
+[ "$ACTUAL_SHA256" = ab5d98b578406c4e04fb7b546317fbec0d36ce4a7c139ef0922b06bb4b753c5b ] || {
+  echo "unexpected mmm_bp.al SHA-256: $ACTUAL_SHA256" >&2
+  exit 1
+}
 
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-mmm-bp.XXXXXX")
 if [ "${KEEP_WORK:-0}" = 1 ]; then
@@ -147,13 +152,39 @@ grep -Fq 'if ((iVar6 == 3) ||' "$WORK/all.c"
 grep -Fq 'iVar6 = **(int **)(iVar4 + 0xd0);' "$WORK/decomp.c"
 grep -Fq '100 < (uint)(*(int *)(iVar4 + 0xec) - *(int *)(iVar4 + 0xf0))' "$WORK/all.c"
 grep -Fq 'FUN_bfc276ac(iVar9);' "$WORK/all.c"
+if [ "$(grep -Fc 'iVar6 = **(int **)(iVar4 + 0xd0);' "$WORK/all.c")" -ne 2 ]; then
+  echo 'whole-module decompile no longer shows exactly two explicit context+0xd0 reads' >&2
+  grep -n -C 2 '0xd0' "$WORK/all.c" >&2 || true
+  exit 1
+fi
+if grep -Eq '\*\([^)]*\)\([^)]*\+ 0xd0\)[[:space:]]*=' "$WORK/all.c"; then
+  echo 'whole-module decompile shows an explicit context+0xd0 store' >&2
+  grep -n -C 2 '0xd0' "$WORK/all.c" >&2 || true
+  exit 1
+fi
 
 # DumpC covers every recovered function in this image.  The fade-control byte
 # is only read/cleared in the mapped set; no mapped function writes the value
 # that arms the fade transition, so that setter remains outside this image's
 # recovered call graph.
 # Includes the two callback targets explicitly decompiled above.
-grep -q 'DumpC: functions=38' "$WORK/ghidra.log"
+prologue_functions=$(grep -Eo 'LoadAP: blocks=5 prologue functions=[0-9]+' "$WORK/ghidra.log" | tail -1)
+prologue_count=${prologue_functions##*=}
+[ "$prologue_count" -eq 30 ] || {
+  echo "LoadAP seeded-function count changed: ${prologue_count:-missing}" >&2
+  exit 1
+}
+dumpc_functions=$(grep -Eo 'DumpC: functions=[0-9]+' "$WORK/ghidra.log" | tail -1)
+dumpc_count=${dumpc_functions##*=}
+[ "$dumpc_count" -ge "$prologue_count" ] || {
+  echo "whole-module DumpC pass covered fewer than the seeded functions: ${dumpc_count:-missing}" >&2
+  exit 1
+}
+if grep -Fq '// failed:' "$WORK/all.c"; then
+  echo 'whole-module +0xd0 scan is incomplete because DumpC failed to decompile a function' >&2
+  grep -n -B 1 -A 1 -F '// failed:' "$WORK/all.c" >&2
+  exit 1
+fi
 grep -q '^// ===== FUN_680a1ed4 ' "$WORK/all.c"
 grep -q '^// ===== FUN_bfc21530 ' "$WORK/all.c"
 [ "$(grep -c '+ 0x81' "$WORK/all.c")" -eq 4 ]
