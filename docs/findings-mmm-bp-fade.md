@@ -117,23 +117,27 @@ A targeted instruction dump of `FUN_bfc216a8` narrows the end-state sequence.
 In its active state-1 path, it calls `FUN_bfc27520` at `0xbfc21794` before
 reading the status word through the pointer at context `+0xd0`. The next
 instructions compare that status with `3` (`0xbfc217a2`) and branch to
-`0xbfc217b4` (`0xbfc217a4`) when equal. That branch writes state `2` at
-`0xbfc217ba` and returns at `0xbfc217c8`. The `0x200`-byte refill helper
-`FUN_bfc276ac` is called at `0xbfc21712` from the loop reached only when the
-status is not `3` and the elapsed-time guard has not fired. Thus status `3`
-allows a preceding `FUN_bfc27520` pass, but exits before another refill-loop
-iteration; the recovered code does not show a loop that waits for a downstream
-queue to become empty before returning.
+`0xbfc217b4` (`0xbfc217a4`) when equal. The same terminal path is taken when
+the unsigned elapsed delta at context `+0xec - +0xf0` exceeds `100`. Either
+condition writes state `2` at `0xbfc217ba` and returns at `0xbfc217c8`. The
+`0x200`-byte refill helper `FUN_bfc276ac` is called at `0xbfc21712` from the
+loop; that loop is reached only when status is not `3` and the elapsed guard
+has not fired. Thus the callback pass precedes the terminal test, and a
+terminal condition exits before the next refill-loop iteration. The recovered
+code does not show a loop that waits for a downstream queue to become empty
+before returning.
 
 The callback slot used by `FUN_bfc27520` is no longer opaque. The literal pool
 at `0x680a2020..0x680a2028` resolves to slot `0x9fc21b04` and two MIPS16
 entries, `0xbfc277f1` (`FUN_bfc277f0`) and `0xbfc27939` (`FUN_bfc27938`).
-`FUN_680a1ed4`'s operation-11 branch writes one of those entries into
-`0x9fc21b04` according to the byte at context `+0x0c`. `FUN_bfc27520` calls
-the selected entry with the decoder context and a mode value; both targets
-operate on the input ring described by context `+0x70` and scan/advance its
-byte positions. This is evidence for an input-ring callback, not a downstream
-ASRC/DAC drain callback.
+`FUN_680a1ed4`'s operation-11 branch selects and writes one of those entries
+into `0x9fc21b04` according to the byte at context `+0x0c`. The probe checks
+both slot write references and the decompiled selector branches. `FUN_bfc27520`
+calls the selected entry with the decoder context and a mode value; the
+decompiled callback bodies dereference the descriptor at context `+0x70` and
+read/update its ring positions. This supports an input-ring callback
+interpretation, not a downstream ASRC/DAC drain callback. These are static
+decompiler findings; the callbacks were not executed.
 
 Therefore the ordering above proves only that this decoder-side input-ring
 helper gets a pass before the state-3 exit. It does **not** prove that the
@@ -150,3 +154,9 @@ callback entries above in addition to the decompilation checks. Reproduce
 against either extracted member with the two commands above. The code was
 statically disassembled/decompiled; these checks do not execute the decoder
 callbacks.
+
+The separate search for a path from this status-3 terminal branch to the
+`music.ap` mode-4 track-advance callback found no direct cross-module literal
+or shared-state reference in the hash-pinned stock/community set. The bounded
+result and remaining resident boundary are recorded in
+[`findings-mmm-bp-music-bridge.md`](findings-mmm-bp-music-bridge.md).

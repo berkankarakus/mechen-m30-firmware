@@ -20,7 +20,11 @@ fi
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 
 WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-mmm-bp.XXXXXX")
-trap 'rm -rf "$WORK"' EXIT
+if [ "${KEEP_WORK:-0}" = 1 ]; then
+  trap 'echo "Ghidra probe workdir kept at $WORK"' EXIT
+else
+  trap 'rm -rf "$WORK"' EXIT
+fi
 mkdir -p "$WORK/project" "$WORK/home"
 
 set +e
@@ -140,6 +144,7 @@ grep -q 'INSN address=bfc217b6 bytes=02 6e li a2' "$WORK/ghidra.log"
 grep -q 'INSN address=bfc217ba bytes=c7 d8 sw a2' "$WORK/ghidra.log"
 grep -q 'INSN address=bfc217c8 bytes=a0 e8 jrc ra' "$WORK/ghidra.log"
 grep -Fq 'if ((iVar6 == 3) ||' "$WORK/all.c"
+grep -Fq 'iVar6 = **(int **)(iVar4 + 0xd0);' "$WORK/decomp.c"
 grep -Fq '100 < (uint)(*(int *)(iVar4 + 0xec) - *(int *)(iVar4 + 0xf0))' "$WORK/all.c"
 grep -Fq 'FUN_bfc276ac(iVar9);' "$WORK/all.c"
 
