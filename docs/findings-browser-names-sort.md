@@ -290,11 +290,29 @@ bash tools/ghidra/run_browser_list_count_reader_probe.sh analysis/stock/fw/brows
 bash tools/ghidra/run_browser_list_count_reader_probe.sh analysis/community/fw/browser.ap
 ```
 
+Ghidra xrefs identify two more in-AP readers. The event dispatcher
+`FUN_40d14f14` reads the count through literal `0x40d15254` in its `0x2704`
+and `0x2706` cases. Its decompile updates event-state bytes; no direct store
+through that literal appears in this function body. `FUN_4875493c` also reads
+the count through literal `0x48754a3c` and passes `row - count` as the second
+argument to an event-context callback. No direct store through that literal
+appears in this function body either. These are additional consumers, not
+evidence for the missing count producer or for text painting; indirect writes
+and code outside these functions are not covered. The new hash-pinned probe
+checks both the xref source/target pairs and these decompile expressions in
+stock and community APs:
+
+```sh
+bash tools/ghidra/run_browser_list_count_xrefs_probe.sh analysis/stock/fw/browser.ap
+bash tools/ghidra/run_browser_list_count_xrefs_probe.sh analysis/community/fw/browser.ap
+```
+
 The caller is now dynamically executed by
 `tools/ghidra/run_browser_list_count_consumer_probe.sh`. With synthetic count
 `2` and state position `5`, the real function computes row `3`, calls the real
-`FUN_780db28c` state setter and the real `FUN_780db22c` dispatcher, then reaches
-the real directory callback `FUN_71352820` for one row. The callback writes a
+`FUN_780db28c` state setter with `a0=3` and the real `FUN_780db22c` dispatcher,
+then reaches the real directory callback `FUN_71352820` for one row. The probe
+verifies the setter's resulting state word is `3`. The callback writes a
 synthetic BOM-prefixed name through the real in-AP formatter to slot
 `0x9fc154e0`. The count query, path/metadata/list services, filesystem,
 database, converter, and fixed-ROM calls are stubbed. The code path and result

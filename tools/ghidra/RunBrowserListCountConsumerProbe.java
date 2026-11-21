@@ -43,12 +43,14 @@ public class RunBrowserListCountConsumerProbe extends GhidraScript {
     private int metadataCalls;
     private int updateCalls;
     private int romCalls;
+    private int indexHelperCalls;
     private int dispatcherCalls;
     private int directoryCalls;
     private int filesystemCalls;
     private int databaseCalls;
     private int converterCalls;
     private long countQueryBuffer;
+    private long indexHelperArgument;
     private long descriptor;
     private long descriptorMode;
     private long descriptorCount;
@@ -245,7 +247,10 @@ public class RunBrowserListCountConsumerProbe extends GhidraScript {
                     returnFromStub(emu, 0);
                     continue;
                 }
-                if (base == DISPATCHER) {
+                if (base == INDEX_HELPER) {
+                    indexHelperCalls++;
+                    indexHelperArgument = reg(emu, "a0");
+                } else if (base == DISPATCHER) {
                     dispatcherCalls++;
                     descriptor = reg(emu, "a0");
                     rowTable = reg(emu, "a1");
@@ -293,7 +298,8 @@ public class RunBrowserListCountConsumerProbe extends GhidraScript {
     private void verify(EmulatorHelper emu, int steps) throws Exception {
         boolean valid = sourcePointersValid && countQueries == 1 && pathCalls == 1
             && metadataCalls == 0 && updateCalls == 1 && romCalls == 1
-            && countQueryBuffer != 0 && dispatcherCalls == 1
+            && countQueryBuffer != 0 && indexHelperCalls == 1
+            && indexHelperArgument == REQUESTED_ROW && dispatcherCalls == 1
             && descriptorMode == 1 && descriptorCount == 1
             && descriptorStart == REQUESTED_ROW && rowTable != 0
             && directoryCalls == 1 && directoryDescriptor == descriptor
@@ -302,9 +308,10 @@ public class RunBrowserListCountConsumerProbe extends GhidraScript {
             && word(emu, 0x9fc157f8L) == REQUESTED_ROW;
         if (!valid) {
             throw new Exception(String.format(
-                "consumer mismatch steps=%d source=%s queries=%d query-buffer=0x%08x path=%d metadata=%d update=%d rom=%d dispatch=%d desc=0x%08x mode=%d count=%d start=%d table=0x%08x directory=%d dir-desc=0x%08x dir-table=0x%08x fs=%d fs-args=%s db=%d convert=%d index=0x%08x expected-index=%d",
+                "consumer mismatch steps=%d source=%s queries=%d query-buffer=0x%08x path=%d metadata=%d update=%d rom=%d index-helper-calls=%d index-helper-arg=%d dispatch=%d desc=0x%08x mode=%d count=%d start=%d table=0x%08x directory=%d dir-desc=0x%08x dir-table=0x%08x fs=%d fs-args=%s db=%d convert=%d index=0x%08x expected-index=%d",
                 steps, sourcePointersValid, countQueries, countQueryBuffer, pathCalls, metadataCalls,
-                updateCalls, romCalls, dispatcherCalls, descriptor, descriptorMode,
+                updateCalls, romCalls, indexHelperCalls, indexHelperArgument,
+                dispatcherCalls, descriptor, descriptorMode,
                 descriptorCount, descriptorStart, rowTable, directoryCalls, directoryDescriptor,
                 directoryTable, filesystemCalls, filesystemArgumentsValid, databaseCalls,
                 converterCalls, word(emu, 0x9fc157f8L), REQUESTED_ROW));
@@ -315,7 +322,8 @@ public class RunBrowserListCountConsumerProbe extends GhidraScript {
             if (actual[i] != expected[i]) throw new Exception("formatted name mismatch at byte " + i);
         }
         println(String.format(
-            "BROWSER LIST COUNT CONSUMER PASS steps=%d state-count=%d state-position=%d requested-row=%d fsel=0 directory-callback=0x%08x name-slot=0x9fc154e0 state-word=0x9fc157f8",
-            steps, LIST_COUNT, LIST_POSITION, REQUESTED_ROW, DIRECTORY_CALLBACK));
+            "BROWSER LIST COUNT CONSUMER PASS steps=%d state-count=%d state-position=%d requested-row=%d index-helper=0x%08x index-arg=%d fsel=0 directory-callback=0x%08x name-slot=0x9fc154e0 state-word=0x9fc157f8",
+            steps, LIST_COUNT, LIST_POSITION, REQUESTED_ROW, INDEX_HELPER,
+            indexHelperArgument, DIRECTORY_CALLBACK));
     }
 }
