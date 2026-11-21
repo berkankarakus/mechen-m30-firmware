@@ -252,14 +252,23 @@ entry points and their copy limits are reproducible with:
 bash tools/ghidra/run_browser_name_probe.sh analysis/community/fw/browser.ap
 ```
 
+The refresh-to-row-format path is now joined in one p-code run: the real
+`FUN_40cd5218` refresh invokes `FUN_48714a20`, which reads its 20-byte row
+record and writes the converted text into the row's 50-byte name slot. The
+provider and converter remain synthetic leaves, and the probe stops before
+the list paint callback. See [`findings-browser-marquee-bridge.md`](findings-browser-marquee-bridge.md)
+for the executed result and the next framework boundary.
+
 The remaining high-value work is:
 
 1. Resolve the provider behind the conditional resident forwarder
    (`0x164490a1`) and the B2/B16 far-call candidates used by the descriptor
    envelope; only that mapping can distinguish a solid-color clear from an
    image-backed restore.
-2. Trace the directory-mode callback separately from the library-mode callback
-   at runtime, including the filesystem name format returned by kernel op 2.
+2. Capture the framework/list paint callback that consumes a formatted row
+   slot, then follow its active-string descriptor into the driver marquee
+   updater. The browser AP has no direct call edge to B3, so the callback or
+   runtime function pointer is the missing bridge.
 3. Resolve ownership of the list buffer and adjacent `path_info`; only then
    consider a binary patch. Any candidate must show that adjacent list entries
    and listbox state remain intact.

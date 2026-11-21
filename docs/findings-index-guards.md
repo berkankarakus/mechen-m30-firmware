@@ -106,3 +106,9 @@ be drawn from this scan. The card-insertion-to-indexing path remains
 unresolved. Several other raw pointer hits overlap decoded instruction
 addresses, so the bytewise pointer scan is not a call-reference list; the
 remaining hits need instruction-level classification.
+
+The driver-side follow-up is bounded in
+[`findings-card-reinsert-trigger.md`](findings-card-reinsert-trigger.md): the
+exported `card.drv` vector contains block-I/O/control functions, while the
+`cards.drv` probe helpers are only called from that driver's entry/setup
+function. The outer event dispatcher and powered-reinsert route remain open.
