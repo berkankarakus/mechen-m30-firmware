@@ -91,11 +91,30 @@ ATJ2127; the tool's chip-ID output is described as a guess, not board
 identification.
 
 The documented `simple_switch`/`read_mem2` sequence writes and executes code
-in volatile device memory, then reads memory. The checked local
-`actions_dump.c` implementation of `read_mem2` uploads a MIPS16 byte-copy
-helper at `0xbfc1e000` and uses its buffer at `0xbfc1e020`; this clarifies the
-SRAM activity beyond the top-level command names. That exact sequence contains no
-NAND/SD write command, but it is device execution and has not been run here.
+in volatile device memory, then reads memory. Reviewing the public
+[`actions_dump.c::dump_mem2`](https://github.com/kilicdev/actions_flash/blob/main/actions_dump.c#L2924-L3076)
+source clarifies the exact SRAM activity:
+
+1. Upload the MIPS16 copy helper once at `0xbfc1e000`; its argument/buffer
+   area begins at `0xbfc1e020`.
+2. For each chunk, write `{source_address, byte_count}` to that area and
+   execute the helper at the MIPS16 entry `0xbfc1e001`.
+3. The helper copies bytes with `lbu`/`sb` from the requested source range to
+   `0xbfc1e028`; the host then retrieves that buffer with ADFU `READRAM` and
+   appends it to the output file.
+
+The host caps each transfer at `0x1d8` bytes so the 8-byte arguments and
+output fit in the `0x200`-byte scratch window. I transcribed the embedded
+MIPS16 words into a temporary file and confirmed their loop with local
+binutils. `tools/emu/run_qemu_actions_flash_mem2_probe.sh` then runs those
+source-derived instructions in QEMU against synthetic RAM: the maximum
+`0x1d8`-byte chunk compares byte-for-byte and the helper updates argument 0 to
+the output buffer. This validates the copy loop and buffer ABI only; the
+executable payload was not run on a device. The command path contains volatile
+SRAM writes and execution, but no NAND/SD write command. It remains an ADFU
+operation, not a passive USB read.
+The public payload README says it was tested only on ATJ2127, and M30
+compatibility is still unverified.
 The general `actions_dump` utility also implements flash-writing commands, so
 the utility itself is not read-only. Its README warns that a hung payload can
 leave some devices difficult to reboot. No device interaction, payload
