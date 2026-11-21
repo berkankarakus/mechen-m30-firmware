@@ -15,6 +15,7 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
     private static final long CONSTRUCTOR = 0xbfc32bc8L;
     private static final long TABLE_SETUP_END = 0xbfc32c5cL;
     private static final long VECTOR = 0xbfc08180L;
+    private static final long DEFAULT_HANDLER = 0xbfc19a75L;
     private static final long SELECTED_HANDLER = 0xbfc06f18L;
     private static final long TABLE = 0x9fc1a9a4L;
     private static final long STATE = 0x00013d00L;
@@ -82,6 +83,8 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
         currentProgram.getProgramContext().setValue(isaMode,
             addr(0xbfc330a0L), addr(0xbfc330dbL), BigInteger.ONE);
         currentProgram.getProgramContext().setValue(isaMode,
+            addr(0xbfc19a74L), addr(0xbfc19a94L), BigInteger.ONE);
+        currentProgram.getProgramContext().setValue(isaMode,
             addr(VECTOR), addr(VECTOR + 0x20), BigInteger.ZERO);
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
@@ -134,10 +137,51 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
             require(readWord(emu, RA_SAVE) == INPUT_RA, "saved RA mismatch");
             require(readWord(emu, CAUSE_SAVE) == INPUT_CAUSE, "saved Cause mismatch");
 
+            StringBuilder dispatch = new StringBuilder();
+            for (int exceptionCode = 0; exceptionCode <= 13; exceptionCode++) {
+                long cause = 0x80000003L | ((long)exceptionCode << 2);
+                long expectedHandler = readWord(emu, TABLE + exceptionCode * 4L);
+                long expectedSlot = DEFAULT_HANDLER;
+                if (exceptionCode == 0) expectedSlot = 0xbfc19624L;
+                if (exceptionCode == 9) expectedSlot = SELECTED_HANDLER;
+                if (exceptionCode == 10) expectedSlot = 0xbfc195d4L;
+                require(expectedHandler == expectedSlot,
+                    String.format("constructor slot %d mismatch: 0x%08x",
+                        exceptionCode, expectedHandler));
+                emu.writeRegister("EPC", INPUT_EPC + exceptionCode * 4L);
+                emu.writeRegister("Cause", cause);
+                emu.writeRegister("ra", INPUT_RA + exceptionCode * 4L);
+                emu.writeRegister("pc", VECTOR);
+
+                boolean caseSelected = false;
+                int caseSteps = 0;
+                for (; caseSteps < 128; caseSteps++) {
+                    if (reg(emu, "pc") == (expectedHandler & ~1L)) {
+                        caseSelected = true;
+                        break;
+                    }
+                    if (!emu.step(monitor))
+                        throw new Exception(String.format(
+                            "vector stopped for ExcCode %d at 0x%08x: %s",
+                            exceptionCode, reg(emu, "pc"), emu.getLastError()));
+                }
+                require(caseSelected, "vector did not select table handler for ExcCode "
+                    + exceptionCode);
+                require(readWord(emu, EPC_SAVE) == INPUT_EPC + exceptionCode * 4L,
+                    "saved EPC mismatch for ExcCode " + exceptionCode);
+                require(readWord(emu, RA_SAVE) == INPUT_RA + exceptionCode * 4L,
+                    "saved RA mismatch for ExcCode " + exceptionCode);
+                require(readWord(emu, CAUSE_SAVE) == cause,
+                    "saved Cause mismatch for ExcCode " + exceptionCode);
+                if (dispatch.length() != 0) dispatch.append(',');
+                dispatch.append(String.format("%d:0x%08x", exceptionCode,
+                    expectedHandler));
+            }
+
             println(String.format(
-                "KERNEL INITIALIZED EXCEPTION PASS constructor=0x%08x vector=0x%08x cause=0x%08x table-offset=0x%02x handler=0x%08x ctor-steps=%d vector-steps=%d real-table=1 rom-handler-executed=0",
+                "KERNEL INITIALIZED EXCEPTION PASS constructor=0x%08x vector=0x%08x cause=0x%08x table-offset=0x%02x handler=0x%08x ctor-steps=%d vector-steps=%d real-table=1 dispatch0-13=%s rom-handler-executed=0",
                 CONSTRUCTOR, VECTOR, INPUT_CAUSE, INPUT_CAUSE & 0x7c,
-                SELECTED_HANDLER, constructorSteps, vectorSteps));
+                SELECTED_HANDLER, constructorSteps, vectorSteps, dispatch));
         }
         finally {
             emu.dispose();
