@@ -424,6 +424,19 @@
   demonstrates a consistent candidate ABI, not that the unavailable ROM
   module-`0x10` service performs this copy or that the data is PCM/DAC input.
   The two ring addresses remain deliberately aliased.
+- A second independent caller strengthens the candidate meaning of this
+  module `0x10` operation. In community `playlist.ap` (`FUN_48014694`), the
+  code first normalizes a text key, then calls the resident module-`0x10` entry
+  at `0xbfc16409` with `(destination, normalized_scratch, output_length, 0)`.
+  The surrounding caller uses that result as its destination sort key. This
+  strongly supports operation 0 as a copy and matches the USB consumer's
+  observed `(destination, ring_source, byte_count, 0)` tuple. The resident
+  implementation remains unavailable. Reproduce the AP-side cross-check
+  with `bash tools/ghidra/run_library_record_probe.sh
+  <community-v1.292-playlist.ap>` and the USB-side caller with
+  `bash tools/emu/run_qemu_usound_chain_probe.sh
+  <community-v1.292-usound.drv>`; the latter verifies the dataflow under a
+  candidate copy shim only, not the actual ROM service or DAC ownership.
 - `m30_preview_session.py` can now carry an explicitly supplied exception frame
   into its JSON trace with `--callback-exception CODE EPC BADVADDR STATUS`.
   The values are optional and the field is omitted when no context is supplied.
@@ -514,6 +527,21 @@
   pointer at `0xbfc3119c` (`0xbfc303c5`). This makes `FUN_bfc31114` a plausible
   producer/event handler, but the hardware-bit meaning and whether module
   `0x0f` dispatches this pointer remain unverified.
+- `tools/emu/run_qemu_usound_event_dma_probe.sh` now enters the real
+  `FUN_bfc31114` callback 74 times and follows its real MIPS16 call into
+  `FUN_bfc30dc4`. The RAM-backed event bit is set before each callback and the
+  producer status is cleared per packet; 192-byte seeded packets advance the
+  producer write offset and available count to `0x3780`, set ready, and execute
+  the actual `FUN_bfc31390`/`FUN_bfc312e0` threshold path. QEMU observes DMA
+  ring address `0x80061000`, channel control `0x4b03`, and size `0x3720`.
+  Firmware address `0x9fc24000` (DMA ring) and `0x9fc34000` (staging area,
+  also used as the consumer ring) are mapped to distinct guest regions; this
+  probe does not execute the consumer. The direct MIPS16 call is preserved by
+  mapping the driver at `0x8fc30000`. The event/MMIO aliases and input bytes are
+  synthetic; the module-`0x0f` dispatcher, USB FIFO, physical DMA, module-`0x10`
+  service, consumer handoff, and audible output remain unverified. Reproduce
+  with `bash tools/emu/run_qemu_usound_event_dma_probe.sh
+  <hash-matching-usound.drv>`.
 - A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
   the same narrow call shape in `udisk.drv`. The checked-in
   `tools/ghidra/run_udisk_setup_probe.sh` now executes the real MIPS16
