@@ -35,11 +35,16 @@ control-flow difference, and checks the raw six-byte replacement.
 
 ## Interpretation and limits
 
-This is strong evidence for the community's end-of-track playback/ASRC
-correction and explains why it is the best existing candidate for the reported
-Audacity fade-out tail loss. It does not prove that the six-byte change alone
-drains every DAC/ASRC sample, nor that every codec uses the same mode. The
-host emulator records the narrow control-flow boundary in
+This proves a community change to the end-of-list mode-4 control flow: under
+the tested synthetic state, it reaches the advance/index-update callback where
+stock takes the end-notification/UI path. It is **not yet evidence of an
+ASRC/DAC drain correction**. The callback body and decoder meaning of mode 4
+were not part of that probe, and the separate `mmm_bp.al` terminal-state path
+has not been linked to this `music.ap` branch. The community change remains a
+possible fade-out lead, but its relevance to the reported Audacity tail is
+unproven. It does not prove that the six-byte change drains any DAC/ASRC sample,
+nor that every codec uses the same mode. The host emulator records the narrow
+control-flow boundary in
 `tools/sim/asrc_model.py`: mode `3` takes the existing advance path in both
 variants, while mode `4` does so only with the accepted drain fix. It remains
 an audibility-neutral model, not an audible playback pass.
