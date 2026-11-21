@@ -57,13 +57,41 @@ The entry-adjacent functions `FUN_bfc18d08` and `FUN_bfc18d1c` return zero;
 context. The `drv_dac` name is therefore consistent with a codec control bus,
 not with PCM decoding.
 
+## Two-wire protocol shape
+
+A targeted Ghidra decompile of the actual resident code narrows the bus
+contract beyond byte transfers:
+
+- `FUN_bfc18fe0` drives the context's `+0x18` masked line high, drives the
+  `+0x08` masked line high, then takes the first line low followed by the
+  second. This is the canonical SDA/SCL ordering of an I2C START condition.
+- `FUN_bfc19028` takes the first line low, raises the second, then raises the
+  first: the corresponding I2C STOP ordering.
+- `FUN_bfc191d4` tests bits 7 through 0 and toggles the second line for each
+  bit, so transmitted bytes are MSB-first. `FUN_bfc19240` samples eight bits
+  and shifts them into the same MSB-first byte order.
+- `FUN_bfc19330` releases/reconfigures the sampled line, raises the clock,
+  samples the data bit, and returns success when that bit is zero. The writer
+  uses that result as its ACK check. In the receive path,
+  `FUN_bfc192e0` drives the data line low for ACK and high for NACK;
+  `FUN_bfc19114` selects NACK for the final received byte.
+
+Taken together, the real helper code has a **bit-banged I2C-shaped control
+protocol** with MSB-first bytes and active-low ACK. The address/data line
+identities here describe the helper context's two masked lines; there is no
+board trace proving physical pin names, voltage, timing, pull-ups, or the
+codec's register/address map. The machine-readable shape check runs as part of
+`tools/ghidra/run_dac_probe.sh`; the QEMU probe separately confirms that the
+unchanged helpers execute through their byte-transfer paths with synthetic
+GPIO RAM.
+
 ## Consequence for the requested playback work
 
-This driver can explain how a higher layer writes codec registers, but it does
-not tell us which register controls volume, mute, ramping, or fade-out. Those
-meanings require tracing callers and the codec register tables. The DSP files
-(`ad*.dsp`) remain separate and unexamined; they should not be treated as
-solved by this driver analysis.
+This driver now establishes the serial protocol shape, but it still does not
+tell us which device address or register controls volume, mute, ramping, or
+fade-out. Those meanings require tracing callers and the codec register
+tables. The DSP files (`ad*.dsp`) remain separate and unexamined; they should
+not be treated as solved by this driver analysis.
 
 No firmware patch is proposed. The safe next step is to locate callers of the
 DAC context/API in the resident audio path and correlate their arguments with
@@ -99,9 +127,10 @@ byte-transfer probe and is not a safe firmware patch target.
 
 `tools/sim/dac_bus.py` now exposes the narrow byte-level slice proven by these
 helpers: complete byte sequences can be queued, sent, and received, and the
-eight-bits-per-byte transfer count is available for traces. It deliberately
-does not assign a bit order, bus-ready timeout, GPIO line meaning, codec
-register address, volume/mute behavior, or PCM/audio timing.
+eight-bits-per-byte transfer count is available for traces. It is still a
+byte-level host contract; it does not yet model the recovered START/STOP,
+bit-order, ACK/NACK, electrical GPIO, bus-ready timeout, codec register
+address, volume/mute behavior, or PCM/audio timing.
 
 ## Real-code QEMU boundary
 

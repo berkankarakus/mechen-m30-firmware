@@ -26,7 +26,9 @@ deterministic:
 7. `run_qemu_dac_probe.sh` executes the exact resident `drv_dac.drv` payload
    with a translated MIPS16 helper-call alias and a synthetic GPIO context. It
    verifies the byte-transfer boundary across all six local DAC driver
-   corpora; it does not emulate codec registers or audio output.
+   corpora; `tools/ghidra/run_dac_probe.sh` additionally checks the decompiled
+   I2C-shaped START/STOP, MSB-first, and ACK/NACK call sequence. Neither probe
+   emulates codec registers or audio output.
 8. `run_qemu_usound_chain_probe.sh` runs the real producer and ring consumer
    with two distinct firmware ring literals aliased to one guest address. It
    verifies a seeded 16-byte pattern through the producer and into the

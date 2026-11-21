@@ -38,4 +38,5 @@ grep -q 'FUN_bfc19060' "$WORK/dac.c"
 grep -q 'FUN_bfc19114' "$WORK/dac.c"
 grep -q 'FUN_bfc19240' "$WORK/dac.c"
 grep -q 'FUN_bfc19330' "$WORK/dac.c"
+python3 "$ROOT/tools/emu/verify_dac_protocol_shape.py" "$WORK/dac.c"
 echo 'DAC DRIVER PASS functions=27 bit-io=present byte-tx-rx=present'
