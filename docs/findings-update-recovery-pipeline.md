@@ -34,6 +34,29 @@ They inspect the UI/preflight boundary across the dated corpus; they do not
 execute a complete updater or write a candidate. The current probe pass does
 not resolve the indirect selector services.
 
+### Static selector trace and dispatch boundary
+
+The pointer words at `upgrade.ap` addresses `0x40014cc0` and `0x40014cc8`
+resolve to odd MIPS16 pointers `0xbfc3b029` and `0xbfc3b025`. Their resident
+stubs load module IDs `0x10` at `0xbfc3b028` and `0x0f` at `0xbfc3b024`,
+respectively, then execute `break 0`. In `FUN_40014c30`, the observed call
+order is module `0x10`/selector `0x10`, module `0x0f`/selector `0x33`, then
+module `0x0f`/selector `0x4a`. The first result is retained as a byte and
+passed as `a2` to selector `0x4a`; that call also receives
+`(a0=&uStack_20, a1=*param_2, a3=0x4a)`. A negative `0x4a` result takes the
+cleanup calls module `0x10`/selector `0x11`, then module `0x0f`/selector
+`0x34`, and returns failure. A nonnegative result returns success.
+
+This is a static AP-to-resident-trap trace, not a resolved service
+implementation. The kernel exception evidence routes ExcCode 9 through the
+vector to fixed-ROM handler `0xbfc06f18`, whose body is unavailable in the
+extracted kernel members. No edge currently proves that `FUN_40054c60`'s
+decrypt/search preflight result feeds selector `0x4a`; its known indirect call
+uses module 0 with selector `6`. A temporary Ghidra p-code probe intended to
+exercise the `0x4a` return branch failed before reaching the trap boundary at
+`0x40014c6e` on MIPS16 decode/state setup and was removed. **There is no
+dynamic confirmation of this selector trace or branch.**
+
 ## `actions_flash` host/ADFU transaction reference
 
 The local source is `/Users/berkankarakus/Projects/actions_flash` at commit
@@ -111,13 +134,12 @@ thing. Its shown writer has no paired-backup or rollback transaction.
 
 ## Best next offline probe
 
-Resolve the `FUN_40014c30` indirect slots and the file/decrypt caller chain in
-the matching M30 kernel/AP pair. Start with the literal pointer words around
-`0x40014cc0`/`0x40014cc8`, then follow selector `0x4a` through the resident
-trap/dispatch implementation and capture its arguments/results in an isolated
-Ghidra p-code probe. That can establish which preflight result gates entry to
-the flash-helper stage without executing `flash_fn`, probing hardware, or
-repeating the existing exception-vector/ROM-map work.
+Next, recover the fixed-ROM implementation reached at `0xbfc06f18` or establish
+the missing caller/data-flow edge from `FUN_40054c60` into selector `0x4a`.
+For a p-code return-path probe, first resolve the MIPS16 caller's PIC/GP and ISA
+state so execution reaches the real resident BREAK boundary. Keep synthetic
+service returns clearly labeled; this can validate caller branching but cannot
+name the fixed-ROM service without its implementation.
 
 Existing neighboring probes: `tools/ghidra/run_upgrade_ap_probe.sh`,
 `tools/ghidra/run_upgrade_ap_corpus_probe.sh`,
