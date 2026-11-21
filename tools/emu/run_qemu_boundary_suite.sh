@@ -23,30 +23,39 @@ FW=${1:-$ROOT/analysis/community/fw}
 
 [ -d "$FW" ] || { echo "missing firmware directory: $FW" >&2; exit 1; }
 
-echo '[1/8] LCD resident boundary'
+echo '[1/9] LCD resident boundary'
 bash "$ROOT/tools/emu/run_qemu_lcd_probe.sh" "$FW/drv_lcd.drv"
 
-echo '[2/8] DAC byte-transfer boundary'
+echo '[2/9] DAC byte-transfer boundary'
 bash "$ROOT/tools/emu/run_qemu_dac_probe.sh" "$FW/drv_dac.drv"
 
-echo '[3/8] USB Audio packet/ring boundary'
+echo '[3/9] USB Audio packet/ring boundary'
 bash "$ROOT/tools/emu/run_qemu_usb_audio_probe.sh"
 
-echo '[4/8] usound leaf and producer boundaries'
+echo '[4/9] usound leaf and producer boundaries'
 bash "$ROOT/tools/emu/run_qemu_usound_leaf_probe.sh" "$FW/usound.drv"
 bash "$ROOT/tools/emu/run_qemu_usound_producer_probe.sh" "$FW/usound.drv"
 
-echo '[5/8] usound ring and port boundaries'
+echo '[5/9] usound ring and port boundaries'
 bash "$ROOT/tools/emu/run_qemu_usound_ring_probe.sh" "$FW/usound.drv"
 bash "$ROOT/tools/emu/run_qemu_usound_port_probe.sh" "$FW/usound.drv"
 
-echo '[6/8] usound producer-consumer chain'
+echo '[6/9] usound producer-consumer chain'
 bash "$ROOT/tools/emu/run_qemu_usound_chain_probe.sh" "$FW/usound.drv"
 
-echo '[7/8] break-0 module-call envelope'
+echo '[7/9] usound event/producer/consumer source path'
+USOUND_SHA256=$(shasum -a 256 "$FW/usound.drv" | awk '{print $1}')
+if [ "$USOUND_SHA256" = "e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc" ]; then
+  bash "$ROOT/tools/emu/run_qemu_usound_event_dma_probe.sh" "$FW/usound.drv"
+  bash "$ROOT/tools/emu/run_qemu_usound_natural_queue_probe.sh" "$FW/usound.drv"
+else
+  echo "SKIP hash-pinned usound probes: unsupported SHA-256 $USOUND_SHA256"
+fi
+
+echo '[8/9] break-0 module-call envelope'
 bash "$ROOT/tools/emu/run_qemu_usound_callback_probe.sh" "$FW/usound.drv"
 
-echo '[8/8] independent TCG exception observation'
+echo '[9/9] independent TCG exception observation'
 bash "$ROOT/tools/emu/run_qemu_exception_trace_probe.sh" "$FW/usound.drv"
 
 echo 'QEMU BOUNDARY SUITE PASS'

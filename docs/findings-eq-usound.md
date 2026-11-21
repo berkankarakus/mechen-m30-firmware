@@ -542,6 +542,19 @@
   service, consumer handoff, and audible output remain unverified. Reproduce
   with `bash tools/emu/run_qemu_usound_event_dma_probe.sh
   <hash-matching-usound.drv>`.
+- `tools/emu/run_qemu_usound_natural_queue_probe.sh` composes the real event
+  callback, producer, word-port helper `FUN_bfc318cc`, and consumer while
+  retaining the firmware's separate `0x9fc24000` DMA ring and shared
+  `0x9fc34000` staging/consumer ring. With RAM-backed port words A/B, the real
+  producer DMA ring begins with A/B at offsets 0 and `0xc0`, and the real consumer advances its
+  shared read offset from 0 to `0xc0`; the intercepted module-`0x10` calls
+  receive the corresponding complete 192-byte sources at `0x9fc34000` and
+  `0x9fc340c0`. The probe validates all source bytes and call arguments but
+  does not emulate the fixed-ROM service's destination-side effect. FIFO words,
+  event/MMIO, and DMA remain synthetic; physical DMA, service dispatch, PCM/DAC
+  ownership, and audible output remain unverified. Reproduce with
+  `bash tools/emu/run_qemu_usound_natural_queue_probe.sh
+  <hash-matching-usound.drv>`.
 - A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
   the same narrow call shape in `udisk.drv`. The checked-in
   `tools/ghidra/run_udisk_setup_probe.sh` now executes the real MIPS16
