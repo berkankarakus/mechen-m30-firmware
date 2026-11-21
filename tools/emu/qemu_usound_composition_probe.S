@@ -1,4 +1,4 @@
-	/* Probe the real producer/consumer pair with their firmware-shared state. */
+	/* Probe a candidate producer/consumer composition using firmware addresses. */
 	.set	mips32
 	.set	noreorder
 	.set	noat
@@ -259,7 +259,7 @@ verify_dma_b:
 	b	halt
 	 nop
 
-/* Run callback -> real producer -> real consumer; a0=byte, a1=packet index. */
+/* Run callback -> producer, then explicitly invoke consumer; a0=byte, a1=index. */
 producer_event:
 	addiu	$sp, $sp, -24
 	sw	$ra, 20($sp)
@@ -302,7 +302,7 @@ producer_source_set:
 	jalx	0x8fc31114
 	 nop
 
-	/* Call the true ring consumer with the shared count/read-offset state. */
+	/* Synthetic call edge: this harness does not establish a firmware call edge. */
 	lui	$a0, 0
 	lw	$t0, 12($sp)
 	lui	$a1, 0x8006
@@ -422,39 +422,39 @@ noop_callback:
 
 	.section .rodata
 observation_text:
-	.asciz	"NATURAL USOUND DIVERGENCE CONFIRMED callbacks=2 real_port_helper=1 DMA_ring=A,B[192+192] staging[0]=B consumer_source[0xc0]=stale-0x11[192] module10=observed-only FIFO=ram-backed-word-port\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION MISMATCH callbacks=2 real_port_helper=1 DMA_ring=A,B[192+192] staging[0]=B consumer_source[0xc0]=stale-0x11[192] consumer_call_edge=harness module10=observed-only FIFO=ram-backed-word-port\r\n"
 first_count_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL first-consumed-count\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL first-consumed-count\r\n"
 first_read_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL first-read-offset\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL first-read-offset\r\n"
 first_available_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL first-available-count\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL first-available-count\r\n"
 second_count_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-consumed-count\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-consumed-count\r\n"
 second_read_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-read-offset\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-read-offset\r\n"
 second_available_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-available-count\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-available-count\r\n"
 exception_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL module10-arguments-or-source\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL module10-arguments-or-source\r\n"
 dma_a_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL dma-ring-first-packet\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL dma-ring-first-packet\r\n"
 dma_b_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL dma-ring-second-packet\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL dma-ring-second-packet\r\n"
 call_count_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL module10-call-count\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL module10-call-count\r\n"
 second_source_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-consumer-source\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-consumer-source\r\n"
 second_length_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-consumer-length\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-consumer-length\r\n"
 no_divergence_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL expected-stale-source-not-observed\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL expected-stale-source-not-observed\r\n"
 unexpected_byte_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL unexpected-source-byte\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL unexpected-source-byte\r\n"
 unexpected_address_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL unexpected-source-address\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL unexpected-source-address\r\n"
 staging_base_text:
-	.asciz	"NATURAL USOUND QUEUE FAIL second-event-did-not-replace-staging-base\r\n"
+	.asciz	"SYNTHETIC USOUND COMPOSITION FAIL second-event-did-not-replace-staging-base\r\n"
 
 	.section .driver,"ax"
 	.align	2

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Run the real producer and consumer with firmware-shared rings and counters.
-# USB FIFO is RAM-backed; the expected result is a captured staging divergence.
+# Execute the producer and manually compose the consumer in QEMU.
+# FIFO is RAM-backed; the consumer call edge is supplied by this harness.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -9,7 +9,7 @@ CROSS=${CROSS:-mipsel-linux-gnu-}
 QEMU=${QEMU:-qemu-system-mipsel}
 PY=${PYTHON:-python3}
 EXPECTED_SHA256=e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc
-OUT=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-usound-natural-queue.XXXXXX")
+OUT=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-usound-composition.XXXXXX")
 trap 'rm -rf "$OUT"' EXIT
 
 [ -f "$DRIVER" ] || { echo "missing usound driver: $DRIVER" >&2; exit 1; }
@@ -41,7 +41,7 @@ relocations = {
     0x102C: 0x80060004,
     0x1030: 0x80060008,
     0x1034: 0x80060009,
-    0x1038: 0x80068000,  # producer staging == consumer ring
+    0x1038: 0x80068000,  # producer scratch; candidate consumer ring shares address
     0x103C: stub,
     0x1040: 0x8FC318CD,  # real FUN_bfc318cc word-port helper
     0x1044: 0x80062020,
@@ -57,11 +57,11 @@ relocations = {
     0x1194: 0x80066004,
     0x1198: 0x80066008,
     0x119C: stub,
-    # Consumer and producer now use the exact shared state aliases.
+    # Consumer state aliases; shared count/offset are supplied by this harness.
     0x1728: 0x80060020,  # available bytes
     0x172C: 0x8006002C,  # consumer short-read counter
     0x1730: 0x8006001C,  # consumer read offset
-    0x1734: 0x80068000,  # shared staging/consumer ring base
+    0x1734: 0x80068000,  # consumer ring hypothesis, same address as producer scratch
     0x1738: 0x8FC326A9,  # real module-0x10 break stub
     0x173C: 0x80060024,  # shared ready/reset signal
     # Real word-port helper backed by deterministic guest RAM.
@@ -77,13 +77,13 @@ PY
 (
   cd "$OUT"
   "${CROSS}as" -EL -mabi=32 -mips32 \
-    -o qemu_usound_natural_queue_probe.o "$ROOT/tools/emu/qemu_usound_natural_queue_probe.S"
+    -o qemu_usound_composition_probe.o "$ROOT/tools/emu/qemu_usound_composition_probe.S"
   "${CROSS}ld" -EL -m elf32ltsmip \
-    -T "$ROOT/tools/emu/qemu_usound_natural_queue_probe.ld" \
-    -o qemu_usound_natural_queue_probe.elf qemu_usound_natural_queue_probe.o
+    -T "$ROOT/tools/emu/qemu_usound_composition_probe.ld" \
+    -o qemu_usound_composition_probe.elf qemu_usound_composition_probe.o
 )
 
-"$PY" - "$QEMU" "$OUT/qemu_usound_natural_queue_probe.elf" <<'PY'
+"$PY" - "$QEMU" "$OUT/qemu_usound_composition_probe.elf" <<'PY'
 import os
 import selectors
 import subprocess
@@ -105,8 +105,8 @@ output = bytearray()
 deadline = time.monotonic() + float(os.environ.get("QEMU_TIMEOUT", "12"))
 selector = selectors.DefaultSelector()
 selector.register(process.stdout, selectors.EVENT_READ)
-marker = b"NATURAL USOUND DIVERGENCE CONFIRMED"
-failure = b"NATURAL USOUND QUEUE FAIL"
+marker = b"SYNTHETIC USOUND COMPOSITION MISMATCH"
+failure = b"SYNTHETIC USOUND COMPOSITION FAIL"
 try:
     while process.poll() is None and time.monotonic() < deadline:
         if not selector.select(max(0.0, deadline - time.monotonic())):
@@ -131,14 +131,15 @@ if process.poll() is None:
         process.wait()
 output.extend(process.stdout.read() or b"")
 text = output.decode(errors="replace")
-if marker in output:
-    line_end = text.find("\n", text.index(marker.decode()))
-    if line_end >= 0:
-        text = text[:line_end + 1]
-print(text, end="")
-if marker in output:
-    raise SystemExit(0)
 if failure in output:
-    raise SystemExit("QEMU natural-queue probe reported FAIL")
-raise SystemExit(f"QEMU natural-queue probe timed out or exited before observation (exit={process.returncode})")
+    print(text, end="")
+    raise SystemExit("QEMU composition probe reported FAIL")
+if marker in output:
+    marker_start = text.index(marker.decode())
+    line_end = text.find("\n", marker_start)
+    if line_end >= 0:
+        print(text[marker_start:line_end + 1], end="")
+    raise SystemExit(0)
+print(text, end="")
+raise SystemExit(f"QEMU composition probe timed out or exited before observation (exit={process.returncode})")
 PY

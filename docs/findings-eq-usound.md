@@ -542,24 +542,32 @@
   service, consumer handoff, and audible output remain unverified. Reproduce
   with `bash tools/emu/run_qemu_usound_event_dma_probe.sh
   <hash-matching-usound.drv>`.
-- `tools/emu/run_qemu_usound_natural_queue_probe.sh` composes the real event
-  callback, producer, word-port helper `FUN_bfc318cc`, and consumer while
-  retaining separate firmware addresses for the `0x9fc24000` DMA ring and
+- `tools/emu/run_qemu_usound_composition_probe.sh` executes the real event
+  callback, producer, word-port helper `FUN_bfc318cc`, then explicitly calls
+  consumer `FUN_bfc31654` from the harness. That consumer call edge is
+  synthetic; it is not a recovered firmware route. A Ghidra dump of the 46
+  heuristic functions found the consumer definition but no direct caller or
+  literal function-pointer reference in the loaded segment. Callback tables
+  or code outside the segment remain possible. The probe retains separate
+  firmware addresses for the `0x9fc24000` DMA ring and
   `0x9fc34000` staging/consumer area. With RAM-backed port words A/B, the DMA
   ring contains 192 bytes of A at offset 0 and 192 bytes of B at `0xc0`. The shared
   available count and consumer read offset advance by 192 bytes, and the
   consumer's second module-`0x10` call receives source `0x9fc340c0`; however,
   all 192 bytes there remain the initial `0x11` fill even though the first byte
   at staging base `0x9fc34000` is now B. The probe therefore confirms a
-  producer/consumer staging divergence under the synthetic FIFO setup; it does
-  not establish that real USB packets or ROM dispatch behave identically.
+  mismatch in this synthetic function composition. It is consistent with the
+  producer reusing `0x9fc34000` as per-packet scratch while its stream ring is
+  `0x9fc24000`; it does not establish that firmware invokes this consumer
+  after each producer callback or that real USB packets or ROM dispatch behave
+  identically.
   An earlier PASS report was invalid: the exception shim wrote its validation
   error to `0x80064014`, while the harness checked `0x80060014`, so the second
   packet's byte mismatch was ignored. The probe now checks the correct error
   slot and requires the complete stale-source pattern before reporting this
   observation. The fixed-ROM module-`0x10` destination effect, physical FIFO/DMA,
   PCM/DAC ownership, and audible output remain unverified. Reproduce with
-  `bash tools/emu/run_qemu_usound_natural_queue_probe.sh
+  `bash tools/emu/run_qemu_usound_composition_probe.sh
   <hash-matching-usound.drv>`.
 - A hash-deduplicated scan of already-local extracted `.drv`/`.ap` files found
   the same narrow call shape in `udisk.drv`. The checked-in

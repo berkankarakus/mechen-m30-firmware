@@ -43,11 +43,11 @@ bash "$ROOT/tools/emu/run_qemu_usound_port_probe.sh" "$FW/usound.drv"
 echo '[6/9] usound producer-consumer chain'
 bash "$ROOT/tools/emu/run_qemu_usound_chain_probe.sh" "$FW/usound.drv"
 
-echo '[7/9] usound event/producer/consumer source path'
+echo '[7/9] usound event-DMA plus synthetic composition probe'
 USOUND_SHA256=$(shasum -a 256 "$FW/usound.drv" | awk '{print $1}')
 if [ "$USOUND_SHA256" = "e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc" ]; then
   bash "$ROOT/tools/emu/run_qemu_usound_event_dma_probe.sh" "$FW/usound.drv"
-  bash "$ROOT/tools/emu/run_qemu_usound_natural_queue_probe.sh" "$FW/usound.drv"
+  bash "$ROOT/tools/emu/run_qemu_usound_composition_probe.sh" "$FW/usound.drv"
 else
   echo "SKIP hash-pinned usound probes: unsupported SHA-256 $USOUND_SHA256"
 fi
