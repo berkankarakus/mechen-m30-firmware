@@ -365,6 +365,29 @@
   established. This narrows the missing boundary to indirect callbacks or
   resident services; it does not prove that the application has no audio-data
   handoff.
+- The callback slots are now verified against the raw, SHA-pinned
+  `usound.ap`: file offsets `0x1188` and `0x1328` map to `0x40095088` and
+  `0x40095228`, and both words contain MIPS16 pointer `0x40054de1` (target
+  `FUN_40054de0`). Ghidra decompilation shows that this target prepares a
+  message with ID `0x201`, derives a small status payload from `param_1` and
+  opaque state helpers, and returns status values `0x800f` or `0x861c`. The
+  send helper is also resolved: `FUN_48494758(8, &message)` looks up active
+  app endpoint ID 8 with `FUN_48494640`, then invokes resident pointers
+  `0xbfc16405` with `(local_buffer, message_pointer, 8, 0)` and `0xbfc16401`
+  with `(endpoint_id, local_buffer, 0, 0x18)`. The first resident call's
+  semantics are unresolved; its arguments do not establish a memory copy.
+  In this firmware's app table, ID 8 is `manager`; manager handler
+  `FUN_7f196200` explicitly dispatches message `0x201` and branches on the
+  first payload byte. This supports a candidate route from both usound callback
+  slots to that manager handler, but the opaque resident service prevents
+  proving delivery. No PCM pointer, sample buffer, or byte count is constructed
+  in the callback/sender path. The evidence strongly favors a
+  lifecycle/control-status callback over the audio-data handoff, while the
+  resident service ABI and any separate audio-data handoff remain unresolved.
+  Reproduce with
+  `bash tools/ghidra/run_usound_ap_probe.sh <community-v1.292-usound.ap> <community-v1.292-manager.ap>`;
+  the binary probes pin both AP hashes and mappings, then Ghidra checks the
+  callback, endpoint lookup/sender, and manager message handler.
 - A separate, stronger driver-side fact is now verified in `usound.drv`:
   MIPS16 function `FUN_bfc31654` copies from a 0x1000-byte circular
   region, splits a wrap into two callback copies, advances a read pointer, and
