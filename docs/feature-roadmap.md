@@ -28,7 +28,7 @@ değeri kaydedilir; bu sonuçlar tam cihaz boot’u sayılmaz.
 
 | Öncelik | Alan | Dinamik deney | Beklenen yüksek getirili çıktı |
 |---|---|---|---|
-| P0 | Browser/fsel | Gerçek row provider + fsel/list-state kaynağını scene caller’dan yürüt | 20-byte kaydın `+0x02` alanı doğrulandı; playlist/directory semantik türü ve güvenli isim patch noktası hâlâ açık |
+| P0 | Browser/fsel | Scene caller → AP scene → refresh → row provider zincirinde isim üretim kaynağını çöz | Birleşik p-code izi gerçek `FUN_bfc16600`, `FUN_40cd4e00` ve `FUN_40cd5218` talimatlarını seçilmiş stub dönüşleri ve yedi sentetik satırla yürütüyor; doğal servis dönüşleriyle refresh'e ulaşma kanıtlanmadı. 20-byte kaydın `+0x02` alanı ayrı probda doğrulandı. Folder/playlist ayrımı ve gerçek filesystem-name kaynağı hâlâ açık |
 | P0 | Now-playing UI | `music.ap` çizim girişini gerçek `music.sty`/font/resource pointer’larıyla çalıştır; LCD sink’ine trace al | ikon hizası, üst/alt bant, marquee clipping ve gecikmenin gerçek çağrı sırası |
 | P0 | Playback/EOF | `run_asrc_music_tick_probe.sh`: gerçek tick wrapper'ını stock/community hash-pinned AP'lerde çalıştır; emulated callback literal'ını doğrula ve resident sınırlarını intercept et | `lw v0,0xc4(pc)` → literal `0x400d509c` → `jalrc v0` → mode-4 handler gerçek talimatlarda ve emülatör belleğiyle doğrulandı. Callback gövdesi, decoder/ASRC/DAC ve örnek kuyruğu hâlâ bağlı değil |
 | P1 | USB-DAC | Gerçek `usound.drv` producer/consumer zincirini exception ve DAC sink ile birleştir | module `0x10` sonrasında PCM sahibinin ve DAC’a giden byte akışının kanıtı |

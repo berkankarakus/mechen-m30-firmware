@@ -237,6 +237,34 @@ scene caller. It still does not identify the semantic type of the fixed fsel
 object at `0x9fc15408`, so the 20-byte record source must not be called a
 long-folder-name store.
 
+### Integrated scene-to-refresh chain
+
+The end-to-end caller-to-refresh control path is now also executed by
+`tools/ghidra/run_browser_scene_refresh_chain_probe.sh`. It runs the real
+resident `FUN_bfc16600`, extracted scene `FUN_40cd4e00`, and refresh
+`FUN_40cd5218`/`FUN_40cd52e0` bodies in one p-code session. The scene's control
+object, row table, list state, and callback targets are redirected to synthetic
+RAM; initialization, readiness, and state-reset service boundaries are stubbed.
+With the observed scene arguments and a bounded seven-row window, the real
+refresh loop emits seven row callbacks for indices `0..6`; the successful run
+has 783 emulator-loop iterations, of which 760 call `emu.step()` successfully.
+The predicate/readiness/finish callbacks return selected values to drive the
+scene path; this is not evidence that the real services would naturally reach
+refresh. The experiment shows that the real guest instructions execute the
+row loop under those injected outcomes. It does not execute the directory-name
+provider or prove that these rows represent filesystem folders. Treat the
+callback records and list window as synthetic inputs, not captured device
+state. The pinned script passes on stock V1.101.10 (`browser.ap` SHA-256
+`b6e25204…3eb8f2f4`) and community (`10b0e5d8…e3fed34b3`). The local
+V1.101.11 `browser.ap` has the community member's identical SHA-256, so it is
+the same binary-level observation, not an independent variant result. Re-run
+the two distinct artifacts with:
+
+```sh
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/stock/fw/browser.ap
+bash tools/ghidra/run_browser_scene_refresh_chain_probe.sh analysis/community/fw/browser.ap
+```
+
 The row callback/provider boundary is now executed by
 `tools/ghidra/run_browser_row_provider_probe.sh`. It runs the real
 `FUN_48714a20` and `FUN_48594510` functions while stubbing only the resident
