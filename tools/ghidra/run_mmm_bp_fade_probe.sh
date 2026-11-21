@@ -38,6 +38,7 @@ JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
   -postScript DumpWords.java 0xbfc27488 0xbfc274cc \
   -postScript DumpWords.java 0xbfc2769c 0xbfc27734 \
   -postScript DumpInstructions.java 0xbfc21a3c 8 \
+  -postScript DumpInstructions.java 0xbfc21708 100 \
   -postScript DumpC.java "$WORK/all.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
@@ -96,6 +97,17 @@ grep -q 'WORD address=bfc27730 value=0xbfc2748d' "$WORK/ghidra.log"
 # to invent a function prototype.
 grep -q 'INSN address=bfc21a3c' "$WORK/ghidra.log"
 grep -q 'INSN address=bfc21a3e bytes=05 e8 break' "$WORK/ghidra.log"
+
+# In the active decoder-state path, ring/output accounting runs before the
+# state-3 terminal branch. That branch returns before the 0x200-byte refill
+# loop's back-edge can run. This pins the ordering boundary; it does not prove
+# that a DAC/ASRC queue is empty.
+grep -q 'INSN address=bfc21712 .*jal 0xbfc276ac' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc21794 .*jal 0xbfc27520' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217a2 .*cmpi s1' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217a4 .*bteqz 0xbfc217b4' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217ba .*sw a2' "$WORK/ghidra.log"
+grep -q 'INSN address=bfc217c8 .*jrc ra' "$WORK/ghidra.log"
 
 # DumpC covers every recovered function in this image.  The fade-control byte
 # is only read/cleared in the mapped set; no mapped function writes the value

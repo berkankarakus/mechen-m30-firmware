@@ -10,6 +10,7 @@ fade algorithm has been reconstructed.
 PYTHONPATH=tools/emu python3 tools/emu/mmm_bp_binary_probe.py \
   --analysis-root analysis
 bash tools/ghidra/run_mmm_bp_fade_probe.sh analysis/community/fw/mmm_bp.al
+bash tools/ghidra/run_mmm_bp_fade_probe.sh analysis/stock/fw/mmm_bp.al
 ```
 
 The binary probe finds the same markers at the same offsets in all six local
@@ -109,3 +110,31 @@ Because all six corpora agree byte-for-byte at these locations, the community
 firmware did not change this module. The next step is to trace callers and
 the external callbacks that consume the state; only then can we distinguish a
 real end-of-stream fade from a diagnostic message or a short-buffer underrun.
+
+## End-state ordering relative to the refill loop
+
+A targeted instruction dump of `FUN_bfc216a8` narrows the end-state sequence.
+In its active state-1 path, it calls `FUN_bfc27520` at `0xbfc21794` before
+reading the status word through the pointer at context `+0xd0`. The next
+instructions compare that status with `3` (`0xbfc217a2`) and branch to
+`0xbfc217b4` (`0xbfc217a4`) when equal. That branch writes state `2` at
+`0xbfc217ba` and returns at `0xbfc217c8`. The `0x200`-byte refill helper
+`FUN_bfc276ac` is called at `0xbfc21712` from the loop reached only when the
+status is not `3` and the elapsed-time guard has not fired. Thus status `3`
+allows a preceding `FUN_bfc27520` pass, but exits before another refill-loop
+iteration; the recovered code does not show a loop that waits for a downstream
+queue to become empty before returning.
+
+This is a concrete ordering fact, **not** proof that `FUN_bfc27520` drains the
+ASRC/DAC queue: its indirect callback implementation remains unresolved, and
+no device queue level or audible tail was measured. Nor does this function
+call the separate `music.ap` track-index advance callback. The relation between
+this decoder-side terminal state and the `music.ap` mode-4 advance path is
+still unproven. `mmm_bp.al` SHA-256 is identical in stock V1.101.10 and
+community V1.292.00 (`ab5d98b578406c4e04fb7b546317fbec0d36ce4a7c139ef0922b06bb4b753c5b`),
+so this ordering is not a community-only change.
+
+The Ghidra runner now pins the instruction addresses above in addition to the
+decompilation checks. Reproduce against either extracted member with the two
+commands above. The code was statically disassembled/decompiled; this new
+ordering check does not execute the decoder callbacks.
