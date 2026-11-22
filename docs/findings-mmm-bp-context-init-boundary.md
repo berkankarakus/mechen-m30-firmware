@@ -133,6 +133,22 @@ continue; all resident side effects are omitted. The resulting context
 contains those handles at `+0x58` and `+0x70`, and explicit initializer fields
 match the decompilation.
 
+The `0x4a` stack record is now inspected during that same p-code run. It
+contains callback pointer `0xbfc27735` (`FUN_bfc27734`), context pointer
+`0x9fc21b08`, third field `0x9fc1bdf0`, and 16-bit field `0x4b0`;
+the accompanying arguments are `(3,0xff,0x4a)`. `FUN_bfc27734` consumes the
+context pointer and runs a loop with resident operations `0x19`/`0x1a` and a
+wait-like operation `0x31`. This record shape is consistent with registering
+or launching a worker, but does not identify the service contract. The service
+remains stubbed, so the probe proves the callback descriptor passed to it,
+not that a thread is created or the callback is invoked.
+
+This gives an independent comparison point for MEngine's selector-`0x4a`
+record, which also begins with a MIPS16 callback pointer. The resident entry
+addresses differ (`0xbfc21a3c` here and `0xbfc11cc8` in MEngine), so the
+similarity supports a callback-registration hypothesis without proving that
+both services have identical semantics.
+
 Ghidra's memory-write tracker is enabled only after synthetic setup and tracks
 all writes during the AP run. Under the no-effect model for intercepted stub
 `0xbfc21a38`, it reports no writes to any of the four bytes at context `+0xd0`,
