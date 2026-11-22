@@ -158,6 +158,12 @@ The same AFI contains a second, much smaller bootstrap member,
 `NORMBREC.BIN`: type `M`, `Addr=0`, offset `0x8c00`, size `0x200`, checksum
 `0xa897adc5`. Its community and stock copies have the same SHA-256
 `dacb549733c6af1727ed2dd8efe091ff6386ef3a111329f5407475ee620c5ace`.
+The locally available Rockbox `atjboottool` AFI parser only reports the type,
+address, offset, size and checksum, then passes the member bytes to an
+extraction callback; its recognized type constants do not include `M`, and
+the entry loop does not dispatch on type. The local `actions_flash` sources
+also do not connect AFI type `M` to a load/execute command. So `M` versus `B`
+does not establish either member's runtime address or execution semantics.
 Because its AFI address is zero, its runtime mapping is not supplied by the
 AFI. The strongest local working mapping is `NORMBREC` at `0xbfc08000`: the
 MIPS32 jump at member offset `0x10` targets `0xbfc08018`, where the next
@@ -199,6 +205,17 @@ the second call. Further calls pass values derived from the same fields
 through the other pointer slots. This is direct disassembly of the caller;
 the slot contents, service meanings, and effects are unavailable, and the
 addresses are not independently proven to map ROM.
+
+There is an independent callsite to one of these same slots in `NORFWSC.BIN`.
+With the member mapped at its AFI address `0xbfc1e000`, the MIPS16 code at
+`0xbfc1e660` loads `0xbfc002a0` from its literal at `0xbfc1e67c`, dereferences
+that slot, and calls the loaded pointer at `0xbfc1e66a` when the byte read
+through the incoming `a1` is nonzero. This confirms that two boot-stage
+members use the same pointer slot; it does not reveal the slot's contents or
+function semantics. Reproduce with
+`mipsel-linux-gnu-objdump -D -b binary -m mips:16 -EL --adjust-vma=0xbfc1e000
+--start-address=0xbfc1e660 --stop-address=0xbfc1e680` on the hash-pinned
+`NORFWSC.BIN`.
 
 This bootstrap does not contain the literal `0xbfc32000` and the inspected
 instructions do not read `NORBREC.BIN`'s `+0x1c` field. It therefore does not
