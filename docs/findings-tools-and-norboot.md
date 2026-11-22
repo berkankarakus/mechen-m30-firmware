@@ -208,21 +208,34 @@ addresses are not independently proven to map ROM.
 
 The bounded `tools/ghidra/run_normboot_service_path_probe.sh` executes this
 actual MIPS16e routine in Ghidra p-code with all four pointer slots and their
-targets supplied as synthetic fixtures. With the fixture byte at
-`0xbfc08003` equal to zero, `u16[0xbfc10004]=4`, and each reached callback
-returning zero, the observed path is `0xbfc002a8 → 0xbfc00294 → 0xbfc002a4`
-(61 p-code instructions). The captured tuples are respectively
-`(0,0x1800,0xbfc10000,0)`,
-`(0xbfc10000,0x800,0xbfc10000,0)`, and
-`(0xbfc10100,0x00703041,0,0)`. In this fixture the `0xbfc002a0` error slot is
-not called, and the large-block second `0xbfc002a8` call is not taken. The
-third tuple includes the deliberately seeded pointer value from slot
-`0xbfc002a0`; it is evidence of the caller's dataflow under this fixture, not
-the meaning of that argument or callback. The probe checks the call order and
-all four arguments, but callback destinations and zero return effects are
-synthetic. It therefore verifies the real routine's conditional call path and
-register-level arguments only under these explicit inputs; it does not
-identify the services or establish boot behavior. Reproduce with
+targets supplied as synthetic fixtures. It checks three input/return cases;
+the byte at `0xbfc08003` is zero in all of them:
+
+- With `u16[0xbfc10004]=4` and zero callback returns, the path executes 58
+  real MIPS instructions (excluding three intercepted synthetic callbacks) and
+  calls `0xbfc002a8 → 0xbfc00294 → 0xbfc002a4`. The captured tuples are
+  `(0,0x1800,0xbfc10000,0)`,
+  `(0xbfc10000,0x800,0xbfc10000,0)`, and
+  `(0xbfc10100,0x00703041,0,0)`. The `0xbfc002a0` error slot is skipped.
+- With `u16[0xbfc10004]=13`, the scaled length is `0x1a00`, so the routine
+  makes two `0xbfc002a8` calls: `(0,0x1800,0xbfc10000,0)` then
+  `(0x1800,0x200,0xbfc11800,0)`. It then calls `0xbfc00294` with
+  `(0xbfc10000,0x1a00,0xbfc11800,0)`, followed by `0xbfc002a4`.
+- When the first `0xbfc002a8` callback returns synthetic `1`, the routine
+  calls `0xbfc002a0` with the first call's same tuple, then continues to
+  `0xbfc00294` and `0xbfc002a4` in this fixture.
+
+The large and nonzero-return fixtures execute 78 and 61 real MIPS
+instructions, respectively; the step bound separately counts loop iterations
+including callback interceptions.
+
+The third tuple above includes the deliberately seeded pointer value from slot
+`0xbfc002a0`; it is evidence of caller dataflow under this fixture, not the
+meaning of that argument or callback. The probe checks call order and all four
+arguments. Callback destinations and return effects are synthetic, so this
+establishes the real routine's conditional control/data flow only under these
+inputs; it does not identify the services or establish boot behavior.
+Reproduce with
 `bash tools/ghidra/run_normboot_service_path_probe.sh <path-to-NORMBREC.BIN>`.
 The member is a local extracted input and is not present in a clean checkout.
 

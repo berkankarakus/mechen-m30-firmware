@@ -41,6 +41,7 @@ if ! grep -F 'NORMBREC SERVICE P-CODE PASS' "$WORK/run.log"; then
   exit 1
 fi
 grep -F 'NORMBREC SERVICE EDGE' "$WORK/run.log"
+grep -F 'NORMBREC SERVICE CASE PASS' "$WORK/run.log"
 if ! grep -F 'NORMBREC SERVICE LIMIT synthetic-slot-targets no-ROM-or-boot-claim' "$WORK/run.log"; then
   cat "$WORK/run.log" >&2
   exit 1

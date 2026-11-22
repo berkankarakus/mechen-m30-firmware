@@ -70,6 +70,120 @@ public class RunNormBootServicePathProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, address, bytes.length, true, bytes);
     }
 
+    private static final class FixtureResult {
+        final List<String> calls;
+        final int instructions;
+
+        FixtureResult(List<String> calls, int instructions) {
+            this.calls = calls;
+            this.instructions = instructions;
+        }
+    }
+
+    private FixtureResult executeFixture(SleighLanguage language, AddressSpace space,
+            byte[] image, int blockCount, long firstA8Return) throws Exception {
+        Register isa = language.getRegister("ISA_MODE");
+        Register relp = language.getRegister("RELP");
+        Register ra = language.getRegister("ra");
+        Register v0 = language.getRegister("v0");
+        Register a0 = language.getRegister("a0");
+        Register a1 = language.getRegister("a1");
+        Register a2 = language.getRegister("a2");
+        Register a3 = language.getRegister("a3");
+
+        PcodeEmulator emulator = new PcodeEmulator(language);
+        emulator.getSharedState().setVar(space, BASE, image.length, true, image);
+        putWord(emulator, space, SLOT_A8, TARGET_A8 | 1L);
+        putWord(emulator, space, SLOT_A0, TARGET_A0 | 1L);
+        putWord(emulator, space, SLOT_94, TARGET_94 | 1L);
+        putWord(emulator, space, SLOT_A4, TARGET_A4 | 1L);
+        putBytes(emulator, space, BUFFER, new byte[] {
+            0, 0, 0, 0, (byte)blockCount, (byte)(blockCount >>> 8), 0, 0
+        });
+        putBytes(emulator, space, STACK - 0x1000, new byte[0x2000]);
+
+        PcodeThread<byte[]> thread = emulator.newThread();
+        PcodeUseropLibrary<byte[]> library = thread.getUseropLibrary();
+        require(library.getUserops().containsKey("setISAMode"),
+            "native MIPS setISAMode userop was not loaded");
+        thread.getExecutor().execute(
+            SleighProgramCompiler.compileProgram(language, "normboot-service-init",
+                "sp = 0x9fc21000; s1 = 0; ra = 0x00704001; "
+                    + "a0 = 0; a1 = 0; a2 = 0; a3 = 0; v0 = 0;", library), library);
+        RegisterValue mips16 = new RegisterValue(isa, BigInteger.ONE)
+            .assign(relp, new RegisterValue(relp, BigInteger.ONE));
+        thread.overrideContext(mips16);
+        thread.overrideCounter(addr(space, ENTRY));
+
+        long[] targets = {TARGET_A8, TARGET_A0, TARGET_94, TARGET_A4};
+        long[] slots = {SLOT_A8, SLOT_A0, SLOT_94, SLOT_A4};
+        List<String> calls = new ArrayList<>();
+        boolean stopped = false;
+        int iterations = 0;
+        int instructions = 0;
+        int a8Calls = 0;
+        for (; iterations < MAX_STEPS; iterations++) {
+            long pc = thread.getCounter().getOffset() & 0xffffffffL;
+            if (pc == STOP) {
+                stopped = true;
+                break;
+            }
+            int targetIndex = -1;
+            for (int i = 0; i < targets.length; i++)
+                if (pc == targets[i]) targetIndex = i;
+            if (targetIndex >= 0) {
+                require(mode(thread, isa) == 1 && mode(thread, relp) == 1,
+                    String.format("expected MIPS16e at synthetic slot 0x%08x", slots[targetIndex]));
+                long returnAddress = reg(thread, ra, language);
+                require((returnAddress & 1L) == 1,
+                    String.format("MIPS16e return address lacks mode tag: 0x%08x", returnAddress));
+                calls.add(String.format(
+                    "slot=0x%08x target=0x%08x args=%08x,%08x,%08x,%08x",
+                    slots[targetIndex], pc, reg(thread, a0, language),
+                    reg(thread, a1, language), reg(thread, a2, language),
+                    reg(thread, a3, language)));
+                long callbackReturn = targetIndex == 0 && a8Calls++ == 0
+                    ? firstA8Return : 0;
+                thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
+                    callbackReturn, v0.getMinimumByteSize()));
+                thread.overrideContext(mips16);
+                thread.overrideCounter(addr(space, returnAddress & ~1L));
+                continue;
+            }
+            thread.stepInstruction();
+            instructions++;
+        }
+
+        require(stopped, String.format(
+            "NORMBREC routine did not return within the step limit (blockCount=%d)",
+            blockCount));
+        return new FixtureResult(calls, instructions);
+    }
+
+    private void requireCall(FixtureResult result, int index, long slot,
+            long target, String args) throws Exception {
+        String expected = String.format("slot=0x%08x target=0x%08x args=%s",
+            slot, target, args);
+        require(index < result.calls.size(),
+            "missing expected call " + expected + " in " + result.calls);
+        require(result.calls.get(index).equals(expected),
+            "unexpected call at index " + index + ": " + result.calls.get(index)
+                + " expected " + expected);
+    }
+
+    private void requireCallCount(FixtureResult result, int count, String name)
+            throws Exception {
+        require(result.calls.size() == count,
+            name + " fixture call count was " + result.calls.size() + ": " + result.calls);
+    }
+
+    private void printFixture(String name, FixtureResult result) {
+        for (String call : result.calls)
+            println("NORMBREC SERVICE EDGE case=" + name + " " + call);
+        println(String.format("NORMBREC SERVICE CASE PASS case=%s instructions=%d calls=%d",
+            name, result.instructions, result.calls.size()));
+    }
+
     @Override
     public void run() throws Exception {
         require(getScriptArgs().length == 1,
@@ -83,94 +197,51 @@ public class RunNormBootServicePathProbe extends GhidraScript {
 
         SleighLanguage language = (SleighLanguage)currentProgram.getLanguage();
         AddressSpace space = language.getDefaultSpace();
-        Register isa = language.getRegister("ISA_MODE");
-        Register relp = language.getRegister("RELP");
-        Register ra = language.getRegister("ra");
-        Register v0 = language.getRegister("v0");
-        Register a0 = language.getRegister("a0");
-        Register a1 = language.getRegister("a1");
-        Register a2 = language.getRegister("a2");
-        Register a3 = language.getRegister("a3");
-        require(isa != null && relp != null && ra != null && v0 != null
-                && a0 != null && a1 != null && a2 != null && a3 != null,
+        require(language.getRegister("ISA_MODE") != null
+                && language.getRegister("RELP") != null
+                && language.getRegister("ra") != null
+                && language.getRegister("v0") != null
+                && language.getRegister("a0") != null
+                && language.getRegister("a1") != null
+                && language.getRegister("a2") != null
+                && language.getRegister("a3") != null,
             "MIPS language is missing a required register");
 
-        PcodeEmulator emulator = new PcodeEmulator(language);
-        emulator.getSharedState().setVar(space, BASE, image.length, true, image);
-        putWord(emulator, space, SLOT_A8, TARGET_A8 | 1L);
-        putWord(emulator, space, SLOT_A0, TARGET_A0 | 1L);
-        putWord(emulator, space, SLOT_94, TARGET_94 | 1L);
-        putWord(emulator, space, SLOT_A4, TARGET_A4 | 1L);
-        putBytes(emulator, space, BUFFER, new byte[] {0, 0, 0, 0, 4, 0, 0, 0});
-        putBytes(emulator, space, STACK - 0x1000, new byte[0x2000]);
+        FixtureResult small = executeFixture(language, space, image, 4, 0);
+        requireCallCount(small, 3, "small/success");
+        requireCall(small, 0, SLOT_A8, TARGET_A8,
+            "00000000,00001800,bfc10000,00000000");
+        requireCall(small, 1, SLOT_94, TARGET_94,
+            "bfc10000,00000800,bfc10000,00000000");
+        requireCall(small, 2, SLOT_A4, TARGET_A4,
+            "bfc10100,00703041,00000000,00000000");
+        printFixture("small-zero-return", small);
 
-        PcodeThread<byte[]> thread = emulator.newThread();
-        PcodeUseropLibrary<byte[]> library = thread.getUseropLibrary();
-        require(library.getUserops().containsKey("setISAMode"),
-            "native MIPS setISAMode userop was not loaded");
-        thread.getExecutor().execute(
-            SleighProgramCompiler.compileProgram(language, "normboot-service-init",
-                "sp = 0x9fc21000; ra = 0x00704001; "
-                    + "a0 = 0; a1 = 0; a2 = 0; a3 = 0; v0 = 0;", library), library);
-        RegisterValue mips16 = new RegisterValue(isa, BigInteger.ONE)
-            .assign(relp, new RegisterValue(relp, BigInteger.ONE));
-        thread.overrideContext(mips16);
-        thread.overrideCounter(addr(space, ENTRY));
+        FixtureResult large = executeFixture(language, space, image, 13, 0);
+        requireCallCount(large, 4, "large/success");
+        requireCall(large, 0, SLOT_A8, TARGET_A8,
+            "00000000,00001800,bfc10000,00000000");
+        requireCall(large, 1, SLOT_A8, TARGET_A8,
+            "00001800,00000200,bfc11800,00000000");
+        requireCall(large, 2, SLOT_94, TARGET_94,
+            "bfc10000,00001a00,bfc11800,00000000");
+        requireCall(large, 3, SLOT_A4, TARGET_A4,
+            "bfc10100,00703041,00000000,00000000");
+        printFixture("large-zero-return", large);
 
-        long[] targets = {TARGET_A8, TARGET_94, TARGET_A4};
-        long[] slots = {SLOT_A8, SLOT_94, SLOT_A4};
-        List<String> calls = new ArrayList<>();
-        boolean stopped = false;
-        int steps = 0;
-        for (; steps < MAX_STEPS; steps++) {
-            long pc = thread.getCounter().getOffset() & 0xffffffffL;
-            if (pc == STOP) {
-                stopped = true;
-                break;
-            }
-            int targetIndex = -1;
-            for (int i = 0; i < targets.length; i++)
-                if (pc == targets[i]) targetIndex = i;
-            if (pc == TARGET_A0)
-                throw new Exception("unexpected error-handler slot call in zero-return fixture");
-            if (targetIndex >= 0) {
-                require(mode(thread, isa) == 1 && mode(thread, relp) == 1,
-                    String.format("expected MIPS16e at synthetic slot 0x%08x", slots[targetIndex]));
-                long returnAddress = reg(thread, ra, language);
-                require((returnAddress & 1L) == 1,
-                    String.format("MIPS16e return address lacks mode tag: 0x%08x", returnAddress));
-                calls.add(String.format(
-                    "slot=0x%08x target=0x%08x args=%08x,%08x,%08x,%08x",
-                    slots[targetIndex], pc, reg(thread, a0, language),
-                    reg(thread, a1, language), reg(thread, a2, language),
-                    reg(thread, a3, language)));
-                thread.getState().setVar(v0,
-                    emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
-                thread.overrideContext(mips16);
-                thread.overrideCounter(addr(space, returnAddress & ~1L));
-                continue;
-            }
-            thread.stepInstruction();
-        }
-
-        require(stopped, "NORMBREC routine did not return within the step limit");
-        require(calls.size() == 3, "unexpected call count: " + calls);
-        require(calls.get(0).startsWith("slot=0xbfc002a8 target=0x00703000 "),
-            "first call was not through the 0xbfc002a8 slot: " + calls.get(0));
-        require(calls.get(0).endsWith("args=00000000,00001800,bfc10000,00000000"),
-            "unexpected first call arguments: " + calls.get(0));
-        require(calls.get(1).startsWith("slot=0xbfc00294 target=0x00703020 "),
-            "second call was not through the 0xbfc00294 slot: " + calls.get(1));
-        require(calls.get(1).endsWith("args=bfc10000,00000800,bfc10000,00000000"),
-            "unexpected second call arguments: " + calls.get(1));
-        require(calls.get(2).startsWith("slot=0xbfc002a4 target=0x00703060 "),
-            "third call was not through the 0xbfc002a4 slot: " + calls.get(2));
-        require(calls.get(2).endsWith("args=bfc10100,00703041,00000000,00000000"),
-            "unexpected third call arguments: " + calls.get(2));
-        for (String call : calls) println("NORMBREC SERVICE EDGE " + call);
+        FixtureResult error = executeFixture(language, space, image, 4, 1);
+        requireCallCount(error, 4, "small/error-return");
+        requireCall(error, 0, SLOT_A8, TARGET_A8,
+            "00000000,00001800,bfc10000,00000000");
+        requireCall(error, 1, SLOT_A0, TARGET_A0,
+            "00000000,00001800,bfc10000,00000000");
+        requireCall(error, 2, SLOT_94, TARGET_94,
+            "bfc10000,00000800,bfc10000,00000000");
+        requireCall(error, 3, SLOT_A4, TARGET_A4,
+            "bfc10100,00703041,00000000,00000000");
+        printFixture("small-nonzero-return", error);
         println(String.format(
-            "NORMBREC SERVICE P-CODE PASS entry=0x%08x steps=%d fixture=u16_at_buffer_plus4_4 slot-effects=zero length-threshold-path=single-chunk",
-            ENTRY, steps));
+            "NORMBREC SERVICE P-CODE PASS entry=0x%08x cases=3 small/large/error", ENTRY));
         println("NORMBREC SERVICE LIMIT synthetic-slot-targets no-ROM-or-boot-claim");
     }
 }
