@@ -42,6 +42,11 @@ public class RunMmmBpInitProbe extends GhidraScript {
             | ((data[2] & 255L) << 16) | ((data[3] & 255L) << 24);
     }
 
+    private int readHalf(EmulatorHelper emulator, long address) throws Exception {
+        byte[] data = emulator.readMemory(addr(address), 2);
+        return (data[0] & 255) | ((data[1] & 255) << 8);
+    }
+
     private void writeWord(EmulatorHelper emulator, long address, long value) throws Exception {
         emulator.writeMemory(addr(address), new byte[] {
             (byte)value, (byte)(value >>> 8), (byte)(value >>> 16), (byte)(value >>> 24)
@@ -84,6 +89,7 @@ public class RunMmmBpInitProbe extends GhidraScript {
         EmulatorHelper emulator = new EmulatorHelper(currentProgram);
         List<String> calls = new ArrayList<>();
         int[] initRangeCalls = {0};
+        long[] registration = {0, 0, 0, 0};
         try {
             emulator.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -133,6 +139,20 @@ public class RunMmmBpInitProbe extends GhidraScript {
                         else if (a0 == 0) v0 = HANDLE_PIPE;
                         else throw new Exception(String.format("unexpected shared-memory selector a0=%08x", a0));
                     }
+                    if (target == STUB_SERVICE && a3 == 0x4a) {
+                        require(a0 >= RAM + RAM_SIZE - 0x1000L && a0 < RAM + RAM_SIZE,
+                            "0x4a registration record is not in the bounded stack");
+                        registration[0] = readWord(emulator, a0);
+                        registration[1] = readWord(emulator, a0 + 4);
+                        registration[2] = readWord(emulator, a0 + 8);
+                        registration[3] = readHalf(emulator, a0 + 12);
+                        require(registration[0] == 0xbfc27735L
+                                && registration[1] == CONTEXT
+                                && registration[2] == 0x9fc1bdf0L
+                                && registration[3] == 0x4b0,
+                            String.format("unexpected 0x4a record %08x,%08x,%08x,%04x",
+                                registration[0], registration[1], registration[2], registration[3]));
+                    }
                     // Resident service effects are deliberately omitted. We record their ABI
                     // requests and provide only nonzero synthetic handles needed to continue.
                     emulator.writeRegister("v0", v0);
@@ -173,6 +193,9 @@ public class RunMmmBpInitProbe extends GhidraScript {
                 + "context+70=%08x context+d0=%08x", readWord(emulator, RESULT),
                 readWord(emulator, CONTEXT + 0x28), readWord(emulator, CONTEXT + 0x58),
                 readWord(emulator, CONTEXT + 0x70), readWord(emulator, CONTEXT + 0xd0)));
+            println(String.format("MMM BP INIT REGISTRATION callback=%08x context=%08x "
+                + "record_field_2=%08x record_field_3_u16=%04x operation=0x4a service=synthetic",
+                registration[0], registration[1], registration[2], registration[3]));
             for (String call : calls) println("MMM BP INIT CALL " + call);
             require(readWord(emulator, RESULT) == CONTEXT,
                 String.format("entry did not return the init context: %08x", readWord(emulator, RESULT)));
