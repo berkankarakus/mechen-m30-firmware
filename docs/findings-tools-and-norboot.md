@@ -152,38 +152,67 @@ written. To repeat on another already-local image, run `atjboottool
 after creating the empty `members/` directory. The AFI output reports the
 directory entry and verifies its checksum before extracting members.
 
-### NORMBREC bootstrap and fixed-ROM service table
+### NORMBREC bootstrap and fixed-address function-pointer slots
 
 The same AFI contains a second, much smaller bootstrap member,
 `NORMBREC.BIN`: type `M`, `Addr=0`, offset `0x8c00`, size `0x200`, checksum
 `0xa897adc5`. Its community and stock copies have the same SHA-256
 `dacb549733c6af1727ed2dd8efe091ff6386ef3a111329f5407475ee620c5ace`.
-Because its AFI address is zero, `0xbfc08000` remains a candidate runtime
-mapping, not an AFI-provided load address. Under that mapping, its first
-MIPS32 instructions jump to `0xbfc08018`, set the stack to `0x9fc0c000`, and
-use `jalx` to enter MIPS16 at `0xbfc08029`.
+Because its AFI address is zero, its runtime mapping is not supplied by the
+AFI. The strongest local working mapping is `NORMBREC` at `0xbfc08000`: the
+MIPS32 jump at member offset `0x10` targets `0xbfc08018`, where the next
+instructions in this same member set `sp=0x9fc0c000`; the following `jalx`
+targets `0xbfc08029`, the MIPS16 routine at member offset `0x28`. This is a
+coherent in-member MIPS32-to-MIPS16 path, but remains a mapping hypothesis
+because the AFI `Addr` is zero and no boot trace shows this member being
+loaded or executed.
 
-The MIPS16 routine at `0xbfc08028` loads function pointers indirectly through
-fixed addresses `0xbfc002a8`, `0xbfc002a0`, `0xbfc00294`, and `0xbfc002a4`.
-For example, the first call through the slot at `0xbfc002a8` passes
-`(a0 = byte[0xbfc08003] << 9, a1 = 0xbfc10000, a2 = 0x1800)`. If the
-returned value is nonzero, it makes a second call through the same slot with
-the destination advanced by `0x1800` and the remaining byte count. Subsequent
-calls pass values derived from the block-size word at `0xbfc10004` and the
-byte at `0xbfc08003` through the other slots. This is direct disassembly of
-the caller; the fixed-ROM slot contents, service meanings, and their effects
-are unavailable.
+The new bounded probe `tools/ghidra/run_normboot_path_probe.sh` executes the
+hash-pinned 512-byte member under this candidate mapping. Ghidra p-code takes
+the real jump at `0xbfc08010` to `0xbfc08018`, executes the two stack writes
+to `0x9fc0c000`, then follows the real `jalx` to `0xbfc08028` with
+`ISA_MODE=1`. The probe seeds `RELP=1` as a MIPS16e-capable CPU context; it
+does not establish the device's reset context or that the device loads this
+member at `0xbfc08000`. The two package components' shared address window
+therefore remains a staged-reuse hypothesis.
+
+`kernel.drv` also has a YQHX segment at `0xbfc08000` (file offset `0x200`,
+length `0xb00`). Its bytes differ from `NORMBREC`'s bytes at that address.
+This is evidence that two package components target the same virtual window,
+consistent with staged reuse/overlay, but it does not show that NORMBREC's
+branch executes `kernel.drv` contents. An alternative `NORMBREC` base of
+`0xbfc00000` would make the absolute jump at `+0x10` land at `0xbfc08018` in
+the kernel segment, but would bypass the in-member stack setup and continue in
+MIPS32 mode into bytes decoded as MIPS16. There is no runtime evidence for
+that interpretation, so it is not the working mapping.
+
+The MIPS16 routine at candidate address `0xbfc08028` loads function pointers
+indirectly through fixed addresses `0xbfc002a8`, `0xbfc002a0`, `0xbfc00294`,
+and `0xbfc002a4`. For example, the first call through the slot at
+`0xbfc002a8` passes `(a0 = byte[0xbfc08003] << 9, a1 = 0x1800,
+a2 = 0xbfc10000)`. A second call through the same slot is made when the
+block-size-derived value `(u16[0xbfc10004] << 9)` is at least `0x1801`; its
+arguments are `(a0 = (byte[0xbfc08003] << 9) + 0x1800,
+a1 = (u16[0xbfc10004] << 9) - 0x1800, a2 = 0xbfc11800)`. The first call's
+return is combined with the second call's result later; it does not trigger
+the second call. Further calls pass values derived from the same fields
+through the other pointer slots. This is direct disassembly of the caller;
+the slot contents, service meanings, and effects are unavailable, and the
+addresses are not independently proven to map ROM.
 
 This bootstrap does not contain the literal `0xbfc32000` and the inspected
 instructions do not read `NORBREC.BIN`'s `+0x1c` field. It therefore does not
 establish how the larger NOR record is loaded or whether that field is used
-for a handoff. It does reveal a concrete next boundary: recover the ROM
-functions behind `0xbfc00294..0xbfc002a8`, then trace the boot-record and
-kernel transfer using those services. Reproduce the static check with
-`mipsel-linux-gnu-objdump -D -b binary -m mips:3000 -EL --adjust-vma=0xbfc08000`
+for a handoff. The next high-value steps are to find loader evidence for the
+shared `0xbfc08000` window and recover the functions behind
+`0xbfc00294..0xbfc002a8` before assigning meaning to the MIPS16 calls. The
+static disassembly is reproducible with
+`mipsel-linux-gnu-objdump -D -b binary -m mips:isa32r2 -EL --adjust-vma=0xbfc08000`
 for the MIPS32 prefix and `mipsel-linux-gnu-objdump -D -b binary -m mips:16
 -EL --adjust-vma=0xbfc08000 --start-address=0xbfc08028` for the MIPS16 body;
 the verified input is the local `analysis/community/afi/NORMBREC.BIN` member.
+Run the bounded p-code check with
+`bash tools/ghidra/run_normboot_path_probe.sh analysis/community/afi/NORMBREC.BIN`.
 
 The same AFI directory records `Addr=0xbfc1e000` for both `NORHWSC.BIN`
 (type `H`, file offset `0x5800`, size `0x800`) and `NORFWSC.BIN` (type `F`,
