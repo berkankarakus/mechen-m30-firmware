@@ -165,8 +165,36 @@ temporary projects. The extracted `mengine.ap` exposes the ASCII filename
 as a format-index-to-`.dsp` filename selector; its recovered table does not
 select `mmm_bp.al` and is not evidence for the missing decoder-module loader.
 
-The package record remains the only positive external observation in this
-scope: `MMM_BP  AL` occurs at `dec.bin` offset `0x62c20` and at
+### Named module request in `mengine.ap`
+
+A separate Ghidra reference/decompilation pass found a positive named-module
+request in `mengine.ap` for `mmm_mp.al`, in both stock and community images.
+The stock AP SHA-256 is
+`1340bac3cb68043f7a9651ee7959c2f502e6759c7debe0626f07ef9231896d4d`; the
+community AP SHA-256 is
+`b569605e9f66ef94023cf82d665ae119f6bbb7ed0c9d8f5e6c5be867ce91be49`. Both
+`LoadAP` mappings place the filename at `0x6005114c` (file offset `0x144c`).
+After `DumpRefsTo.java` runs Ghidra `analyzeAll`, the string has references
+from `0x6005103e` (`DATA`) and `0x6005106c` (`PARAM`), both inside
+`FUN_60051034`. That function calls through slot `0x6005116c`; the mapped
+slot value is `0xbfc11cc9`, a tagged MIPS16 pointer to `0xbfc11cc8`. Its
+decompiled call arguments are `(&"mmm_mp.al",1,0,2)`. Its caller,
+`FUN_60051278`, calls it at `0x6005130e`. The relevant function and caller
+byte ranges are identical across the two APs, and their Ghidra decompilations
+match.
+
+This is direct evidence that the extracted engine passes the `mmm_mp.al`
+filename and those three numeric arguments to resident entry `0xbfc11cc8`.
+Calling that entry a module loader is a strong filename-based inference; the
+resident body is unavailable, so the effect and meaning of arguments
+`(1,0,2)` are not proven. It gives a concrete resident-service candidate to
+trace, but does not show that the same entry loads `MMM_BP  AL` or that any
+decoder module is selected. Reproduce the string xref with `LoadAP.java`
+followed by `DumpRefsTo.java 0x6005114c`, and the caller chain with
+`DumpRefsTo.java 0x60051034` plus `DumpAt.java 0x60051034,0x60051278`.
+
+For `MMM_BP`, the package record remains the only positive external
+observation in this scope: `MMM_BP  AL` occurs at `dec.bin` offset `0x62c20` and at
 `afi/FWIMAGE.FW` offset `0x420`. That establishes a named package entry, not a
 runtime caller, load address, or transfer of control to `0xbfc218a9`. These
 negative scans rule out only direct pointer literals in the mapped candidate
