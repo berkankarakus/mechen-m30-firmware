@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Execute Custom-row registration through its real deferred-callback dispatcher.
+# Optional second argument captures 4 message bytes + 7 engine Custom bytes.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 MUSIC=${1:-$ROOT/analysis/community/fw/music.ap}
+CAPTURE=${2:-}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 EXPECTED_SHA256=662e379602707a9c4b0dcd6b94b591dd77c2b5f7a557fcb03b8c2a5c9b1baac3
 
@@ -19,6 +21,12 @@ WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-ghidra-eq-custom-framework.XXXXXX"
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home" "$WORK/project"
 
+if [ -n "$CAPTURE" ]; then
+  SCRIPT_ARGS=(-postScript RunEqCustomFrameworkCallbackProbe.java "$CAPTURE")
+else
+  SCRIPT_ARGS=(-postScript RunEqCustomFrameworkCallbackProbe.java)
+fi
+
 GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   "$GHIDRA" "$WORK/project" m30eqcustomframework \
     -import "$MUSIC" \
@@ -27,7 +35,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$MUSIC" \
-    -postScript RunEqCustomFrameworkCallbackProbe.java \
+    "${SCRIPT_ARGS[@]}" \
     >"$WORK/run.log" 2>&1 || {
       cat "$WORK/run.log" >&2
       exit 1

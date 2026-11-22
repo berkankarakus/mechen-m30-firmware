@@ -8,6 +8,9 @@ import ghidra.program.model.address.Address;
 import ghidra.program.model.mem.MemoryBlock;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 public class RunEqCustomFrameworkCallbackProbe extends GhidraScript {
@@ -69,8 +72,9 @@ public class RunEqCustomFrameworkCallbackProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length != 0)
-            throw new Exception("usage: RunEqCustomFrameworkCallbackProbe.java");
+        if (getScriptArgs().length > 1)
+            throw new Exception("usage: RunEqCustomFrameworkCallbackProbe.java [CAPTURE.bin]");
+        Path capturePath = getScriptArgs().length == 1 ? Paths.get(getScriptArgs()[0]) : null;
 
         MemoryBlock ram = currentProgram.getMemory().createInitializedBlock(
             "eq_custom_row_callback_ram", addr(RAM),
@@ -92,6 +96,7 @@ public class RunEqCustomFrameworkCallbackProbe extends GhidraScript {
         int phase = 0;
         long result = 0;
         long frameworkCallbackReturn = 0;
+        byte[] messagePayloadCaptured = null;
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -214,6 +219,7 @@ public class RunEqCustomFrameworkCallbackProbe extends GhidraScript {
                     byte[] message = bytes(emu, payload, 2);
                     require((message[0] & 0xff) == 7 && (message[1] & 0xff) == 7,
                         "Custom producer message is not {7,7}");
+                    messagePayloadCaptured = bytes(emu, payload, 4);
                     long ra = reg(emu, "ra");
                     emu.writeRegister("v0", 0);
                     emu.writeRegister("pc", ra & ~1L);
@@ -241,6 +247,17 @@ public class RunEqCustomFrameworkCallbackProbe extends GhidraScript {
                 "callback registration setter did not copy the real arguments");
             require(Arrays.equals(bytes(emu, ENGINE_CUSTOM, GAINS.length), gainSentinel),
                 "Custom gain bytes did not reach the engine buffer under the copy shim");
+            require(messagePayloadCaptured != null, "Custom producer message payload was not captured");
+
+            if (capturePath != null) {
+                byte[] engineSeed = new byte[4 + GAINS.length];
+                System.arraycopy(messagePayloadCaptured, 0, engineSeed, 0, 4);
+                System.arraycopy(bytes(emu, ENGINE_CUSTOM, GAINS.length), 0,
+                    engineSeed, 4, GAINS.length);
+                Path parent = capturePath.getParent();
+                if (parent != null) Files.createDirectories(parent);
+                Files.write(capturePath, engineSeed);
+            }
 
             println(String.format(
                 "EQ CUSTOM FRAMEWORK CALLBACK PASS steps=%d row_result=0x8202 row_flag_set=1 selector=%d callback=0x%08x event_wrapper=0x%08x event=0x2604:synthetic-helper dispatcher=0x%08x dispatches=%d callback_invokes=%d callback_return=observed message=0x303:{7,7} module10_copy=synthetic setter_calls=%d copy_calls=%d message_calls=%d flag_cell=0x%08x",
