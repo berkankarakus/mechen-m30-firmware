@@ -2,6 +2,12 @@
 
 # EQ + usound findings (read-only; V=VERIFIED, H=HYPOTHESIS)
 
+## Custom-row framework callback p-code probe
+
+`bash tools/ghidra/run_eq_custom_framework_callback_probe.sh <hash-matching-community-music.ap>` executes the community `music.ap` SHA-256 `662e379602707a9c4b0dcd6b94b591dd77c2b5f7a557fcb03b8c2a5c9b1baac3`. Real `FUN_403d4c1c` registers callback pointer `0x403d4c01` and flag pointer `0x9fc1543a`; the setter stores them in `0x9fc15908` and `0x9fc1590c`. Real `FUN_40c14f30` event-wrapper instructions call the event decoder helper and then dispatch its event through `FUN_487d44b0`. For event `0x2604` (dispatcher switch case 3), real dispatcher instructions check the pointed-to flag and indirectly invoke the registered callback. The probe seeds the event-decoder helper output and selector state, then observes the wrapper/dispatcher reach `FUN_403d4c00` → `FUN_40094d4c` → `FUN_403d4ed0`, return from the callback, and send `0x303:{7,7}`. `FUN_40c14c00` statically calls the event wrapper, but the probe starts at `FUN_40c14f30` and does not execute the parent event loop.
+
+Evidence boundary: the event-decoder helper's success/result (`0x2604`), selector value `7`, and seven distinct stored gain bytes are synthetic inputs; the normal UI event producer and selector writer remain unknown. The event-ready and event-decoder helper calls are stubbed; the seven-byte module-`0x10` copy is a synthetic memcpy; unrelated calls reaching that same service boundary return zero, and the message import returns zero. The dispatcher is stopped at the observed callback return before its remaining event-handler work. Slider editing/persistence, engine/DSP consumption, and audible output remain open.
+
 ## A. EQ
 - Reproducible check: `bash tools/ghidra/run_eq_probe.sh` decompiles the
   community `mengine.ap` EQ loader and checks its pointer pool, seven-band
