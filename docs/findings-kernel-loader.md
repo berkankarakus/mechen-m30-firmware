@@ -274,7 +274,7 @@ depends on peripheral reset state and ROM services. Accordingly, the call
 targets remain unnamed and no complete initialization behavior is inferred
 from the helper names or argument shapes.
 
-### `FUN_bfc322f8` p-code call-boundary probe
+### `FUN_bfc322f8` p-code call-boundary probes
 
 `tools/ghidra/run_kernel_init_template_probe.sh` executes the actual
 hash-pinned `ker_init.bin` instructions from `FUN_bfc322f8` (SHA-256
@@ -307,6 +307,21 @@ also calls it with `(0x9fc13d00, 0, 0xe0)`, and `FUN_bfc322f8` later calls it
 with `(0x00013d00, 0, 0xe0)`. All three callsites pass a start address, zero,
 and an end-minus-start length. This strongly supports a clear/zero routine,
 but its MIPS16 body is absent, so the effect remains a hypothesis.
+
+`tools/ghidra/run_kernel_init_native_mode_probe.sh` repeats this path with
+Ghidra's native MIPS p-code emulator. On both hash-matching stock and community
+`ker_init.bin`, it enters the two fixed-ROM entry points on four calls with
+`ISA_MODE=1`, records the arguments, and captures the exact return addresses
+`0xbfc32348/6c/90/b4`. At each ROM boundary the absent helper's return is
+synthetic: the harness sets `v0=0`, forces `ISA_MODE=0`, and resumes at that
+address. The synthetic callback pointer `0x9fc27f00` then receives control
+with `ISA_MODE=0` and `(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps.
+This demonstrates native MIPS16 entry transitions for the extracted caller
+and the selected synthetic callback path in Ghidra's language model; it does
+not execute the absent ROM helper bodies or establish their return behavior,
+side effects, the real callback pointer/source bytes, or the device's
+normal-boot mapping. The earlier `EmulatorHelper` probe remains a simpler
+call-boundary cross-check; use the native-mode probe for entry-mode claims.
 
 The ATJ2127 Boot ROM map is documented in the public
 [`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).
