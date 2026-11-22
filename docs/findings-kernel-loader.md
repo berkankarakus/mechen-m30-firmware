@@ -206,12 +206,12 @@ This is a bounded segment-entry control-flow and register-write check, not a
 model of the `0xbfc05000`/`0xbfc05028` services' possible interrupt side
 effects or the `0xbfc045f5` reset helper. It verifies the actual caller
 arguments at that first unresolved edge, but does not prove that the helper
-clears the requested range. `FUN_bfc322f8` remains unexecuted: it calls
-fixed-ROM reset/copy candidates, then calls a function pointer loaded from
-`0x9fc2aad8`. Its copied data and
-call target are not established by the extracted image, and the candidate
-copy routine's argument order is unresolved. Do not substitute host
-`memset`/`memcpy` based only on the call shape. `FUN_bfc32440` also performs
+clears the requested range. `FUN_bfc322f8`'s fixed-ROM boundaries are now
+exercised by a separate bounded p-code probe, but the helper effects remain
+opaque. The callback word at `0x9fc1aad8`, its source bytes, and the actual
+boot-stage mapping are not established by the extracted `ker_init.bin`. Do
+not substitute host `memset`/`memcpy` based only on the call shape.
+`FUN_bfc32440` also performs
 read-modify-write MMIO operations whose initial device state and helper-call
 effects are unknown. Therefore the complete entry-to-constructor p-code path
 is still unverified.
@@ -227,21 +227,27 @@ The extracted instructions support these bounded descriptions:
   and four more at `0xc00a00c0+4*i`. It also calls `0xbfc05000` and
   `0xbfc05028`; their return values are unused, but their possible hardware
   side effects are not known.
-- `FUN_bfc322f8` calls `0xbfc045f5` with `(a0=0x9fc2a48c, a1=0,
+- `FUN_bfc322f8` calls `0xbfc045f5` with `(a0=0x9fc1a48c, a1=0,
   a2=0x7f4)`, then `0xbfc04635` three times with argument triples
-  `(0x9fc2aad8,0x9fc12000,0x14)`,
-  `(0x9fc2a980,0x9fc12014,0x20)`, and
-  `(0xbfc180f8,0x9fc12200,4)`. These shapes are consistent with clear/copy
+  `(0x9fc1aad8,0x9fc12000,0x14)`,
+  `(0x9fc1a980,0x9fc12014,0x20)`, and
+  `(0xbfc080f8,0x9fc12200,4)`. These shapes are consistent with clear/copy
   operations, but the fixed-ROM implementations are unavailable. The
   argument direction has a stronger data-flow constraint than the helper
-  name: the preceding clear covers `0x9fc2a48c..0x9fc2ac80`, including
-  `0x9fc2aad8`; after the three candidate copy calls, the code loads the
-  first word at `0x9fc2aad8` and uses it as a `jalr` target. If
+  name: the preceding clear covers `0x9fc1a48c..0x9fc1ac80`, including
+  `0x9fc1aad8`; after the three candidate copy calls, the code loads the
+  first word at `0x9fc1aad8` and uses it as a `jalr` target. If
   `0xbfc04635` is a conventional copy routine, its first argument must be the
   destination for the first call for this path to install that callback
   pointer. This is a strong ABI hypothesis from the consumer data flow, not
-  execution evidence for the unavailable ROM helper. The source addresses
-  `0x9fc12000`, `0x9fc12014`, and `0x9fc12200` lie in the first 96 KiB of the
+  execution evidence for the unavailable ROM helper. A separate
+  `NORBREC.BIN` MIPS16 setup routine calls the unresolved helper with
+  destination-like arguments `0x9fc12000`/`0x14` and `0x9fc12014`/`0x20`, and
+  writes fields at `0x9fc12200`/`+0x204`. This is a concrete same-address
+  connection between the earlier NOR setup and later `ker_init` inputs; the
+  NOR helper's copy direction/effect and the runtime handoff/order are still
+  unknown. See [NOR boot-record observation](findings-tools-and-norboot.md#nor-boot-record-observation).
+  The source addresses `0x9fc12000`, `0x9fc12014`, and `0x9fc12200` lie in the first 96 KiB of the
   `0x9fc00000` address window. Public ATJ2127 tooling reports a Boot-ROM view
   in this range during ADFU: ordinary `read_mem` returns zeros, while a
   ROM-reading payload uses `read_mem2`. This makes the offsets useful ROM-dump
@@ -249,7 +255,7 @@ The extracted instructions support these bounded descriptions:
   kernel initialization. They could be ROM-backed there or a preinitialized
   RAM source; the runtime mapping and bytes remain unknown. It then calls the
   loaded word indirectly with
-  `(a0=0xfffffff0, a1=0xbfc1855d, a2=0)`. The indirect target depends on the
+  `(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`. The indirect target depends on the
   unresolved source contents. The function later reads a word from
   `0x9fc12204` into `0xbfc32fc4`; that source word is outside the preceding
   four-byte copy range.
@@ -267,6 +273,34 @@ the fixed-ROM copy helper, and the normal-boot memory map, and the third
 depends on peripheral reset state and ROM services. Accordingly, the call
 targets remain unnamed and no complete initialization behavior is inferred
 from the helper names or argument shapes.
+
+### `FUN_bfc322f8` p-code call-boundary probe
+
+`tools/ghidra/run_kernel_init_template_probe.sh` executes the actual
+hash-pinned `ker_init.bin` instructions from `FUN_bfc322f8` (SHA-256
+`f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8`). It
+records, then intercepts the call sites at aligned PCs `0xbfc045f4` and
+`0xbfc04634`. It checks that the raw call register contains the corresponding
+tagged values `0xbfc045f5` and `0xbfc04635`, and that each return address is
+four-byte aligned. The probe does not execute either MIPS16 ROM target: on
+each synthetic return it sets `ISA_MODE=0` and resumes at RA. This is a
+bounded caller continuation, not a test of MIPS16 interworking. The observed
+first four tuples are `(0x9fc1a48c,0,0x7f4)`,
+`(0x9fc1aad8,0x9fc12000,0x14)`,
+`(0x9fc1a980,0x9fc12014,0x20)`, and
+`(0xbfc080f8,0x9fc12200,4)`. Those are actual AP call arguments; the ROM
+helpers' memory effects are not modeled.
+
+To observe the indirect-call edge without inventing ROM behavior, the probe
+preseeds `0x9fc1aad8` with synthetic callback address `0x9fc27f00` and fills
+the source window with synthetic bytes. The real AP code then reaches that
+target in 54 steps and presents `(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`; the
+probe stops before executing the callback. Thus it verifies the extracted
+call boundary and consumer arguments under the explicit synthetic fixture.
+It does not verify that either ROM helper copied/cleared memory, that the
+callback exists at the source address in the real boot sequence, or that
+`0x9fc12000` is ROM rather than RAM during normal boot. It also does not
+validate the CPU's mode transition into or out of the stubbed MIPS16 entries.
 
 The `0xbfc045f5` call shape is better constrained than its name: segment entry
 also calls it with `(0x9fc13d00, 0, 0xe0)`, and `FUN_bfc322f8` later calls it
