@@ -206,6 +206,26 @@ through the other pointer slots. This is direct disassembly of the caller;
 the slot contents, service meanings, and effects are unavailable, and the
 addresses are not independently proven to map ROM.
 
+The bounded `tools/ghidra/run_normboot_service_path_probe.sh` executes this
+actual MIPS16e routine in Ghidra p-code with all four pointer slots and their
+targets supplied as synthetic fixtures. With the fixture byte at
+`0xbfc08003` equal to zero, `u16[0xbfc10004]=4`, and each reached callback
+returning zero, the observed path is `0xbfc002a8 → 0xbfc00294 → 0xbfc002a4`
+(61 p-code instructions). The captured tuples are respectively
+`(0,0x1800,0xbfc10000,0)`,
+`(0xbfc10000,0x800,0xbfc10000,0)`, and
+`(0xbfc10100,0x00703041,0,0)`. In this fixture the `0xbfc002a0` error slot is
+not called, and the large-block second `0xbfc002a8` call is not taken. The
+third tuple includes the deliberately seeded pointer value from slot
+`0xbfc002a0`; it is evidence of the caller's dataflow under this fixture, not
+the meaning of that argument or callback. The probe checks the call order and
+all four arguments, but callback destinations and zero return effects are
+synthetic. It therefore verifies the real routine's conditional call path and
+register-level arguments only under these explicit inputs; it does not
+identify the services or establish boot behavior. Reproduce with
+`bash tools/ghidra/run_normboot_service_path_probe.sh <path-to-NORMBREC.BIN>`.
+The member is a local extracted input and is not present in a clean checkout.
+
 There is an independent callsite to one of these same slots in `NORFWSC.BIN`.
 With the member mapped at its AFI address `0xbfc1e000`, the MIPS16 code at
 `0xbfc1e660` loads `0xbfc002a0` from its literal at `0xbfc1e67c`, dereferences
