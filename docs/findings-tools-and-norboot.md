@@ -210,6 +210,12 @@ Observed bytes and disassembly:
   header contract.
 - The candidate MIPS32 prologue sets SP to `0x9fc3fe00`, moves incoming
   arguments, then calls `0xbfc10191` at `0xbfc32010`.
+- Header word `+0x24` is `0xbfc08d80`. The local extracted corpus gives no
+  corroborating use of this value outside copies of the same NORBREC member;
+  its role is unresolved. The `0xbfc32000` word also appears at member offsets
+  `0x30c` and `0xb40`, but those raw occurrences do not show that code reads
+  the header field. All available NORBREC copies are byte-identical, so these
+  repetitions provide no independent validation of either header value.
 - The same bytes are not MIPS16 instructions. Later regions do contain
   readable MIPS16 code; disassembling this mixed-mode member with `-m mips:16`
   is substantially more useful than treating the whole file as MIPS32.
