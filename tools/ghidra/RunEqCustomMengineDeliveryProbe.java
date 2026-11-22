@@ -15,6 +15,8 @@ import java.util.Arrays;
 /** Feed captured music.ap Custom output through the real mengine 0x303 receiver. */
 public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
     private static final long ENTRY = 0x60090d64L;
+    private static final long INIT_ENTRY = 0x60051278L;
+    private static final long INIT_NEXT = 0x60051034L;
     private static final long STOP = 0x700300L;
     private static final long RAM = 0x9fc14000L;
     private static final int RAM_SIZE = 0x8000;
@@ -23,10 +25,10 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
     private static final long PAYLOAD = RAM + 0x1020;
     private static final long CUSTOM = 0x9fc1a19cL;
     private static final long SELECTOR = 0x9fc15cc9L;
+    private static final long EQ_STATE_BASE = 0x9fc15cb0L;
     private static final long ACTIVE = 0x9fc15db4L;
     private static final long SELECTOR_MIRROR = 0x9fc15db5L;
     private static final long ENGINE_STATE_POINTER_CELL = 0x9fc15ec8L;
-    private static final long ENGINE_MESSAGE_CONTEXT = RAM + 0x3000;
     private static final long STRUCTURE = 0x9fc15dd4L;
     private static final long OUTPUT = RAM + 0x2000;
     private static final long HANDLE = 0x9fc15c0cL;
@@ -47,6 +49,12 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
 
     private byte[] bytes(EmulatorHelper emu, long at, int length) throws Exception {
         return emu.readMemory(addr(at), length);
+    }
+
+    private long word(EmulatorHelper emu, long at) throws Exception {
+        byte[] data = bytes(emu, at, 4);
+        return (data[0] & 0xffL) | ((data[1] & 0xffL) << 8)
+            | ((data[2] & 0xffL) << 16) | ((data[3] & 0xffL) << 24);
     }
 
     private int u16(byte[] data, int offset) {
@@ -96,6 +104,10 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
         require(programWord(0x601d0f70L) == 0xbfc11cc1L, "0x303 payload copy-service pointer changed");
         require(programWord(0x601d0f74L) == 0x601d0d59L, "EQ builder callback pointer changed");
         require(programWord(0x601d0f78L) == 0xbfc1197dL, "message-ack pointer changed");
+        require(programWord(0x60051388L) == 0xbfc11cc9L, "EQ state shared-memory service pointer changed");
+        require(programWord(0x60051390L) == ENGINE_STATE_POINTER_CELL,
+            "EQ state pointer-cell address changed");
+        require(programWord(0x60051394L) == EQ_STATE_BASE, "EQ state base literal changed");
 
         Memory memory = currentProgram.getMemory();
         MemoryBlock ram = memory.createInitializedBlock("eq_custom_delivery_ram", addr(RAM),
@@ -106,6 +118,7 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         int steps = 0;
+        int initSteps = 0;
         int copyCalls = 0;
         int messageCalls = 0;
         int shmCalls = 0;
@@ -121,17 +134,13 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
             Arrays.fill(initialStructure, (byte)0xaa);
             memory.setBytes(addr(STRUCTURE), initialStructure);
             memory.setBytes(addr(CUSTOM), gains);
-            memory.setBytes(addr(SELECTOR), new byte[] {7});
+            memory.setBytes(addr(SELECTOR), new byte[] {0x55});
             memory.setBytes(addr(ACTIVE), new byte[] {1});
             memory.setBytes(addr(STRUCTURE + 0x0c), new byte[] {0});
             memory.setBytes(addr(ENGINE_STATE_POINTER_CELL), new byte[] {
-                (byte)ENGINE_MESSAGE_CONTEXT, (byte)(ENGINE_MESSAGE_CONTEXT >>> 8),
-                (byte)(ENGINE_MESSAGE_CONTEXT >>> 16), (byte)(ENGINE_MESSAGE_CONTEXT >>> 24)
+                (byte)0xef, (byte)0xbe, (byte)0xad, (byte)0xde
             });
             memory.setBytes(addr(OUTPUT), new byte[0xf0]);
-            memory.setBytes(addr(0x9fc15ee4L), new byte[] {
-                (byte)OUTPUT, (byte)(OUTPUT >>> 8), (byte)(OUTPUT >>> 16), (byte)(OUTPUT >>> 24)
-            });
             memory.setBytes(addr(HANDLE), new byte[] {
                 0x68, 0x24, 0x57, 0x13
             });
@@ -142,6 +151,43 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
             memory.setBytes(addr(PAYLOAD), messagePayload);
 
             emu.writeRegister("sp", STACK);
+            emu.writeRegister("ra", STOP | 1L);
+            emu.writeRegister("a0", 0);
+            emu.writeRegister("a1", 0);
+            emu.writeRegister("a2", 0);
+            emu.writeRegister("a3", 0);
+            emu.writeRegister("s0", 0);
+            emu.writeRegister("s1", 0);
+            emu.writeRegister("pc", INIT_ENTRY);
+
+            // Execute the real state setup through the resident SHM boundary.
+            // Stop at its next internal call, after it writes the EQ-state base.
+            boolean initReachedNext = false;
+            for (initSteps = 0; initSteps < 20000; initSteps++) {
+                long pc = reg(emu, "pc");
+                long target = pc & ~1L;
+                if (target == INIT_NEXT) {
+                    initReachedNext = true;
+                    break;
+                }
+                if (target == SHM_SERVICE) {
+                    shmCalls++;
+                    require(reg(emu, "a0") == 3 && reg(emu, "a3") == 0x49,
+                        "unexpected EQ state initialization shared-memory request");
+                    long ra = reg(emu, "ra");
+                    emu.writeRegister("v0", OUTPUT);
+                    emu.writeRegister("pc", ra & ~1L);
+                    continue;
+                }
+                if (!emu.step(monitor))
+                    throw new Exception(String.format("state init stopped at 0x%08x: %s", pc, emu.getLastError()));
+            }
+            require(initReachedNext, "EQ state initializer did not reach its next internal function");
+            require(word(emu, ENGINE_STATE_POINTER_CELL) == EQ_STATE_BASE,
+                "real state initializer did not set the EQ context pointer cell");
+            require((bytes(emu, SELECTOR, 1)[0] & 0xff) == 0x55,
+                "EQ selector sentinel changed before the 0x303 payload copy");
+
             emu.writeRegister("ra", STOP | 1L);
             emu.writeRegister("a0", MESSAGE);
             emu.writeRegister("a1", 0);
@@ -160,11 +206,13 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
                     break;
                 }
                 if (target == COPY_SERVICE) {
+                    // This resident ROM service is unavailable; the probe models
+                    // its observed copy ABI with a synthetic memcpy shim.
                     copyCalls++;
                     long a0 = reg(emu, "a0"), a1 = reg(emu, "a1");
                     long a2 = reg(emu, "a2"), a3 = reg(emu, "a3");
                     long ra = reg(emu, "ra");
-                    if (a0 == ENGINE_MESSAGE_CONTEXT + 0x18 && a1 == PAYLOAD && a2 == 4 && a3 == 0) {
+                    if (a0 == EQ_STATE_BASE + 0x18 && a1 == PAYLOAD && a2 == 4 && a3 == 0) {
                         byte[] copiedPayload = bytes(emu, a1, 4);
                         emu.writeMemory(addr(a0), copiedPayload);
                     } else {
@@ -210,19 +258,23 @@ public class RunEqCustomMengineDeliveryProbe extends GhidraScript {
             }
 
             require(returned, "0x303 dispatcher did not return");
-            require(copyCalls == 2 && shmCalls == 1 && messageCalls == 1 && ackCalls == 1,
+            require(copyCalls == 2 && shmCalls == 2 && messageCalls == 1 && ackCalls == 1,
                 String.format("unexpected service counts copy=%d shm=%d message=%d ack=%d",
                     copyCalls, shmCalls, messageCalls, ackCalls));
-            require(Arrays.equals(bytes(emu, ENGINE_MESSAGE_CONTEXT + 0x18, 4), messagePayload),
+            require(Arrays.equals(bytes(emu, EQ_STATE_BASE + 0x18, 4), messagePayload),
                 "real 0x303 handler did not copy the captured message bytes into engine state");
+            require((bytes(emu, SELECTOR, 1)[0] & 0xff) == (messagePayload[1] & 0xff),
+                "0x303 payload byte +1 did not set selector at state base +0x19");
             require((bytes(emu, SELECTOR_MIRROR, 1)[0] & 0xff) == 7,
                 "real EQ builder did not mirror selector 7");
             require(copiedStructure != null && Arrays.equals(bytes(emu, OUTPUT, 0xf0), copiedStructure),
                 "EQ builder structure was not copied through the service boundary");
             verifyStructure(copiedStructure, gains);
             println(String.format(
-                "EQ CUSTOM MESSAGE-TO-BUILDER PASS steps=%d dispatcher=0x%08x message=0x303 payload={%d,%d} payload_copy=real-instructions builder=0x601d0d58 selector=7 custom_gain_bytes=%d bands_verified=7 services=synthetic",
-                steps, ENTRY, messagePayload[0] & 0xff, messagePayload[1] & 0xff,
+                "EQ CUSTOM MESSAGE-TO-BUILDER PASS init_steps=%d state_init=0x%08x state_base=0x%08x context_pointer=real-store dispatch_steps=%d dispatcher=0x%08x message=0x303 payload={%d,%d} copy_destination_overlap=selector+1 selector_after_copy_shim=0x%02x builder=0x601d0d58 custom_gain_bytes=%d bands_verified=7 resident_services=synthetic",
+                initSteps, INIT_ENTRY, EQ_STATE_BASE, steps, ENTRY,
+                messagePayload[0] & 0xff, messagePayload[1] & 0xff,
+                bytes(emu, SELECTOR, 1)[0] & 0xff,
                 gains.length));
         } finally {
             emu.dispose();
