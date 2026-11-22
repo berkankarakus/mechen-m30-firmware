@@ -35,7 +35,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
       exit 1
     }
 
-grep -Fq 'KERNEL TEMPLATE ISA MODE PASS entry=bfc322f8 callback=9fc27f00 rom-entry-mode=1 callback-mode=0 synthetic-mips32-returns=4' "$WORK/run.log" || {
+grep -Fq 'KERNEL TEMPLATE ISA MODE PASS entry=bfc322f8 callback=9fc27f00 rom-entry-isa-mode=1 relp=1 callback-isa-mode=0 relp=1 synthetic-mips16-return-stubs=2' "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }

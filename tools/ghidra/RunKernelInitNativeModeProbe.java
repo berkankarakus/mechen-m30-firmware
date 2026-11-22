@@ -7,7 +7,6 @@ import ghidra.pcode.emu.PcodeThread;
 import ghidra.pcode.exec.PcodeExecutorStatePiece.Reason;
 import ghidra.pcode.exec.SleighProgramCompiler;
 import ghidra.pcode.utils.Utils;
-import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.lang.RegisterValue;
@@ -24,6 +23,9 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
     private static final long ROM_CLEAR = 0xbfc045f4L;
     private static final long ROM_COPY = 0xbfc04634L;
     private static final int MAX_STEPS = 12000;
+    // Little-endian MIPS16e `jrc ra` (no delay slot). This synthetic return
+    // stub exercises native MIPS16 -> MIPS32 switching; it is not ROM code.
+    private static final byte[] MIPS16_RETURN_STUB = { (byte)0xa0, (byte)0xe8 };
 
     private void require(boolean condition, String message) throws Exception {
         if (!condition) throw new Exception(message);
@@ -47,6 +49,11 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         return value.getUnsignedValueIgnoreMask().longValue() & 1L;
     }
 
+    private long relpMode(PcodeThread<byte[]> thread, Register relp) {
+        RegisterValue value = thread.getContext().getRegisterValue(relp);
+        return value.getUnsignedValueIgnoreMask().longValue() & 1L;
+    }
+
     private void putWord(PcodeEmulator emulator, AddressSpace space,
             long at, long value) {
         byte[] bytes = new byte[] {
@@ -63,12 +70,9 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         AddressSpace space = language.getDefaultSpace();
         Register isa = language.getRegister("ISA_MODE");
         Register relp = language.getRegister("RELP");
-        Register sp = language.getRegister("sp");
         Register ra = language.getRegister("ra");
         Register v0 = language.getRegister("v0");
-        Register pc = language.getRegister("pc");
-        require(isa != null && relp != null && sp != null && ra != null
-                && v0 != null && pc != null,
+        require(isa != null && relp != null && ra != null && v0 != null,
             "MIPS language is missing a required register");
 
         byte[] image = java.nio.file.Files.readAllBytes(
@@ -78,6 +82,10 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, 0xbfc32000L, image.length, true, image);
         emulator.getSharedState().setVar(space, RAM_BASE,
             (int)(RAM_END - RAM_BASE), true, new byte[(int)(RAM_END - RAM_BASE)]);
+        emulator.getSharedState().setVar(space, ROM_CLEAR,
+            MIPS16_RETURN_STUB.length, true, MIPS16_RETURN_STUB);
+        emulator.getSharedState().setVar(space, ROM_COPY,
+            MIPS16_RETURN_STUB.length, true, MIPS16_RETURN_STUB);
 
         // Synthetic source image and callback slot. These are fixtures, not
         // claims about the absent ROM clear/copy helper effects.
@@ -99,8 +107,10 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
             "sp = 0x9fc2ff00; s8 = 0x9fc2fe00; a0 = 0x01010101; "
                 + "a1 = 0x02020202; a2 = 0x03030303; a3 = 0x04040404; "
                 + "ra = 0x00700100; v0 = 0;", library), library);
+        // ISA_MODE=0 selects 32-bit instructions; RELP=1 keeps the processor
+        // configured for MIPS16e when a tagged function pointer switches mode.
         RegisterValue mips32 = new RegisterValue(isa, BigInteger.ZERO)
-            .assign(relp, new RegisterValue(relp, BigInteger.ZERO));
+            .assign(relp, new RegisterValue(relp, BigInteger.ONE));
         thread.overrideContext(mips32);
         thread.overrideCounter(space.getAddress(ENTRY));
 
@@ -111,9 +121,9 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         for (; steps < MAX_STEPS; steps++) {
             long address = thread.getCounter().getOffset() & 0xffffffffL;
             if (address == STOP_CALLBACK) {
-                require(mode(thread, isa) == 0,
-                    String.format("expected native MIPS32 callback entry, mode=%d",
-                        mode(thread, isa)));
+                require(mode(thread, isa) == 0 && relpMode(thread, relp) == 1,
+                    String.format("expected MIPS32/MIPS16e callback context, ISA_MODE=%d RELP=%d",
+                        mode(thread, isa), relpMode(thread, relp)));
                 reachedCallback = true;
                 callbackA0 = reg(thread, language.getRegister("a0"), language);
                 callbackA1 = reg(thread, language.getRegister("a1"), language);
@@ -122,9 +132,9 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 break;
             }
             if (address == ROM_CLEAR || address == ROM_COPY) {
-                require(mode(thread, isa) == 1,
-                    String.format("expected native MIPS16 ROM entry at %08x, mode=%d",
-                        address, mode(thread, isa)));
+                require(mode(thread, isa) == 1 && relpMode(thread, relp) == 1,
+                    String.format("expected native MIPS16e ROM entry at %08x, ISA_MODE=%d RELP=%d",
+                        address, mode(thread, isa), relpMode(thread, relp)));
                 long returnAddress = reg(thread, ra, language);
                 require((returnAddress & 3L) == 0,
                     String.format("expected aligned MIPS32 return address: %08x", returnAddress));
@@ -138,10 +148,15 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 println("NATIVE KERNEL ROM EDGE " + call);
                 thread.getState().setVar(v0,
                     emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
-                // Return from each absent ROM helper to the actual MIPS32
-                // caller boundary, explicitly modeling the mode transition.
-                thread.overrideContext(mips32);
-                thread.overrideCounter(space.getAddress(returnAddress));
+                // The absent routine's result remains synthetic, but execute
+                // a real MIPS16e return instruction so Ghidra performs the
+                // ISA_MODE transition from the tagged/untagged RA naturally.
+                thread.stepInstruction();
+                require(thread.getCounter().getOffset() == returnAddress
+                        && mode(thread, isa) == 0 && relpMode(thread, relp) == 1,
+                    String.format("synthetic MIPS16 return failed: pc=%08x ISA_MODE=%d RELP=%d expected-ra=%08x",
+                        thread.getCounter().getOffset(), mode(thread, isa),
+                        relpMode(thread, relp), returnAddress));
                 continue;
             }
             if (address < ENTRY || address >= 0xbfc33000L
@@ -181,10 +196,10 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 && callbackA2 == 0,
             String.format("unexpected callback args %08x,%08x,%08x,%08x",
                 callbackA0, callbackA1, callbackA2, callbackA3));
-        for (String call : calls) println("NATIVE KERNEL ROM EDGE " + call);
         println(String.format(
-            "KERNEL TEMPLATE ISA MODE PASS entry=%08x callback=%08x rom-entry-mode=1 "
-                + "callback-mode=%d synthetic-mips32-returns=4 "
+            "KERNEL TEMPLATE ISA MODE PASS entry=%08x callback=%08x "
+                + "rom-entry-isa-mode=1 relp=1 callback-isa-mode=%d relp=1 "
+                + "synthetic-mips16-return-stubs=2 "
                 + "args=%08x,%08x,%08x,%08x steps=%d",
             ENTRY, STOP_CALLBACK, mode(thread, isa), callbackA0, callbackA1,
             callbackA2, callbackA3, steps));

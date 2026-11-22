@@ -310,18 +310,19 @@ but its MIPS16 body is absent, so the effect remains a hypothesis.
 
 `tools/ghidra/run_kernel_init_native_mode_probe.sh` repeats this path with
 Ghidra's native MIPS p-code emulator. On both hash-matching stock and community
-`ker_init.bin`, it enters the two fixed-ROM entry points on four calls with
-`ISA_MODE=1`, records the arguments, and captures the exact return addresses
-`0xbfc32348/6c/90/b4`. At each ROM boundary the absent helper's return is
-synthetic: the harness sets `v0=0`, forces `ISA_MODE=0`, and resumes at that
-address. The synthetic callback pointer `0x9fc27f00` then receives control
-with `ISA_MODE=0` and `(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps.
-This demonstrates native MIPS16 entry transitions for the extracted caller
-and the selected synthetic callback path in Ghidra's language model; it does
-not execute the absent ROM helper bodies or establish their return behavior,
-side effects, the real callback pointer/source bytes, or the device's
-normal-boot mapping. The earlier `EmulatorHelper` probe remains a simpler
-call-boundary cross-check; use the native-mode probe for entry-mode claims.
+`ker_init.bin`, it configures MIPS16e (`RELP=1`) and enters the two fixed-ROM
+entry points on four calls with `ISA_MODE=1`, recording the arguments and exact
+return addresses `0xbfc32348/6c/90/b4`. Each absent helper is represented by a
+synthetic MIPS16e `jrc ra` stub (`0xe8a0`); the harness seeds `v0=0` and executes
+that instruction. Ghidra's native p-code returns to the observed RA with
+`ISA_MODE=0` and `RELP=1`, without manually forcing the mode. The synthetic
+callback pointer `0x9fc27f00` then receives control in MIPS32 mode with
+`(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps. This demonstrates both
+MIPS16e entry and return transitions for the extracted caller under a
+synthetic one-instruction ROM stub; it does not execute the absent ROM helper
+bodies or establish their actual return code, return value, side effects, the
+real callback pointer/source bytes, or the device's normal-boot mapping. The
+earlier `EmulatorHelper` probe remains a simpler call-boundary cross-check.
 
 The ATJ2127 Boot ROM map is documented in the public
 [`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).
