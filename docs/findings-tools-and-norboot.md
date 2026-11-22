@@ -201,10 +201,15 @@ length alone must not be interpreted as NORFWSC's reported result size.
 
 Observed bytes and disassembly:
 
-- At file offset `0x1c`, the little-endian word is `0xbfc32000`.
-- The bytes at file offset `0x100` disassemble as MIPS32 when mapped at
-  `0xbfc32000`. The first instructions set SP to `0x9fc3fe00`, move incoming
-  arguments, then call `0xbfc10191` at `0xbfc32010`.
+- At file offset `0x1c`, the little-endian word is `0xbfc32000`. Under the
+  candidate mapping, bytes at file offset `0x100` land at `0xbfc32000` and
+  disassemble as a valid MIPS32 entry prologue. This makes `+0x1c` a
+  **candidate internal entry-pointer field**. The mapping was inferred from
+  that word, the AFI `Addr` is zero, and no loader is available to show that it
+  consumes the field; treat the interpretation as a hypothesis, not a decoded
+  header contract.
+- The candidate MIPS32 prologue sets SP to `0x9fc3fe00`, moves incoming
+  arguments, then calls `0xbfc10191` at `0xbfc32010`.
 - The same bytes are not MIPS16 instructions. Later regions do contain
   readable MIPS16 code; disassembling this mixed-mode member with `-m mips:16`
   is substantially more useful than treating the whole file as MIPS32.
