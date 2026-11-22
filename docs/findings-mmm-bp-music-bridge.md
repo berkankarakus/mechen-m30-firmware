@@ -15,7 +15,7 @@ event.
 
 In `mmm_bp.al`, `FUN_bfc216a8` reads status indirectly through the pointer at
 the decoder context's `+0xd0`. If it reads `3`, it stores state `2` in the
-context at `+0x24`, copies two words from the object referenced at `+0x78` to
+context at `+0x24`, copies two halfwords from the object referenced at `+0x78` to
 `+0xdc/+0xde`, and returns. That branch contains no direct call to the
 `music.ap` advance callback or to a callback slot. A preceding call to
 `FUN_bfc27520` processes the decoder input ring; it is not an output-drain or

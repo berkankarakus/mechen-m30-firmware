@@ -135,6 +135,36 @@ terminal condition exits before the next refill-loop iteration. The recovered
 code does not show a loop that waits for a downstream queue to become empty
 before returning.
 
+### Bounded status-3 p-code execution
+
+`tools/ghidra/run_mmm_bp_status3_probe.sh` executes the real
+`FUN_bfc216a8` MIPS16 instructions with a synthetic context at `0x9fc21b00`.
+The fixture sets context state `+0x24=1`, counter `+0x8a=0`, status pointer
+`+0xd0` to a synthetic word containing `3`, and a frame pointer at `+0x78`.
+The initial resident call through `0xbfc21a3d` and the real in-module
+`FUN_bfc27520` ring-processing entry are intercepted and return synthetic
+zero. The probe observes the actual compare instruction at `0xbfc217a2` with
+`s1=3`, the actual terminal return at `0xbfc217c8`, state `+0x24=2`, and the
+two halfword copies to `+0xdc/+0xde`. The real refill entry `FUN_bfc276ac`
+is not reached. The path also performs the observed write `8` to synthetic
+MMIO address `0xc0160050`.
+
+The probe passed on stock and community. Both `mmm_bp.al` inputs share SHA-256
+`ab5d98b578406c4e04fb7b546317fbec0d36ce4a7c139ef0922b06bb4b753c5b`, so
+these are repeated runs of the same code, not independent version evidence.
+This establishes the terminal control-flow response to a supplied status
+value. Because the status pointer, frame data, resident return, and output
+ring helper are synthetic or stubbed, it does not show that real decoder status
+is set to `3`, that downstream audio drains or discards queued samples, or that
+this explains an audible fade-out cutoff.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_mmm_bp_status3_probe.sh /path/to/analysis/community/fw/mmm_bp.al
+bash tools/ghidra/run_mmm_bp_status3_probe.sh /path/to/analysis/stock/fw/mmm_bp.al
+```
+
 The callback slot used by `FUN_bfc27520` is no longer opaque. The literal pool
 at `0x680a2020..0x680a2028` resolves to slot `0x9fc21b04` and two MIPS16
 entries, `0xbfc277f1` (`FUN_bfc277f0`) and `0xbfc27939` (`FUN_bfc27938`).

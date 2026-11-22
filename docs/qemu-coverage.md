@@ -131,6 +131,7 @@ suite therefore no longer re-imports the same driver eight times.
 | Artwork audio-first contract | host state model | PASS |
 | ASRC/EOF advance boundary | archived `music.ap` delta + host model | host contract present; mode-4 community path modeled, audible drain unverified |
 | `mmm_bp` ring/fade boundary | six-corpus `mmm_bp.al` + host model | PASS; wrap-aware source-byte reads, 0x200 refill and fade arithmetic modeled; DSP/callback semantics unresolved |
+| `mmm_bp` status-3 terminal path | `tools/ghidra/run_mmm_bp_status3_probe.sh` on stock/community | PASS; real status compare sees 3, writes context state 2 and two halfwords, returns before refill. The initial resident call and `FUN_bfc27520` are stubbed; status/frame are synthetic, so downstream drain and audible fade remain unknown. Both inputs are byte-identical. |
 | Metadata reader boundary | archived `music.ap` delta + host model | host 0x200 split/flush, source-byte reads and trailing-skip arithmetic present; parser/callback ABI unresolved |
 | Artwork fallback/cache | community `music.ap` decompile + host models | policy and `ALBUM.PIC` record modeled; JPEG decode, SD/CPU timing and UI render unverified |
 | Screen-off key-filter/session path | real common key-filter bank + host folder session | PASS; stock wake and patched five-key navigation modeled |
