@@ -302,6 +302,26 @@ The target body is stubbed. This verifies the code's branch and outgoing ABI
 under the stated fixture, not the actual fixed-ROM values, callback identity,
 parent caller, or boot-time execution.
 
+A fresh xref pass against the hash-matching local community `NORBREC.BIN`
+narrows the caller search. After `MapNorBoot.java` mapped the mixed-ISA image,
+Ghidra found no code reference to `0xbfc32058`; a scan of mapped image words
+also found no literal `0xbfc32058` or tagged pointer `0xbfc32059`. The bridge
+is not directly called or named by a pointer literal inside this member. This
+does not rule out a computed address, fixed-ROM callback registration, or an
+external loader call.
+
+The same xref pass found reads from external slot `0xbfc02608` in
+`FUN_bfc322a8` (`0xbfc322b2`), `FUN_bfc32388` (`0xbfc32400`), and
+`FUN_bfc32a58` (`0xbfc32a66`). The first two functions load that slot's value
+for an indirect call; the setup path reads through it while constructing
+helper arguments. The slot contents are absent from NORBREC, so these
+references do not identify its target or connect it to the `0xbfc32058`
+bridge. Ghidra reports additional reads from table base `0xbfc02600` in the
+reader/setup and nearby record-processing functions, but no direct bridge
+caller emerged. Reproduce with `MapNorBoot.java` followed by `DumpRefsTo.java`
+(`0xbfc32058,0xbfc02600,0xbfc02608`), then `FindPointerRefs.java`
+(`0xbfc32000,0xbfc32001,0xbfc32058,0xbfc32059`) on a hash-matching member.
+
 This narrows the NORBREC callback ABI, but does not identify the bridge's actual
 fixed-ROM state or prove that it is called during boot. It also does **not**
 identify NORBREC as the active ROM bootstrap, nor prove that `0xbfc32000` is the
@@ -310,9 +330,10 @@ decompiling each dated copy would add no independent code evidence.
 
 ## Suggested next work
 
-1. Recover the actual caller and fixed-ROM values behind the `0xbfc32058`
-   callback bridge; establish whether the `0x9fc12000` setup runs before
-   firmware `ker_init`.
+1. The hash-matched NORBREC has no internal direct caller or pointer to
+   `0xbfc32058`; recover its external entry/callback registration from the
+   fixed-ROM or boot-stage caller, and establish whether the `0x9fc12000`
+   setup runs before firmware `ker_init`.
 2. Identify the internal NORBREC header's data and entry fields. The outer AFI
    record is now known but supplies no load address; the nine local dated
    NORBREC copies are byte-identical, so they cannot independently validate
