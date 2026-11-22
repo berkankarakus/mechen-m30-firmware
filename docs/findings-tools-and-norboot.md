@@ -250,23 +250,33 @@ function semantics. Reproduce with
 --start-address=0xbfc1e660 --stop-address=0xbfc1e680` on the hash-pinned
 `NORFWSC.BIN`.
 
-The same numeric address also appears in `udisk.ap`, but that caller uses it
-differently. Its literal at file offset `0x102c` maps to `0x40014f2c` in the
-bank loaded from file offset `0xd00` at `0x40014c00`. Ghidra finds an xref to
-the literal from instruction `0x40014ed2` inside `FUN_40014ecc`; the function copies the literal value
-`0xbfc002a0` into global `0x9fc1564c`, makes calls through `0xbfc1640d` with
-`(10,7,0,5)` and `0xbfc16401` with `(3,0,0,0x1d)`, initializes several
-globals, then calls through the global pointer with no arguments. The pointer
-literal and the file slice `0xfcc..0x1050` (function plus nearby pointer data)
-are byte-identical in the pinned community and stock `udisk.ap` variants. The
-literal has no MIPS16 tag, so this AP callsite treats `0xbfc002a0` as a direct
-code pointer. This does not prove its ROM mapping or
-body, and it is distinct from NORMBREC/NORFWSC loading a word *from* address
-`0xbfc002a0` and calling that loaded value. The mixed use leaves open whether
-the address is a stage-dependent overlay, an executable entry with a data
-alias, or another mapping detail; no choice is proven. Reproduce the AP
-mapping/decompilation with
-`bash tools/ghidra/run_normboot_udisk_pointer_probe.sh <community-udisk.ap> <stock-udisk.ap>`.
+The same numeric address also appears in `udisk.ap`. Its literal at file offset
+`0x102c` maps to `0x40014f2c` in the bank loaded from file offset `0xd00` at
+`0x40014c00`. Ghidra finds an xref to the literal from instruction
+`0x40014ed2` inside `FUN_40014ecc`. Reading the instructions carefully shows
+that the AP loads the word *at* `0xbfc002a0`, stores that loaded value in RAM
+global `0x9fc1564c`, makes calls through `0xbfc1640d` with `(10,7,0,5)` and
+`0xbfc16401` with `(3,0,0,0x1d)`, updates MMIO and several globals, then calls
+through the RAM global with no arguments. So `0xbfc002a0` is also used as a
+fixed-ROM pointer slot here; the earlier direct-code-pointer interpretation
+was wrong. The literal and file slice `0xfcc..0x1050` (function plus nearby
+pointer data) are byte-identical in the pinned community and stock `udisk.ap`
+variants.
+
+The p-code probe executes the real stock AP instructions with the word at
+`0xbfc002a0` seeded to synthetic MIPS16 pointer `0x00704001`, both resident
+calls intercepted with return value zero, and MMIO word `0xc0020000` seeded
+to `0xa5a5005f`. It reaches the synthetic target after 42 AP instructions
+(44 probe iterations, including the two intercepted helper calls),
+leaves `0x00704001` in global `0x9fc1564c`, and changes the MMIO word to
+`0xa5a5006a`. The real target body is not executed; the ROM slot's actual
+contents and meaning remain unknown. This p-code result plus the instruction
+trace resolves the apparent direct-versus-dereferenced discrepancy with
+NORMBREC/NORFWSC: all inspected callsites dereference the fixed address to get
+a pointer. Reproduce static cross-variant checks with
+`bash tools/ghidra/run_normboot_udisk_pointer_probe.sh <community-udisk.ap> <stock-udisk.ap>`
+and the dynamic caller boundary with
+`bash tools/ghidra/run_udisk_fixed_callback_probe.sh <stock-udisk.ap>`.
 The corpus-wide raw-value lead was found with
 `python3 tools/emu/dac_caller_scan.py <extracted-analysis-root> --value 0xbfc002a0 --value 0xbfc002a8 --value 0xbfc00294 --value 0xbfc002a4`.
 That byte search includes duplicated package copies and is a lead generator,
