@@ -48,6 +48,7 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
         int shmCalls = 0;
         List<String> boundaries = new ArrayList<>();
         boolean reachedNext = false;
+        String downstream = "none";
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -69,9 +70,11 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                 long target = pc & ~1L;
                 if (target == INIT_NEXT) {
                     reachedNext = true;
+                }
+                if (target == STOP) {
+                    downstream = "returned";
                     break;
                 }
-                if (target == STOP) break;
                 if (target == SHM_SERVICE) {
                     long a0 = reg(emu, "a0"), a1 = reg(emu, "a1");
                     long a2 = reg(emu, "a2"), a3 = reg(emu, "a3");
@@ -79,6 +82,10 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                     boundaries.add(String.format(
                         "resident=0xbfc11cc8 args=(%08x,%08x,%08x,%08x) ra=%08x",
                         a0, a1, a2, a3, ra));
+                    if (reachedNext) {
+                        downstream = boundaries.get(boundaries.size() - 1);
+                        break;
+                    }
                     require(a0 == 3 && a3 == 0x49,
                         String.format("unexpected first shared-memory request: %08x,%08x,%08x,%08x", a0,a1,a2,a3));
                     shmCalls++;
@@ -87,9 +94,11 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                     continue;
                 }
                 if (target >= 0xbfc00000L && target < 0xbfd00000L) {
-                    boundaries.add(String.format("resident=0x%08x args=(%08x,%08x,%08x,%08x)",
-                        target, reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"), reg(emu, "a3")));
-                    throw new Exception(String.format("reached unmodeled resident boundary 0x%08x", target));
+                    downstream = String.format("resident=0x%08x args=(%08x,%08x,%08x,%08x)",
+                        target, reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"), reg(emu, "a3"));
+                    boundaries.add(downstream);
+                    require(reachedNext, "unexpected resident boundary before initializer continuation");
+                    break;
                 }
                 if (!emu.step(monitor))
                     throw new Exception(String.format("stopped at 0x%08x: %s", pc, emu.getLastError()));
@@ -99,9 +108,11 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                 "callback did not reach FUN_60051034; pc=0x%08x steps=%d",
                 reg(emu, "pc") & ~1L, steps));
             require(shmCalls == 1, "expected one intercepted synthetic shared-memory call");
+            require(downstream.equals("resident=0xbfc11cbc args=(00000006,00000002,00000000,00000005)"),
+                "unexpected first downstream resident boundary: " + downstream);
             println(String.format(
-                "EQ MENGINE CALLBACK CONTINUATION PASS steps=%d callback=0x%08x next=0x%08x shm_calls=%d shm_return=0x%08x invocation=scheduler-hypothesis resident_effects=synthetic",
-                steps, CALLBACK, INIT_NEXT, shmCalls, SHM_RETURN));
+                "EQ MENGINE CALLBACK CONTINUATION PASS steps=%d callback=0x%08x next=0x%08x shm_calls=%d shm_return=0x%08x downstream=%s invocation=scheduler-hypothesis resident_effects=synthetic",
+                steps, CALLBACK, INIT_NEXT, shmCalls, SHM_RETURN, downstream));
             for (String boundary : boundaries) println("EQ MENGINE CALLBACK BOUNDARY " + boundary);
         } finally {
             emu.dispose();
