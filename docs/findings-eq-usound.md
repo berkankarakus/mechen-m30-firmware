@@ -10,13 +10,13 @@ The full linked run passes on both the stock V1.101.10 pair (`music.ap` SHA-256 
 
 The linked replay is not a live inter-processor call. It executes the actual MEngine `FUN_60051278` state-setup instructions until the next internal call (`FUN_60051034`): under a nonzero synthetic return from the resident shared-memory service, those instructions store state base `0x9fc15cb0` into pointer cell `0x9fc15ec8` at instruction `0x600512f4`. Static Ghidra references show a computed-call site from `FUN_60010d00` at `0x60010d0e`, but the dispatcher selection that reaches it was not executed. The probe begins selector byte `0x9fc15cc9` at sentinel `0x55`. The real `0x303` handler calls the resident copy service with destination `*(0x9fc15ec8)+0x18 = 0x9fc15cc8` and length four. Payload byte `+1` therefore overlaps selector address `0x9fc15cc9`. The harness's synthetic memcpy shim changes the sentinel to `7`; the fixed-ROM copy service is unavailable, so that byte write is not yet proven as firmware behavior. Under this shim, the real builder then takes its Custom branch and emits bands matching captured gains. Both stock and community runs show the same code path and overlap.
 
-The event `0x2604`, music-side selector/gains, SHM service return, module-`0x10` copies, MEngine copy/shared-memory/notification/ack effects, event helpers, and cross-overlay delivery remain synthetic. This establishes the payload-destination overlap with the selector after executing the state-base store, and demonstrates the result if the missing copy service has memcpy semantics. It does not show that normal boot/dispatcher flow reaches `FUN_60051278`, nor does it model the continuation through `FUN_60051034`. Slider persistence, real service semantics, DSP consumption, and audible output remain unresolved.
+The event `0x2604`, music-side selector/gains, SHM service return, module-`0x10` copies, MEngine copy/shared-memory/notification/ack effects, event helpers, and cross-overlay delivery remain synthetic. This establishes the payload-destination overlap with the selector after executing the state-base store, and demonstrates the result if the missing copy service has memcpy semantics. The separate callback-continuation probe reaches `FUN_60051034` and its next resident boundary only after directly invoking the observed callback under a scheduler hypothesis; normal boot/dispatcher flow reaching that callback is still unproven. Slider persistence, real service semantics, DSP consumption, and audible output remain unresolved.
 
 ## MEngine entry callback-registration boundary
 
 `bash tools/ghidra/run_eq_mengine_init_registration_probe.sh <hash-matching-mengine.ap>` executes the real MEngine AP entry `FUN_60010d30` on stock V1.101.10 and community V1.292.00. In 53 p-code steps the entry requests a handle through resident selector `0x10`, issues selector `0x33`, then passes a stack record to resident selector `0x4a`. The record's first word is the MIPS16 pointer `0x60010d01` (`FUN_60010d00`), the wrapper that calls state initializer `FUN_60051278`; the other forwarded arguments match the caller-provided fields and synthetic handle. The AP instructions and record contents are observed in both variants.
 
-The resident service calls are intercepted: selectors `0x10`, `0x33`, and `0x4a` receive synthetic return values, and the probe does not model the resident service invoking the callback. Thus the AP entry's registration request and callback pointer are proven, but service `0x4a` semantics, callback invocation, runtime loader behavior, and continuation through `FUN_60051034` remain unknown. Ghidra finds no direct code xref to `FUN_60010d00`; the pointer is supplied through this runtime registration record instead.
+The resident service calls are intercepted: selectors `0x10`, `0x33`, and `0x4a` receive synthetic return values. A separate, hash-pinned `run_eq_mengine_callback_continuation_probe.sh` invokes the observed callback address under an explicit scheduler hypothesis. On both stock and community images, the callback calls real AP state initializer `FUN_60051278`, issues resident shared-memory request `(a0=3,a1=0,a2=0,a3=0x49)`, and reaches `FUN_60051034` after the probe supplies synthetic return `0x9fc16000`. Continuing the real AP instructions reaches the next resident boundary at `0xbfc11cbc` with `(a0=6,a1=2,a2=0,a3=5)` after 99 p-code steps. Returning synthetic `0` or `1` from that service leads, in both images, to resident request `0xbfc11cc8(0,0,0,0x33)` at step 110. These two returns do not distinguish that immediate branch; other return values and service side effects remain untested. The probe stops before the `0x33` service. This proves the AP callback body reaches these boundaries when manually invoked with zero arguments; it does **not** prove op `0x4a` invokes it or establish runtime loader/scheduler behavior. Ghidra finds no direct code xref to `FUN_60010d00`; the pointer is supplied through the registration record instead.
 
 There is a useful independent comparison in `mmm_bp.al`: its real initializer passes an op-`0x4a` record containing callback pointer `0xbfc27735`, a context pointer, a third field, and a 16-bit field `0x4b0`; the callback body is a looping worker-like function. That record strengthens the worker-registration hypothesis for MEngine, but its resident entry address is different, so it does not establish the MEngine service contract or prove callback invocation. See [the MMM_BP record probe](findings-mmm-bp-context-init-boundary.md#dynamic-entryinit-p-code-boundary).
 
@@ -27,6 +27,21 @@ There is a useful independent comparison in `mmm_bp.al`: its real initializer pa
 The p-code probe passed on both byte-identical module copies. The dispatcher and field writes are real AP instructions; the resident copy and lock effects are synthetic shims, so the probe verifies the requested arguments/direction and resulting state under those shims, not resident-service semantics. At this point the 12-byte setter/getter shape alone did not establish a public API name or an EQ relationship.
 
 Follow-up caller correlation narrows that interpretation: stock `mengine.ap` `FUN_60190eec` passes command `0x15` the pointer `0x9fc15d80`. In its fast-backward branch it writes the three words `(-5000,0,0)` at that address immediately before the call; the same function has a separate mode that sends `0x15` with the same record pointer. The independent MEngine/SDK trace identifies this command as `SET_BREAK_POINT`. The 12-byte payload and command-`0x15` context update therefore belong to playback breakpoint state, not EQ. Command `0x16` has the reverse copy shape and remains an unnamed getter candidate; no actual caller or public name has been established for it.
+
+The bounded caller-set check is reproducible with:
+
+```sh
+bash tools/ghidra/run_mengine_breakpoint_command_callsite_probe.sh \
+  analysis/stock/fw/mengine.ap analysis/community/fw/mengine.ap
+```
+
+It hash-pins stock V1.101.10 and community V1.292.00, decompiles
+`FUN_60190eec`, and resolves every AP-side code reference to the dispatch
+literal at `0x6019108c`. In both images all seven references are inside that
+single handler; its breakpoint-setting calls use command `0x15`, and none use
+`0x16`. This is a bounded negative result for this MEngine command bridge; it
+does not prove that command `0x16` is unused by every overlay or assign it a
+meaning.
 
 ## Custom-row framework callback p-code probe
 
@@ -443,6 +458,29 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   `bash tools/ghidra/run_usound_ap_probe.sh <community-v1.292-usound.ap> <community-v1.292-manager.ap>`;
   the binary probes pin both AP hashes and mappings, then Ghidra checks the
   callback, endpoint lookup/sender, and manager message handler.
+- A hash-pinned dynamic follow-up now executes `FUN_40054de0` and
+  `FUN_48494758` in Ghidra p-code, then runs the real manager
+  `FUN_7f196200` against the captured 24-byte sender buffer. Five callback
+  input/state combinations produce message ID `0x0201` and payloads
+  `0x1100`, `0x1000`, `0x0e03`, `0x0f09`, and `0x4f0a`, matching the callback's
+  distinct control/status branches; the same runs return `0x800f` for the
+  first four cases and `0x861c` for the state-bit case, matching the function's
+  two return branches. The real endpoint-lookup code selects the probe's
+  synthetic active app-ID-8 record, and the real sender reaches the two
+  resident-call boundaries with the expected argument shapes. The first
+  resident call is modeled as an explicit synthetic eight-byte copy; the
+  send/delivery call returns synthetically. At that send boundary, bytes 0..7 match the copied
+  callback message, while bytes 8..23 are zero from the harness's initialized
+  RAM; this is not evidence for the firmware's actual 24-byte message body.
+  That synthetic 24-byte buffer is then injected into the separate manager
+  p-code run. With manager state byte `0x9fc1a1b1`
+  seeded to match message byte `+4`, the real `0x201` handler takes its
+  equal-state path and issues module-`0x0c` operations 7 then 2; these
+  resident returns are also synthetic. This raises confidence that the
+  callback is a lifecycle/control-status path rather than the PCM handoff,
+  but does **not** verify the ROM copy/send ABI, actual AP-to-AP delivery,
+  event path, USB hardware behavior, or audio output. Reproduce with
+  `bash tools/ghidra/run_usound_manager_message_probe.sh <hash-matching-usound.ap> <hash-matching-manager.ap>`.
 - A separate, stronger driver-side fact is now verified in `usound.drv`:
   MIPS16 function `FUN_bfc31654` copies from a 0x1000-byte circular
   region, splits a wrap into two callback copies, advances a read pointer, and
@@ -575,6 +613,13 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   neither that behavior nor the event meanings are proven without the fixed-ROM
   handler. This is not evidence of a DMA interrupt vector or a verified
   runtime dispatcher. No fixed-ROM handler or device was run.
+- The same setup probe now retains the `a0=0x0a` callback pointer from the
+  actual call arguments. After setup returns, it injects event bit `0x02`
+  into RAM-backed `0xc0080191`, invokes that retained pointer, and follows
+  the real callback instructions to the entry of `FUN_bfc30dc4`. This closes
+  the setup-pointer-to-producer code path under an explicitly synthetic
+  dispatch. It does not establish that the resident service installs or
+  invokes the callback, or that the physical USB event has this meaning.
 - The first passed function pointer, `0xbfc31115`, resolves to
   `FUN_bfc31114`. Its static body checks the word at `0xc0080191`; when bit
   `0x02` is set, it writes the observed mask value to `0xc0080400` and calls

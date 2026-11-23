@@ -162,8 +162,9 @@ left zero, it reaches a second selector-`0x0f` service boundary at
 `(a0=0,a1=0x10002f98,a2=0,a3=0x19)`. The eight-byte buffer is still zero. The
 wrapper's fixed code reads state at `0x9fc15600` and has a callback pointer at
 `0xbfc1656c` (`0x48694899`), but the service's return/data contract and the
-runtime writer for callback state at `0x9fc15608` are unresolved. This is a
-controlled nonzero-return branch probe, not an observed event or device trace.
+runtime writer for callback state at `0x9fc15608` are absent from this isolated
+probe; the combined probe below covers that writer. This is a controlled
+nonzero-return branch probe, not an observed event or device trace.
 
 ### `0x9fc15608` callback-slot writer
 
@@ -179,12 +180,229 @@ same selector with `(6,0,0,0x1a)`, stores the supplied MIPS16 callback pointer
 `0x40054d79` into `0x9fc15608`, then makes the `(9,0,0,0x1a)` call. Both cases
 return through the seeded sentinel in 17 and 25 steps respectively.
 
-The descriptor, service results, callback-slot sentinel, and callback argument
-are synthetic. This proves the writer's gate, store, and service-call order in
-both binaries; it does not prove which runtime dispatch reaches the writer,
-whether the real descriptor's `+2` byte is one, or that this callback executes
-on the physical device. The indirect caller and descriptor initializer remain
-the high-value gaps.
+The writer-only probe seeds its descriptor, service results, callback-slot
+sentinel, and callback argument. A separate hash-pinned
+`run_setting_callback_caller_probe.sh` now executes the real
+`FUN_40054f78` initializer in both binaries. Its literal table at
+`0x4005507c..80` contains callback pointer `0x40054d79` and writer pointer
+`0x48494601`. The first call enters real `FUN_48414600(4,1)`. With resident
+service calls intercepted and given zero returns, that function builds a
+record at `0x9fc1a1b0`, writes its pointer to `0x9fc15600`, and sets
+descriptor bytes `+1=4`, `+2=1`, and `+3=1`. The second outside call receives
+a synthetic zero return. The same Ghidra session then enters real
+`FUN_48494600` with `a0=0x40054d79`; its `+2=1` branch writes that callback
+pointer to `0x9fc15608` and returns to the caller in 212 steps total.
+This exact AP instruction path passes on stock and community images.
+The same emulator memory then runs real `FUN_48914600`. A synthetic primary
+service return of `1` takes its alternate event branch. The observed resident
+service request sequence is `(6,buffer,0,0x19)`, `(5,buffer,0,0x19)`,
+`(1,buffer,0,0x18)`, and `(1,buffer,0,0x19)`, with one auxiliary trap at
+`0xbfc16580` between the latter calls. Supplying synthetic zero returns and
+placing event word `0x0102` in the last service buffer causes the real AP to
+invoke the pointer stored at `0x9fc15608`: entry `0x40054d78`, with callback
+argument `0x9fc1bee0` containing `0x0102`. This takes another 219 p-code
+steps in each hash-pinned image. The callback itself executes 28 more steps
+without another resident boundary, returns to `0x489146ac`, and leaves
+`v0=0x8015`. The meaning of `0x8015` is not established. The runner requires
+writer, event bridge, and callback return markers, since Ghidra can exit
+successfully after a script error.
+Ghidra independently locates the indirect call at `0x40054f9c`, and
+`FUN_40055200` calls the initializer at `0x40055214`. Sixteen resident calls
+receive synthetic zero returns; their real side effects and whether the
+physical boot follows this path remain unknown. The event payload and service
+returns are host injections; the physical upgrade screen, event source, and
+callback effect remain unproven.
+
+The dispatcher caller `FUN_489146e8` has a direct call at `0x48914904` in both
+hash-pinned images. Its event loop stores the result of `FUN_48914600` and
+branches out of the loop whenever that result is nonzero; only a zero result
+issues the wait-like resident call `(1,0,0,0x31)`. Thus the synthetic `0x0102`
+callback return `0x8015` takes the nonzero exit branch in the real caller. This
+establishes control-flow effect, not the semantic name of `0x8015`; the rest of
+the screen cleanup then runs through indirect calls before `FUN_489146e8`
+returns. This caller decompilation matches byte-for-byte in control flow for
+stock V1.101.10 and community v1.292.00.
+
+The visible cleanup tail in that caller sets a UI state byte through
+`FUN_489149f8`: it writes `1` when the saved selection state is `1` or `2`, and
+`0` otherwise. It then restores two saved values through indirect calls
+`*_UNK_48914998` and `*_UNK_489149a4`. The adjacent helper `FUN_489149c8`
+stores the selected text ID through a global pointer, while `FUN_489149e0`
+reads a global byte used in this path. These direct helper bodies establish
+the global reads/writes, but not the meanings of their state or the behavior
+of the indirect cleanup callbacks. Ghidra's linear decode at the indirect
+pointer cells is not executable code and is not used to name those callbacks.
+
+The literal cells resolve to MIPS16 pointers `0x48b5463d` and `0x484547ad`.
+The first callback `FUN_48b5463c` writes its argument to global byte
+`0x9fc1561b`; it then calls the import stub at `0xbfc16588` (pointer
+`0xbfc16589`) with `(0,0,0,0x1e)` for zero and `(1,0,0,0x1e)` otherwise. That
+stub sets `v1=6` before `break 0`, so this is import 6 with operation value
+`a3=0x1e`, not import 15's subservice 30. The second callback
+`FUN_484547ac` writes its two arguments to `0x9fc1577d` and `0x9fc1577c`. When
+its first argument is `1`, it initializes a six-word table at `0x9fc15770`,
+calls `FUN_484546f4` on the byte at `0x9fc1576c`, then calls the callback
+stored in `0x48454838`; otherwise it calls the callback at `0x4845483c` with
+that same byte. Those cells point to `FUN_484546f4` and `FUN_484546c4`: the
+former validates an index, clears the record's first byte, calls the import-15
+stub at `0xbfc16584` (`v1=0x0f`) with `a3=0x1c`, and stores the returned value
+plus the record's 16-bit field at offset 2; the latter validates the index
+and sets that record's first byte to `1`. This establishes concrete callback
+arguments and record transitions, but not the import-6 operation's meaning or
+what the record represents to the UI.
+
+The outer caller provides useful lifecycle context for the first callback.
+`FUN_489146e8` reads through the getter pointer at `0x48914994`, calls the
+setter pointer at `0x48914998` with `0` before submitting the confirmation
+request, and later calls that setter with the saved getter result on its
+cleanup path. The getter `FUN_48b54678` simply dereferences pointer cell
+`0x48b5468c`, which resolves to `0x9fc1561b` in community `setting.ap`; the
+setter writes that same byte. Thus the caller saves a byte, temporarily clears
+it for the confirmation flow, and restores it during cleanup. This is strong
+evidence for a generic save/clear/restore state flag, but does not reveal what
+the flag controls. Probe mode `9` continues beyond the confirmation request:
+it seeds the backing byte to `1`, runs the real getter/setter callbacks, and
+uses synthetic resident returns plus event word `0x0102` to exit the event
+loop. It checks that the real getter returns the seeded `1`, verifies the byte
+is `0` at the confirmation request, then observes the real cleanup setter
+call with `1`, import-6 arguments `(1,0,0,0x1e)`, and the final backing byte
+restored to `1`. The event service receives the expected buffers
+`0x10002f68` and `0x10002f98`, both zeroed before their synthetic responses.
+The initial import-6 call receives
+`(0,0,0,0x1e)`. This passes in stock V1.101.10 and community v1.292.00 at
+426 steps in both.
+
+Mode `9` seeds callback slot `0x9fc15608` with `0x40054d79`, the callback
+pointer written by the separately probed setting initializer; that initializer
+is not run as part of this probe. Both event-source returns and import-6
+returns are synthetic. The result verifies the AP's save/clear/event/restore
+control flow under those conditions, not physical key delivery or import-6
+semantics. Reproduce with:
+
+```sh
+bash tools/ghidra/run_setting_confirm_probe.sh /path/to/stock/setting.ap 9
+bash tools/ghidra/run_setting_confirm_probe.sh /path/to/community/setting.ap 9
+```
+
+### Cross-caller use of the saved byte
+
+Ghidra pointer scans over both hash-pinned `setting.ap` images find three
+getter references and four setter references: getter pointer cells
+`0x48914994`, `0x489547e8`, `0x48b14a28`, and setter cells `0x48914998`,
+`0x489547ec`, `0x4899473c`, `0x48b14a2c`. The resolved functions are identical
+between stock and community at these addresses. `FUN_48954648` saves the byte,
+sets it to zero, prepares control `0x1004`, waits on event `0x0102`, then
+restores the saved value. `FUN_48b148c8` follows the same save/clear/wait/restore
+pattern around a UI request using controls `0x800d` and `0x8016`. Both call
+the same getter and setter implementations that use `0x9fc1561b`. A fourth
+function, `FUN_48994600`, calls the setter with zero during mode setup; its
+decompiled body does not show a matching restore, so its wider lifecycle is
+still unresolved.
+
+**Updated working hypothesis (medium confidence for lifecycle, low confidence
+for semantic label):** `0x9fc1561b` is a shared one-byte UI/runtime state that
+these event-driven screens temporarily clear and restore. The repeated modal
+context is stronger evidence for a shared UI/runtime gate than the first
+confirmation path alone. It still does not distinguish a UI event gate, a
+timer/screen policy, or another system state, and it does not prove that
+import-6 operation `0x1e` itself is a mutex. The emulator should retain the
+observed byte transitions while leaving the resident service opaque.
+
+Reproduce the cross-caller pointer scan and decompilation with
+`FindPointerRefs.java` for `0x48b54679,0x48b5463d` and `DumpAt.java` at
+`0x48954648`, `0x48994600`, and `0x48b148c8`, loading each stock/community AP
+with `LoadAP.java`.
+
+### QEMU check of the resident trap envelope
+
+`bash tools/emu/run_qemu_setting_stub_probe.sh <setting.ap>` extracts two
+resident MIPS16 stubs from the AP: import 15 (`li v1,0x0f; break 0`) at
+`0xbfc16584` and import 6 (`li v1,6; break 0`) at `0xbfc16588`. The import-15
+stub matches the corresponding `usound.drv` bytes; QEMU executes both stubs
+and observes import 15 with `a3=0x1c`, then import 6 with `a0=1,a3=0x1e`.
+Both reach the exception vector with the expected `v1` and preserved arguments.
+The probe passes against stock V1.101.10 and community V1.292.00. The setting AP
+SHA-256 values are `c0693d3750e1b92ad18b0ed741e893e5cffe3bc4517abdc086c54d539e2eb7d5`
+(stock) and `ad46a92fc0b12f58fdad3a7885502ef5e7481c7b2913fd7e28d46216d22a9ed7`
+(community); both matching `usound.drv` files have SHA-256
+`e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc`.
+
+This verifies the stub bytes and trap register envelope; it does not run either
+fixed-ROM handler. `tools/ghidra/run_setting_cleanup_service_probe.sh` also
+executes the real callback bodies against synthetic service returns on stock
+and community images. It confirms import 6 receives `a0=0` or `1`,
+`a1=a2=0,a3=0x1e`, after the callback stores that input at `0x9fc1561b`. For
+import 15, `FUN_484546f4` calls with `(0,0,0,0x1c)`; synthetic returns `0`,
+`1`, and `0x55aa` are added to record halfword `+2` and written to `+8`, after
+the record's first byte is cleared. The probe seeds a synthetic six-record
+array at `0x9fc15800`; it does not establish that address as the device's
+runtime array. It also executes the first and last valid indices (`0`, `5`)
+and invalid indices (`6`, `0xff`): invalid cases return zero without reaching
+the import stub. ROM-side return values and effects remain unknown.
+
+The public [actions_flash ATJ2127 import/syscall notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L241-L263)
+map import 15's `a3=28` (`0x1c`) to `get_system_ticks()`. That is a plausible
+candidate for the M30 import-15 call, not a confirmed name. The same note's
+`a3=30` (`0x1e`) sleep label is specifically under import 15 and does not
+apply to M30's call, which demonstrably uses import 6 (`v1=6`); the public
+note only characterizes import 6 generically as an OS primitive
+(semaphore/mutex). The meaning of import-6 operation `0x1e` remains unknown.
+Reproduce with:
+
+```sh
+USOUND=/path/to/community/fw/usound.drv \
+  bash tools/emu/run_qemu_setting_stub_probe.sh /path/to/community/fw/setting.ap
+bash tools/ghidra/run_setting_cleanup_service_probe.sh /path/to/community/fw/setting.ap
+```
+
+### Cross-module correlation for import 6 / operation `0x1e`
+
+The same four-argument call shape `(a0=0 or 1, 0, 0, 0x1e)` appears in the
+community decompilation outputs for `setting.ap`, `config.ap`, `upgrade.ap`,
+`playlist.ap`, `browser.ap`, and `udisk.ap`. The associated function-pointer
+cells and resolved import-6 stub targets differ by AP overlay:
+
+| AP | Pointer cell | Stub entry (`v1=6`) |
+| --- | --- | --- |
+| `setting.ap` | `0x48b54674` | `0xbfc16588` |
+| `config.ap` | `0x48b54674` | `0xbfc16588` |
+| `upgrade.ap` | `0x48b54674` | `0xbfc3b03c` |
+| `playlist.ap` | `0x48b54674` | `0xbfc16bb4` |
+| `browser.ap` | `0x48b54674` | `0xbfc16a28` |
+| `udisk.ap` | `0x48614674` | `0xbfc16a5c` |
+
+For every listed AP, the four bytes at the resolved stub entry are
+`06 6b 05 e8` (`li v1,6; break 0`) in both stock and community firmware. This
+cross-check confirms the repeated call sites use the import-6 trap envelope,
+despite overlay-specific stub addresses. It does not identify operation
+`0x1e` or prove that `a0=0` and `a0=1` mean lock/unlock. The external
+`actions_flash` note's generic “semaphore/mutex” label for import 6 is
+compatible context only.
+
+**Working hypothesis (medium confidence):** in this setting confirmation path,
+the getter/setter pair manages a byte-sized state flag that is saved, cleared
+before the request, and restored during cleanup. This lifecycle is directly
+visible in the caller; the flag's application-level meaning remains unknown.
+
+**Separate ABI hypothesis (low confidence):** import-6 operation `0x1e` is
+some binary control operation with `a0=0` and `a0=1` selecting opposite
+actions. A public note categorizes import 6 broadly as a semaphore/mutex OS
+primitive, but does not identify operation `0x1e`; the setting caller's
+save/clear/restore pattern does not establish that this operation is a mutex.
+Possible meanings still include a generic enable/disable or enter/exit service.
+To confirm or reject the ABI hypothesis, locate the import-6 handler or an
+independent Actions SDK/binary exposing operation `0x1e`, then compare its
+return and side-effect contract. Until then, keep the service opaque in the
+emulator. The confirmation probe can be extended with a synthetic nonzero
+getter value and an event that reaches cleanup to dynamically verify the
+restoration call, but that would still validate AP control flow rather than
+the ROM service's semantics.
+
+For reproduction, load each AP with `tools/ghidra/LoadAP.java` and decompile
+`0x48b5463c` (or `0x4861463c` in `udisk.ap`) with `tools/ghidra/DumpAt.java`.
+Read the corresponding pointer cell with `tools/ghidra/DumpWords.java`, then
+inspect the resolved stub address in that same AP. Do not compare absolute
+addresses across APs without resolving each AP's own resident segment table.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 

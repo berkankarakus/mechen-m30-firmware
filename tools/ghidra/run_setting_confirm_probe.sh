@@ -14,8 +14,8 @@ trap 'rm -rf "$WORK"' EXIT
 [ -f "$AP" ] || { echo "missing setting AP: $AP" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 case "$INPUT" in
-  0|1|2|3|4|5|6|7|8) ;;
-  *) echo "input must be 0 (event boundary), 1 (confirmation request), 2-7 (synthetic event-map entries), or 8 (alternate event source)" >&2; exit 1 ;;
+  0|1|2|3|4|5|6|7|8|9) ;;
+  *) echo "input must be 0 (event boundary), 1 (confirmation request), 2-7 (synthetic event-map entries), 8 (alternate event source), or 9 (continue confirmation through cleanup with saved flag=1)" >&2; exit 1 ;;
 esac
 if [ -n "$JAVA_HOME_OVERRIDE" ]; then
   export JAVA_HOME="$JAVA_HOME_OVERRIDE"
@@ -52,6 +52,10 @@ elif [ "$INPUT" -eq 2 ] || [ "$INPUT" -eq 3 ]; then
 elif [ "$INPUT" -eq 4 ] || [ "$INPUT" -eq 5 ] || [ "$INPUT" -eq 7 ]; then
   grep -q 'SETTING SYNTHETIC EVENT FOLLOW-UP SERVICE BOUNDARY args=0x00000001,0x00000000,0x00000000,0x00000031' "$LOG"
 else
-  grep -q 'SETTING EVENT DISPATCH ENTER code=' "$LOG"
-  grep -q 'SETTING SYNTHETIC EVENT RETURN PASS code=0x00000108' "$LOG"
+  if [ "$INPUT" -eq 9 ]; then
+    grep -q 'SETTING CONFIRM RESTORE PASS steps=' "$LOG"
+  else
+    grep -q 'SETTING EVENT DISPATCH ENTER code=' "$LOG"
+    grep -q 'SETTING SYNTHETIC EVENT RETURN PASS code=0x00000108' "$LOG"
+  fi
 fi

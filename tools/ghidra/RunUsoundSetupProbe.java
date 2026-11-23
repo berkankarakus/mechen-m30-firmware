@@ -17,11 +17,13 @@ public class RunUsoundSetupProbe extends GhidraScript {
     private static final long STOP = 0x700300L;
     private static final long MODULE10 = 0xbfc326a8L;
     private static final long MODULE0F = 0xbfc326acL;
+    private static final long PRODUCER = 0xbfc30dc4L;
     private static final long DATA = 0x9fc33c00L;
     private static final int DATA_SIZE = 0x154;
     private static final int BSS_SIZE = 0xd4;
     private static final long STACK = 0x9fc35000L;
     private static final List<String> calls = new ArrayList<>();
+    private long eventCallback;
 
     private Address address(long value) {
         return currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(value);
@@ -54,7 +56,11 @@ public class RunUsoundSetupProbe extends GhidraScript {
                 long a2 = register(emulator, "a2");
                 long a3 = register(emulator, "a3");
                 long ra = register(emulator, "ra");
-            int module = pc == MODULE0F ? 0x0f : 0x10;
+                int module = pc == MODULE0F ? 0x0f : 0x10;
+                if (module == 0x0f && a0 == 0x0a && a2 == 0 && a3 == 0x14) {
+                    require(eventCallback == 0, "duplicate USB event callback registration");
+                    eventCallback = a1;
+                }
                 calls.add(String.format(
                     "module=0x%02x args=(a0=0x%08x,a1=0x%08x,a2=0x%08x,a3=0x%08x) ra=0x%08x",
                     module, a0, a1, a2, a3, ra
@@ -70,6 +76,28 @@ public class RunUsoundSetupProbe extends GhidraScript {
             }
         }
         throw new Exception("USB Audio setup exceeded instruction limit");
+    }
+
+    private int invokeRegisteredCallback(EmulatorHelper emulator) throws Exception {
+        require(eventCallback == 0xbfc31115L,
+            String.format("unexpected registered event callback 0x%08x", eventCallback));
+        emulator.writeMemory(address(0xc0080191L), new byte[] { 2 });
+        emulator.writeRegister("sp", STACK + 0x800);
+        emulator.writeRegister("ra", STOP | 1L);
+        emulator.writeRegister("a0", 0);
+        emulator.writeRegister("a1", 0);
+        emulator.writeRegister("a2", 0);
+        emulator.writeRegister("a3", 0);
+        emulator.writeRegister("pc", eventCallback & ~1L);
+        for (int steps = 0; steps < 1000; steps++) {
+            long pc = register(emulator, "pc") & ~1L;
+            if (pc == PRODUCER) return steps;
+            require(pc != STOP, "event callback returned before producer");
+            if (!emulator.step(monitor))
+                throw new Exception(String.format(
+                    "event callback stopped at 0x%08x: %s", pc, emulator.getLastError()));
+        }
+        throw new Exception("event callback did not reach producer before step limit");
     }
 
     @Override
@@ -147,6 +175,10 @@ public class RunUsoundSetupProbe extends GhidraScript {
             require(calls.stream().anyMatch(s -> s.startsWith(
                 "module=0x0f args=(a0=0x0000000a,a1=0xbfc31115,a2=0x00000000,a3=0x00000014)")),
                 "setup's second function-pointer tuple was not observed");
+            int callbackSteps = invokeRegisteredCallback(emulator);
+            println(String.format(
+                "USOUND SETUP CALLBACK BRIDGE PASS registered=0x%08x producer=0x%08x callback-steps=%d event-bit=synthetic resident-dispatch=synthetic",
+                eventCallback, PRODUCER, callbackSteps));
             println(String.format(
                 "USOUND SETUP P-CODE PASS entry=0x%08x steps=%d module0f-calls=%d module10-calls=%d synthetic-mmio=1 synthetic-module-return=0",
                 ENTRY, steps, module0fCount, module10Count
