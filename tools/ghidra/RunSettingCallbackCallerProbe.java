@@ -109,6 +109,28 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
         throw new Exception("event path did not reach callback before step limit");
     }
 
+    private int runCallbackToReturn(EmulatorHelper emu) throws Exception {
+        long returnAddress = reg(emu, "ra") & ~1L;
+        require(returnAddress != 0x40054d78L, "callback return address equals entry");
+        for (int steps = 0; steps < 500; steps++) {
+            long pc = reg(emu, "pc") & ~1L;
+            if (pc == returnAddress && steps > 0) {
+                require(pc == 0x489146acL && reg(emu, "v0") == 0x8015L,
+                    "0x0102 callback returned unexpected value or destination");
+                require(steps == 28, "0x0102 callback instruction path changed");
+                println(String.format("SETTING EVENT CALLBACK RETURN pc=0x%08x v0=0x%08x steps=%d",
+                    pc, reg(emu, "v0"), steps));
+                return steps;
+            }
+            require(pc != 0xbfc16578L && pc != 0xbfc16580L && pc != 0xbfc16584L,
+                String.format("callback reached resident service at 0x%08x", pc));
+            if (!emu.step(monitor))
+                throw new Exception(String.format("callback stopped at 0x%08x: %s",
+                    pc, emu.getLastError()));
+        }
+        throw new Exception("callback did not return before step limit");
+    }
+
     @Override
     public void run() throws Exception {
         Memory memory = currentProgram.getMemory();
@@ -157,6 +179,7 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
                     println(String.format(
                         "SETTING CALLBACK EVENT BRIDGE PASS callback=0x%08x event-steps=%d event-word=0x0102 event-services=synthetic-1,0,0,0",
                         reg(emu, "pc") & ~1L, eventSteps));
+                    runCallbackToReturn(emu);
                     return;
                 }
                 if (pc == SERVICE_A) {

@@ -201,8 +201,11 @@ service request sequence is `(6,buffer,0,0x19)`, `(5,buffer,0,0x19)`,
 placing event word `0x0102` in the last service buffer causes the real AP to
 invoke the pointer stored at `0x9fc15608`: entry `0x40054d78`, with callback
 argument `0x9fc1bee0` containing `0x0102`. This takes another 219 p-code
-steps in each hash-pinned image. The runner requires both the writer and event
-bridge pass markers, since Ghidra can exit successfully after a script error.
+steps in each hash-pinned image. The callback itself executes 28 more steps
+without another resident boundary, returns to `0x489146ac`, and leaves
+`v0=0x8015`. The meaning of `0x8015` is not established. The runner requires
+writer, event bridge, and callback return markers, since Ghidra can exit
+successfully after a script error.
 Ghidra independently locates the indirect call at `0x40054f9c`, and
 `FUN_40055200` calls the initializer at `0x40055214`. Sixteen resident calls
 receive synthetic zero returns; their real side effects and whether the
