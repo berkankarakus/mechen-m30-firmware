@@ -91,6 +91,12 @@ public class RunSettingConfirmProbe extends GhidraScript {
         addRam(memory, SYSRAM, 0x20000, "setting_confirm_probe_sysram");
         memory.setBytes(addr(SYSRAM + 0x15601), new byte[] {0});
         memory.setBytes(addr(SYSRAM + 0x1578e), new byte[] {1});
+        if (input == 9) {
+            // Seed the getter's backing byte so the real caller must preserve it.
+            memory.setBytes(addr(SYSRAM + 0x1561b), new byte[] {1});
+            // Model the callback slot written by the separately probed setting initializer.
+            memory.setBytes(addr(SYSRAM + 0x15608), new byte[] {0x79, 0x4d, 0x05, 0x40});
+        }
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         Register isa = currentProgram.getRegister("ISA_MODE");
@@ -101,7 +107,7 @@ public class RunSettingConfirmProbe extends GhidraScript {
             emu.setContextRegister(isa, BigInteger.ONE);
             emu.writeRegister("sp", STACK);
             emu.writeRegister("ra", STOP | 1L);
-            emu.writeRegister("a0", input);
+            emu.writeRegister("a0", input == 9 ? 1 : input);
             emu.writeRegister("a1", 0);
             emu.writeRegister("a2", 0);
             emu.writeRegister("a3", 0);
@@ -113,6 +119,9 @@ public class RunSettingConfirmProbe extends GhidraScript {
             boolean injectedEvent = false;
             boolean enteredEventDispatch = false;
             boolean forcedPrimaryEventMiss = false;
+            boolean sawConfirmRequest = false;
+            int import6Calls = 0;
+            int confirmEventServiceCalls = 0;
             for (int steps = 0; steps < 100000; steps++) {
                 long pc = emu.readRegister("pc").longValue() & 0xffffffffL;
                 // MIPS16 return pointers may have bit 0 set. The context register
@@ -122,6 +131,19 @@ public class RunSettingConfirmProbe extends GhidraScript {
                     emu.writeRegister("pc", pc);
                 }
                 if (pc == STOP) {
+                    if (input == 9) {
+                        if (!sawConfirmRequest || import6Calls != 2
+                            || confirmEventServiceCalls != 2
+                            || byteAt(emu, SYSRAM + 0x1561b) != 1) {
+                            throw new Exception("cleanup state restore mismatch: request="
+                                + sawConfirmRequest + " import6Calls=" + import6Calls
+                                + " eventCalls=" + confirmEventServiceCalls
+                                + " flag=" + byteAt(emu, SYSRAM + 0x1561b));
+                        }
+                        println("SETTING CONFIRM RESTORE PASS steps=" + steps
+                            + " import6-a0-sequence=0,1 flag=1");
+                        return;
+                    }
                     if (input >= 2 && input <= 7 && injectedEvent && enteredEventDispatch) {
                         println("SETTING SYNTHETIC EVENT RETURN PASS code="
                             + hex(syntheticEvent(input)[2]));
@@ -169,6 +191,15 @@ public class RunSettingConfirmProbe extends GhidraScript {
                 boolean handled = false;
                 for (long target : API_TARGETS) {
                     if (pc != (target & ~1L)) continue;
+                    if (input == 9 && target == 0x48b54679L) {
+                        sawTextId = true;
+                        continue;
+                    }
+                    if (input == 9 && target == 0x48b5463dL) {
+                        // Execute the actual getter/setter bodies to observe the saved byte
+                        // returning through cleanup; only resident services stay synthetic.
+                        continue;
+                    }
                     long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
                     long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
                     long a2 = emu.readRegister("a2").longValue() & 0xffffffffL;
@@ -188,6 +219,50 @@ public class RunSettingConfirmProbe extends GhidraScript {
                         }
                         detail = " control=" + dumpStack(emu, a0, 8)
                             + " data=" + dumpStack(emu, a1, 16);
+                        if (input == 9) {
+                            int flag = byteAt(emu, SYSRAM + 0x1561b);
+                            if (flag != 0) {
+                                throw new Exception("confirmation request saw uncleared state " + flag);
+                            }
+                            sawConfirmRequest = true;
+                        }
+                    }
+                    if (target == 0xbfc16589L && input == 9 && a3 == 0x1e) {
+                        long expectedA0 = import6Calls == 0 ? 0 : 1;
+                        if (import6Calls > 1 || a0 != expectedA0 || a1 != 0 || a2 != 0) {
+                            throw new Exception("unexpected import-6 cleanup args: "
+                                + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3));
+                        }
+                        import6Calls++;
+                    }
+                    if (target == 0xbfc16585L && input == 9
+                        && (a3 == 0x19 || a3 == 0x18)) {
+                        long expectedA0;
+                        long syntheticReturn;
+                        if (confirmEventServiceCalls == 0) {
+                            expectedA0 = 6;
+                            syntheticReturn = 1;
+                        } else if (confirmEventServiceCalls == 1) {
+                            expectedA0 = 0;
+                            syntheticReturn = 0;
+                            emu.writeMemory(addr(a1), new byte[] {2, 1, 0, 0, 0, 0, 0, 0});
+                        } else {
+                            throw new Exception("unexpected additional confirmation event service call");
+                        }
+                        long expectedA3 = 0x19;
+                        if (a0 != expectedA0 || a3 != expectedA3 || a2 != 0) {
+                            throw new Exception("unexpected confirmation event service args call="
+                                + confirmEventServiceCalls + " got=" + hex(a0) + "," + hex(a1)
+                                + "," + hex(a2) + "," + hex(a3));
+                        }
+                        println("SETTING CONFIRM EVENT SERVICE call=" + confirmEventServiceCalls
+                            + " args=" + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3)
+                            + " synthetic-return=" + hex(syntheticReturn));
+                        confirmEventServiceCalls++;
+                        emu.writeRegister("v0", syntheticReturn);
+                        emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);
+                        handled = true;
+                        break;
                     }
                     if (target == 0xbfc16589L && input == 0
                         && a3 == 2 && byteAt(emu, a0) == 0x09
@@ -267,7 +342,7 @@ public class RunSettingConfirmProbe extends GhidraScript {
                     if (target == 0x48a14601L) {
                         println("SETTING CONFIRM REQUEST PASS steps=" + steps
                             + " control=0x100a status=1 field-capacity=250 payload=0x48554680");
-                        return;
+                        if (input != 9) return;
                     }
                     emu.writeRegister("v0", 0);
                     emu.writeRegister("pc", emu.readRegister("ra").longValue() & ~1L);

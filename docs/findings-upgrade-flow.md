@@ -260,10 +260,26 @@ cleanup path. The getter `FUN_48b54678` simply dereferences pointer cell
 setter writes that same byte. Thus the caller saves a byte, temporarily clears
 it for the confirmation flow, and restores it during cleanup. This is strong
 evidence for a generic save/clear/restore state flag, but does not reveal what
-the flag controls. The confirmation-path Ghidra probe dynamically observes
-the pre-request setter call with value `0`; it stops at the confirmation
-request, so restoration is established by static caller flow, not by that
-probe's execution.
+the flag controls. Probe mode `9` continues beyond the confirmation request:
+it seeds the backing byte to `1`, runs the real getter/setter callbacks, and
+uses synthetic resident returns plus event word `0x0102` to exit the event
+loop. It verifies the byte is `0` at the confirmation request, then observes
+the real cleanup setter call with `1`, import-6 arguments `(1,0,0,0x1e)`, and
+the final backing byte restored to `1`. The initial import-6 call receives
+`(0,0,0,0x1e)`. This passes in stock V1.101.10 and community v1.292.00 at
+426 steps in both.
+
+Mode `9` seeds callback slot `0x9fc15608` with `0x40054d79`, the callback
+pointer written by the separately probed setting initializer; that initializer
+is not run as part of this probe. Both event-source returns and import-6
+returns are synthetic. The result verifies the AP's save/clear/event/restore
+control flow under those conditions, not physical key delivery or import-6
+semantics. Reproduce with:
+
+```sh
+bash tools/ghidra/run_setting_confirm_probe.sh /path/to/stock/setting.ap 9
+bash tools/ghidra/run_setting_confirm_probe.sh /path/to/community/setting.ap 9
+```
 
 ### QEMU check of the resident trap envelope
 
