@@ -251,6 +251,20 @@ and sets that record's first byte to `1`. This establishes concrete callback
 arguments and record transitions, but not the import-6 operation's meaning or
 what the record represents to the UI.
 
+The outer caller provides useful lifecycle context for the first callback.
+`FUN_489146e8` reads through the getter pointer at `0x48914994`, calls the
+setter pointer at `0x48914998` with `0` before submitting the confirmation
+request, and later calls that setter with the saved getter result on its
+cleanup path. The getter `FUN_48b54678` simply dereferences pointer cell
+`0x48b5468c`, which resolves to `0x9fc1561b` in community `setting.ap`; the
+setter writes that same byte. Thus the caller saves a byte, temporarily clears
+it for the confirmation flow, and restores it during cleanup. This is strong
+evidence for a generic save/clear/restore state flag, but does not reveal what
+the flag controls. The confirmation-path Ghidra probe dynamically observes
+the pre-request setter call with value `0`; it stops at the confirmation
+request, so restoration is established by static caller flow, not by that
+probe's execution.
+
 ### QEMU check of the resident trap envelope
 
 `bash tools/emu/run_qemu_setting_stub_probe.sh <setting.ap>` extracts two
@@ -317,17 +331,24 @@ despite overlay-specific stub addresses. It does not identify operation
 `actions_flash` note's generic “semaphore/mutex” label for import 6 is
 compatible context only.
 
-**Working hypothesis (low-to-medium confidence):** import-6 operation `0x1e`
-controls a semaphore/mutex state, and `a0=0` versus `a0=1` selects the two
-opposite actions. The evidence is the external import-6 category plus the
-repeated M30 call shape; neither source identifies operation `0x1e` itself.
-An alternative is a generic boolean enable/disable or enter/exit operation.
-To confirm or reject this, locate the import-6 handler or an independent
-Actions SDK/binary that exposes operation `0x1e`, then compare its return and
-side-effect contract. Call-site pairing and ordering across M30 APs can rank
-the alternatives, but cannot prove the resident handler's semantics. Until
-that implementation is found, emulator behavior should keep this operation
-opaque rather than model it as a mutex.
+**Working hypothesis (medium confidence):** in this setting confirmation path,
+the getter/setter pair manages a byte-sized state flag that is saved, cleared
+before the request, and restored during cleanup. This lifecycle is directly
+visible in the caller; the flag's application-level meaning remains unknown.
+
+**Separate ABI hypothesis (low confidence):** import-6 operation `0x1e` is
+some binary control operation with `a0=0` and `a0=1` selecting opposite
+actions. A public note categorizes import 6 broadly as a semaphore/mutex OS
+primitive, but does not identify operation `0x1e`; the setting caller's
+save/clear/restore pattern does not establish that this operation is a mutex.
+Possible meanings still include a generic enable/disable or enter/exit service.
+To confirm or reject the ABI hypothesis, locate the import-6 handler or an
+independent Actions SDK/binary exposing operation `0x1e`, then compare its
+return and side-effect contract. Until then, keep the service opaque in the
+emulator. The confirmation probe can be extended with a synthetic nonzero
+getter value and an event that reaches cleanup to dynamically verify the
+restoration call, but that would still validate AP control flow rather than
+the ROM service's semantics.
 
 For reproduction, load each AP with `tools/ghidra/LoadAP.java` and decompile
 `0x48b5463c` (or `0x4861463c` in `udisk.ap`) with `tools/ghidra/DumpAt.java`.
