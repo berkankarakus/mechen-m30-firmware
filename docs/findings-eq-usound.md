@@ -590,6 +590,13 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   neither that behavior nor the event meanings are proven without the fixed-ROM
   handler. This is not evidence of a DMA interrupt vector or a verified
   runtime dispatcher. No fixed-ROM handler or device was run.
+- The same setup probe now retains the `a0=0x0a` callback pointer from the
+  actual call arguments. After setup returns, it injects event bit `0x02`
+  into RAM-backed `0xc0080191`, invokes that retained pointer, and follows
+  the real callback instructions to the entry of `FUN_bfc30dc4`. This closes
+  the setup-pointer-to-producer code path under an explicitly synthetic
+  dispatch. It does not establish that the resident service installs or
+  invokes the callback, or that the physical USB event has this meaning.
 - The first passed function pointer, `0xbfc31115`, resolves to
   `FUN_bfc31114`. Its static body checks the word at `0xc0080191`; when bit
   `0x02` is set, it writes the observed mask value to `0xc0080400` and calls

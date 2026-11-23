@@ -35,6 +35,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
 
 for marker in \
   'USOUND SETUP TRAP module=0x0f args=(a0=0x00000014,a1=0xbfc3125d,a2=0x00000000,a3=0x00000014)' \
+  'USOUND SETUP CALLBACK BRIDGE PASS registered=0xbfc31115 producer=0xbfc30dc4' \
   'USOUND SETUP P-CODE PASS entry=0xbfc322e4 steps='; do
   if ! grep -Fq "$marker" "$WORK/run.log"; then
     echo "missing Ghidra log marker: $marker" >&2
@@ -43,4 +44,5 @@ for marker in \
   fi
 done
 grep 'USOUND SETUP TRAP' "$WORK/run.log"
+grep 'USOUND SETUP CALLBACK BRIDGE PASS' "$WORK/run.log"
 grep 'USOUND SETUP P-CODE PASS' "$WORK/run.log"
