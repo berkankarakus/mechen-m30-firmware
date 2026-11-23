@@ -213,6 +213,16 @@ physical boot follows this path remain unknown. The event payload and service
 returns are host injections; the physical upgrade screen, event source, and
 callback effect remain unproven.
 
+The dispatcher caller `FUN_489146e8` has a direct call at `0x48914904` in both
+hash-pinned images. Its event loop stores the result of `FUN_48914600` and
+branches out of the loop whenever that result is nonzero; only a zero result
+issues the wait-like resident call `(1,0,0,0x31)`. Thus the synthetic `0x0102`
+callback return `0x8015` takes the nonzero exit branch in the real caller. This
+establishes control-flow effect, not the semantic name of `0x8015`; the rest of
+the screen cleanup then runs through indirect calls before `FUN_489146e8`
+returns. This caller decompilation matches byte-for-byte in control flow for
+stock V1.101.10 and community v1.292.00.
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
