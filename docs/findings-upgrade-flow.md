@@ -248,6 +248,44 @@ index and sets that record's first byte to `1`. This establishes concrete
 record allocation/state transitions, but not the resident operation names or
 what the record represents to the UI.
 
+### QEMU check of the resident trap envelope
+
+`bash tools/emu/run_qemu_setting_stub_probe.sh <setting.ap>` extracts the
+resident module-0x0f `li v1,0x0f; break` stub from the AP's segment table and
+checks that its four bytes match the corresponding stub in `usound.drv`.
+The harness then executes the matching MIPS16 stub under QEMU for calls with
+`a3=0x1c` and `a3=0x1e`. Both reach the exception vector with `v1=0x0f` and the
+selector preserved in `a3`; QEMU prints `SETTING STUB QEMU ABI PASS`. This
+passed against both stock V1.101.10 and community V1.292.00. The setting AP
+SHA-256 values are `c0693d3750e1b92ad18b0ed741e893e5cffe3bc4517abdc086c54d539e2eb7d5`
+(stock) and `ad46a92fc0b12f58fdad3a7885502ef5e7481c7b2913fd7e28d46216d22a9ed7`
+(community); both matching `usound.drv` files have SHA-256
+`e593bdd29c2a96d4d745cf1b5cae4da2ee71c2211c551e415209b18f54e600fc`.
+
+This verifies the call/trap envelope and the cross-module stub identity. The
+probe uses zero for `a0`–`a2`, does not run the fixed-ROM handler, and cannot
+establish the real callbacks' return values or memory effects. A public
+ATJ2127 reverse-engineering note for Actions US212D V1.101.25 describes the
+same MIPS16 `li v1,service_id; break 0` convention, with import 15 selected by
+`v1=0x0f` and subservices in `a3`. It labels `a3=28` as
+`get_system_ticks()` and `a3=30` as `sleep_ms()` (the same note labels
+`a3=49` as `sleep_ms(a0)`). This makes tick-read and sleep interpretations
+plausible for M30's selectors `0x1c` and `0x1e`; they remain **external mapping
+candidates**, because the note covers a different device/firmware and is not
+independent of the shared Actions ABI. M30's real `0x1c` call writes its
+synthetic-or-real return into a record, which is consistent with a tick value;
+the `0x1e` call supplies `a0=0` or `1`, but the delay unit/argument contract is
+not established. The ROM handler is absent from the emulator, so neither
+meaning nor side effect has been dynamically confirmed on M30. Do not equate
+these with other interfaces merely because their numeric value matches.
+Source: [actions_flash ATJ2127 import/syscall ABI notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L241-L263).
+Reproduce with:
+
+```sh
+USOUND=/path/to/community/fw/usound.drv \
+  bash tools/emu/run_qemu_setting_stub_probe.sh /path/to/community/fw/setting.ap
+```
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
