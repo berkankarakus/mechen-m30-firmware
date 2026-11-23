@@ -284,6 +284,35 @@ bash tools/ghidra/run_setting_confirm_probe.sh /path/to/stock/setting.ap 9
 bash tools/ghidra/run_setting_confirm_probe.sh /path/to/community/setting.ap 9
 ```
 
+### Cross-caller use of the saved byte
+
+Ghidra pointer scans over both hash-pinned `setting.ap` images find three
+getter references and four setter references: getter pointer cells
+`0x48914994`, `0x489547e8`, `0x48b14a28`, and setter cells `0x48914998`,
+`0x489547ec`, `0x4899473c`, `0x48b14a2c`. The resolved functions are identical
+between stock and community at these addresses. `FUN_48954648` saves the byte,
+sets it to zero, prepares control `0x1004`, waits on event `0x0102`, then
+restores the saved value. `FUN_48b148c8` follows the same save/clear/wait/restore
+pattern around a UI request using controls `0x800d` and `0x8016`. Both call
+the same getter and setter implementations that use `0x9fc1561b`. A fourth
+function, `FUN_48994600`, calls the setter with zero during mode setup; its
+decompiled body does not show a matching restore, so its wider lifecycle is
+still unresolved.
+
+**Updated working hypothesis (medium confidence for lifecycle, low confidence
+for semantic label):** `0x9fc1561b` is a shared one-byte UI/runtime state that
+these event-driven screens temporarily clear and restore. The repeated modal
+context is stronger evidence for a shared UI/runtime gate than the first
+confirmation path alone. It still does not distinguish a UI event gate, a
+timer/screen policy, or another system state, and it does not prove that
+import-6 operation `0x1e` itself is a mutex. The emulator should retain the
+observed byte transitions while leaving the resident service opaque.
+
+Reproduce the cross-caller pointer scan and decompilation with
+`FindPointerRefs.java` for `0x48b54679,0x48b5463d` and `DumpAt.java` at
+`0x48954648`, `0x48994600`, and `0x48b148c8`, loading each stock/community AP
+with `LoadAP.java`.
+
 ### QEMU check of the resident trap envelope
 
 `bash tools/emu/run_qemu_setting_stub_probe.sh <setting.ap>` extracts two
