@@ -13,17 +13,20 @@ for tool in "${CROSS}as" "${CROSS}ld" "$QEMU" "$PY"; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
 "$PY" "$ROOT/tools/emu/extract_setting_trap_stub.py" "$AP" --output "$OUT/setting_stub.bin"
-"$PY" - "$USOUND" "$OUT/setting_stub.bin" "$OUT/usound_code.bin" <<'PY'
+"$PY" "$ROOT/tools/emu/extract_setting_trap_stub.py" "$AP" \
+    --address 0xBFC16588 --output "$OUT/import6_stub.bin"
+"$PY" - "$USOUND" "$OUT/setting_stub.bin" "$OUT/import6_stub.bin" "$OUT/usound_code.bin" <<'PY'
 from pathlib import Path
 import sys
 driver = Path(sys.argv[1]).read_bytes()
-stub = Path(sys.argv[2]).read_bytes()
+import15_stub = Path(sys.argv[2]).read_bytes()
+import6_stub = Path(sys.argv[3]).read_bytes()
 start, size, stub_offset = 0x200, 0x26b0, 0x26ac
 segment = driver[start:start + size]
-if len(segment) != size or segment[stub_offset:stub_offset + 4] != stub:
-    raise SystemExit("setting.ap stub differs from known-running usound MIPS16 stub")
-Path(sys.argv[3]).write_bytes(segment)
-print("SETTING/USOUND STUB IDENTITY PASS address=0x800526ac")
+if len(segment) != size or segment[stub_offset:stub_offset + 4] != import15_stub:
+    raise SystemExit("setting.ap import-15 stub differs from known-running usound MIPS16 stub")
+Path(sys.argv[4]).write_bytes(segment + import6_stub)
+print("SETTING/USOUND STUB IDENTITY PASS import15=0x800526ac import6=0x800526b0")
 PY
 (cd "$OUT"
  "${CROSS}as" -EL -mabi=32 -mips32 -o probe.o "$ROOT/tools/emu/qemu_setting_stub_probe.S"
@@ -46,7 +49,7 @@ except subprocess.TimeoutExpired as exc:
     if isinstance(output, bytes):
         output = output.decode(errors="replace")
 print(output, end="")
-if "SETTING STUB QEMU ABI PASS" not in output:
+if "SETTING IMPORT15/IMPORT6 QEMU ABI PASS" not in output:
     try:
         with open(trace, encoding="utf-8", errors="replace") as log:
             lines = log.readlines()

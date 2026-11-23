@@ -1,4 +1,4 @@
-/* Execute the extracted setting.ap module-0x0f stub and capture its trap ABI. */
+/* Execute setting.ap's import-15 and import-6 stubs under QEMU. */
 	.set mips32
 	.set noreorder
 	.set noat
@@ -45,17 +45,37 @@ _start:
 	li $t2,0x0f
 	bne $t1,$t2,fail
 	nop
+	lw $t1,0($t0)
+	bnez $t1,fail
+	nop
+	lw $t1,4($t0)
+	bnez $t1,fail
+	nop
+	lw $t1,8($t0)
+	bnez $t1,fail
+	nop
 	lw $t1,0xc($t0)
 	li $t2,0x1c
 	bne $t1,$t2,fail
 	nop
 	sw $zero,0x10($t0)
+	li $a0,1
 	li $a3,0x1e
-	.word 0x740149ab /* same verified MIPS16 stub entry */
+	.word 0x740149ac /* JALX to appended import-6 MIPS16 stub at 0x800526b0 */
 	nop
 	lw $t1,0x10($t0)
-	li $t2,0x0f
+	li $t2,0x06
 	bne $t1,$t2,fail
+	nop
+	lw $t1,0($t0)
+	li $t2,1
+	bne $t1,$t2,fail
+	nop
+	lw $t1,4($t0)
+	bnez $t1,fail
+	nop
+	lw $t1,8($t0)
+	bnez $t1,fail
 	nop
 	lw $t1,0xc($t0)
 	li $t2,0x1e
@@ -86,5 +106,5 @@ print_msg:
 	.incbin "usound_code.bin"
 
 	.section .rodata
-pass_msg: .asciz "SETTING STUB QEMU ABI PASS\n"
-fail_msg: .asciz "SETTING STUB QEMU ABI FAIL\n"
+pass_msg: .asciz "SETTING IMPORT15/IMPORT6 QEMU ABI PASS\n"
+fail_msg: .asciz "SETTING IMPORT15/IMPORT6 QEMU ABI FAIL\n"

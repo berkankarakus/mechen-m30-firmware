@@ -18,6 +18,8 @@ def main() -> None:
     parser.add_argument("--length", type=lambda value: int(value, 0), default=4)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.length <= 0:
+        parser.error("--length must be a positive byte count")
 
     image = args.setting_ap.read_bytes()
     segments = []
@@ -38,8 +40,16 @@ def main() -> None:
     file_offset, load_address, size, name = matches[0]
     image_offset = file_offset + args.address - load_address
     stub = image[image_offset:image_offset + args.length]
-    if args.address == 0xBFC16584 and args.length == 4 and stub != bytes.fromhex("0f 6b 05 e8"):
-        raise SystemExit(f"unexpected trap bytes at {image_offset:#x}: {stub.hex(' ')}")
+    expected_stubs = {
+        0xBFC16584: bytes.fromhex("0f 6b 05 e8"),  # import 15
+        0xBFC16588: bytes.fromhex("06 6b 05 e8"),  # import 6
+    }
+    expected = expected_stubs.get(args.address)
+    if expected is not None:
+        if args.length != len(expected):
+            parser.error(f"known stub at {args.address:#x} requires --length {len(expected)}")
+        if stub != expected:
+            raise SystemExit(f"unexpected trap bytes at {image_offset:#x}: {stub.hex(' ')}")
     if args.output:
         args.output.write_bytes(stub)
     print(f"AP_STUB_PASS segment={name} load={load_address:#x} file={image_offset:#x} "
