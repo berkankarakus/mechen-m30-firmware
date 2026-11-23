@@ -293,6 +293,48 @@ USOUND=/path/to/community/fw/usound.drv \
 bash tools/ghidra/run_setting_cleanup_service_probe.sh /path/to/community/fw/setting.ap
 ```
 
+### Cross-module correlation for import 6 / operation `0x1e`
+
+The same four-argument call shape `(a0=0 or 1, 0, 0, 0x1e)` appears in the
+community decompilation outputs for `setting.ap`, `config.ap`, `upgrade.ap`,
+`playlist.ap`, `browser.ap`, and `udisk.ap`. The associated function-pointer
+cells and resolved import-6 stub targets differ by AP overlay:
+
+| AP | Pointer cell | Stub entry (`v1=6`) |
+| --- | --- | --- |
+| `setting.ap` | `0x48b54674` | `0xbfc16588` |
+| `config.ap` | `0x48b54674` | `0xbfc16588` |
+| `upgrade.ap` | `0x48b54674` | `0xbfc3b03c` |
+| `playlist.ap` | `0x48b54674` | `0xbfc16bb4` |
+| `browser.ap` | `0x48b54674` | `0xbfc16a28` |
+| `udisk.ap` | `0x48614674` | `0xbfc16a5c` |
+
+For every listed AP, the four bytes at the resolved stub entry are
+`06 6b 05 e8` (`li v1,6; break 0`) in both stock and community firmware. This
+cross-check confirms the repeated call sites use the import-6 trap envelope,
+despite overlay-specific stub addresses. It does not identify operation
+`0x1e` or prove that `a0=0` and `a0=1` mean lock/unlock. The external
+`actions_flash` note's generic “semaphore/mutex” label for import 6 is
+compatible context only.
+
+**Working hypothesis (low-to-medium confidence):** import-6 operation `0x1e`
+controls a semaphore/mutex state, and `a0=0` versus `a0=1` selects the two
+opposite actions. The evidence is the external import-6 category plus the
+repeated M30 call shape; neither source identifies operation `0x1e` itself.
+An alternative is a generic boolean enable/disable or enter/exit operation.
+To confirm or reject this, locate the import-6 handler or an independent
+Actions SDK/binary that exposes operation `0x1e`, then compare its return and
+side-effect contract. Call-site pairing and ordering across M30 APs can rank
+the alternatives, but cannot prove the resident handler's semantics. Until
+that implementation is found, emulator behavior should keep this operation
+opaque rather than model it as a mutex.
+
+For reproduction, load each AP with `tools/ghidra/LoadAP.java` and decompile
+`0x48b5463c` (or `0x4861463c` in `udisk.ap`) with `tools/ghidra/DumpAt.java`.
+Read the corresponding pointer cell with `tools/ghidra/DumpWords.java`, then
+inspect the resolved stub address in that same AP. Do not compare absolute
+addresses across APs without resolving each AP's own resident segment table.
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
