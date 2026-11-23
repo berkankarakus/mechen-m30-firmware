@@ -36,6 +36,9 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
+        require(getScriptArgs().length == 1, "usage: probe OP5_RESULT(0|1)");
+        int op5Result = Integer.parseInt(getScriptArgs()[0]);
+        require(op5Result == 0 || op5Result == 1, "OP5_RESULT must be 0 or 1");
         Memory memory = currentProgram.getMemory();
         MemoryBlock ram = memory.createInitializedBlock("eq_callback_continuation_ram", addr(RAM),
             new ByteArrayInputStream(new byte[RAM_SIZE]), RAM_SIZE, monitor, false);
@@ -49,6 +52,7 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
         List<String> boundaries = new ArrayList<>();
         boolean reachedNext = false;
         String downstream = "none";
+        String afterSyntheticResult = "none";
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -72,7 +76,8 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                     reachedNext = true;
                 }
                 if (target == STOP) {
-                    downstream = "returned";
+                    if (downstream.equals("none")) downstream = "returned";
+                    else afterSyntheticResult = "returned";
                     break;
                 }
                 if (target == SHM_SERVICE) {
@@ -83,7 +88,7 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                         "resident=0xbfc11cc8 args=(%08x,%08x,%08x,%08x) ra=%08x",
                         a0, a1, a2, a3, ra));
                     if (reachedNext) {
-                        downstream = boundaries.get(boundaries.size() - 1);
+                        afterSyntheticResult = boundaries.get(boundaries.size() - 1);
                         break;
                     }
                     require(a0 == 3 && a3 == 0x49,
@@ -94,10 +99,19 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
                     continue;
                 }
                 if (target >= 0xbfc00000L && target < 0xbfd00000L) {
-                    downstream = String.format("resident=0x%08x args=(%08x,%08x,%08x,%08x)",
+                    String call = String.format("resident=0x%08x args=(%08x,%08x,%08x,%08x)",
                         target, reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"), reg(emu, "a3"));
-                    boundaries.add(downstream);
+                    boundaries.add(call);
                     require(reachedNext, "unexpected resident boundary before initializer continuation");
+                    if (downstream.equals("none")) {
+                        downstream = call;
+                        require(target == 0xbfc11cbcL, "unexpected first downstream service");
+                        long ra = reg(emu, "ra");
+                        emu.writeRegister("v0", op5Result);
+                        emu.writeRegister("pc", ra & ~1L);
+                        continue;
+                    }
+                    afterSyntheticResult = call;
                     break;
                 }
                 if (!emu.step(monitor))
@@ -110,9 +124,13 @@ public class RunEqMengineCallbackContinuationProbe extends GhidraScript {
             require(shmCalls == 1, "expected one intercepted synthetic shared-memory call");
             require(downstream.equals("resident=0xbfc11cbc args=(00000006,00000002,00000000,00000005)"),
                 "unexpected first downstream resident boundary: " + downstream);
+            require(afterSyntheticResult.startsWith("resident=0xbfc11cc8 args=(00000000,00000000,00000000,00000033)"),
+                "unexpected service after synthetic op-5 result: " + afterSyntheticResult);
             println(String.format(
                 "EQ MENGINE CALLBACK CONTINUATION PASS steps=%d callback=0x%08x next=0x%08x shm_calls=%d shm_return=0x%08x downstream=%s invocation=scheduler-hypothesis resident_effects=synthetic",
                 steps, CALLBACK, INIT_NEXT, shmCalls, SHM_RETURN, downstream));
+            println(String.format("EQ MENGINE CALLBACK AFTER SYNTHETIC RESULT op5-return=%d %s",
+                op5Result, afterSyntheticResult));
             for (String boundary : boundaries) println("EQ MENGINE CALLBACK BOUNDARY " + boundary);
         } finally {
             emu.dispose();
