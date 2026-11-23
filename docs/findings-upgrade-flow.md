@@ -184,15 +184,19 @@ sentinel, and callback argument. A separate hash-pinned
 `run_setting_callback_caller_probe.sh` now executes the real
 `FUN_40054f78` initializer in both binaries. Its literal table at
 `0x4005507c..80` contains callback pointer `0x40054d79` and writer pointer
-`0x48494601`. After synthetic returns from the first two outside services
-(`1` then `0`), real AP instructions reach `FUN_48494600` in 19 steps with
-`a0=0x40054d79`. Ghidra independently locates the indirect call at
-`0x40054f9c`; `FUN_40055200` calls this initializer at `0x40055214`.
-This closes the real caller-to-writer argument edge under the two injected
-service returns. The descriptor pointer at `0x9fc15600` remains zero in
-this no-effect service model. Its runtime initializer and byte `+2` are still
-unknown, so the conditional callback-slot write and physical callback
-invocation are not established by the combined evidence.
+`0x48494601`. The first call enters real `FUN_48414600(4,1)`. With resident
+service calls intercepted and given zero returns, that function builds a
+record at `0x9fc1a1b0`, writes its pointer to `0x9fc15600`, and sets
+descriptor bytes `+1=4`, `+2=1`, and `+3=1`. The second outside call receives
+a synthetic zero return. The same Ghidra session then enters real
+`FUN_48494600` with `a0=0x40054d79`; its `+2=1` branch writes that callback
+pointer to `0x9fc15608` and returns to the caller in 212 steps total.
+This exact AP instruction path passes on stock and community images.
+Ghidra independently locates the indirect call at `0x40054f9c`, and
+`FUN_40055200` calls the initializer at `0x40055214`. Sixteen resident calls
+receive synthetic zero returns; their real side effects and whether the
+physical boot follows this path remain unknown. Callback invocation by the
+event dispatcher is still unproven.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 

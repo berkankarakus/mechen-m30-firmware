@@ -13,6 +13,7 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
     private static final long WRITER = 0x48494600L;
     private static final long SERVICE_A = 0x48414600L;
     private static final long SERVICE_B = 0x4845476cL;
+    private static final long DESCRIPTOR = 0x9fc1a1b0L;
     private static final long RAM = 0x9fc14000L;
     private static final long STACK = 0x9fc1bf00L;
     private static final long STOP = 0x700300L;
@@ -31,6 +32,10 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
             | ((b[2] & 255L) << 16) | ((b[3] & 255L) << 24);
     }
 
+    private int byteAt(EmulatorHelper emu, long at) throws Exception {
+        return emu.readMemory(addr(at), 1)[0] & 255;
+    }
+
     private void require(boolean condition, String message) throws Exception {
         if (!condition) throw new Exception(message);
     }
@@ -44,7 +49,9 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
         ram.setWrite(true);
         ram.setExecute(true);
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
-        int first = 0, second = 0, steps = 0;
+        int first = 0, second = 0, residentCalls = 0, steps = 0;
+        boolean reachedWriter = false;
+        long writerReturn = 0;
         try {
             emu.registerCallOtherCallback("setISAMode", new BreakCallBack() {
                 @Override public boolean pcodeCallback(PcodeOpRaw op) { return true; }
@@ -55,27 +62,47 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
             emu.writeRegister("pc", ENTRY);
             for (; steps < 5000; steps++) {
                 long pc = reg(emu, "pc") & ~1L;
-                if (pc == WRITER) {
+                if (pc == WRITER && !reachedWriter) {
                     require(first == 1 && second == 1, "writer reached without expected services");
                     require(reg(emu, "a0") == 0x40054d79L,
                         String.format("wrong callback argument: 0x%08x", reg(emu, "a0")));
+                    require(word(emu, 0x9fc15600L) == DESCRIPTOR,
+                        "real initializer did not populate descriptor pointer");
+                    require(byteAt(emu, DESCRIPTOR + 1) == 4
+                            && byteAt(emu, DESCRIPTOR + 2) == 1
+                            && byteAt(emu, DESCRIPTOR + 3) == 1,
+                        "real initializer produced unexpected descriptor gate fields");
+                    reachedWriter = true;
+                    writerReturn = reg(emu, "ra") & ~1L;
+                }
+                if (reachedWriter && pc == writerReturn) {
+                    require(second == 1 && residentCalls == 16,
+                        "unexpected external call sequence before writer return");
+                    require(word(emu, 0x9fc15608L) == 0x40054d79L,
+                        "real writer did not store the real callback argument");
                     println(String.format(
-                        "SETTING CALLBACK CALLER PASS steps=%d caller=0x%08x writer=0x%08x callback=0x%08x descriptor-slot=0x%08x first-service=synthetic-1 second-service=synthetic-0",
-                        steps, ENTRY, WRITER, reg(emu, "a0"), word(emu, 0x9fc15600L)));
+                        "SETTING CALLBACK CALLER PASS steps=%d caller=0x%08x writer=0x%08x callback=0x%08x descriptor-slot=0x%08x descriptor-gate=%d callback-slot=0x%08x resident-calls=%d external-effects=synthetic-zero",
+                        steps, ENTRY, WRITER, 0x40054d79L, word(emu, 0x9fc15600L),
+                        byteAt(emu, DESCRIPTOR + 2), word(emu, 0x9fc15608L), residentCalls));
                     return;
                 }
-                if (pc == SERVICE_A || pc == SERVICE_B) {
+                if (pc == SERVICE_A) {
+                    require(first++ == 0 && reg(emu, "a0") == 4 && reg(emu, "a1") == 1,
+                        "unexpected initializer arguments");
+                }
+                if (pc == 0xbfc16578L || pc == 0xbfc16580L || pc == 0xbfc16584L) {
+                    residentCalls++;
+                    long ra = reg(emu, "ra");
+                    emu.writeRegister("v0", 0);
+                    emu.writeRegister("pc", ra & ~1L);
+                    continue;
+                }
+                if (pc == SERVICE_B) {
                     long a0 = reg(emu, "a0"), a1 = reg(emu, "a1");
                     long ra = reg(emu, "ra");
-                    if (pc == SERVICE_A) {
-                        require(first++ == 0 && a0 == 4 && a1 == 1,
-                            "unexpected first service arguments");
-                        emu.writeRegister("v0", 1);
-                    } else {
-                        require(second++ == 0 && a0 == 0x9fc15518L && a1 == 5,
-                            "unexpected second service arguments");
-                        emu.writeRegister("v0", 0);
-                    }
+                    require(second++ == 0 && a0 == 0x9fc15518L && a1 == 5,
+                        "unexpected second service arguments");
+                    emu.writeRegister("v0", 0);
                     emu.writeRegister("pc", ra & ~1L);
                     continue;
                 }
