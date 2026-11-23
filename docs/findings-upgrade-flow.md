@@ -162,8 +162,9 @@ left zero, it reaches a second selector-`0x0f` service boundary at
 `(a0=0,a1=0x10002f98,a2=0,a3=0x19)`. The eight-byte buffer is still zero. The
 wrapper's fixed code reads state at `0x9fc15600` and has a callback pointer at
 `0xbfc1656c` (`0x48694899`), but the service's return/data contract and the
-runtime writer for callback state at `0x9fc15608` are unresolved. This is a
-controlled nonzero-return branch probe, not an observed event or device trace.
+runtime writer for callback state at `0x9fc15608` are absent from this isolated
+probe; the combined probe below covers that writer. This is a controlled
+nonzero-return branch probe, not an observed event or device trace.
 
 ### `0x9fc15608` callback-slot writer
 
@@ -192,11 +193,22 @@ a synthetic zero return. The same Ghidra session then enters real
 `FUN_48494600` with `a0=0x40054d79`; its `+2=1` branch writes that callback
 pointer to `0x9fc15608` and returns to the caller in 212 steps total.
 This exact AP instruction path passes on stock and community images.
+The same emulator memory then runs real `FUN_48914600`. A synthetic primary
+service return of `1` takes its alternate event branch. The observed resident
+service request sequence is `(6,buffer,0,0x19)`, `(5,buffer,0,0x19)`,
+`(1,buffer,0,0x18)`, and `(1,buffer,0,0x19)`, with one auxiliary trap at
+`0xbfc16580` between the latter calls. Supplying synthetic zero returns and
+placing event word `0x0102` in the last service buffer causes the real AP to
+invoke the pointer stored at `0x9fc15608`: entry `0x40054d78`, with callback
+argument `0x9fc1bee0` containing `0x0102`. This takes another 219 p-code
+steps in each hash-pinned image. The runner requires both the writer and event
+bridge pass markers, since Ghidra can exit successfully after a script error.
 Ghidra independently locates the indirect call at `0x40054f9c`, and
 `FUN_40055200` calls the initializer at `0x40055214`. Sixteen resident calls
 receive synthetic zero returns; their real side effects and whether the
-physical boot follows this path remain unknown. Callback invocation by the
-event dispatcher is still unproven.
+physical boot follows this path remain unknown. The event payload and service
+returns are host injections; the physical upgrade screen, event source, and
+callback effect remain unproven.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 

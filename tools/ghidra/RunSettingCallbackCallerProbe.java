@@ -40,6 +40,75 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
         if (!condition) throw new Exception(message);
     }
 
+    private int runEventToCallback(EmulatorHelper emu) throws Exception {
+        require(word(emu, 0x9fc15608L) == 0x40054d79L,
+            "event path did not inherit the real callback slot");
+        emu.writeRegister("sp", STACK);
+        emu.writeRegister("ra", STOP | 1L);
+        emu.writeRegister("a0", RAM + 0x300);
+        emu.writeRegister("a1", RAM + 0x304);
+        emu.writeRegister("pc", 0x48914600L);
+        int eventCalls = 0, auxiliaryCalls = 0;
+        for (int steps = 0; steps < 5000; steps++) {
+            long pc = reg(emu, "pc") & ~1L;
+            if (pc == 0x40054d78L) {
+                require(eventCalls == 4, "callback reached without four event service calls");
+                require(auxiliaryCalls == 1, "callback reached with unexpected auxiliary calls");
+                require(reg(emu, "a0") == 0x9fc1bee0L,
+                    "callback received unexpected event buffer pointer");
+                require(word(emu, reg(emu, "a0")) == 0x102L,
+                    "callback event buffer lost synthetic event word");
+                println(String.format("SETTING EVENT CALLBACK BUFFER pointer=0x%08x word0=0x%08x word1=0x%08x",
+                    reg(emu, "a0"), word(emu, reg(emu, "a0")), word(emu, reg(emu, "a0") + 4)));
+                return steps;
+            }
+            if (pc == 0xbfc16578L || pc == 0xbfc16580L) {
+                require(pc == 0xbfc16580L && reg(emu, "a0") == 0x9fc1be38L
+                    && reg(emu, "a1") == 0x9fc1be88L && reg(emu, "a2") == 8
+                    && reg(emu, "a3") == 0,
+                    "unexpected auxiliary event call");
+                println(String.format("SETTING EVENT AUX BOUNDARY pc=0x%08x a0=0x%08x a1=0x%08x a2=0x%08x a3=0x%08x",
+                    pc, reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"), reg(emu, "a3")));
+                auxiliaryCalls++;
+                long ra = reg(emu, "ra");
+                emu.writeRegister("v0", 0);
+                emu.writeRegister("pc", ra & ~1L);
+                continue;
+            }
+            if (pc == 0xbfc16584L) {
+                long a0 = reg(emu, "a0"), a1 = reg(emu, "a1");
+                long a3 = reg(emu, "a3"), ra = reg(emu, "ra");
+                if (eventCalls == 0) {
+                    require(a0 == 6 && a3 == 0x19, "unexpected primary event request");
+                    emu.writeRegister("v0", 1);
+                } else if (eventCalls == 1) {
+                    require(a0 == 5 && a3 == 0x19,
+                        String.format("unexpected gate request a0=0x%08x a1=0x%08x a3=0x%08x", a0, a1, a3));
+                    emu.writeRegister("v0", 0);
+                } else if (eventCalls == 2) {
+                    require(a0 == 1 && a3 == 0x18,
+                        String.format("unexpected secondary event request a0=0x%08x a1=0x%08x a3=0x%08x", a0, a1, a3));
+                    emu.writeRegister("v0", 0);
+                } else if (eventCalls == 3) {
+                    require(a0 == 1 && a3 == 0x19,
+                        String.format("unexpected tertiary event request a0=0x%08x a1=0x%08x a3=0x%08x", a0, a1, a3));
+                    emu.writeMemory(addr(a1), new byte[] {2, 1, 0, 0, 0, 0, 0, 0});
+                    emu.writeRegister("v0", 0);
+                } else throw new Exception(String.format(
+                    "unexpected event service request %d a0=0x%08x a1=0x%08x a3=0x%08x",
+                    eventCalls, a0, a1, a3));
+                eventCalls++;
+                emu.writeRegister("pc", ra & ~1L);
+                continue;
+            }
+            require(pc != STOP, "event helper returned before callback");
+            if (!emu.step(monitor))
+                throw new Exception(String.format("event path stopped at 0x%08x: %s",
+                    pc, emu.getLastError()));
+        }
+        throw new Exception("event path did not reach callback before step limit");
+    }
+
     @Override
     public void run() throws Exception {
         Memory memory = currentProgram.getMemory();
@@ -84,6 +153,10 @@ public class RunSettingCallbackCallerProbe extends GhidraScript {
                         "SETTING CALLBACK CALLER PASS steps=%d caller=0x%08x writer=0x%08x callback=0x%08x descriptor-slot=0x%08x descriptor-gate=%d callback-slot=0x%08x resident-calls=%d external-effects=synthetic-zero",
                         steps, ENTRY, WRITER, 0x40054d79L, word(emu, 0x9fc15600L),
                         byteAt(emu, DESCRIPTOR + 2), word(emu, 0x9fc15608L), residentCalls));
+                    int eventSteps = runEventToCallback(emu);
+                    println(String.format(
+                        "SETTING CALLBACK EVENT BRIDGE PASS callback=0x%08x event-steps=%d event-word=0x0102 event-services=synthetic-1,0,0,0",
+                        reg(emu, "pc") & ~1L, eventSteps));
                     return;
                 }
                 if (pc == SERVICE_A) {

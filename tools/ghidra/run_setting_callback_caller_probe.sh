@@ -25,9 +25,12 @@ GHIDRA_JAVA_OPTIONS="-Duser.home=$WORK/home" \
       cat "$WORK/run.log" >&2
       exit 1
     }
-if ! grep -Fq 'SETTING CALLBACK CALLER PASS ' "$WORK/run.log"; then
+if ! grep -Fq 'SETTING CALLBACK CALLER PASS ' "$WORK/run.log" ||
+   ! grep -Fq 'SETTING CALLBACK EVENT BRIDGE PASS ' "$WORK/run.log"; then
   cat "$WORK/run.log" >&2
   exit 1
 fi
 grep -F 'SETTING CALLBACK CALLER PASS ' "$WORK/run.log"
+grep -F 'SETTING EVENT CALLBACK BUFFER ' "$WORK/run.log"
+grep -F 'SETTING CALLBACK EVENT BRIDGE PASS ' "$WORK/run.log"
 echo "SETTING CALLBACK CALLER CORPUS PASS sha256=$sha"
