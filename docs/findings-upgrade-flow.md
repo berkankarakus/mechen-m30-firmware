@@ -233,6 +233,21 @@ the global reads/writes, but not the meanings of their state or the behavior
 of the indirect cleanup callbacks. Ghidra's linear decode at the indirect
 pointer cells is not executable code and is not used to name those callbacks.
 
+The literal cells resolve to MIPS16 pointers `0x48b5463d` and `0x484547ad`.
+The first callback `FUN_48b5463c` writes its argument to global byte
+`0x9fc1577d`; for zero it calls resident selector `0x1e` with `(0,0,0,0x1e)`,
+otherwise with `(1,0,0,0x1e)`. The second callback `FUN_484547ac` writes its two
+arguments to `0x9fc1577d` and `0x9fc1577c`. When its first argument is `1`, it
+initializes a six-word table at `0x9fc15770`, calls `FUN_484546f4` on the byte
+at `0x9fc1576c`, then calls the callback stored in `0x48454838`; otherwise it
+calls the callback at `0x4845483c` with that same byte. Those cells point to
+`FUN_484546f4` and `FUN_484546c4`: the former validates an index, clears the
+record's first byte, invokes resident selector `0x1c`, and stores a returned
+value plus the record's 16-bit field at offset 2; the latter validates the
+index and sets that record's first byte to `1`. This establishes concrete
+record allocation/state transitions, but not the resident operation names or
+what the record represents to the UI.
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
