@@ -223,6 +223,16 @@ the screen cleanup then runs through indirect calls before `FUN_489146e8`
 returns. This caller decompilation matches byte-for-byte in control flow for
 stock V1.101.10 and community v1.292.00.
 
+The visible cleanup tail in that caller sets a UI state byte through
+`FUN_489149f8`: it writes `1` when the saved selection state is `1` or `2`, and
+`0` otherwise. It then restores two saved values through indirect calls
+`*_UNK_48914998` and `*_UNK_489149a4`. The adjacent helper `FUN_489149c8`
+stores the selected text ID through a global pointer, while `FUN_489149e0`
+reads a global byte used in this path. These direct helper bodies establish
+the global reads/writes, but not the meanings of their state or the behavior
+of the indirect cleanup callbacks. Ghidra's linear decode at the indirect
+pointer cells is not executable code and is not used to name those callbacks.
+
 ## Proven updater boundary, not yet modeled as firmware behavior
 
 - `FUN_40014c30` performs the entry-side operation sequence with selectors
