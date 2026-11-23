@@ -458,6 +458,29 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   `bash tools/ghidra/run_usound_ap_probe.sh <community-v1.292-usound.ap> <community-v1.292-manager.ap>`;
   the binary probes pin both AP hashes and mappings, then Ghidra checks the
   callback, endpoint lookup/sender, and manager message handler.
+- A hash-pinned dynamic follow-up now executes `FUN_40054de0` and
+  `FUN_48494758` in Ghidra p-code, then runs the real manager
+  `FUN_7f196200` against the captured 24-byte sender buffer. Five callback
+  input/state combinations produce message ID `0x0201` and payloads
+  `0x1100`, `0x1000`, `0x0e03`, `0x0f09`, and `0x4f0a`, matching the callback's
+  distinct control/status branches; the same runs return `0x800f` for the
+  first four cases and `0x861c` for the state-bit case, matching the function's
+  two return branches. The real endpoint-lookup code selects the probe's
+  synthetic active app-ID-8 record, and the real sender reaches the two
+  resident-call boundaries with the expected argument shapes. The first
+  resident call is modeled as an explicit synthetic eight-byte copy; the
+  send/delivery call returns synthetically. At that send boundary, bytes 0..7 match the copied
+  callback message, while bytes 8..23 are zero from the harness's initialized
+  RAM; this is not evidence for the firmware's actual 24-byte message body.
+  That synthetic 24-byte buffer is then injected into the separate manager
+  p-code run. With manager state byte `0x9fc1a1b1`
+  seeded to match message byte `+4`, the real `0x201` handler takes its
+  equal-state path and issues module-`0x0c` operations 7 then 2; these
+  resident returns are also synthetic. This raises confidence that the
+  callback is a lifecycle/control-status path rather than the PCM handoff,
+  but does **not** verify the ROM copy/send ABI, actual AP-to-AP delivery,
+  event path, USB hardware behavior, or audio output. Reproduce with
+  `bash tools/ghidra/run_usound_manager_message_probe.sh <hash-matching-usound.ap> <hash-matching-manager.ap>`.
 - A separate, stronger driver-side fact is now verified in `usound.drv`:
   MIPS16 function `FUN_bfc31654` copies from a 0x1000-byte circular
   region, splits a wrap into two callback copies, advances a read pointer, and
