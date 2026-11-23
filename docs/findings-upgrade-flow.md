@@ -179,12 +179,20 @@ same selector with `(6,0,0,0x1a)`, stores the supplied MIPS16 callback pointer
 `0x40054d79` into `0x9fc15608`, then makes the `(9,0,0,0x1a)` call. Both cases
 return through the seeded sentinel in 17 and 25 steps respectively.
 
-The descriptor, service results, callback-slot sentinel, and callback argument
-are synthetic. This proves the writer's gate, store, and service-call order in
-both binaries; it does not prove which runtime dispatch reaches the writer,
-whether the real descriptor's `+2` byte is one, or that this callback executes
-on the physical device. The indirect caller and descriptor initializer remain
-the high-value gaps.
+The writer-only probe seeds its descriptor, service results, callback-slot
+sentinel, and callback argument. A separate hash-pinned
+`run_setting_callback_caller_probe.sh` now executes the real
+`FUN_40054f78` initializer in both binaries. Its literal table at
+`0x4005507c..80` contains callback pointer `0x40054d79` and writer pointer
+`0x48494601`. After synthetic returns from the first two outside services
+(`1` then `0`), real AP instructions reach `FUN_48494600` in 19 steps with
+`a0=0x40054d79`. Ghidra independently locates the indirect call at
+`0x40054f9c`; `FUN_40055200` calls this initializer at `0x40055214`.
+This closes the real caller-to-writer argument edge under the two injected
+service returns. The descriptor pointer at `0x9fc15600` remains zero in
+this no-effect service model. Its runtime initializer and byte `+2` are still
+unknown, so the conditional callback-slot write and physical callback
+invocation are not established by the combined evidence.
 
 ## Proven updater boundary, not yet modeled as firmware behavior
 
