@@ -49,6 +49,18 @@ _start:
 	li $t2,0x1c
 	bne $t1,$t2,fail
 	nop
+	sw $zero,0x10($t0)
+	li $a3,0x1e
+	.word 0x740149ab /* same verified MIPS16 stub entry */
+	nop
+	lw $t1,0x10($t0)
+	li $t2,0x0f
+	bne $t1,$t2,fail
+	nop
+	lw $t1,0xc($t0)
+	li $t2,0x1e
+	bne $t1,$t2,fail
+	nop
 	la $a0,pass_msg
 	b print_msg
 	nop
