@@ -263,9 +263,12 @@ evidence for a generic save/clear/restore state flag, but does not reveal what
 the flag controls. Probe mode `9` continues beyond the confirmation request:
 it seeds the backing byte to `1`, runs the real getter/setter callbacks, and
 uses synthetic resident returns plus event word `0x0102` to exit the event
-loop. It verifies the byte is `0` at the confirmation request, then observes
-the real cleanup setter call with `1`, import-6 arguments `(1,0,0,0x1e)`, and
-the final backing byte restored to `1`. The initial import-6 call receives
+loop. It checks that the real getter returns the seeded `1`, verifies the byte
+is `0` at the confirmation request, then observes the real cleanup setter
+call with `1`, import-6 arguments `(1,0,0,0x1e)`, and the final backing byte
+restored to `1`. The event service receives the expected buffers
+`0x10002f68` and `0x10002f98`, both zeroed before their synthetic responses.
+The initial import-6 call receives
 `(0,0,0,0x1e)`. This passes in stock V1.101.10 and community v1.292.00 at
 426 steps in both.
 

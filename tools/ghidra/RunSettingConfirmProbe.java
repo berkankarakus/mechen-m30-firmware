@@ -120,6 +120,10 @@ public class RunSettingConfirmProbe extends GhidraScript {
             boolean enteredEventDispatch = false;
             boolean forcedPrimaryEventMiss = false;
             boolean sawConfirmRequest = false;
+            boolean pendingGetterReturn = false;
+            boolean sawGetterReturn = false;
+            long getterReturnAddress = 0;
+            int getterCalls = 0;
             int import6Calls = 0;
             int confirmEventServiceCalls = 0;
             for (int steps = 0; steps < 100000; steps++) {
@@ -130,14 +134,25 @@ public class RunSettingConfirmProbe extends GhidraScript {
                     pc &= ~1L;
                     emu.writeRegister("pc", pc);
                 }
+                if (input == 9 && pendingGetterReturn && pc == getterReturnAddress) {
+                    long getterValue = emu.readRegister("v0").longValue() & 0xffL;
+                    if (getterValue != 1) {
+                        throw new Exception("real state getter returned " + hex(getterValue)
+                            + ", expected seeded value 1");
+                    }
+                    pendingGetterReturn = false;
+                    sawGetterReturn = true;
+                    println("SETTING CONFIRM GETTER RETURN value=" + hex(getterValue));
+                }
                 if (pc == STOP) {
                     if (input == 9) {
-                        if (!sawConfirmRequest || import6Calls != 2
+                        if (!sawGetterReturn || getterCalls != 1 || !sawConfirmRequest || import6Calls != 2
                             || confirmEventServiceCalls != 2
                             || byteAt(emu, SYSRAM + 0x1561b) != 1) {
                             throw new Exception("cleanup state restore mismatch: request="
                                 + sawConfirmRequest + " import6Calls=" + import6Calls
                                 + " eventCalls=" + confirmEventServiceCalls
+                                + " getterCalls=" + getterCalls + " getterReturn=" + sawGetterReturn
                                 + " flag=" + byteAt(emu, SYSRAM + 0x1561b));
                         }
                         println("SETTING CONFIRM RESTORE PASS steps=" + steps
@@ -192,7 +207,12 @@ public class RunSettingConfirmProbe extends GhidraScript {
                 for (long target : API_TARGETS) {
                     if (pc != (target & ~1L)) continue;
                     if (input == 9 && target == 0x48b54679L) {
-                        sawTextId = true;
+                        if (pendingGetterReturn || getterCalls != 0) {
+                            throw new Exception("unexpected repeated/nested saved-state getter");
+                        }
+                        getterCalls++;
+                        getterReturnAddress = emu.readRegister("ra").longValue() & ~1L;
+                        pendingGetterReturn = true;
                         continue;
                     }
                     if (input == 9 && target == 0x48b5463dL) {
@@ -210,7 +230,9 @@ public class RunSettingConfirmProbe extends GhidraScript {
                         sawTextId = true;
                     }
                     if (target == 0x48a14601L) {
-                        if (!sawTextId) throw new Exception("confirmation request preceded text ID");
+                        if (input == 9 ? !sawGetterReturn : !sawTextId) {
+                            throw new Exception("confirmation request preceded expected text/getter call");
+                        }
                         if (byteAt(emu, a0) != 0x0a || byteAt(emu, a0 + 1) != 0x10
                             || byteAt(emu, a0 + 2) != 1 || wordAt(emu, a1) != 0x010100faL
                             || wordAt(emu, a1 + 4) != 0x48554680L) {
@@ -245,15 +267,20 @@ public class RunSettingConfirmProbe extends GhidraScript {
                         } else if (confirmEventServiceCalls == 1) {
                             expectedA0 = 0;
                             syntheticReturn = 0;
-                            emu.writeMemory(addr(a1), new byte[] {2, 1, 0, 0, 0, 0, 0, 0});
                         } else {
                             throw new Exception("unexpected additional confirmation event service call");
                         }
                         long expectedA3 = 0x19;
-                        if (a0 != expectedA0 || a3 != expectedA3 || a2 != 0) {
+                        long expectedA1 = confirmEventServiceCalls == 0 ? RAM + 0x2f68 : RAM + 0x2f98;
+                        if (a0 != expectedA0 || a1 != expectedA1 || a3 != expectedA3 || a2 != 0
+                            || !isZeroBuffer(emu, a1, 8)) {
                             throw new Exception("unexpected confirmation event service args call="
                                 + confirmEventServiceCalls + " got=" + hex(a0) + "," + hex(a1)
-                                + "," + hex(a2) + "," + hex(a3));
+                                + "," + hex(a2) + "," + hex(a3) + " buffer="
+                                + dumpStack(emu, a1, 8));
+                        }
+                        if (confirmEventServiceCalls == 1) {
+                            emu.writeMemory(addr(a1), new byte[] {2, 1, 0, 0, 0, 0, 0, 0});
                         }
                         println("SETTING CONFIRM EVENT SERVICE call=" + confirmEventServiceCalls
                             + " args=" + hex(a0) + "," + hex(a1) + "," + hex(a2) + "," + hex(a3)
