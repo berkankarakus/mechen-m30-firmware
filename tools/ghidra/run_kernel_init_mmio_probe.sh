@@ -50,3 +50,4 @@ grep -Fq "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log" || {
 }
 grep -F "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log"
 grep -F 'KERNEL INIT MMIO STATE' "$WORK/run.log"
+grep -F 'KERNEL INIT MMIO TRACE SHA256=' "$WORK/run.log"

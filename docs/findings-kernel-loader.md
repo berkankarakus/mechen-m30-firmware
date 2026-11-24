@@ -212,7 +212,8 @@ opaque. The callback word at `0x9fc1aad8`, its source bytes, and the actual
 boot-stage mapping are not established by the extracted `ker_init.bin`. Do
 not substitute host `memset`/`memcpy` based only on the call shape.
 `FUN_bfc32440` now has a bounded p-code probe at its extracted entry. It runs
-the real 250-instruction path to return, uses `0xa5a5a5a5` seeded RAM-backed
+the extracted instructions to return in 250 emulated steps, including seven
+synthetic MIPS16 return-stub instructions. It uses `0xa5a5a5a5` seeded RAM-backed
 MMIO words, and intercepts seven fixed-ROM calls with synthetic zero-return
 MIPS16 stubs. The probe checks all 15 final MMIO words and the RAM fields
 written by the function. This verifies the caller's instruction-level
@@ -221,19 +222,26 @@ not reveal the hardware register meanings, real reset values, or fixed-ROM
 side effects. Repeating the run with all seven synthetic returns set to
 `0xdeadbeef` also passed the checks: both profiles took 250 steps, reached the
 function return, logged the same seven checked call edges and arguments, and
-produced the same checked MMIO values. This supports that changing the
+produced the same checked MMIO values. Its PC-trace digest also matched the
+all-zero baseline. This supports that changing the
 synthetic scalar returns preserved these checked outcomes in these runs; it
-does not compare every intermediate PC or exclude a different path with the
-same checked observations. Possible service side effects are outside the
-model. Consequently, the complete entry-to-constructor path remains
-unverified.
+does not by itself identify the fixed-ROM services' behavior. Possible
+service side effects are outside the model. Consequently, the complete
+entry-to-constructor path remains unverified.
 
 The differential was then isolated by call ordinal. In seven more runs,
 exactly one of the seven ROM-call returns was set to `0xdeadbeef` while the
 other six returned zero. Every run passed the 250-step, call-edge/argument,
 function-return, RAM, and MMIO assertions. Thus none of the seven individual
-scalar substitutions changed those checked outcomes. This does not test
-interactions between multiple nonzero returns or any real ROM-service effects.
+scalar substitutions changed those checked outcomes. Additionally, the
+SHA-256 of the ordered instruction-boundary sequence (32-bit PC plus
+`ISA_MODE` and `RELP` bytes) matched the all-zero baseline for the all-sentinel
+run and every one-call-at-a-time profile:
+`079eb760cddc1e581c7c4aba54dbff55495e387cc0471577e41cf0e6ffed8eae`.
+This shows that the synthetic caller-side PC sequence and mode tags stayed
+identical for each individual scalar substitution. It does not execute the
+real ROM bodies. Interactions between multiple nonzero returns and real
+ROM-service effects are not tested.
 
 ### What the three entry-path helpers do, and what remains unknown
 
@@ -289,9 +297,11 @@ The extracted instructions support these bounded descriptions:
   steps, reached the function return, matched the seven checked ROM-call
   edges/arguments, and produced the same 15 final register values. This
   supports that changing the synthetic scalar returns preserved these
-  checked outcomes in these runs; intermediate PCs were not differentially
-  compared. This validates the extracted caller path and probe, not actual
-  register reset values, peripheral meanings, or ROM-service behavior.
+  checked outcomes in these runs. The ordered PC+ISA_MODE+RELP trace SHA-256
+  matched between the all-zero baseline, all-sentinel profile, and all seven
+  one-call-at-a-time profiles.
+  This validates the extracted caller path and probe, not actual register
+  reset values, peripheral meanings, or ROM-service behavior.
   The seven one-call-at-a-time `0xdeadbeef` profiles also passed all assertions;
   this isolates individual return substitutions but not interactions among
   multiple changed returns.

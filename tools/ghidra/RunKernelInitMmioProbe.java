@@ -11,6 +11,7 @@ import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.lang.RegisterValue;
 import java.math.BigInteger;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,6 +71,13 @@ public class RunKernelInitMmioProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, at, 4, true, bytes);
     }
 
+    private String digestHex(MessageDigest digest) {
+        StringBuilder result = new StringBuilder();
+        for (byte value : digest.digest())
+            result.append(String.format("%02x", value & 0xff));
+        return result.toString();
+    }
+
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
@@ -127,6 +135,7 @@ public class RunKernelInitMmioProbe extends GhidraScript {
         thread.overrideCounter(space.getAddress(ENTRY));
 
         List<String> calls = new ArrayList<>();
+        MessageDigest traceDigest = MessageDigest.getInstance("SHA-256");
         boolean returned = false;
         int steps = 0;
         for (; steps < MAX_STEPS; steps++) {
@@ -135,6 +144,14 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                 returned = true;
                 break;
             }
+            for (int shift = 24; shift >= 0; shift -= 8)
+                traceDigest.update((byte)(address >>> shift));
+            long isaMode = thread.getContext().getRegisterValue(isa)
+                .getUnsignedValueIgnoreMask().longValue() & 0xffL;
+            long relpMode = thread.getContext().getRegisterValue(relp)
+                .getUnsignedValueIgnoreMask().longValue() & 0xffL;
+            traceDigest.update((byte)isaMode);
+            traceDigest.update((byte)relpMode);
             if (address == ROM_SLEEP || address == ROM_SERVICE_A
                     || address == ROM_SERVICE_B) {
                 require((thread.getContext().getRegisterValue(isa)
@@ -220,5 +237,6 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             "KERNEL INIT MMIO P-CODE PASS entry=%08x steps=%d fixed-rom-calls=%d "
             + "calls-are-synthetic=1 return-mode=%s initial-register-pattern=%08x",
             ENTRY, steps, calls.size(), returnMode, MMIO_SEED));
+        println("KERNEL INIT MMIO TRACE SHA256=" + digestHex(traceDigest));
     }
 }
