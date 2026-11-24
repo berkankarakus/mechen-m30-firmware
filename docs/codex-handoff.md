@@ -6,10 +6,33 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
 ## Güncel durum — 2026-11-24
 
-- Dal: `main`. Yerel commit sayısı ve çalışma ağacı değişiklikleri dönüşümlü
-  olarak güncelleniyor; geçiş öncesi `git status --short --branch` ve
-  `git log --oneline origin/main..HEAD` ile kontrol et.
+- Dal: `codex/fix-model-coverage`; linked worktree'nin Git deposu
+  `/Users/berkankarakus/Projects/mechen-m30-firmware/.git` ile ortak. Bu turdaki
+  p-code commit'leri `1c19b59` (scroll import-15 op-`0x31` çağrı ABI'si) ve
+  `b96f78a` (kernel ROM copy yönü kontrolü). Bu handoff güncellemesi
+  commit'lendikten sonra çalışma ağacı temiz olmalı; push yapılmadı. Yeni
+  worktree açılırsa `git status --short --branch` ve
+  `git log --oneline origin/main..HEAD` ile teyit et.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
+- Son p-code çalışmaları ROM gövdesi yerine gerçek caller davranışını ölçüyor:
+  `music.ap` scroll-next yolu import `0x0f`, selector `0x31`'e
+  `(1,0,0,0x31)` ile ulaşıyor; aynı selector'ün playlist hata/yeniden deneme
+  bağlamında `a0=0x23` kullanımı ve public `actions_flash` notundaki
+  `sleep_ms(a0)` eşlemesi M30 için güçlü ama doğrulanmamış bir hipotez.
+  Playlist op-9 çağrısı `(1,0,0,9)` için `0`/`-1` dönüşleri sınandı;
+  US212D notundaki “Close Driver / File” etiketi M30'a aktarılmış dış kaynak
+  hipotezi olarak kalıyor.
+- `ker_init.bin` `FUN_bfc322f8` p-code probe'u için `forward` modunda gerçek
+  caller'ın kaynak `0x9fc12000`'dan hedef `0x9fc1aad8`'e sentetik kopyayla
+  callback'e ulaştığı, `reverse` kontrolünde hedef sıfır kalıp null indirect
+  target'a gittiği doğrulandı. Bu, caller'ın kopya yönünü gerektirdiğini
+  gösterir; `0xbfc04635` ROM gövdesinin kopyalama yaptığı kanıtı değildir.
+  Ayrıntı: [`findings-kernel-loader.md`](findings-kernel-loader.md) ve
+  [`findings-qemu-dispatch.md`](findings-qemu-dispatch.md).
+- Sonraki yüksek getirili adım: resident `0xbfc045f5` clear adayı için
+  sentinel bellekte memset/no-effect karşılaştırmalı caller sınaması; paralel
+  inceleme bitince doğrulanabilir sonucu ekle. Sabit ROM dump'ı yok; ADFU
+  okuma yolu yalnızca kaynakta incelendi, cihazda denenmedi.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU
