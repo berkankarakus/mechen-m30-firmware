@@ -102,6 +102,32 @@ code to app 10; it does not prove those parameters are equivalent to the
 known boot index parameter `0x4e` or that every caller reaches this music
 dispatcher.
 
+### State-dependent app parameter selection
+
+The hash-pinned decompile now identifies the selector and its observed
+writers. `FUN_400552a0` passes the result from `FUN_40054ff4` to
+`FUN_40614fc0`. For return `0x861c`, the dispatcher prepares message `0x0201`
+for app ID 10 and reads the byte at `0x9fc15588` (pool pointer
+`0x40615148 = 0x9fc15584`). Its mapping is:
+
+| State byte at `0x9fc15588` | App parameter |
+|---:|---:|
+| `0x10` | `0x42` |
+| `0x07` | `0x82` |
+| any other value | `0xc2` |
+
+`FUN_40054d88` initializes that byte to `0x10`; conditional state restore may
+replace it from a saved 0xa4-byte record. In `FUN_40054ff4`, an inner return
+of `0x861e` writes `0x07` to the selector byte before returning. The
+dispatcher and pool values were reproduced with
+[`music-return-state.log`](music-return-state.log), SHA-256
+`878cd5b0289470cea0b73212171692812bdd79049de03f5d15b3918f0cae631e`; trailing
+Ghidra log padding was trimmed for the retained text. Run
+`bash tools/ghidra/run_music_index_return_probe.sh <hash-matching-music.ap>`
+to repeat. These are control-state values, not decoded product labels. The
+meaning of the default `0xc2` branch, how `playlist.ap` handles these three
+parameters, and whether any of them starts indexing remain unresolved.
+
 ## Application ID table
 
 The `manager.ap` application-name table at file offset `0x2634` uses 12-byte

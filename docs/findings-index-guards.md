@@ -136,13 +136,17 @@ logs are in
 `0xbfc169a1`, and length 8 to resident entry `0xbfc16a59`. Its event loop
 queries resident entry `0xbfc16549` and branches on codes `0xb0`/`0xb1`.
 The shared AP handler maps message `0xb0` to return `0x861c`; the music AP
-return dispatcher maps that code to app ID 10 with parameters `0x42`, `0x82`,
-or `0xc2`. `manager.ap`'s application table maps ID 10 to `playlist.ap`, so
-the destination is identified. Parameter `0x4e` is used by the verified boot
-index-update path; the meanings of `0x42`, `0x82`, and `0xc2` remain unknown.
-The resident event producer is outside the corpus, and whether its event
-means card insertion is still unknown. The bounded Ghidra logs and candidate
-decompiles are in the linked evidence directory.
+return dispatcher passes that code to app ID 10 with a parameter selected
+from state byte `0x9fc15588`: state `0x10` → `0x42`, state `0x07` → `0x82`,
+other values → `0xc2`. `FUN_40054d88` defaults that byte to `0x10`; its saved
+state path can replace it, and `FUN_40054ff4` sets it to `0x07` after inner
+return `0x861e`. `manager.ap` confirms app ID 10 is `playlist.ap`. This
+identifies how the three parameters are selected, but not what they mean or
+whether any starts indexing; the known boot index-update parameter remains
+`0x4e`. The resident event producer is outside the corpus, and whether its
+event means card insertion is still unknown. Reproduce the return mapping
+with `bash tools/ghidra/run_music_index_return_probe.sh <hash-matching-music.ap>`;
+the retained outputs are in the linked evidence directory.
 
 ### Additional reported `0xb0` consumers and producer search
 

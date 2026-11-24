@@ -60,11 +60,12 @@ CONFIRMED
    `config.ap` is the only identified AP setter. `udisk.ap` also makes a
    resident callback-style call `(0,0xb0,0xbfc169a1,8)` and polls event codes
    0xb0/0xb1. The shared handler maps message 0xb0 to 0x861c; music.ap routes
-   that return to app 10 with parameters 0x42/0x82/0xc2. manager.ap's raw
-   application table confirms app 10 is playlist.ap. The meanings of those
-   parameters remain unknown; only boot parameter 0x4e is verified to start
-   index update. The resident event producer and card-insertion meaning also
-   remain unknown. A later report additionally names
+   that return to app 10 with a parameter selected by state byte 0x9fc15588:
+   state 0x10 → 0x42, 0x07 → 0x82, other → 0xc2. manager.ap confirms app 10
+   is playlist.ap, but the meanings of those parameters and whether they
+   start indexing remain unknown; only boot parameter 0x4e is verified to
+   start index update. The resident event producer and card-insertion
+   meaning also remain unknown. A later report additionally names
    `config.ap` FUN_40054f84 and the `mainmenu.ap` resident event resolver as
    0xb0 consumers, and reports no aligned producer in a 12-driver scan. Its
    raw logs and hashes were not supplied, so those additions are not

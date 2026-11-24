@@ -151,11 +151,13 @@ def select_initial_mengine_dsp_from_config_bin(
 
 
 def apply_config_bin_dae_defaults(configuration: bytes, config_bin: bytes) -> bytes:
-    """Apply only the verified config.ap factory-initializer writes.
+    """Apply the verified config.ap factory-initializer writes.
 
     The caller supplies the existing 0xf0-byte DAE block because this firmware
     initializer writes selected fields and leaves the rest of the block alone.
-    It is used only when the persistent block is invalid or absent.
+    It is used only when the persistent block is invalid or absent.  The
+    secondary record helper is modeled only for the call path used here
+    (selector argument zero).
     """
     if len(configuration) != DAE_CONFIG_BYTES:
         raise ValueError("DAE configuration must be exactly 0xf0 bytes")
@@ -187,7 +189,74 @@ def apply_config_bin_dae_defaults(configuration: bytes, config_bin: bytes) -> by
             payload_offset : payload_offset + 2
         ]
 
+    # FUN_40dd4f50(param, 1), reached by the config.ap DAE-buffer builder.
+    # The first byte at +2 gates this normalization; +3 selects the early
+    # clear-both path.  On the active update path, +0x0c selects item 0x83 or
+    # 0x84 and the other byte is cleared.
+    if updated[0x02] != 0:
+        if updated[0x03] == 1:
+            updated[0x04] = 0
+            updated[0x05] = 0
+        else:
+            if updated[0x0C] == 1:
+                item_84 = read_config_bin_item(config_bin, 0x84)
+                if not item_84:
+                    raise ValueError("config item 0x84 has no value")
+                updated[0x04] = 0
+                updated[0x05] = item_84[0]
+            else:
+                item_83 = read_config_bin_item(config_bin, 0x83)
+                if not item_83:
+                    raise ValueError("config item 0x83 has no value")
+                updated[0x04] = item_83[0]
+                updated[0x05] = 0
+
+            updated[0x06] = 0
+
+            # FUN_40dd4e0c(param, 0) runs only for nonzero mode +0x0c.
+            if updated[0x0C] != 0:
+                _apply_config_bin_dae_mode_records(updated, config_bin)
+
     return bytes(updated)
+
+
+def _apply_config_bin_dae_mode_records(
+    configuration: bytearray,
+    config_bin: bytes,
+) -> None:
+    """Apply the verified FUN_40dd4e0c(param, 0) record writes."""
+    adjustment_payload = read_config_bin_item(config_bin, 0x9C)
+    if len(adjustment_payload) < 2:
+        raise ValueError("config item 0x9c must contain a u16 value")
+    # The consumer reads a u16 and later treats it as signed. The evidence
+    # does not include item 0x9c's raw payload, so first-u16 extraction remains
+    # an explicit config-item-layout assumption.
+    adjustment = struct.unpack_from("<h", adjustment_payload)[0]
+    adjustment_limit = -adjustment
+    struct.pack_into("<H", configuration, 0xE2, adjustment & 0xFFFF)
+    configuration[0x0D] = 1
+
+    maximum = struct.unpack_from("<h", configuration, 0xEA)[0]
+    for record_index in range(3):
+        item_id = 0x99 + record_index
+        payload = read_config_bin_item(config_bin, item_id)
+        if len(payload) != 12:
+            raise ValueError(f"config item 0x{item_id:x} must contain 12 bytes")
+
+        record_offset = 0xA2 + record_index * 8
+        first, second, third, upper = struct.unpack_from("<4H", payload, 4)
+        first_signed = struct.unpack("<h", struct.pack("<H", first))[0]
+        if adjustment_limit < first_signed:
+            first = adjustment_limit & 0xFFFF
+        struct.pack_into("<4H", configuration, record_offset, first, second, third, 0)
+        struct.pack_into("<H", configuration, 0xE4 + record_index * 2, first)
+
+        first_signed = struct.unpack("<h", struct.pack("<H", first))[0]
+        maximum = max(maximum, first_signed)
+        if record_index < 2:
+            struct.pack_into("<H", configuration, 0x9E + record_index * 2, upper)
+
+    struct.pack_into("<h", configuration, 0xEA, maximum)
 
 
 def select_aud_dev_dae_groups(
