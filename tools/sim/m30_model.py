@@ -223,6 +223,16 @@ FIRMWARE_EQ_Q_VALUES: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
 FIRMWARE_EQ_GAIN_SCALE = 10
 FIRMWARE_EQ_MESSAGE_ID = 0x303
 FIRMWARE_EQ_SELECTOR_OFFSET = 0x41
+FIRMWARE_EQ_MAINMENU_LABELS_EN: tuple[str, ...] = (
+    "Off",
+    "Rock",
+    "Pop",
+    "Soft",
+    "Jazz",
+    "Classical",
+    "Techno",
+    "Custom",
+)
 FIRMWARE_EQ_STRUCTURE_SIZE = 0xF0
 FIRMWARE_EQ_STRUCTURE_BAND_OFFSET = 0x10
 FIRMWARE_EQ_BAND_STRIDE = 8
@@ -256,6 +266,7 @@ class FirmwareEqProfile:
     q_values: tuple[int, ...]
     presets: tuple[FirmwareEqPreset, ...]
     setting_custom_row: tuple[int, ...] | None
+    mainmenu_labels_en: tuple[str, ...] | None
 
 
 @dataclass(frozen=True)
@@ -280,8 +291,8 @@ class FirmwareEqCommand:
 FIRMWARE_EQ_PRESETS: tuple[FirmwareEqPreset, ...] = (
     FirmwareEqPreset("Off", 0, 0, (0, 0, 0, 0, 0, 0, 0)),
     FirmwareEqPreset("Rock", 7, 1, (5, 3, 0, -1, 0, 4, 5)),
-    FirmwareEqPreset("Funk", 7, 2, (3, 0, 0, 0, 0, -1, -2)),
-    FirmwareEqPreset("Hip hop", 7, 3, (0, 0, 1, 2, 0, 1, 1)),
+    FirmwareEqPreset("Pop", 7, 2, (3, 0, 0, 0, 0, -1, -2)),
+    FirmwareEqPreset("Soft", 7, 3, (0, 0, 1, 2, 0, 1, 1)),
     FirmwareEqPreset("Jazz", 7, 4, (3, 0, 0, -1, 0, 2, 4)),
     FirmwareEqPreset("Classical", 7, 5, (0, 0, 0, -1, -1, -2, -4)),
     FirmwareEqPreset("Techno", 7, 6, (5, 2, 0, 0, 0, 0, 6)),
@@ -296,6 +307,7 @@ FIRMWARE_EQ_CURRENT_PROFILE = FirmwareEqProfile(
     q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
     setting_custom_row=FIRMWARE_EQ_SETTING_CUSTOM_ROW,
+    mainmenu_labels_en=FIRMWARE_EQ_MAINMENU_LABELS_EN,
 )
 FIRMWARE_EQ_2024_04_PROFILE = FirmwareEqProfile(
     name="2024-04",
@@ -303,6 +315,7 @@ FIRMWARE_EQ_2024_04_PROFILE = FirmwareEqProfile(
     q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
     setting_custom_row=None,
+    mainmenu_labels_en=None,
 )
 FIRMWARE_EQ_PROFILES: dict[str, FirmwareEqProfile] = {
     profile.name: profile

@@ -1,10 +1,20 @@
+import hashlib
 import struct
 import tempfile
 import unittest
 from pathlib import Path
 
-from eq_binary_probe import verify
-from m30_model import FIRMWARE_EQ_2024_04_PROFILE, FIRMWARE_EQ_CURRENT_PROFILE
+from eq_binary_probe import mainmenu_eq_labels, verify
+from m30_model import (
+    FIRMWARE_EQ_2024_04_PROFILE,
+    FIRMWARE_EQ_CURRENT_PROFILE,
+    FIRMWARE_EQ_MAINMENU_LABELS_EN,
+    firmware_eq_names,
+)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+MAINMENU_STY = ROOT / "analysis" / "community" / "fw" / "mainmenu.sty"
 
 
 def make_eq_members(profile):
@@ -28,6 +38,24 @@ def make_eq_members(profile):
 
 
 class EqBinaryProbeTests(unittest.TestCase):
+    @unittest.skipUnless(MAINMENU_STY.exists(), "extracted mainmenu.sty is not present")
+    def test_selector_names_match_hash_pinned_english_style_table(self):
+        style_hash = hashlib.sha256(MAINMENU_STY.read_bytes()).hexdigest()
+
+        self.assertEqual(
+            style_hash,
+            "23d56b78e01a35f4413a04c8badbf0d0dda9c9637be22b3775ed0a676fa5a624",
+        )
+        self.assertEqual(
+            mainmenu_eq_labels(MAINMENU_STY),
+            FIRMWARE_EQ_MAINMENU_LABELS_EN,
+        )
+        self.assertEqual(
+            FIRMWARE_EQ_CURRENT_PROFILE.mainmenu_labels_en,
+            FIRMWARE_EQ_MAINMENU_LABELS_EN,
+        )
+        self.assertEqual(firmware_eq_names(), mainmenu_eq_labels(MAINMENU_STY))
+
     def test_current_profile_accepts_current_contract(self):
         mengine, setting = make_eq_members(FIRMWARE_EQ_CURRENT_PROFILE)
 
@@ -57,6 +85,7 @@ class EqBinaryProbeTests(unittest.TestCase):
                 verify(mengine_path, setting_path)
 
     def test_2024_profile_accepts_the_verified_50_hz_exception(self):
+        self.assertIsNone(FIRMWARE_EQ_2024_04_PROFILE.mainmenu_labels_en)
         mengine, setting = make_eq_members(FIRMWARE_EQ_2024_04_PROFILE)
         setting_without_known_row = bytearray(setting)
         custom_offset = 0x5A94 + 7 * 16
