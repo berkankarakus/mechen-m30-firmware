@@ -34,6 +34,8 @@ from m30_model import (
     firmware_eq_command,
     firmware_eq_payload,
     find_firmware_eq_profile,
+    route_music_app_return_code,
+    shared_message_return_code,
     sort_filenames,
 )
 
@@ -122,6 +124,44 @@ class IndexBootHandoffTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             handoff.config_start(settings_block_valid=1)
+
+
+class IndexReturnPathTests(unittest.TestCase):
+    def test_shared_message_b0_returns_the_observed_index_handoff_code(self):
+        self.assertEqual(shared_message_return_code(0xB0), 0x861C)
+        self.assertIsNone(shared_message_return_code(0xB1))
+
+    def test_music_return_code_launches_playlist_and_clears_cleanup_record(self):
+        for parameter in (0x42, 0x82, 0xC2):
+            with self.subTest(parameter=parameter):
+                cleanup_record = bytearray([0xA5] * 0xA8)
+                return_code = shared_message_return_code(0xB0)
+
+                request = route_music_app_return_code(
+                    return_code,
+                    parameter,
+                    cleanup_record,
+                )
+
+                self.assertEqual(request, ApplicationLaunchRequest(0x201, 10, parameter))
+                self.assertEqual(cleanup_record, bytes(0xA8))
+
+    def test_other_application_return_codes_leave_request_and_cleanup_untouched(self):
+        cleanup_record = bytearray([0xA5] * 0xA8)
+
+        request = route_music_app_return_code(0x8006, 0x42, cleanup_record)
+
+        self.assertIsNone(request)
+        self.assertEqual(cleanup_record, bytes([0xA5] * 0xA8))
+
+    def test_music_index_handoff_rejects_unobserved_parameter_or_record_size(self):
+        cleanup_record = bytearray(0xA8)
+
+        with self.assertRaises(ValueError):
+            route_music_app_return_code(0x861C, 0x4E, cleanup_record)
+
+        with self.assertRaises(ValueError):
+            route_music_app_return_code(0x861C, 0x42, bytearray(0xA7))
 
 
 class VolumeLimitTests(unittest.TestCase):

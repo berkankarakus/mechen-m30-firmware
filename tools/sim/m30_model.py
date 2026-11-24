@@ -132,6 +132,11 @@ class IndexStatus:
 INDEX_REQUIRED_FLAG = 0x10000
 PLAYLIST_APPLICATION_ID = 10
 PLAYLIST_INDEX_UPDATE_PARAM = 0x4E
+SYSTEM_MESSAGE_INDEX_UPDATE = 0xB0
+INDEX_UPDATE_APPLICATION_RETURN = 0x861C
+INDEX_UPDATE_CLEANUP_BYTES = 0xA8
+INDEX_UPDATE_RETURN_PARAMS = (0x42, 0x82, 0xC2)
+APPLICATION_LAUNCH_MESSAGE = 0x201
 
 
 @dataclass(frozen=True)
@@ -165,6 +170,41 @@ class IndexBootHandoff:
 
     def playlist_update_succeeded(self) -> None:
         self.flag_word &= ~INDEX_REQUIRED_FLAG
+
+
+def shared_message_return_code(message_id: int) -> int | None:
+    """Return the observed shared-AP result for message ``0xb0`` only."""
+    if message_id == SYSTEM_MESSAGE_INDEX_UPDATE:
+        return INDEX_UPDATE_APPLICATION_RETURN
+
+    return None
+
+
+def route_music_app_return_code(
+    return_code: int,
+    playlist_parameter: int,
+    cleanup_record: bytearray,
+) -> ApplicationLaunchRequest | None:
+    """Apply music.ap's observed playlist handoff for return code ``0x861c``.
+
+    The caller supplies the observed parameter variant. Its selection from
+    device state is not modeled here.
+    """
+    if return_code != INDEX_UPDATE_APPLICATION_RETURN:
+        return None
+
+    if playlist_parameter not in INDEX_UPDATE_RETURN_PARAMS:
+        raise ValueError("playlist parameter must be one of 0x42, 0x82, or 0xc2")
+
+    if len(cleanup_record) != INDEX_UPDATE_CLEANUP_BYTES:
+        raise ValueError("music.ap handoff cleanup record must contain 0xa8 bytes")
+
+    cleanup_record[:] = bytes(INDEX_UPDATE_CLEANUP_BYTES)
+    return ApplicationLaunchRequest(
+        message_id=APPLICATION_LAUNCH_MESSAGE,
+        application_id=PLAYLIST_APPLICATION_ID,
+        parameter=playlist_parameter,
+    )
 
 
 MAX_VOLUME_LEVEL = 100
