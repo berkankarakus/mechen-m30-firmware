@@ -124,9 +124,15 @@ dispatcher and pool values were reproduced with
 `878cd5b0289470cea0b73212171692812bdd79049de03f5d15b3918f0cae631e`; trailing
 Ghidra log padding was trimmed for the retained text. Run
 `bash tools/ghidra/run_music_index_return_probe.sh <hash-matching-music.ap>`
-to repeat. These are control-state values, not decoded product labels. The
-meaning of the default `0xc2` branch, how `playlist.ap` handles these three
-parameters, and whether any of them starts indexing remain unresolved.
+to repeat. These are control-state values, not decoded product labels. Their
+playlist-side behavior is traced in
+[`playlist parameter evidence`](../playlist-param-index-2026-11-24/README.md):
+`0x42` and `0xc2` pass the bit-`0x40` gate in `FUN_40054c54` and select the
+M3U.LIB callback if resident op 9 does not return `-1`; `0x82` skips that
+update block. Boot parameter `0x4e` passes the same gate with a different
+low-five-bit mode. This establishes the AP's conditional M3U builder path, not
+the resident op-9 semantics, ROM-to-AP launch forwarding, or a connection to
+card insertion.
 
 ## Application ID table
 

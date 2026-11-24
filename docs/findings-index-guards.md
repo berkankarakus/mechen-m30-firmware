@@ -63,9 +63,11 @@ started indexing.
 
 This is a device observation, not a static inference. It shows that those two
 guard changes do not prevent indexing after powered card reinsertion on the
-tested unit. The newly traced AP route makes a resident event → message
-`0xb0` → return `0x861c` → app-ID-10 route plausible. The device observation
-does not establish that this is the card-insertion path.
+tested unit. The music AP's `0x861c` dispatcher may send app ID 10 with
+`0x42`, `0x82`, or `0xc2`; playlist's `FUN_40054c54` skips its update block for
+`0x82`, while `0x42` and `0xc2` conditionally select the M3U.LIB builder when
+resident op 9 allows it. The device observation does not establish that this
+is the card-insertion path or that it accounts for the observed indexing.
 
 The host model keeps these outcomes separate: the static guard contract uses
 `CardChangePolicy.MANUAL_UPDATE_REQUIRED`, while the tested powered-card
