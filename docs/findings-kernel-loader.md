@@ -315,6 +315,27 @@ with `(0x00013d00, 0, 0xe0)`. All three callsites pass a start address, zero,
 and an end-minus-start length. This strongly supports a clear/zero routine,
 but its MIPS16 body is absent, so the effect remains a hypothesis.
 
+The native p-code probe now runs a differential synthetic-effect check at the
+`FUN_bfc322f8` clear boundary. It fills the requested `0x9fc1a48c..0x9fc1ac80`
+range with `0xa5`, places a canary at the exclusive end, then compares a
+zero-fill shim with a no-effect shim using the actual `(a0=0x9fc1a48c,
+a1=0, a2=0x7f4)` call. In zero-fill mode, every 32-bit word in the range
+becomes zero; in no-effect mode they remain `0xa5a5a5a5`; the canary remains
+`0x13579bdf` in both. Both continuations reach the same synthetic callback
+in 54 steps despite the modeled memory differences. With zero-fill held
+constant, synthetic returns of zero, the destination, and `0xdeadbeef` also
+reach the same callback with the same checked arguments, so no
+return-value-dependent control-flow or callback-argument effect was observed
+on this path. This does not rule out other return-dependent effects in
+unexecuted paths. Stock and community `ker_init.bin` both pass the memory
+effect controls at the pinned SHA-256; both pass the sentinel-return case as
+well. This validates the probe's range/ABI model and constrains this caller's
+observed continuation; it does not identify the real ROM implementation or
+prove that zero-fill is required for boot correctness. Reproduce with
+`tools/ghidra/run_kernel_init_native_mode_probe.sh <ker_init.bin> forward
+clear-zero return-zero` and repeat with `return-dst`, `return-sentinel`, or
+`clear-no-effect return-sentinel`.
+
 `tools/ghidra/run_kernel_init_native_mode_probe.sh` runs the native MIPS
 p-code scenarios on hash-matching stock and community `ker_init.bin`:
 

@@ -1,5 +1,5 @@
 // Probe native Ghidra MIPS ISA-mode transitions in the extracted template helper.
-// ROM helper effects and the callback body are deliberately synthetic/omitted.
+// ROM bodies are absent; selectable synthetic effects do not model their implementation.
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.app.script.GhidraScript;
 import ghidra.pcode.emu.PcodeEmulator;
@@ -22,6 +22,9 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
     private static final long RAM_END = 0x9fc30000L;
     private static final long ROM_CLEAR = 0xbfc045f4L;
     private static final long ROM_COPY = 0xbfc04634L;
+    private static final long CLEAR_START = 0x9fc1a48cL;
+    private static final int CLEAR_LENGTH = 0x7f4;
+    private static final long CLEAR_CANARY = CLEAR_START + CLEAR_LENGTH;
     private static final int MAX_STEPS = 12000;
     // Little-endian MIPS16e `jrc ra` (no delay slot). This synthetic return
     // stub exercises native MIPS16 -> MIPS32 switching; it is not ROM code.
@@ -69,13 +72,27 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, destination, length, true, bytes);
     }
 
+    private void fill(PcodeEmulator emulator, AddressSpace space,
+            long destination, int length, byte value) {
+        byte[] bytes = new byte[length];
+        Arrays.fill(bytes, value);
+        emulator.getSharedState().setVar(space, destination, length, true, bytes);
+    }
+
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
-            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN [forward|reverse|seeded]");
-        String copyMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "forward";
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 4)
+            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN [forward|reverse|seeded] [clear-zero|clear-no-effect] [return-zero|return-dst|return-sentinel]");
+        String copyMode = getScriptArgs().length >= 2 ? getScriptArgs()[1] : "forward";
+        String clearMode = getScriptArgs().length >= 3 ? getScriptArgs()[2] : "clear-zero";
+        String clearReturnMode = getScriptArgs().length == 4 ? getScriptArgs()[3] : "return-zero";
         require(copyMode.equals("forward") || copyMode.equals("reverse") || copyMode.equals("seeded"),
             "copy mode must be forward, reverse, or seeded");
+        require(clearMode.equals("clear-zero") || clearMode.equals("clear-no-effect"),
+            "clear mode must be clear-zero or clear-no-effect");
+        require(clearReturnMode.equals("return-zero") || clearReturnMode.equals("return-dst")
+                || clearReturnMode.equals("return-sentinel"),
+            "clear return mode must be return-zero, return-dst, or return-sentinel");
         SleighLanguage language = (SleighLanguage)currentProgram.getLanguage();
         AddressSpace space = language.getDefaultSpace();
         Register isa = language.getRegister("ISA_MODE");
@@ -92,6 +109,8 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, 0xbfc32000L, image.length, true, image);
         emulator.getSharedState().setVar(space, RAM_BASE,
             (int)(RAM_END - RAM_BASE), true, new byte[(int)(RAM_END - RAM_BASE)]);
+        fill(emulator, space, CLEAR_START, CLEAR_LENGTH, (byte)0xa5);
+        putWord(emulator, space, CLEAR_CANARY, 0x13579bdfL);
         emulator.getSharedState().setVar(space, ROM_CLEAR,
             MIPS16_RETURN_STUB.length, true, MIPS16_RETURN_STUB);
         emulator.getSharedState().setVar(space, ROM_COPY,
@@ -178,8 +197,25 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                         println(String.format("SYNTHETIC ROM COPY direction=reverse dst=%08x src=%08x len=%08x", a1, a0, a2));
                     }
                 }
-                thread.getState().setVar(v0,
-                    emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
+                if (address == ROM_CLEAR) {
+                    long a0 = reg(thread, language.getRegister("a0"), language);
+                    long a1 = reg(thread, language.getRegister("a1"), language);
+                    long a2 = reg(thread, language.getRegister("a2"), language);
+                    require(a0 == CLEAR_START && a1 == 0 && a2 == CLEAR_LENGTH,
+                        String.format("unexpected clear ABI %08x,%08x,%08x", a0, a1, a2));
+                    if (clearMode.equals("clear-zero"))
+                        fill(emulator, space, a0, (int)a2, (byte)a1);
+                    println(String.format(
+                        "SYNTHETIC ROM CLEAR mode=%s dst=%08x value=%02x len=%08x",
+                        clearMode, a0, a1, a2));
+                }
+                long syntheticReturn = 0;
+                if (address == ROM_CLEAR && clearReturnMode.equals("return-dst"))
+                    syntheticReturn = reg(thread, language.getRegister("a0"), language);
+                else if (address == ROM_CLEAR && clearReturnMode.equals("return-sentinel"))
+                    syntheticReturn = 0xdeadbeefL;
+                thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
+                    syntheticReturn, v0.getMinimumByteSize()));
                 // The absent routine's result remains synthetic, but execute
                 // a real MIPS16e return instruction so Ghidra performs the
                 // ISA_MODE transition from the tagged/untagged RA naturally.
@@ -189,6 +225,26 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                     String.format("synthetic MIPS16 return failed: pc=%08x ISA_MODE=%d RELP=%d expected-ra=%08x",
                         thread.getCounter().getOffset(), mode(thread, isa),
                         relpMode(thread, relp), returnAddress));
+                if (address == ROM_CLEAR)
+                    require(reg(thread, v0, language) == syntheticReturn,
+                        String.format("synthetic clear return mismatch: got=%08x expected=%08x",
+                            reg(thread, v0, language), syntheticReturn));
+                if (address == ROM_CLEAR) {
+                    long expectedWord = clearMode.equals("clear-zero") ? 0 : 0xa5a5a5a5L;
+                    for (int offset = 0; offset < CLEAR_LENGTH; offset += 4) {
+                        require(word(thread, space, CLEAR_START + offset, language)
+                                == expectedWord,
+                            String.format("clear model mismatch at offset %08x", offset));
+                    }
+                    require(word(thread, space, CLEAR_CANARY, language) == 0x13579bdfL,
+                        "clear model crossed the requested end boundary");
+                    println(String.format(
+                        "SYNTHETIC ROM CLEAR STATE PASS mode=%s return=%s first=%08x last=%08x canary=%08x",
+                        clearMode, clearReturnMode,
+                        word(thread, space, CLEAR_START, language),
+                        word(thread, space, CLEAR_START + CLEAR_LENGTH - 4, language),
+                        word(thread, space, CLEAR_CANARY, language)));
+                }
                 continue;
             }
             if (address < ENTRY || address >= 0xbfc33000L

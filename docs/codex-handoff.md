@@ -4,7 +4,7 @@ Bu belge yalnızca güncel çalışma durumunu ve değişmez güvenlik kurallar�
 tutar. Ayrıntılı kanıtlar ilgili `findings-*.md` belgelerinde, emulator
 kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
-## Güncel durum — 2026-11-24
+## Güncel durum — 2026-11-25
 
 - Dal: `codex/fix-model-coverage`; linked worktree'nin Git deposu
   `/Users/berkankarakus/Projects/mechen-m30-firmware/.git` ile ortak. Bu turdaki
@@ -29,10 +29,17 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   gösterir; `0xbfc04635` ROM gövdesinin kopyalama yaptığı kanıtı değildir.
   Ayrıntı: [`findings-kernel-loader.md`](findings-kernel-loader.md) ve
   [`findings-qemu-dispatch.md`](findings-qemu-dispatch.md).
-- Sonraki yüksek getirili adım: resident `0xbfc045f5` clear adayı için
-  sentinel bellekte memset/no-effect karşılaştırmalı caller sınaması; paralel
-  inceleme bitince doğrulanabilir sonucu ekle. Sabit ROM dump'ı yok; ADFU
-  okuma yolu yalnızca kaynakta incelendi, cihazda denenmedi.
+- Aynı gerçek caller üzerinde `0xbfc045f5` clear adayı için sentetik
+  zero-fill/no-effect karşılaştırması stock ve community `ker_init.bin`'de
+  geçti. Gerçek çağrı `(0x9fc1a48c,0,0x7f4)`; iki model de aynı callback
+  yoluna ulaşıyor. Zero-fill modeli aralıktaki her 32-bit sözcüğü sıfırlayıp
+  exclusive-end canary'sini koruyor; no-effect modeli sentinel'leri koruyor.
+  Sentetik dönüş değerini `0`, hedef adres ve `0xdeadbeef` yapınca da
+  community caller aynı callback'e aynı argümanlarla ulaşıyor; stock'ta
+  sentinel dönüşü tekrarlandı. Bu, yalnızca sınanan caller devam yolunda
+  dönüşe bağlı kontrol akışı/ callback argümanı gözlenmediğini gösterir.
+  ROM gövdesinin gerçek etkisini veya açılış gerekliliğini çözmez. Sabit ROM
+  dump'ı yok; ADFU okuma yolu yalnızca kaynakta incelendi, cihazda denenmedi.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU

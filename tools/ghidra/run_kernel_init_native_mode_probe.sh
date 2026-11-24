@@ -2,9 +2,16 @@
 # Exercise native MIPS ISA-mode transitions around extracted kernel helper calls.
 set -euo pipefail
 
+if [ "$#" -gt 4 ]; then
+  echo "usage: $0 [KER_INIT.BIN] [forward|reverse|seeded] [clear-zero|clear-no-effect] [return-zero|return-dst|return-sentinel]" >&2
+  exit 2
+fi
+
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 INIT=${1:-$ROOT/analysis/community/fw/ker_init.bin}
 MODE=${2:-forward}
+CLEAR_MODE=${3:-clear-zero}
+CLEAR_RETURN_MODE=${4:-return-zero}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 EXPECTED_SHA256=f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
 
@@ -30,7 +37,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript FlatLoad32.java "$INIT" 0xbfc32000 0 "$init_size" \
-    -postScript RunKernelInitNativeModeProbe.java "$INIT" "$MODE" \
+    -postScript RunKernelInitNativeModeProbe.java "$INIT" "$MODE" "$CLEAR_MODE" "$CLEAR_RETURN_MODE" \
     >"$WORK/run.log" 2>&1 || {
       cat "$WORK/run.log" >&2
       exit 1
@@ -39,10 +46,15 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
 if [ "$MODE" = reverse ]; then
   EXPECTED='KERNEL TEMPLATE COPY CONTROL PASS direction=reverse callback-slot=0 indirect-target=0'
 else
-  EXPECTED="KERNEL TEMPLATE ISA MODE PASS mode=$MODE entry=bfc322f8 callback=9fc27f00 rom-entry-isa-mode=1 relp=1 synthetic-mips16-return-stubs=2 args=fffffff0,bfc0855d,00000000,04040404"
+  EXPECTED="KERNEL TEMPLATE ISA MODE PASS mode=$MODE entry=bfc322f8 callback=9fc27f00 rom-entry-isa-mode=1 relp=1 callback-isa-mode=0 relp=1 synthetic-mips16-return-stubs=2 args=fffffff0,bfc0855d,00000000,04040404"
 fi
 grep -Fq "$EXPECTED" "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }
 grep -F "$EXPECTED" "$WORK/run.log"
+grep -Fq "SYNTHETIC ROM CLEAR STATE PASS mode=$CLEAR_MODE return=$CLEAR_RETURN_MODE" "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
+grep -F "SYNTHETIC ROM CLEAR STATE PASS mode=$CLEAR_MODE return=$CLEAR_RETURN_MODE" "$WORK/run.log"
