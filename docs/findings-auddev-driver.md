@@ -85,14 +85,14 @@ retained in
 It shows that `id=1` applies groups only when the corresponding `dae_cfg` flag
 is exactly 1:
 
-| Flag | Reported group |
+| Flag | Observed group |
 |---|---|
 | `+7` | Copy the 16 bands at `+0x10..+0x8f`, applying per-band adjustments from `+0xc2..+0xcb`; otherwise the EQ group is disabled. |
 | `+8` | Speaker compensation using `spk_comp.dat` or RAM records, selected by `+0x93`; `+0x94` supplies a length/order field. |
 | `+9` | Gain fields `+0x98/+0x9a`, adjusted by `+0xc6` and clamped to `-60..+12`. |
 | `+0xa` | Fields `+0x9c/+0x9d`. |
 | `+0xb` | Fields `+0x90/+0x92`, adjusted by `+0xca` and clamped to `0..15`. |
-| `+0x3` | Three dynamic-range/limiter records beginning at `+0x9e`, with constants 50 and 500 written by the routine. |
+| `+0xc` | Three dynamic-range/limiter records beginning at `+0x9e`, with constants 50 and 500 written by the routine. |
 | `+0xd` | Output-gain fields `+0xba/+0xbc/+0xbe`; the builder correlates their source with config item `0xa6`. |
 
 The decompile also shows a final rate guard: when the stored rate is above
@@ -105,14 +105,21 @@ zero-valued Custom curve need not produce identical input structures: the
 output-gain group is enabled for Custom and disabled for Off. Its audible
 effect and physical units remain unknown.
 
-The decompile corrects a previously reported DRC flag offset: the record group
-is gated by `dae_cfg+3`, not `dae_cfg+0xc`. The runner checks the mapped code
-bytes against file offset `0x1f00` in the hash-pinned driver; it does not
-validate the device bank-loader or ROM dispatch mapping. Thus the field accesses
-are verified for this candidate bank image, while association with module `0x0c`
-operation `0x12`, the caller-supplied structure base, and any audible DSP or
-hardware effect remain separate evidence boundaries. No p-code execution was
-done for these group branches.
+The DRC gate is `dae_cfg+0x0c`: Ghidra renders its source as `param_2 + 3`,
+where `param_2` is an `int *`, so the expression means byte offset `0x0c`.
+The p-code probe enables flags `+7,+9,+0xa,+0xb,+0xc,+0xd` in a synthetic
+structure and checks the resulting band, gain, DRC-record, and output-gain
+state fields. A second case keeps the same other fields but clears `+0xc`,
+verifying that the DRC flag and its records/constants remain unwritten. The
+three DRC record copies use the same candidate `memcpy` shim as the 16 EQ band
+copies. The reproducible command and exact scope are in
+[`group-probe evidence`](evidence/auddev-bank5-groups-2026-11-24/README.md).
+
+The runner checks mapped code bytes against file offset `0x1f00` in the
+hash-pinned driver; it does not validate the device bank-loader or ROM dispatch
+mapping. Association with module `0x0c` operation `0x12`, the caller-supplied
+structure base, the untested `+8` file/RAM path, and any audible DSP or hardware
+effect remain separate evidence boundaries.
 
 The reported follow-up also says the `0xf0`-byte structure is persistent
 record ID `0xf0000` with magic `0x55b9`, and that `config.ap` and `mengine.ap`
