@@ -336,6 +336,27 @@ prove that zero-fill is required for boot correctness. Reproduce with
 clear-zero return-zero` and repeat with `return-dst`, `return-sentinel`, or
 `clear-no-effect return-sentinel`.
 
+The probe also has a `callback-return` mode. It records the callback's actual
+return PC (`0xbfc323d4`), writes synthetic exception-state words at
+`0x13dcc/0x13dd0/0x13dd4`, and resumes the real extracted caller there with a
+no-op callback return. The caller proceeds without a branch or intervening
+call to the second `0xbfc045f5` boundary at callsite `0xbfc32420`, with
+`(a0=0x13d00, a1=0, a2=0xe0)`, then returns from `FUN_bfc322f8` to the harness.
+Under the zero-fill shim, every word in `[0x13d00,0x13de0)` is zero and the
+three synthetic exception-state words are cleared; under no-effect, the
+synthetic words remain and the canary at `0x13de0` is preserved. The same
+no-effect/sentinel-return case also passes on stock; the zero-fill and
+destination-return variants were run on community. With the clear shim's return
+set to zero, the destination, or `0xdeadbeef`, the extracted caller returns
+that value in `v0`; this is caller return-value propagation, not evidence of
+what the unavailable ROM helper itself returns. The callback behavior and
+the memory contents are fixtures. Numeric overlap with the exception vector's
+save slots does not establish the device's physical memory map, nor that this
+helper runs during normal boot. Reproduce with
+`tools/ghidra/run_kernel_init_native_mode_probe.sh <ker_init.bin> forward
+clear-zero return-zero callback-return`; vary the clear and return modes as
+above.
+
 `tools/ghidra/run_kernel_init_native_mode_probe.sh` runs the native MIPS
 p-code scenarios on hash-matching stock and community `ker_init.bin`:
 

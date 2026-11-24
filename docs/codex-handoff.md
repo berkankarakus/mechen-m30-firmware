@@ -37,9 +37,18 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   Sentetik dönüş değerini `0`, hedef adres ve `0xdeadbeef` yapınca da
   community caller aynı callback'e aynı argümanlarla ulaşıyor; stock'ta
   sentinel dönüşü tekrarlandı. Bu, yalnızca sınanan caller devam yolunda
-  dönüşe bağlı kontrol akışı/ callback argümanı gözlenmediğini gösterir.
+  dönüşe bağlı kontrol akışı veya callback argümanı değişikliği
+  gözlenmediğini gösterir.
   ROM gövdesinin gerçek etkisini veya açılış gerekliliğini çözmez. Sabit ROM
   dump'ı yok; ADFU okuma yolu yalnızca kaynakta incelendi, cihazda denenmedi.
+- `FUN_bfc322f8` callback'ini sentetik no-op dönüşle geçince gerçek extracted
+  caller `0xbfc323d4`'ten devam edip ikinci clear çağrısına
+  `(0x13d00,0,0xe0)` ile ulaşıyor. Bu aralıkta exception vector'ın yazdığı
+  `0x13dcc/0x13dd0/0x13dd4` sayısal adresleri var. Zero-fill/no-effect
+  sentinel modelleri ve final `v0` dönüşü community'de; no-effect/sentinel
+  kontrolü stock'ta geçti. Bu adres çakışması fiziksel RAM alias'ını,
+  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Sonraki iyi
+  adım bu aralığa yapılan bilinen read/write'ları extracted imajlarda taramak.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU

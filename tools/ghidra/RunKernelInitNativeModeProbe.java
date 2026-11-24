@@ -25,6 +25,15 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
     private static final long CLEAR_START = 0x9fc1a48cL;
     private static final int CLEAR_LENGTH = 0x7f4;
     private static final long CLEAR_CANARY = CLEAR_START + CLEAR_LENGTH;
+    private static final long EXCEPTION_CLEAR_START = 0x00013d00L;
+    private static final int EXCEPTION_CLEAR_LENGTH = 0xe0;
+    private static final long EXCEPTION_CLEAR_CANARY =
+        EXCEPTION_CLEAR_START + EXCEPTION_CLEAR_LENGTH;
+    private static final long EXCEPTION_EPC = 0x00013dccL;
+    private static final long EXCEPTION_RA = 0x00013dd0L;
+    private static final long EXCEPTION_CAUSE = 0x00013dd4L;
+    private static final long CALLBACK_RETURN = 0xbfc323d4L;
+    private static final long FUNCTION_RETURN = 0x00700100L;
     private static final int MAX_STEPS = 12000;
     // Little-endian MIPS16e `jrc ra` (no delay slot). This synthetic return
     // stub exercises native MIPS16 -> MIPS32 switching; it is not ROM code.
@@ -81,11 +90,13 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length < 1 || getScriptArgs().length > 4)
-            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN [forward|reverse|seeded] [clear-zero|clear-no-effect] [return-zero|return-dst|return-sentinel]");
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 5)
+            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN [forward|reverse|seeded] [clear-zero|clear-no-effect] [return-zero|return-dst|return-sentinel] [callback-stop|callback-return]");
         String copyMode = getScriptArgs().length >= 2 ? getScriptArgs()[1] : "forward";
         String clearMode = getScriptArgs().length >= 3 ? getScriptArgs()[2] : "clear-zero";
         String clearReturnMode = getScriptArgs().length == 4 ? getScriptArgs()[3] : "return-zero";
+        if (getScriptArgs().length >= 4) clearReturnMode = getScriptArgs()[3];
+        String callbackMode = getScriptArgs().length == 5 ? getScriptArgs()[4] : "callback-stop";
         require(copyMode.equals("forward") || copyMode.equals("reverse") || copyMode.equals("seeded"),
             "copy mode must be forward, reverse, or seeded");
         require(clearMode.equals("clear-zero") || clearMode.equals("clear-no-effect"),
@@ -93,6 +104,10 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         require(clearReturnMode.equals("return-zero") || clearReturnMode.equals("return-dst")
                 || clearReturnMode.equals("return-sentinel"),
             "clear return mode must be return-zero, return-dst, or return-sentinel");
+        require(callbackMode.equals("callback-stop") || callbackMode.equals("callback-return"),
+            "callback mode must be callback-stop or callback-return");
+        require(!callbackMode.equals("callback-return") || copyMode.equals("forward"),
+            "callback-return mode requires forward copy mode");
         SleighLanguage language = (SleighLanguage)currentProgram.getLanguage();
         AddressSpace space = language.getDefaultSpace();
         Register isa = language.getRegister("ISA_MODE");
@@ -146,11 +161,16 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
 
         List<String> calls = new ArrayList<>();
         boolean reachedCallback = false;
+        boolean returnedFromCallback = false;
+        boolean reachedFunctionReturn = false;
         boolean reachedNullDispatch = false;
         long callbackA0 = 0, callbackA1 = 0, callbackA2 = 0, callbackA3 = 0;
+        long finalFunctionReturnValue = 0;
         int steps = 0;
         for (; steps < MAX_STEPS; steps++) {
             long address = thread.getCounter().getOffset() & 0xffffffffL;
+            long clearStartForCall = 0;
+            int clearLengthForCall = 0;
             if (address == 0 && copyMode.equals("reverse")) {
                 require(word(thread, space, 0x9fc1aad8L, language) == 0,
                     "reverse-copy control unexpectedly populated callback slot");
@@ -167,6 +187,29 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 callbackA1 = reg(thread, language.getRegister("a1"), language);
                 callbackA2 = reg(thread, language.getRegister("a2"), language);
                 callbackA3 = reg(thread, language.getRegister("a3"), language);
+                if (callbackMode.equals("callback-stop")) break;
+                long callbackReturnAddress = reg(thread, ra, language);
+                require(callbackReturnAddress == CALLBACK_RETURN,
+                    String.format("unexpected callback return PC %08x (expected %08x)",
+                        callbackReturnAddress, CALLBACK_RETURN));
+                fill(emulator, space, EXCEPTION_CLEAR_START,
+                    EXCEPTION_CLEAR_LENGTH, (byte)0xa5);
+                putWord(emulator, space, EXCEPTION_EPC, 0x8000abcdL);
+                putWord(emulator, space, EXCEPTION_RA, 0x80005679L);
+                putWord(emulator, space, EXCEPTION_CAUSE, 0x80000027L);
+                putWord(emulator, space, EXCEPTION_CLEAR_CANARY, 0x2468ace0L);
+                thread.getState().setVar(v0,
+                    emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
+                thread.overrideCounter(space.getAddress(callbackReturnAddress));
+                returnedFromCallback = true;
+                println(String.format(
+                    "SYNTHETIC CALLBACK RETURN pc=%08x saved-state=sentinel",
+                    callbackReturnAddress));
+                continue;
+            }
+            if (address == FUNCTION_RETURN && callbackMode.equals("callback-return")) {
+                reachedFunctionReturn = true;
+                finalFunctionReturnValue = reg(thread, v0, language);
                 break;
             }
             if (address == ROM_CLEAR || address == ROM_COPY) {
@@ -201,7 +244,16 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                     long a0 = reg(thread, language.getRegister("a0"), language);
                     long a1 = reg(thread, language.getRegister("a1"), language);
                     long a2 = reg(thread, language.getRegister("a2"), language);
-                    require(a0 == CLEAR_START && a1 == 0 && a2 == CLEAR_LENGTH,
+                    if (a0 == CLEAR_START) {
+                        clearStartForCall = CLEAR_START;
+                        clearLengthForCall = CLEAR_LENGTH;
+                    } else if (callbackMode.equals("callback-return")
+                            && a0 == EXCEPTION_CLEAR_START) {
+                        clearStartForCall = EXCEPTION_CLEAR_START;
+                        clearLengthForCall = EXCEPTION_CLEAR_LENGTH;
+                    }
+                    require(clearStartForCall != 0 && a1 == 0
+                            && a2 == clearLengthForCall,
                         String.format("unexpected clear ABI %08x,%08x,%08x", a0, a1, a2));
                     if (clearMode.equals("clear-zero"))
                         fill(emulator, space, a0, (int)a2, (byte)a1);
@@ -230,20 +282,34 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                         String.format("synthetic clear return mismatch: got=%08x expected=%08x",
                             reg(thread, v0, language), syntheticReturn));
                 if (address == ROM_CLEAR) {
-                    long expectedWord = clearMode.equals("clear-zero") ? 0 : 0xa5a5a5a5L;
-                    for (int offset = 0; offset < CLEAR_LENGTH; offset += 4) {
-                        require(word(thread, space, CLEAR_START + offset, language)
+                    for (int offset = 0; offset < clearLengthForCall; offset += 4) {
+                        long expectedWord = clearMode.equals("clear-zero") ? 0 : 0xa5a5a5a5L;
+                        if (clearStartForCall == EXCEPTION_CLEAR_START
+                                && clearMode.equals("clear-no-effect")) {
+                            if (EXCEPTION_CLEAR_START + offset == EXCEPTION_EPC)
+                                expectedWord = 0x8000abcdL;
+                            else if (EXCEPTION_CLEAR_START + offset == EXCEPTION_RA)
+                                expectedWord = 0x80005679L;
+                            else if (EXCEPTION_CLEAR_START + offset == EXCEPTION_CAUSE)
+                                expectedWord = 0x80000027L;
+                        }
+                        require(word(thread, space, clearStartForCall + offset, language)
                                 == expectedWord,
                             String.format("clear model mismatch at offset %08x", offset));
                     }
-                    require(word(thread, space, CLEAR_CANARY, language) == 0x13579bdfL,
+                    long canaryAddress = clearStartForCall == CLEAR_START
+                        ? CLEAR_CANARY : EXCEPTION_CLEAR_CANARY;
+                    long expectedCanary = clearStartForCall == CLEAR_START
+                        ? 0x13579bdfL : 0x2468ace0L;
+                    require(word(thread, space, canaryAddress, language) == expectedCanary,
                         "clear model crossed the requested end boundary");
                     println(String.format(
-                        "SYNTHETIC ROM CLEAR STATE PASS mode=%s return=%s first=%08x last=%08x canary=%08x",
+                        "SYNTHETIC ROM CLEAR STATE PASS mode=%s return=%s start=%08x first=%08x last=%08x canary=%08x",
                         clearMode, clearReturnMode,
-                        word(thread, space, CLEAR_START, language),
-                        word(thread, space, CLEAR_START + CLEAR_LENGTH - 4, language),
-                        word(thread, space, CLEAR_CANARY, language)));
+                        clearStartForCall,
+                        word(thread, space, clearStartForCall, language),
+                        word(thread, space, clearStartForCall + clearLengthForCall - 4, language),
+                        word(thread, space, canaryAddress, language)));
                 }
                 continue;
             }
@@ -256,6 +322,17 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
 
         require(copyMode.equals("reverse") ? reachedNullDispatch : reachedCallback,
             "did not reach the expected callback/negative-control boundary within step limit");
+        require(!callbackMode.equals("callback-return") || (returnedFromCallback
+                    && reachedFunctionReturn),
+            "callback-return mode did not return through the real caller function");
+        if (callbackMode.equals("callback-return")) {
+            long expectedFunctionReturnValue = clearReturnMode.equals("return-dst")
+                ? EXCEPTION_CLEAR_START
+                : clearReturnMode.equals("return-sentinel") ? 0xdeadbeefL : 0;
+            require(finalFunctionReturnValue == expectedFunctionReturnValue,
+                String.format("caller did not propagate the final clear return: got=%08x expected=%08x",
+                    finalFunctionReturnValue, expectedFunctionReturnValue));
+        }
         if (reachedCallback)
             require(word(thread, space, 0x9fc1aad8L, language) == STOP_CALLBACK,
                 "callback slot does not contain the expected synthetic pointer");
@@ -263,13 +340,17 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
             "9fc1a48c,00000000,000007f4,",
             "9fc1aad8,9fc12000,00000014,",
             "9fc1a980,9fc12014,00000020,",
-            "bfc080f8,9fc12200,00000004,"
+            "bfc080f8,9fc12200,00000004,",
+            "00013d00,00000000,000000e0,"
         };
-        long[] expectedRa = { 0xbfc32348L, 0xbfc3236cL, 0xbfc32390L, 0xbfc323b4L };
-        require(calls.size() == expected.length,
-            "expected exactly four ROM boundaries before callback: " + calls);
-        for (int i = 0; i < expected.length; i++) {
-            long target = i == 0 ? ROM_CLEAR : ROM_COPY;
+        long[] expectedRa = { 0xbfc32348L, 0xbfc3236cL, 0xbfc32390L,
+            0xbfc323b4L, 0xbfc32428L };
+        int expectedCallCount = callbackMode.equals("callback-return") ? 5 : expected.length;
+        if (callbackMode.equals("callback-stop")) expectedCallCount = expected.length - 1;
+        require(calls.size() == expectedCallCount,
+            "unexpected ROM boundary count: " + calls);
+        for (int i = 0; i < expectedCallCount; i++) {
+            long target = i == 0 || i == 4 ? ROM_CLEAR : ROM_COPY;
             String prefix = String.format("%08x:mode=1:", target);
             require(calls.get(i).startsWith(prefix)
                     && calls.get(i).contains(":" + expected[i]),
@@ -279,7 +360,7 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 calls.get(i).substring(raAt, raAt + 8), 16);
             require(returnAddress == expectedRa[i] && (returnAddress & 3L) == 0
                     && returnAddress >= ENTRY
-                    && returnAddress < 0xbfc32400L,
+                    && returnAddress < 0xbfc32500L,
                 "unexpected return address for call " + i + ": " + calls.get(i));
         }
         if (reachedCallback) {
@@ -295,5 +376,10 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                 copyMode, ENTRY, STOP_CALLBACK, mode(thread, isa), callbackA0, callbackA1,
                 callbackA2, callbackA3, steps));
         }
+        if (callbackMode.equals("callback-return"))
+            println(String.format(
+                "KERNEL TEMPLATE POST-CALLBACK CLEAR PASS mode=%s return=%s callback-return=%08x function-return=%08x function-v0=%08x",
+                clearMode, clearReturnMode, CALLBACK_RETURN, FUNCTION_RETURN,
+                finalFunctionReturnValue));
     }
 }
