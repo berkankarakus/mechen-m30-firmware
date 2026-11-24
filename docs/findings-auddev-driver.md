@@ -77,6 +77,47 @@ bands 7–15, while the consumer reads sixteen. That shape is consistent with
 the observed `0xf0`-byte shared-memory structure; it does not show how the
 values become audible DSP coefficients.
 
+### Conditional `id=1` groups (reported follow-up decompile)
+
+A follow-up Ghidra decompile of bank 5 reports that `id=1` applies groups only
+when the corresponding `dae_cfg` flag is exactly 1:
+
+| Flag | Reported group |
+|---|---|
+| `+7` | Copy the 16 bands at `+0x10..+0x8f`, applying per-band adjustments from `+0xc2..+0xcb`; otherwise the EQ group is disabled. |
+| `+8` | Speaker compensation using `spk_comp.dat` or RAM records, selected by `+0x93`; `+0x94` supplies a length/order field. |
+| `+9` | Gain fields `+0x98/+0x9a`, adjusted by `+0xc6` and clamped to `-60..+12`. |
+| `+0xa` | Fields `+0x9c/+0x9d`. |
+| `+0xb` | Fields `+0x90/+0x92`, adjusted by `+0xca` and clamped to `0..15`. |
+| `+0xc` | Three dynamic-range/limiter records beginning at `+0x9e`, with constants 50 and 500 written by the routine. |
+| `+0xd` | Output-gain fields `+0xba/+0xbc/+0xbe`; the report correlates their source with config item `0xa6`. |
+
+The same report says the rate branch disables the EQ bank and related groups
+above 48 kHz. Its `+7` source is config item `0x85`, whose default is zero;
+the MEngine builder sets `+7=1` when it submits an EQ structure. The builder
+also sets `+0xd` when the selector is nonzero. Consequently, Off and a
+zero-valued Custom curve need not produce identical input structures: the
+reported output-gain group is enabled for Custom and disabled for Off. Its
+audible effect and physical units remain unknown.
+
+These conditions come from the user's static decompile report, not a retained
+decompile or a new p-code run. The `aud_dev.drv` hash matches the local file,
+but some pointer-pool values in the report were unresolved; do not treat the
+reported `cfg` base address as verified. The bank-to-file mapping, `table[op]`
+dispatch, module-copy semantics, and DSP/hardware effect remain separate
+evidence boundaries.
+
+The reported follow-up also says the `0xf0`-byte structure is persistent
+record ID `0xf0000` with magic `0x55b9`, and that `config.ap` and `mengine.ap`
+run their config-item initializer only after an invalid/missing record. The
+MEngine initializer's field writes are independently reproduced in
+[`initializer evidence`](evidence/auddev-dae-gates-2026-11-24/README.md), but
+its persistent read/write wrapper was not recovered in that run. If the
+reported wrapper is correct, config.bin supplies factory values only on
+first initialization or record reset; a valid record can retain older values.
+The zero defaults for `+8..+0xb` therefore describe a cleared/factory block,
+not every persisted unit.
+
 `tools/ghidra/run_auddev_eq_copy_probe.sh` executes the candidate bank-5 entry
 at `0x9400` with either a synthetic payload or an optional `0xf0`-byte EQ
 structure. It pins the driver SHA-256 and the Ghidra script checks that the

@@ -14,14 +14,31 @@ or codec behavior.
    calls `FUN_403d4e20(7,7)`. `FUN_40614f08` sends message `0x303`.
    `run_eq_producer_probe.sh` verifies this static path; it does not execute
    the UI scene.
-2. **UI-to-Custom gap.** The menu dispatcher `FUN_40094dd4` reads selector
-   byte `0x9fc1570d`; when it is 7, it calls `FUN_403d4ed0`. The MCG Custom
-   callback `FUN_40414c00` instead sends request `0x8000` to
-   `FUN_48ad47b0`; p-code reaches its unsupported type-3 return `-0x7fec`
-   under the tested injected preconditions. The writer that changes
-   `0x9fc1570d` to 7 and the actual slider scene remain unresolved. Therefore,
-   a reachable Custom producer is not yet proof that selecting/editing Custom
-   on the device invokes it.
+2. **EQ editor implementation (`mainmenu.ap`).** Community `mainmenu.ap`
+   (`1ef9b7a466a0f3a6bec8ce8654422c372fd68105ff94739077bfe34b435a1105`)
+   contains selector `FUN_40154cec` and Custom editor `FUN_40154f44`.
+   The editor loads a working copy of the seven gains from persistent block
+   `0x9fc155f4 + 0x2c`; an edit copies the data back and invokes
+   `FUN_40154c78(7)`. That producer copies seven bytes to `0x9fc1a19c` and
+   sends `{7,7}` through message `0x303` when its readiness check succeeds.
+   A Ghidra p-code probe confirmed the increment path and message under
+   synthetic event/service stubs. A later sweep injected decrement event
+   `0x2904` at gains `-3..+3`. Raw MIPS16 bytes show a signed extended `SLTI`
+   comparing against `-2`, followed by a one-step decrement; this implements
+   a `-3` floor. Ghidra p-code treated that immediate as unsigned and produced
+   the erroneous `+1 → -3`; an isolated condition-corrected run produced
+   `-3,-3,-2,-1,0,1,2`. The event-decoder ABI is inferred, so the physical
+   decrement-key mapping remains untested. On state-1 selection event
+   `0x2c03`, resident
+   `FUN_bfc165e0` returns `0x8505` when the selected menu code is 3; this
+   enters state 3, `FUN_40154cec`, the EQ selector. State 4 is
+   `FUN_40154f44`, the Custom editor. Config item `0xe2` gives the default
+   order `0,4,5,2,3,1`, placing code 3 fifth; its localized label remains
+   unknown. `FUN_40014fac` writes the mainmenu settings block only when the AP
+   exits to state 0. Confirm/cancel does not itself persist; cancel restores
+   RAM but sends no compensating producer update, so stale engine preview is
+   possible. The earlier `music.ap` row `0x3301` is a volume-limit setting,
+   not EQ Custom.
 3. **Message receiver and builder (`mengine.ap`).** `FUN_60090d64`
    dispatches `0x303` through pool word `0x60091014` to `FUN_601d0f30`.
    That handler calls the MIPS16 entry `0x601d0d59` of
@@ -45,11 +62,15 @@ or codec behavior.
 
 ## Why Custom may have sounded like Off
 
-The fixed candidate curve `(6,5,0,-2,0,4,3)` is not coefficient-identical to
-Off if it reaches the builder: the builder writes scaled band gains
+The fixed candidate curve `(6,5,0,-2,0,4,3)` is not band-identical to Off
+if it reaches the builder: the builder writes scaled band gains
 `(60,50,0,-20,0,40,30)`, while Off writes seven zeros. So “the custom values
 are too small” is not supported by the known builder inputs. The scale's
-physical unit and acoustic response are still unknown.
+physical unit and acoustic response are still unknown. A later reported
+`aud_dev.drv` decompile says nonzero selectors also enable a separate output-
+gain group, so even zero-valued Custom is not proven identical to Off at the
+consumer. That group and its audible effect have not been independently
+verified; see [aud_dev findings](findings-auddev-driver.md).
 
 There are stronger unresolved explanations for the near-identical listening
 result:
@@ -57,8 +78,10 @@ result:
 - The tested device's exact `music.ap` was not identified. Its producer pointer
   at file offset `0x86f8` was not read back, so it is unknown whether the fixed
   candidate curve was active.
-- The MCG Custom callback has not been shown to update selector `7` or reach
-  `FUN_403d4ed0`; the slider writer/scene is unresolved.
+- The state-1 selection path into EQ is established: menu code 3 returns
+  `0x8505`. Its localized label and relationship to the separate
+  `setting.ap` EQ list remain unresolved. The decoded `music.ap` `0x3301`
+  callback is for volume limit and is unrelated.
 - The current producer p-code trace starts at `FUN_403d4ed0`; it proves that
   function's copy/send behavior, not the physical UI caller path.
 - The builder-to-audio-device path stops at synthetic service shims and a
@@ -114,7 +137,8 @@ corpora are local analysis inputs and are not included in a clean Git checkout.
    whether the sound returns to baseline on the second Off pass. This is a
    listening discriminator, not a coefficient or codec proof; no new flash is
    required for this step.
-4. **Next reverse-engineering target:** trace the MCG/event framework's writer
-   of `0x9fc1570d`, then resolve module `0x42` command `0x1f` and the real
-   module-`0x10` consumer. Avoid further gain tuning until at least the
-   selector writer and downstream consumer are identified.
+4. **Next reverse-engineering target:** resolve the localized label for
+   state-1 menu code 3 and the style-label mismatch, then resolve module
+   `0x42` command `0x1f` and the real module-`0x10` consumer. AP-exit
+   persistence is identified statically; its power-loss behavior and device
+   execution remain untested.
