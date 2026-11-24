@@ -35,6 +35,8 @@ MMM_MP_DSP_NAMES: tuple[str, ...] = (
 DSP_HEADER_BYTES = 16 * 4
 MENGINE_FLAG_SET_DSP_INDEX = 13
 MENGINE_FLAG_CLEAR_DSP_INDEX = 14
+DAE_CONFIG_BYTES = 0xF0
+DAE_EQ_MAX_SAMPLE_RATE_HZ = 48_000
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,19 @@ class DspSelection:
     @property
     def payload_executable(self) -> bool:
         return False
+
+
+@dataclass(frozen=True)
+class DaeGroupSelection:
+    """Flag-gated groups selected by the aud_dev consumer."""
+
+    eq_bank_enabled: bool
+    speaker_compensation_enabled: bool
+    gain_group_one_enabled: bool
+    gain_group_two_enabled: bool
+    gain_group_three_enabled: bool
+    dynamic_range_enabled: bool
+    output_gain_enabled: bool
 
 
 def firmware_dsp_name(format_index: int) -> str:
@@ -122,3 +137,33 @@ def select_initial_mengine_dsp_from_config_item_96(
 
     processing_flag = struct.unpack_from("<H", config_item)[0] == 1
     return select_mengine_dsp(processing_flag, directory)
+
+
+def select_aud_dev_dae_groups(
+    configuration: bytes,
+    sample_rate_hz: int,
+) -> DaeGroupSelection:
+    """Report which verified DAE groups pass aud_dev's byte-flag gates.
+
+    This models the consumer's control flow only. It does not model the DSP
+    coefficients, hardware writes, or audible effect of an enabled group.
+    The EQ bank has an additional sample-rate gate at 48 kHz.
+    """
+    if len(configuration) != DAE_CONFIG_BYTES:
+        raise ValueError("DAE configuration must be exactly 0xf0 bytes")
+
+    if sample_rate_hz <= 0:
+        raise ValueError("sample rate must be a positive integer")
+
+    return DaeGroupSelection(
+        eq_bank_enabled=(
+            configuration[0x07] == 1
+            and sample_rate_hz <= DAE_EQ_MAX_SAMPLE_RATE_HZ
+        ),
+        speaker_compensation_enabled=configuration[0x08] == 1,
+        gain_group_one_enabled=configuration[0x09] == 1,
+        gain_group_two_enabled=configuration[0x0A] == 1,
+        gain_group_three_enabled=configuration[0x0B] == 1,
+        dynamic_range_enabled=configuration[0x0C] == 1,
+        output_gain_enabled=configuration[0x0D] == 1,
+    )

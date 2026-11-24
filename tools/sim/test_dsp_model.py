@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dsp_model import (
     MMM_MP_DSP_NAMES,
+    select_aud_dev_dae_groups,
     select_dsp,
     select_initial_mengine_dsp_from_config_item_96,
     select_mengine_dsp,
@@ -98,6 +99,39 @@ class DspSelectorTests(unittest.TestCase):
                     bytes(7),
                     Path(tmp),
                 )
+
+
+class AudDevDaeGateTests(unittest.TestCase):
+    def test_each_group_requires_its_flag_to_equal_one(self):
+        configuration = bytearray(0xF0)
+        configuration[0x07:0x0E] = bytes((1, 2, 1, 1, 0, 1, 1))
+
+        selected = select_aud_dev_dae_groups(bytes(configuration), 48_000)
+
+        self.assertTrue(selected.eq_bank_enabled)
+        self.assertFalse(selected.speaker_compensation_enabled)
+        self.assertTrue(selected.gain_group_one_enabled)
+        self.assertTrue(selected.gain_group_two_enabled)
+        self.assertFalse(selected.gain_group_three_enabled)
+        self.assertTrue(selected.dynamic_range_enabled)
+        self.assertTrue(selected.output_gain_enabled)
+
+    def test_eq_bank_is_closed_above_48_khz(self):
+        configuration = bytearray(0xF0)
+        configuration[0x07] = 1
+
+        at_limit = select_aud_dev_dae_groups(bytes(configuration), 48_000)
+        above_limit = select_aud_dev_dae_groups(bytes(configuration), 48_001)
+
+        self.assertTrue(at_limit.eq_bank_enabled)
+        self.assertFalse(above_limit.eq_bank_enabled)
+
+    def test_dae_gate_inputs_are_validated(self):
+        with self.assertRaises(ValueError):
+            select_aud_dev_dae_groups(bytes(0xEF), 48_000)
+
+        with self.assertRaises(ValueError):
+            select_aud_dev_dae_groups(bytes(0xF0), 0)
 
 
 if __name__ == "__main__":
