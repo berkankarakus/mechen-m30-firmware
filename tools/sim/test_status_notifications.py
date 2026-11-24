@@ -1,10 +1,58 @@
 import unittest
 
 from status_notifications import (
+    STATUS_CONFIRM_EVENT,
     STATUS_TWO_NOTIFICATION,
     STATUS_ZERO_NOTIFICATION,
     StatusNotifier,
+    begin_status_message,
+    status_message_presentation,
 )
+
+
+class StatusMessagePresentationTests(unittest.TestCase):
+    def test_status_zero_screen_waits_for_confirm_and_returns_8015(self):
+        presentation = status_message_presentation(STATUS_ZERO_NOTIFICATION)
+
+        self.assertEqual(presentation.resource_ids, (0x1005, 0x1006, 0x2001))
+        self.assertEqual(presentation.confirm_event, STATUS_CONFIRM_EVENT)
+        self.assertEqual(presentation.ap_return_code, 0x8015)
+
+    def test_status_two_screen_returns_8014_without_waiting(self):
+        presentation = status_message_presentation(STATUS_TWO_NOTIFICATION)
+
+        self.assertEqual(presentation.resource_ids, (0x1008, 0x1007, 0x2000))
+        self.assertIsNone(presentation.confirm_event)
+        self.assertEqual(presentation.ap_return_code, 0x8014)
+
+    def test_rejects_messages_without_a_verified_status_screen(self):
+        with self.assertRaises(ValueError):
+            status_message_presentation(0xB0)
+
+    def test_status_zero_handler_waits_for_available_event_102(self):
+        session = begin_status_message(STATUS_ZERO_NOTIFICATION)
+
+        self.assertFalse(session.complete)
+        self.assertIsNone(session.ap_return_code)
+        self.assertFalse(session.poll(event=0x102, available=False))
+        self.assertFalse(session.poll(event=0x101, available=True))
+        self.assertTrue(session.poll(event=0x102, available=True))
+        self.assertEqual(session.ap_return_code, 0x8015)
+
+    def test_status_two_handler_is_complete_without_polling(self):
+        session = begin_status_message(STATUS_TWO_NOTIFICATION)
+
+        self.assertTrue(session.complete)
+        self.assertEqual(session.ap_return_code, 0x8014)
+
+    def test_rejects_invalid_event_service_results(self):
+        session = begin_status_message(STATUS_ZERO_NOTIFICATION)
+
+        with self.assertRaises(ValueError):
+            session.poll(event=None, available=True)
+
+        with self.assertRaises(ValueError):
+            session.poll(event=0x102, available=1)
 
 
 class StatusNotifierTests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 STATUS_ZERO_NOTIFICATION = 0x82
@@ -10,6 +10,12 @@ STATUS_TWO_NOTIFICATION = 0xF2
 STATUS_NOTIFICATION_TICKS = 0x78
 STATUS_TWO_REFRESH_TICKS = 8
 STATUS_LEVEL_MAX = 6
+STATUS_CONFIRM_EVENT = 0x102
+
+_STATUS_PRESENTATIONS = {
+    STATUS_ZERO_NOTIFICATION: ((0x1005, 0x1006, 0x2001), STATUS_CONFIRM_EVENT, 0x8015),
+    STATUS_TWO_NOTIFICATION: ((0x1008, 0x1007, 0x2000), None, 0x8014),
+}
 
 
 @dataclass(frozen=True)
@@ -21,6 +27,64 @@ class StatusNotification:
     state_changed: bool
     status: int
     level: int
+
+
+@dataclass(frozen=True)
+class StatusMessagePresentation:
+    """Verified resource and return-code envelope for a status message."""
+
+    resource_ids: tuple[int, ...]
+    confirm_event: int | None
+    ap_return_code: int
+
+
+def status_message_presentation(message: int) -> StatusMessagePresentation:
+    """Return the mainmenu presentation contract for status 0 or status 2."""
+    try:
+        resource_ids, confirm_event, ap_return_code = _STATUS_PRESENTATIONS[message]
+    except KeyError as error:
+        raise ValueError(f"unsupported status message 0x{message:04x}") from error
+
+    return StatusMessagePresentation(resource_ids, confirm_event, ap_return_code)
+
+
+@dataclass
+class StatusMessageSession:
+    """Track the confirmed event needed for a status handler to return."""
+
+    presentation: StatusMessagePresentation
+    complete: bool = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.complete = self.presentation.confirm_event is None
+
+    @property
+    def ap_return_code(self) -> int | None:
+        if not self.complete:
+            return None
+
+        return self.presentation.ap_return_code
+
+    def poll(self, event: int | None, available: bool) -> bool:
+        """Apply one event-service result; unavailable event data is ignored."""
+        if not isinstance(available, bool):
+            raise ValueError("event availability must be a boolean")
+
+        if available and (event is None or not 0 <= event <= 0xFFFFFFFF):
+            raise ValueError("an available event must fit an unsigned 32-bit word")
+
+        if self.complete or not available:
+            return self.complete
+
+        if event == self.presentation.confirm_event:
+            self.complete = True
+
+        return self.complete
+
+
+def begin_status_message(message: int) -> StatusMessageSession:
+    """Start the observed mainmenu handler for one status notification."""
+    return StatusMessageSession(status_message_presentation(message))
 
 
 @dataclass
