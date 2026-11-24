@@ -4,14 +4,14 @@
 # produced.
 set -euo pipefail
 
-[ $# -ge 1 ] || { echo "usage: $0 MUSIC.AP [STUBS.BIN|cancel|next|previous|redraw] [cancel|next|previous|redraw]" >&2; exit 2; }
+[ $# -ge 1 ] || { echo "usage: $0 MUSIC.AP [STUBS.BIN|cancel|next|previous|redraw|render-next|render-previous|render-redraw] [cancel|next|previous|redraw|render-next|render-previous|render-redraw]" >&2; exit 2; }
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 AP=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 STUBS=
 MODE=cancel
 if [ $# -ge 2 ]; then
   case "$2" in
-    cancel|next|previous|redraw) MODE=$2 ;;
+    cancel|next|previous|redraw|render-next|render-previous|render-redraw) MODE=$2 ;;
     *) STUBS=$2 ;;
   esac
 fi
@@ -61,7 +61,7 @@ set -e
 if [ "$GHIDRA_STATUS" -ne 0 ]; then
   exit "$GHIDRA_STATUS"
 fi
-if ! grep -Eq 'SCROLL (PROBE|EVENT) PASS' "$LOG"; then
+if ! grep -Eq 'SCROLL (PROBE|EVENT|TIMER ABI) PASS' "$LOG"; then
   echo "Ghidra completed without a probe PASS marker" >&2
   exit 1
 fi

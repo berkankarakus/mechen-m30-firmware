@@ -62,6 +62,7 @@ public class RunScrollProbe extends GhidraScript {
     }
 
     private int eventCode(String mode) throws Exception {
+        if (mode.startsWith("render-")) mode = mode.substring("render-".length());
         if ("next".equals(mode)) return 0x2901;
         if ("previous".equals(mode)) return 0x2902;
         if ("redraw".equals(mode)) return 0x2903;
@@ -98,10 +99,10 @@ public class RunScrollProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length < 1 || getScriptArgs().length > 2) throw new Exception("usage: RunScrollProbe.java STUBS.BIN [cancel|next|previous]");
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 2) throw new Exception("usage: RunScrollProbe.java STUBS.BIN [cancel|next|previous|redraw|render-next|render-previous|render-redraw]");
         String mode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "cancel";
         int event = eventCode(mode);
-        boolean fullRenderer = "cancel".equals(mode);
+        boolean fullRenderer = "cancel".equals(mode) || mode.startsWith("render-");
         Memory memory = currentProgram.getMemory();
         byte[] stubs = Files.readAllBytes(Paths.get(getScriptArgs()[0]));
         MemoryBlock stubBlock = memory.createInitializedBlock("probe_stubs", addr(STUBS), new java.io.ByteArrayInputStream(stubs), stubs.length, monitor, false);
@@ -179,6 +180,17 @@ public class RunScrollProbe extends GhidraScript {
                             String second = a1 >= RAM && a1 < RAM + 0x4000 ? emuBytes(emu, a1, 16) : "scalar";
                             println(String.format("DISPATCH_BYTES a0=%s a1=%s", emuBytes(emu, a0, 16), second));
                         }
+                    }
+                    if (base == STUBS + 0x60 && mode.startsWith("render-")) {
+                        long a0 = emu.readRegister("a0").longValue() & 0xffffffffL;
+                        long a1 = emu.readRegister("a1").longValue() & 0xffffffffL;
+                        long a2 = emu.readRegister("a2").longValue() & 0xffffffffL;
+                        long a3 = emu.readRegister("a3").longValue() & 0xffffffffL;
+                        if (a0 != 1 || a1 != 0 || a2 != 0 || a3 != 0x31) {
+                            throw new Exception(String.format("unexpected timer ABI: a0=0x%08x a1=0x%08x a2=0x%08x a3=0x%08x", a0, a1, a2, a3));
+                        }
+                        println(String.format("SCROLL TIMER ABI PASS event=%s steps=%d a0=0x%08x a1=0x%08x a2=0x%08x a3=0x%08x", mode, steps, a0, a1, a2, a3));
+                        return;
                     }
                     if (!fullRenderer && base == STUBS + 0xa0) println(String.format("event stub a1=0x%08x", emu.readRegister("a1").longValue() & 0xffffffffL));
                     if (!fullRenderer && base == STUBS + 0xa4) println(String.format("event stub v0=0x%08x a1=0x%08x", emu.readRegister("v0").longValue() & 0xffffffffL, emu.readRegister("a1").longValue() & 0xffffffffL));
