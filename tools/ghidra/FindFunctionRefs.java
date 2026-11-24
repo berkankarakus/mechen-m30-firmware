@@ -1,39 +1,35 @@
-// Report Ghidra references to explicit resident-kernel function addresses.
-// Arguments: comma-separated addresses.
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Reference;
-import ghidra.program.model.symbol.ReferenceIterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
+/** Print code/data references to mapped function addresses and their owners. */
 public class FindFunctionRefs extends GhidraScript {
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length != 1) {
-            throw new Exception("usage: FindFunctionRefs.java 0xbfc0a408,0xbfc0a944");
+            throw new Exception("usage: FindFunctionRefs.java 0x40154cec,0x40154f44");
         }
-        Map<Long, Integer> counts = new LinkedHashMap<>();
-        var addressSpace = currentProgram.getAddressFactory().getDefaultAddressSpace();
+
         for (String text : getScriptArgs()[0].split(",")) {
-            long value = Long.decode(text) & 0xffffffffL;
-            Address target = addressSpace.getAddress(String.format("0x%08x", value));
+            Address target = currentProgram.getAddressFactory().getDefaultAddressSpace()
+                .getAddress(Long.decode(text));
+            Function function = currentProgram.getFunctionManager().getFunctionAt(target);
+            if (function != null) {
+                target = function.getEntryPoint();
+            }
+
             int count = 0;
-            ReferenceIterator references = currentProgram.getReferenceManager()
-                .getReferencesTo(target);
-            while (references.hasNext()) {
-                Reference reference = references.next();
+            for (Reference reference : currentProgram.getReferenceManager().getReferencesTo(target)) {
+                Address source = reference.getFromAddress();
+                Function owner = currentProgram.getFunctionManager().getFunctionContaining(source);
+                String ownerName = owner == null ? "<no-function>" : owner.getName();
                 println(String.format(
-                    "FUNCTION_REF target=0x%08x from=%s kind=%s operand=%d",
-                    value, reference.getFromAddress(), reference.getReferenceType(),
-                    reference.getOperandIndex()));
+                    "FUNCTION_REF target=%s from=%s type=%s owner=%s",
+                    target, source, reference.getReferenceType(), ownerName));
                 count++;
             }
-            counts.put(value, count);
-        }
-        for (Map.Entry<Long, Integer> entry : counts.entrySet()) {
-            println(String.format("FUNCTION_TOTAL target=0x%08x count=%d",
-                entry.getKey(), entry.getValue()));
+            println(String.format("FUNCTION_REF_TOTAL target=%s count=%d", target, count));
         }
     }
 }
