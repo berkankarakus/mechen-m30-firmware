@@ -52,4 +52,4 @@ for marker in \
 done
 
 grep -E 'USOUND FW INFO (CALL|TRACE)' "$WORK/run.log" || true
-echo "USOUND DESCRIPTOR PATCH PROBE PASS cases=6 real-mips16=1 synthetic-config=1 rom-stubs=2"
+echo "USOUND DESCRIPTOR PATCH PROBE PASS cases=8 real-mips16=1 synthetic-config=1 rom-stubs=2"

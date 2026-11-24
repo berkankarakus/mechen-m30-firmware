@@ -189,6 +189,23 @@ class UsbAudioContractTests(unittest.TestCase):
 
         self.assertEqual(result.configuration_descriptor[0x36], 1)
 
+    def test_descriptor_patch_uses_only_interface_flag_bit_one(self) -> None:
+        for interface_flags, expected_interface_count in ((0x01, 1), (0x02, 3)):
+            with self.subTest(interface_flags=interface_flags):
+                config_items = make_config_items()
+                config_items[0x114] = bytes((interface_flags, 0, 0, 0))
+
+                result = patch_usound_descriptors(
+                    make_device_descriptor(),
+                    make_configuration_descriptor(),
+                    config_items,
+                )
+
+                self.assertEqual(
+                    result.configuration_descriptor[0x36],
+                    expected_interface_count,
+                )
+
     def test_descriptor_patch_encodes_firmware_serial_as_utf16le(self) -> None:
         serial = b"M30-SERIAL-12345"
 

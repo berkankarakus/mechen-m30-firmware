@@ -372,6 +372,18 @@ public class RunUsoundDescriptorPatchProbe extends GhidraScript {
             new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
             new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
                 'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
+        runCase(dataSegment, "interface-flag-bit-zero-only", 2, 0, 1, "0x10D6", "0xdd01",
+            "M30", "USB AUDIO", 0x10d6, 0xdd01, 1, 2, 16,
+            new byte[] {(byte)0x80, (byte)0xbb, 0}, 200,
+            new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
+            new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
+                'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
+        runCase(dataSegment, "interface-flag-bit-one-only", 2, 0, 2, "0x10D6", "0xdd01",
+            "M30", "USB AUDIO", 0x10d6, 0xdd01, 3, 2, 16,
+            new byte[] {(byte)0x80, (byte)0xbb, 0}, 200,
+            new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
+            new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
+                'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
         runCase(dataSegment, "empty-vid-pid", 2, 0, 3, "0x", "0x", "", "", 0x10d6,
             0xdd00, 3, 2, 16, new byte[] {(byte)0x80, (byte)0xbb, 0}, 200,
             new byte[] {2, 3}, new byte[] {2, 3});
