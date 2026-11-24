@@ -221,6 +221,10 @@ EQ_PRESETS: tuple[EqPreset, ...] = (
 FIRMWARE_EQ_BAND_HZ: tuple[int, ...] = (80, 200, 480, 980, 4000, 8000, 16000)
 FIRMWARE_EQ_Q_VALUES: tuple[int, ...] = (10, 6, 4, 6, 10, 5, 8)
 FIRMWARE_EQ_GAIN_SCALE = 10
+FIRMWARE_EQ_SLIDER_MIN_GAIN = -3
+FIRMWARE_EQ_SLIDER_MAX_GAIN = 3
+FIRMWARE_EQ_SLIDER_INCREASE_EVENT = 0x2903
+FIRMWARE_EQ_SLIDER_DECREASE_EVENT = 0x2904
 FIRMWARE_EQ_MESSAGE_ID = 0x303
 FIRMWARE_EQ_SELECTOR_OFFSET = 0x41
 FIRMWARE_EQ_MAINMENU_LABELS_EN: tuple[str, ...] = (
@@ -399,6 +403,20 @@ def firmware_eq_gain_s16(
         gain * FIRMWARE_EQ_GAIN_SCALE
         for gain in firmware_eq_gains(selector, custom, profile=profile)
     )
+
+
+def adjust_firmware_eq_slider_gain(current_gain: int, event: int) -> int:
+    """Apply one observed Custom EQ slider step within its firmware range."""
+    if not FIRMWARE_EQ_SLIDER_MIN_GAIN <= current_gain <= FIRMWARE_EQ_SLIDER_MAX_GAIN:
+        raise ValueError("Custom EQ slider gain must be in the observed range -3..3")
+
+    if event == FIRMWARE_EQ_SLIDER_INCREASE_EVENT:
+        return min(current_gain + 1, FIRMWARE_EQ_SLIDER_MAX_GAIN)
+
+    if event == FIRMWARE_EQ_SLIDER_DECREASE_EVENT:
+        return max(current_gain - 1, FIRMWARE_EQ_SLIDER_MIN_GAIN)
+
+    raise ValueError(f"unsupported Custom EQ slider event 0x{event:04x}")
 
 
 def build_firmware_eq_structure(

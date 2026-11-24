@@ -21,6 +21,7 @@ from m30_model import (
     SleepTimerPersistence,
     SleepTimerState,
     VolumeLimitState,
+    adjust_firmware_eq_slider_gain,
     eq_names,
     find_eq,
     firmware_eq_gains,
@@ -187,6 +188,38 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(firmware_eq_gains(0), (0, 0, 0, 0, 0, 0, 0))
         self.assertEqual(firmware_eq_gains(1), (5, 3, 0, -1, 0, 4, 5))
         self.assertEqual(firmware_eq_gains(6), (5, 2, 0, 0, 0, 0, 6))
+
+    def test_custom_slider_steps_follow_the_signed_mips16_boundaries(self):
+        expected_steps = (
+            (-3, 0x2903, -2),
+            (-3, 0x2904, -3),
+            (-2, 0x2903, -1),
+            (-2, 0x2904, -3),
+            (-1, 0x2903, 0),
+            (-1, 0x2904, -2),
+            (0, 0x2903, 1),
+            (0, 0x2904, -1),
+            (1, 0x2903, 2),
+            (1, 0x2904, 0),
+            (2, 0x2903, 3),
+            (2, 0x2904, 1),
+            (3, 0x2903, 3),
+            (3, 0x2904, 2),
+        )
+
+        for current_gain, event, expected_gain in expected_steps:
+            with self.subTest(current_gain=current_gain, event=event):
+                self.assertEqual(
+                    adjust_firmware_eq_slider_gain(current_gain, event),
+                    expected_gain,
+                )
+
+    def test_custom_slider_rejects_unobserved_gain_or_event(self):
+        with self.assertRaises(ValueError):
+            adjust_firmware_eq_slider_gain(4, 0x2903)
+
+        with self.assertRaises(ValueError):
+            adjust_firmware_eq_slider_gain(0, 0x2905)
 
     def test_builder_scales_signed_gain_bytes_into_signed_halfwords(self):
         custom = (1, 2, 3, -3, -2, 127, -128)
