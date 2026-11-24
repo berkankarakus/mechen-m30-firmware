@@ -211,10 +211,15 @@ exercised by a separate bounded p-code probe, but the helper effects remain
 opaque. The callback word at `0x9fc1aad8`, its source bytes, and the actual
 boot-stage mapping are not established by the extracted `ker_init.bin`. Do
 not substitute host `memset`/`memcpy` based only on the call shape.
-`FUN_bfc32440` also performs
-read-modify-write MMIO operations whose initial device state and helper-call
-effects are unknown. Therefore the complete entry-to-constructor p-code path
-is still unverified.
+`FUN_bfc32440` now has a bounded p-code probe at its extracted entry. It runs
+the real 250-instruction path to return, uses `0xa5a5a5a5` seeded RAM-backed
+MMIO words, and intercepts seven fixed-ROM calls with synthetic zero-return
+MIPS16 stubs. The probe checks all 15 final MMIO words and the RAM fields
+written by the function. This verifies the caller's instruction-level
+read/modify/write masks and address calculations for the chosen seed; it does
+not reveal the hardware register meanings, real reset values, or fixed-ROM
+side effects. Consequently, the complete entry-to-constructor path remains
+unverified.
 
 ### What the three entry-path helpers do, and what remains unknown
 
@@ -259,13 +264,24 @@ The extracted instructions support these bounded descriptions:
   unresolved source contents. The function later reads a word from
   `0x9fc12204` into `0xbfc32fc4`; that source word is outside the preceding
   four-byte copy range.
-- `FUN_bfc32440` writes `0x1a` to `0x9fc2a8a8` and `0x9fc2a8aa`, stores
-  derived timing-like values in nearby RAM, and performs a sequence of
-  read-modify-write operations on `0xc000...`, `0xc002...`, and `0xc012...`
-  registers. It makes five calls to `0xbfc07a51`, one to `0xbfc04fb9`
-  (`a0=1`), and one to `0xbfc04f61` (`a0=120`). The calls' scalar results
-  are not used by the visible code, but their hardware effects and the
-  initial values of the RMW registers are unavailable.
+- `FUN_bfc32440` writes `0x1a` to byte address `0x9fc1a8a8` and halfword
+  address `0x9fc1a8aa`; these addresses correct the previous note's sign-
+  extension arithmetic error. It writes derived timing-like values at
+  `0x9fc1aab0`, `0x9fc1aab4`, and `0x9fc1aab8`. Its p-code probe confirms
+  seven ROM call edges: five to aligned PC `0xbfc07a50` (odd pointer
+  `0xbfc07a51`), one to `0xbfc04fb8` (pointer `0xbfc04fb9`, `a0=1`), and one
+  to `0xbfc04f60` (pointer `0xbfc04f61`, `a0=120`). Returns were synthetic
+  zeros and MMIO started at `0xa5a5a5a5`; under those conditions the 15
+  checked final register values matched the instruction-derived masks,
+  including multiple updates to `0xc0020000` and `0xc0000118`. This validates
+  the extracted caller path and probe, not the actual register reset values,
+  peripheral meanings, or ROM-service behavior.
+
+Reproduce the bounded check with:
+
+```sh
+bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin>
+```
 
 This is not a full semantic interpretation of those functions: the first has
 unknown external side effects, the second depends on unavailable source bytes,
