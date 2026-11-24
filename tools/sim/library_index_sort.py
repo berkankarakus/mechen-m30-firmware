@@ -22,6 +22,10 @@ INDEX_TEXT_CONVERSION_STALE_TAIL = "stale-tail"
 INDEX_TEXT_CONVERSION_STOP_ZERO = "stop-zero"
 INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_PREFIX = "replace-continue:"
 INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX = "replace-continue-stale-tail:"
+INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_PREFIX = "replace-continue-terminal-oor-zero:"
+INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_STALE_TAIL_PREFIX = (
+    "replace-continue-terminal-oor-zero-stale-tail:"
+)
 
 
 def _convert_index_text(record: bytes, offset: int, width: int) -> bytes:
@@ -104,6 +108,78 @@ def _convert_index_text_replace_continue(
     return bytes(converted)
 
 
+def _convert_index_text_terminal_oor_zero(
+    record: bytes,
+    offset: int,
+    width: int,
+    replacement_byte: int,
+) -> bytes:
+    """Candidate: replace interior wide units, but terminate on a final one."""
+    field = record[offset : offset + width]
+    if field[:2] != b"\xff\xfe":
+        return bytes(field)
+
+    source = record[offset + 2 : offset + 2 + 2 * width]
+    converted = bytearray(width)
+
+    for index in range(width):
+        character_bytes = source[2 * index : 2 * index + 2].ljust(2, b"\0")
+        character = character_bytes[0] | (character_bytes[1] << 8)
+
+        if character >= 256:
+            next_character_bytes = source[2 * (index + 1) : 2 * (index + 2)]
+            next_character_bytes = next_character_bytes.ljust(2, b"\0")
+            next_character = next_character_bytes[0] | (next_character_bytes[1] << 8)
+
+            if next_character == 0:
+                converted[index] = 0
+                break
+
+            converted[index] = replacement_byte
+            continue
+
+        converted[index] = character
+
+        if character == 0:
+            break
+
+    return bytes(converted)
+
+
+def _convert_index_text_terminal_oor_zero_stale_tail(
+    record: bytes,
+    offset: int,
+    width: int,
+    replacement_byte: int,
+) -> bytes:
+    """Model the QEMU stub's terminal OOR rule without clearing its output tail."""
+    field = record[offset : offset + width]
+    if field[:2] != b"\xff\xfe":
+        return bytes(field)
+
+    converted = bytearray(
+        record[offset + 2 : offset + 2 + 2 * width].ljust(2 * width, b"\0")
+    )
+    for index in range(width):
+        character = converted[2 * index] | (converted[2 * index + 1] << 8)
+        if character >= 256:
+            next_character_bytes = converted[2 * (index + 1) : 2 * (index + 2)]
+            next_character_bytes = next_character_bytes.ljust(2, b"\0")
+            next_character = next_character_bytes[0] | (next_character_bytes[1] << 8)
+            if next_character == 0:
+                converted[index] = 0
+                break
+
+            converted[index] = replacement_byte
+            continue
+
+        converted[index] = character
+        if character == 0:
+            break
+
+    return bytes(converted[:width])
+
+
 def _convert_index_text_replace_continue_stale_tail(
     record: bytes,
     offset: int,
@@ -157,6 +233,54 @@ def _select_index_text_converter(
             )
 
         return lambda record, offset, width: _convert_index_text_replace_continue_stale_tail(
+            record,
+            offset,
+            width,
+            replacement_byte,
+        )
+
+    if conversion_mode.startswith(
+        INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_STALE_TAIL_PREFIX
+    ):
+        replacement_text = conversion_mode[
+            len(INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_STALE_TAIL_PREFIX) :
+        ]
+        try:
+            replacement_byte = int(replacement_text, 16)
+        except ValueError as error:
+            raise ValueError(
+                "terminal-oor-zero-stale-tail mode needs a hexadecimal byte"
+            ) from error
+
+        if not 0 <= replacement_byte <= 0xFF:
+            raise ValueError(
+                "terminal-oor-zero-stale-tail replacement must fit one byte"
+            )
+
+        return lambda record, offset, width: _convert_index_text_terminal_oor_zero_stale_tail(
+            record,
+            offset,
+            width,
+            replacement_byte,
+        )
+
+    if conversion_mode.startswith(INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_PREFIX):
+        replacement_text = conversion_mode[
+            len(INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_PREFIX) :
+        ]
+        try:
+            replacement_byte = int(replacement_text, 16)
+        except ValueError as error:
+            raise ValueError(
+                "terminal-oor-zero mode needs a hexadecimal replacement byte"
+            ) from error
+
+        if not 0 <= replacement_byte <= 0xFF:
+            raise ValueError(
+                "terminal-oor-zero replacement must fit one byte"
+            )
+
+        return lambda record, offset, width: _convert_index_text_terminal_oor_zero(
             record,
             offset,
             width,

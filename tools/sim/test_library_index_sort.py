@@ -3,6 +3,8 @@ import unittest
 
 from library_index_sort import (
     INDEX_TEXT_CONVERSION_REPLACE_CONTINUE_STALE_TAIL_PREFIX,
+    INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_PREFIX,
+    INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_STALE_TAIL_PREFIX,
     INDEX_TEXT_CONVERSION_STOP_ZERO,
     _select_index_text_converter,
     derive_section_run_lengths,
@@ -98,6 +100,33 @@ class LibraryIndexSortTests(unittest.TestCase):
         convert = _select_index_text_converter("replace-continue:20")
 
         self.assertEqual(convert(record, 0, 0x40)[:5], b"A B\0\0")
+
+    def test_terminal_oor_zero_conversion_replaces_middle_and_terminates_at_end(self):
+        middle_unsupported = make_record(
+            title=b"\xff\xfe" + "AıB\0".encode("utf-16-le")
+        )
+        terminal_unsupported = make_record(
+            title=b"\xff\xfe" + "Indelible’\0".encode("utf-16-le")
+        )
+        conversion_mode = f"{INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_PREFIX}01"
+        convert = _select_index_text_converter(conversion_mode)
+
+        self.assertEqual(convert(middle_unsupported, 0, 0x40)[:5], b"A\x01B\0\0")
+        self.assertEqual(
+            convert(terminal_unsupported, 0, 0x40)[:12],
+            b"Indelible\0\0\0",
+        )
+
+    def test_terminal_oor_zero_stale_tail_preserves_bytes_after_terminator(self):
+        record = make_record(
+            title=b"\xff\xfe" + "Aı\0".encode("utf-16-le") + b"XY"
+        )
+        conversion_mode = (
+            f"{INDEX_TEXT_CONVERSION_CANDIDATE_TERMINAL_OOR_ZERO_STALE_TAIL_PREFIX}01"
+        )
+        convert = _select_index_text_converter(conversion_mode)
+
+        self.assertEqual(convert(record, 0, 0x40)[:6], b"A\0\x31\x01\0\0")
 
     def test_replace_continue_conversion_rejects_invalid_replacement_byte(self):
         with self.assertRaises(ValueError):
