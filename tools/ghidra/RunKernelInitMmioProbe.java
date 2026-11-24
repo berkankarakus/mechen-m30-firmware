@@ -73,10 +73,20 @@ public class RunKernelInitMmioProbe extends GhidraScript {
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
-            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|sentinel]");
+            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|sentinel|call0..call6]");
         String returnMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "zero";
-        require(returnMode.equals("zero") || returnMode.equals("sentinel"),
-            "return mode must be zero or sentinel");
+        int isolatedCall = -1;
+        if (returnMode.startsWith("call")) {
+            try {
+                isolatedCall = Integer.parseInt(returnMode.substring(4));
+            }
+            catch (NumberFormatException e) {
+                throw new Exception("isolated return mode must be call0 through call6");
+            }
+        }
+        require(returnMode.equals("zero") || returnMode.equals("sentinel")
+                || (isolatedCall >= 0 && isolatedCall < 7),
+            "return mode must be zero, sentinel, or call0 through call6");
         byte[] image = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         require(image.length >= 0x828, "ker_init.bin truncated before FUN_bfc32440");
@@ -144,7 +154,10 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                     reg(thread, language.getRegister("a3"), language));
                 calls.add(call);
                 println("KERNEL INIT MMIO ROM EDGE " + call);
-                long returnValue = returnMode.equals("zero") ? 0 : RETURN_SENTINEL;
+                int callIndex = calls.size() - 1;
+                long returnValue = returnMode.equals("zero")
+                        || (isolatedCall >= 0 && isolatedCall != callIndex)
+                    ? 0 : RETURN_SENTINEL;
                 thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
                     returnValue, v0.getMinimumByteSize()));
                 thread.stepInstruction();

@@ -228,6 +228,13 @@ same checked observations. Possible service side effects are outside the
 model. Consequently, the complete entry-to-constructor path remains
 unverified.
 
+The differential was then isolated by call ordinal. In seven more runs,
+exactly one of the seven ROM-call returns was set to `0xdeadbeef` while the
+other six returned zero. Every run passed the 250-step, call-edge/argument,
+function-return, RAM, and MMIO assertions. Thus none of the seven individual
+scalar substitutions changed those checked outcomes. This does not test
+interactions between multiple nonzero returns or any real ROM-service effects.
+
 ### What the three entry-path helpers do, and what remains unknown
 
 The extracted instructions support these bounded descriptions:
@@ -285,12 +292,16 @@ The extracted instructions support these bounded descriptions:
   checked outcomes in these runs; intermediate PCs were not differentially
   compared. This validates the extracted caller path and probe, not actual
   register reset values, peripheral meanings, or ROM-service behavior.
+  The seven one-call-at-a-time `0xdeadbeef` profiles also passed all assertions;
+  this isolates individual return substitutions but not interactions among
+  multiple changed returns.
 
 Reproduce the bounded check with:
 
 ```sh
 bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> zero
 bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> sentinel
+bash tools/ghidra/run_kernel_init_mmio_return_sweep.sh <hash-matching-ker_init.bin>
 ```
 
 This is not a full semantic interpretation of those functions: the first has

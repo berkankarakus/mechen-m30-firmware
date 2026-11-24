@@ -15,8 +15,8 @@ EXPECTED_SHA256=f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
 [ -f "$INIT" ] || { echo "missing ker_init.bin: $INIT" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 case "$RETURN_MODE" in
-  zero|sentinel) ;;
-  *) echo "return mode must be zero or sentinel: $RETURN_MODE" >&2; exit 1 ;;
+  zero|sentinel|call[0-6]) ;;
+  *) echo "return mode must be zero, sentinel, or call0 through call6: $RETURN_MODE" >&2; exit 1 ;;
 esac
 actual_sha=$(shasum -a 256 "$INIT" | awk '{print $1}')
 [ "$actual_sha" = "$EXPECTED_SHA256" ] || {
