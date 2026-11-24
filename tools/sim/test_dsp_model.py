@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dsp_model import MMM_MP_DSP_NAMES, select_dsp
+from dsp_model import MMM_MP_DSP_NAMES, select_dsp, select_mengine_dsp
 
 
 class DspSelectorTests(unittest.TestCase):
@@ -44,6 +44,23 @@ class DspSelectorTests(unittest.TestCase):
                 select_dsp(-1, Path(tmp))
             with self.assertRaises(ValueError):
                 select_dsp(16, Path(tmp))
+
+    def test_mengine_processing_flag_selects_the_recovered_dsp_members(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            processing = select_mengine_dsp(True, Path(tmp))
+            bypass = select_mengine_dsp(False, Path(tmp))
+
+        self.assertEqual(processing.format_index, 13)
+        self.assertEqual(processing.firmware_name, "audiopp.dsp")
+        self.assertEqual(bypass.format_index, 14)
+        self.assertEqual(bypass.firmware_name, "adppext.dsp")
+        self.assertFalse(processing.payload_executable)
+        self.assertFalse(bypass.payload_executable)
+
+    def test_mengine_processing_flag_requires_boolean_input(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                select_mengine_dsp(1, Path(tmp))
 
 
 if __name__ == "__main__":

@@ -33,6 +33,8 @@ MMM_MP_DSP_NAMES: tuple[str, ...] = (
 )
 
 DSP_HEADER_BYTES = 16 * 4
+MENGINE_FLAG_SET_DSP_INDEX = 13
+MENGINE_FLAG_CLEAR_DSP_INDEX = 14
 
 
 @dataclass(frozen=True)
@@ -89,3 +91,16 @@ def select_dsp(format_index: int, directory: Path) -> DspSelection:
         return DspSelection(format_index, firmware_name, member_name, None, None, None, None)
     size, digest, words = _inspect_member(path)
     return DspSelection(format_index, firmware_name, member_name, path, size, digest, words)
+
+
+def select_mengine_dsp(processing_flag: bool, directory: Path) -> DspSelection:
+    """Resolve the DSP member selected by config.ap's processing flag."""
+    if not isinstance(processing_flag, bool):
+        raise ValueError("mengine processing flag must be a boolean")
+
+    format_index = (
+        MENGINE_FLAG_SET_DSP_INDEX
+        if processing_flag
+        else MENGINE_FLAG_CLEAR_DSP_INDEX
+    )
+    return select_dsp(format_index, directory)
