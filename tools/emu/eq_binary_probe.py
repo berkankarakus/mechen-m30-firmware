@@ -60,12 +60,16 @@ def verify(
                 f"mengine selector {selector} {actual!r} != model {expected!r}"
             )
 
-    custom_offset = SETTING_EQ_TABLE + 7 * SETTING_ROW_STRIDE
-    custom = signed_bytes(setting[custom_offset : custom_offset + len(profile.custom_default)])
-    if custom != profile.custom_default:
-        raise AssertionError(
-            f"setting Custom default {custom!r} != model {profile.custom_default!r}"
+    if profile.setting_custom_row is not None:
+        custom_offset = SETTING_EQ_TABLE + 7 * SETTING_ROW_STRIDE
+        custom_row = signed_bytes(
+            setting[custom_offset : custom_offset + len(profile.setting_custom_row)]
         )
+        if custom_row != profile.setting_custom_row:
+            raise AssertionError(
+                f"setting Custom resource row {custom_row!r} "
+                f"!= model {profile.setting_custom_row!r}"
+            )
 
 
 def main() -> int:
@@ -82,7 +86,8 @@ def main() -> int:
     verify(args.mengine_ap, args.setting_ap, profile)
     print(
         "EQ BINARY PROBE PASS "
-        f"profile={profile.name} bands=7 gain_rows=7 custom=setting.ap:0x5b04"
+        f"profile={profile.name} bands=7 gain_rows=7 "
+        f"setting_custom_row={profile.setting_custom_row is not None}"
     )
     return 0
 

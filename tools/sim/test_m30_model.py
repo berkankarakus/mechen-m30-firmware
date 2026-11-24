@@ -8,8 +8,9 @@ from m30_model import (
     EQ_PRESETS,
     FIRMWARE_EQ_2024_04_PROFILE,
     FIRMWARE_EQ_BAND_HZ,
-    FIRMWARE_EQ_CUSTOM_DEFAULT,
     FIRMWARE_EQ_CURRENT_PROFILE,
+    FIRMWARE_EQ_SETTING_CUSTOM_ROW,
+    FIRMWARE_EQ_ZEROED_BLOCK_CUSTOM,
     FIRMWARE_EQ_MESSAGE_ID,
     FIRMWARE_EQ_PRESETS,
     FIRMWARE_EQ_Q_VALUES,
@@ -245,7 +246,15 @@ class FirmwareEqContractTests(unittest.TestCase):
         self.assertEqual(inactive.structure, bytes(inactive_structure))
 
     def test_custom_requires_exactly_seven_signed_int8_values(self):
-        custom = FIRMWARE_EQ_CUSTOM_DEFAULT
+        custom = FIRMWARE_EQ_ZEROED_BLOCK_CUSTOM
+
+        self.assertEqual(custom, (0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(
+            FIRMWARE_EQ_CURRENT_PROFILE.setting_custom_row,
+            FIRMWARE_EQ_SETTING_CUSTOM_ROW,
+        )
+        self.assertNotEqual(custom, FIRMWARE_EQ_SETTING_CUSTOM_ROW)
+        self.assertIsNone(FIRMWARE_EQ_2024_04_PROFILE.setting_custom_row)
         self.assertEqual(firmware_eq_gains(7, custom), custom)
         self.assertEqual(
             firmware_eq_gains(

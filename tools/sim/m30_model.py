@@ -229,9 +229,12 @@ FIRMWARE_EQ_BAND_STRIDE = 8
 FIRMWARE_EQ_BUILTIN_BAND_COUNT = 7
 FIRMWARE_EQ_CLEAR_TAIL_START = 0x48
 FIRMWARE_EQ_CLEAR_TAIL_END = 0x90
-# Default Custom row recovered from setting.ap (file offset 0x5b04). Runtime
-# edits replace this row through the RAM-backed Custom path.
-FIRMWARE_EQ_CUSTOM_DEFAULT: tuple[int, ...] = (-9, 0, 0, 0, 0, 0, 6)
+# The invalid-magic path clears the 0x38-byte persistent block before filling
+# its known fields. Its seven Custom bytes therefore start at zero. The
+# separate setting.ap row is raw resource data; no path from it to this block
+# has been verified.
+FIRMWARE_EQ_ZEROED_BLOCK_CUSTOM: tuple[int, ...] = (0, 0, 0, 0, 0, 0, 0)
+FIRMWARE_EQ_SETTING_CUSTOM_ROW: tuple[int, ...] = (-9, 0, 0, 0, 0, 0, 6)
 
 
 @dataclass(frozen=True)
@@ -252,7 +255,7 @@ class FirmwareEqProfile:
     band_hz: tuple[int, ...]
     q_values: tuple[int, ...]
     presets: tuple[FirmwareEqPreset, ...]
-    custom_default: tuple[int, ...]
+    setting_custom_row: tuple[int, ...] | None
 
 
 @dataclass(frozen=True)
@@ -292,14 +295,14 @@ FIRMWARE_EQ_CURRENT_PROFILE = FirmwareEqProfile(
     band_hz=FIRMWARE_EQ_BAND_HZ,
     q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
-    custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
+    setting_custom_row=FIRMWARE_EQ_SETTING_CUSTOM_ROW,
 )
 FIRMWARE_EQ_2024_04_PROFILE = FirmwareEqProfile(
     name="2024-04",
     band_hz=(50, 200, 480, 980, 4000, 8000, 16000),
     q_values=FIRMWARE_EQ_Q_VALUES,
     presets=FIRMWARE_EQ_PRESETS,
-    custom_default=FIRMWARE_EQ_CUSTOM_DEFAULT,
+    setting_custom_row=None,
 )
 FIRMWARE_EQ_PROFILES: dict[str, FirmwareEqProfile] = {
     profile.name: profile

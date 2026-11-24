@@ -19,10 +19,11 @@ def make_eq_members(profile):
         offset = 0x440C + selector * 7
         mengine[offset : offset + 7] = bytes(value & 0xFF for value in gains)
 
-    custom_offset = 0x5A94 + 7 * 16
-    setting[custom_offset : custom_offset + len(profile.custom_default)] = bytes(
-        value & 0xFF for value in profile.custom_default
-    )
+    if profile.setting_custom_row is not None:
+        custom_offset = 0x5A94 + 7 * 16
+        setting[custom_offset : custom_offset + len(profile.setting_custom_row)] = bytes(
+            value & 0xFF for value in profile.setting_custom_row
+        )
     return bytes(mengine), bytes(setting)
 
 
@@ -39,15 +40,36 @@ class EqBinaryProbeTests(unittest.TestCase):
 
             verify(mengine_path, setting_path)
 
-    def test_2024_profile_accepts_the_verified_50_hz_exception(self):
-        mengine, setting = make_eq_members(FIRMWARE_EQ_2024_04_PROFILE)
+    def test_current_profile_rejects_a_changed_setting_resource_row(self):
+        mengine, setting = make_eq_members(FIRMWARE_EQ_CURRENT_PROFILE)
+        changed_setting = bytearray(setting)
+        custom_offset = 0x5A94 + 7 * 16
+        changed_setting[custom_offset] ^= 1
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             mengine_path = root / "mengine.ap"
             setting_path = root / "setting.ap"
             mengine_path.write_bytes(mengine)
-            setting_path.write_bytes(setting)
+            setting_path.write_bytes(changed_setting)
+
+            with self.assertRaises(AssertionError):
+                verify(mengine_path, setting_path)
+
+    def test_2024_profile_accepts_the_verified_50_hz_exception(self):
+        mengine, setting = make_eq_members(FIRMWARE_EQ_2024_04_PROFILE)
+        setting_without_known_row = bytearray(setting)
+        custom_offset = 0x5A94 + 7 * 16
+        setting_without_known_row[custom_offset : custom_offset + 7] = bytes(
+            (0xFF, 0x80, 0x7F, 0x01, 0x02, 0x03, 0x04)
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mengine_path = root / "mengine.ap"
+            setting_path = root / "setting.ap"
+            mengine_path.write_bytes(mengine)
+            setting_path.write_bytes(setting_without_known_row)
 
             with self.assertRaises(AssertionError):
                 verify(mengine_path, setting_path)
