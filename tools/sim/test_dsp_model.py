@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from m30_model import build_firmware_eq_structure
 from dsp_model import (
     MMM_MP_DSP_NAMES,
     select_aud_dev_dae_groups,
@@ -102,6 +103,23 @@ class DspSelectorTests(unittest.TestCase):
 
 
 class AudDevDaeGateTests(unittest.TestCase):
+    def test_zero_gain_custom_and_off_have_different_consumer_gates(self):
+        empty_structure = bytes(0xF0)
+        off = build_firmware_eq_structure(0, 1, empty_structure)
+        custom = build_firmware_eq_structure(7, 1, empty_structure, (0,) * 7)
+
+        off_gates = select_aud_dev_dae_groups(off.structure, 48_000)
+        custom_gates = select_aud_dev_dae_groups(custom.structure, 48_000)
+
+        self.assertTrue(off_gates.eq_bank_enabled)
+        self.assertTrue(custom_gates.eq_bank_enabled)
+        self.assertFalse(off_gates.output_gain_enabled)
+        self.assertTrue(custom_gates.output_gain_enabled)
+        for band_index in range(7):
+            gain_offset = 0x10 + band_index * 8 + 4
+            self.assertEqual(off.structure[gain_offset : gain_offset + 2], b"\0\0")
+            self.assertEqual(custom.structure[gain_offset : gain_offset + 2], b"\0\0")
+
     def test_each_group_requires_its_flag_to_equal_one(self):
         configuration = bytearray(0xF0)
         configuration[0x07:0x0E] = bytes((1, 2, 1, 1, 0, 1, 1))
