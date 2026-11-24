@@ -80,10 +80,11 @@ docs/mainmenu-eq-followup-status-2026-11-24.md
 
 Open: code 3's localized menu label; its relation to setting.ap's separate
 EQ list; overlay address reuse with config.ap's indexing flag; resident
-flash-save semantics; aud_dev's reported group gates/rate behavior lack a
-retained decompile or p-code run; MEngine's initializer is independently
-decompiled, but its persistent-block wrapper is not; actual device behavior
-and audible DSP result.
+flash-save semantics; the aud_dev bank-to-file mapping and ROM dispatch
+remain unproven even though the candidate bank-5 group decompile is now
+retained; MEngine's initializer is independently decompiled, but its
+persistent-block wrapper is not; actual device behavior and audible DSP
+result.
 
 Validation: Ghidra headless decompile/disassembly and raw hash/byte reads.
 git diff --check passed. No device test or flash write was performed.
