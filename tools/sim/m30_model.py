@@ -419,6 +419,59 @@ def adjust_firmware_eq_slider_gain(current_gain: int, event: int) -> int:
     raise ValueError(f"unsupported Custom EQ slider event 0x{event:04x}")
 
 
+class FirmwareEqSliderSession:
+    """Model the observed Custom EQ edit, confirm, and cancel behavior."""
+
+    def __init__(self, custom_gains: Sequence[int]) -> None:
+        self._validate_custom_gains(custom_gains)
+        self.saved_gains = tuple(custom_gains)
+        self.custom_gains = tuple(custom_gains)
+        self.persisted_gains = tuple(custom_gains)
+        self.selector: int | None = None
+        self.last_submitted_gains: tuple[int, ...] | None = None
+        self.producer_updates = 0
+
+    def edit(self, band_index: int, event: int) -> bool:
+        if not 0 <= band_index < len(self.custom_gains):
+            raise IndexError("Custom EQ band index must be between 0 and 6")
+
+        updated_gain = adjust_firmware_eq_slider_gain(
+            self.custom_gains[band_index],
+            event,
+        )
+        if updated_gain == self.custom_gains[band_index]:
+            return False
+
+        updated_gains = list(self.custom_gains)
+        updated_gains[band_index] = updated_gain
+        self.custom_gains = tuple(updated_gains)
+        self.last_submitted_gains = self.custom_gains
+        self.producer_updates += 1
+        return True
+
+    def confirm(self) -> None:
+        self.selector = 7
+
+    def cancel(self) -> None:
+        self.custom_gains = self.saved_gains
+        self.selector = 7
+
+    def persist_on_mainmenu_exit(self) -> None:
+        self.persisted_gains = self.custom_gains
+
+    @staticmethod
+    def _validate_custom_gains(custom_gains: Sequence[int]) -> None:
+        if len(custom_gains) != 7:
+            raise ValueError("Custom EQ session requires exactly seven gains")
+
+        if any(
+            gain < FIRMWARE_EQ_SLIDER_MIN_GAIN
+            or gain > FIRMWARE_EQ_SLIDER_MAX_GAIN
+            for gain in custom_gains
+        ):
+            raise ValueError("Custom EQ session gains must be in the observed range -3..3")
+
+
 def build_firmware_eq_structure(
     selector: int,
     active_flag: int,

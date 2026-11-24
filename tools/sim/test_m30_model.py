@@ -15,12 +15,14 @@ from m30_model import (
     FIRMWARE_EQ_PRESETS,
     FIRMWARE_EQ_Q_VALUES,
     FIRMWARE_EQ_SELECTOR_OFFSET,
+    FIRMWARE_EQ_SLIDER_INCREASE_EVENT,
     IndexState,
     IndexStatus,
     MAX_VOLUME_LEVEL,
     SleepTimerPersistence,
     SleepTimerState,
     VolumeLimitState,
+    FirmwareEqSliderSession,
     adjust_firmware_eq_slider_gain,
     eq_names,
     find_eq,
@@ -220,6 +222,60 @@ class FirmwareEqContractTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             adjust_firmware_eq_slider_gain(0, 0x2905)
+
+    def test_custom_slider_cancel_restores_saved_values_without_rollback_message(self):
+        session = FirmwareEqSliderSession((0, 0, 0, 0, 0, 0, 0))
+
+        self.assertTrue(session.edit(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+        session.cancel()
+
+        self.assertEqual(session.custom_gains, (0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(session.last_submitted_gains, (1, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(session.producer_updates, 1)
+        self.assertEqual(session.selector, 7)
+
+    def test_custom_slider_confirm_keeps_previewed_values_without_extra_message(self):
+        session = FirmwareEqSliderSession((0, 0, 0, 0, 0, 0, 0))
+
+        self.assertTrue(session.edit(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+        session.confirm()
+
+        self.assertEqual(session.custom_gains, (1, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(session.persisted_gains, (0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(session.last_submitted_gains, session.custom_gains)
+        self.assertEqual(session.producer_updates, 1)
+        self.assertEqual(session.selector, 7)
+
+    def test_custom_slider_gains_persist_only_when_mainmenu_exits(self):
+        session = FirmwareEqSliderSession((0, 0, 0, 0, 0, 0, 0))
+
+        session.edit(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT)
+        session.confirm()
+        self.assertEqual(session.persisted_gains, (0, 0, 0, 0, 0, 0, 0))
+
+        session.persist_on_mainmenu_exit()
+
+        self.assertEqual(session.persisted_gains, (1, 0, 0, 0, 0, 0, 0))
+
+    def test_custom_slider_boundary_does_not_submit_unchanged_values(self):
+        session = FirmwareEqSliderSession((3, 0, 0, 0, 0, 0, 0))
+
+        self.assertFalse(session.edit(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+
+        self.assertEqual(session.custom_gains, (3, 0, 0, 0, 0, 0, 0))
+        self.assertIsNone(session.last_submitted_gains)
+        self.assertEqual(session.producer_updates, 0)
+
+    def test_custom_slider_session_rejects_wrong_shape_or_gain_range(self):
+        with self.assertRaises(ValueError):
+            FirmwareEqSliderSession((0, 0, 0))
+
+        with self.assertRaises(ValueError):
+            FirmwareEqSliderSession((0, 0, 0, 0, 0, 0, 4))
+
+        session = FirmwareEqSliderSession((0, 0, 0, 0, 0, 0, 0))
+        with self.assertRaises(IndexError):
+            session.edit(7, FIRMWARE_EQ_SLIDER_INCREASE_EVENT)
 
     def test_builder_scales_signed_gain_bytes_into_signed_halfwords(self):
         custom = (1, 2, 3, -3, -2, 127, -128)
