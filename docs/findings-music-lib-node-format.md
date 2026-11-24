@@ -935,6 +935,29 @@ HEXTRA='-DMODE_REPLACE -DTERMINAL_OOR_ZERO -DFILL=1' \
   <workdir> stock
 ```
 
+#### User SD-card 4,000-record cross-check, 2026-11-24
+
+A read-only stock MIPS16 run used the user's mounted SD-card library, a
+separate 2,625,536-byte file with SHA-256
+`02c10ceb6463d60201e531757350999d52d8bf6d66614a2183f13642fca8d017`, and
+the same stock `playlist.ap` hash as the seedless run. With
+`MODE_REPLACE`, `TERMINAL_OOR_ZERO`, and `FILL=1`, all four order and inverse
+tables matched 4,000/4,000. ALBUM nodes matched 549/549; ARTIST nodes matched
+359/359 and 703/703; GENRE nodes matched 31/31, 436/436, and 706/706. All
+three per-record node-index tables also matched 4,000/4,000.
+
+The generated file is 1,160,704 bytes, and the reported first file difference
+is exactly its end (`0x11b600`); the harness emits index data, not the
+remaining library records and trailing sectors. The raw outputs and run
+details are preserved in
+[`docs/evidence/musiclib-sd-card-stock-2026-11-24/`](evidence/musiclib-sd-card-stock-2026-11-24/README.md).
+
+This is a second independent 4,000-record input whose indexed tables match
+under the candidate conversion stub. It strengthens the corpus-level fit but
+does not prove the resident text converter uses this rule or that the rule
+generalizes; the public 251-record cross-check above still diverges in
+ARTIST/GENRE.
+
 The same module now derives the candidate nested run lengths that feed the
 three node levels in the local builder. `ALBUM` produces its album runs;
 `ARTIST` uses those album group indices as its child grouping; and `GENRE`

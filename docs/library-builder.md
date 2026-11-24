@@ -624,13 +624,20 @@ untouched.
   FAT32 fallback. `tools/library/exfat_extents.py` prints how the root files are allocated
   from the raw device: a file created on fragmented free space (`MUSIC.LIB` after the first
   rebuild) has a FAT chain, a contiguous one has the `NoFatChain` flag and no chain.
-- The update-needed decision is a flag word in the player's settings flash. `config.ap` reads
-  4 bytes at `0x2f0000` through kernel module `0x0f` op `0x12` at boot and launches
+- The update-needed decision is a four-byte persistent record with ID `0x2f0000`
+  (not a physical flash address). `config.ap` reads it through kernel module
+  `0x0f` op `0x12` at boot and launches
   `playlist.ap` (app 10, parameter `0x4e`) when bit 16 is set; it sets the bit itself when the
   settings block at `0x20000` is invalid, which is why the first boot after an upgrade builds
   the library. `playlist.ap` clears the bit only at the very end of a successful update
   (`FUN_48094658` -> `FUN_48094400`). A build that is interrupted therefore restarts on every
-  boot until one completes. After a USB disconnect, `udisk.ap` starts the builder directly.
+  boot until one completes. On the UDisk path, `udisk.ap` registers a resident
+  callback for message `0xb0`; the shared handler returns `0x861c`, which the
+  music AP return dispatcher routes to app 10 with parameter `0x42`, `0x82`,
+  or `0xc2`. The `manager.ap` application table confirms app 10 is
+  `playlist.ap`. The meanings of these parameters and their relation to the
+  known index boot parameter `0x4e` remain unverified; the resident event
+  source and its relation to card insertion are also unknown.
 - The player keeps its own view of the card's directories and writes it back: scratch files
   deleted from the PC came back after a player run, and a data file copied to the card was
   not found by one diagnostic run. Unmount cleanly before unplugging, and put data a
