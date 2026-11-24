@@ -206,7 +206,32 @@ public class RunKeyStatusProbe extends GhidraScript {
             runEntry(emulator, STATUS_ENTRY, 0);
             require(octet(emulator, STATUS) == 1,
                 "status after first ten-sample batch was not 1");
-            println("KEY STATUS CADENCE PASS invocations=50 samples=10 status=1");
+
+            writeWord(emulator, MMIO_2 + 0x10, 0);
+            writeByte(emulator, MMIO_2 + 0x18, 50);
+            for (int invocation = 51; invocation <= 99; invocation++) {
+                runEntry(emulator, STATUS_ENTRY, 0);
+            }
+
+            require(octet(emulator, STATUS) == 1,
+                "status changed before the second ten-sample batch completed");
+            require(octet(emulator, STATUS + 8) == 50,
+                "second batch did not start replacing the sample window");
+            require(octet(emulator, STATUS + 16) == 50,
+                "second batch did not replace its ninth sample");
+            require(octet(emulator, STATUS + 17) == 85,
+                "second batch replaced its tenth sample before invocation 100");
+
+            runEntry(emulator, STATUS_ENTRY, 0);
+            require(octet(emulator, STATUS) == 0,
+                "status after the second ten-sample batch was not 0");
+            for (int index = 0; index < 10; index++) {
+                require(octet(emulator, STATUS + 8 + index) == 50,
+                    "second batch left a stale sample in the ADC window");
+            }
+            require((word(emulator, MMIO_2 + 0x0c) & 0x8000) == 0,
+                "second status 0 did not clear the LRADC control bit");
+            println("KEY STATUS CADENCE PASS invocations=100 batches=2 status_sequence=1,0");
         } finally {
             emulator.dispose();
         }
