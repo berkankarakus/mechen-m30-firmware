@@ -6,8 +6,10 @@ from pathlib import Path
 from m30_model import build_firmware_eq_structure
 from dsp_model import (
     MMM_MP_DSP_NAMES,
+    apply_config_bin_dae_defaults,
     select_aud_dev_dae_groups,
     select_dsp,
+    select_initial_mengine_dsp_from_config_bin,
     select_initial_mengine_dsp_from_config_item_96,
     select_mengine_dsp,
 )
@@ -101,8 +103,106 @@ class DspSelectorTests(unittest.TestCase):
                     Path(tmp),
                 )
 
+    def test_config_bin_item_96_default_selects_processing_dsp(self):
+        config_bin = bytearray(0xAC6)
+        struct.pack_into("<II", config_bin, 0x4C0, 0xABE, 8)
+        config_bin[0xABE:0xAC6] = bytes.fromhex("01 00 02 00 00 00 01 00")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            selection = select_initial_mengine_dsp_from_config_bin(
+                bytes(config_bin),
+                Path(tmp),
+            )
+
+        self.assertEqual(selection.firmware_name, "audiopp.dsp")
+
 
 class AudDevDaeGateTests(unittest.TestCase):
+    def test_config_initializer_copies_verified_fields_and_preserves_others(self):
+        items = {
+            0x82: bytes((0x12,)) + bytes(7),
+            0x85: bytes((0x34,)) + bytes(7),
+            0x98: bytes((0x56,)) + bytes(7),
+            0xA5: bytes((0x78,)) + bytes(7),
+            0xA6: bytes.fromhex("aa bb cc dd 11 22 33 44 55 66 ee ff"),
+        }
+        for band_index in range(16):
+            item_id = 0x86 + band_index
+            header = bytes((0xF0, band_index, 0xAA, 0x55))
+            band = bytes((band_index * 8 + offset) & 0xFF for offset in range(8))
+            items[item_id] = header + band
+
+        config_bin = bytearray(0x800)
+        payload_offset = len(config_bin)
+        for item_id, payload in sorted(items.items()):
+            index_offset = 0x10 + item_id * 8
+            struct.pack_into("<II", config_bin, index_offset, payload_offset, len(payload))
+            config_bin.extend(payload)
+            payload_offset += len(payload)
+
+        initial_configuration = bytes((0xA5,)) * 0xF0
+        initialized = apply_config_bin_dae_defaults(
+            initial_configuration,
+            bytes(config_bin),
+        )
+
+        self.assertEqual(initialized[0x03], 0x12)
+        self.assertEqual(initialized[0x07], 0x34)
+        self.assertEqual(initialized[0x0C], 0x56)
+        self.assertEqual(initialized[0x0D], 0x78)
+        for band_index in range(16):
+            structure_offset = 0x10 + band_index * 8
+            expected = bytes(
+                (band_index * 8 + offset) & 0xFF
+                for offset in range(8)
+            )
+            self.assertEqual(
+                initialized[structure_offset : structure_offset + 8],
+                expected,
+            )
+
+        self.assertEqual(initialized[0xBA:0xC0], bytes.fromhex("11 22 33 44 55 66"))
+        self.assertEqual(initialized[0x02], 0xA5)
+        self.assertEqual(initialized[0x04:0x06], bytes((0xA5, 0xA5)))
+        self.assertEqual(initialized[0x90], 0xA5)
+        self.assertEqual(initialized[0xC0], 0xA5)
+
+    def test_config_initializer_rejects_missing_items(self):
+        config_bin = bytearray(0x800)
+        item_id = 0x82
+        struct.pack_into("<II", config_bin, 0x10 + item_id * 8, 0x700, 1)
+        config_bin[0x700] = 1
+
+        with self.assertRaises(ValueError):
+            apply_config_bin_dae_defaults(bytes(0xF0), bytes(config_bin))
+
+        with self.assertRaises(ValueError):
+            apply_config_bin_dae_defaults(bytes(0xEF), bytes(config_bin))
+
+    def test_config_initializer_rejects_wrong_sized_band_items(self):
+        items = {
+            0x82: bytes(8),
+            0x85: bytes(8),
+            0x98: bytes(8),
+            0xA5: bytes(8),
+            0x86: bytes(11),
+        }
+        config_bin = bytearray(0x800)
+        payload_offset = len(config_bin)
+        for item_id, payload in sorted(items.items()):
+            struct.pack_into(
+                "<II",
+                config_bin,
+                0x10 + item_id * 8,
+                payload_offset,
+                len(payload),
+            )
+            config_bin.extend(payload)
+            payload_offset += len(payload)
+
+        with self.assertRaises(ValueError):
+            apply_config_bin_dae_defaults(bytes(0xF0), bytes(config_bin))
+
     def test_zero_gain_custom_and_off_have_different_consumer_gates(self):
         empty_structure = bytes(0xF0)
         off = build_firmware_eq_structure(0, 1, empty_structure)

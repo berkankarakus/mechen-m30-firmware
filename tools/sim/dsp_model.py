@@ -12,6 +12,8 @@ import hashlib
 from pathlib import Path
 import struct
 
+from config_bin import read_config_bin_item
+
 
 MMM_MP_DSP_NAMES: tuple[str, ...] = (
     "adMP3.dsp",
@@ -137,6 +139,55 @@ def select_initial_mengine_dsp_from_config_item_96(
 
     processing_flag = struct.unpack_from("<H", config_item)[0] == 1
     return select_mengine_dsp(processing_flag, directory)
+
+
+def select_initial_mengine_dsp_from_config_bin(
+    config_bin: bytes,
+    directory: Path,
+) -> DspSelection:
+    """Resolve the first-install DSP choice from the full config.bin image."""
+    config_item = read_config_bin_item(config_bin, 0x96)
+    return select_initial_mengine_dsp_from_config_item_96(config_item, directory)
+
+
+def apply_config_bin_dae_defaults(configuration: bytes, config_bin: bytes) -> bytes:
+    """Apply only the verified config.ap factory-initializer writes.
+
+    The caller supplies the existing 0xf0-byte DAE block because this firmware
+    initializer writes selected fields and leaves the rest of the block alone.
+    It is used only when the persistent block is invalid or absent.
+    """
+    if len(configuration) != DAE_CONFIG_BYTES:
+        raise ValueError("DAE configuration must be exactly 0xf0 bytes")
+
+    updated = bytearray(configuration)
+    scalar_offsets = ((0x82, 0x03), (0x85, 0x07), (0x98, 0x0C), (0xA5, 0x0D))
+    for item_id, structure_offset in scalar_offsets:
+        payload = read_config_bin_item(config_bin, item_id)
+        if not payload:
+            raise ValueError(f"config item 0x{item_id:x} has no value")
+        updated[structure_offset] = payload[0]
+
+    for band_index in range(16):
+        item_id = 0x86 + band_index
+        payload = read_config_bin_item(config_bin, item_id)
+        if len(payload) != 12:
+            raise ValueError(f"config item 0x{item_id:x} must contain 12 bytes")
+
+        structure_offset = 0x10 + band_index * 8
+        updated[structure_offset : structure_offset + 8] = payload[4:12]
+
+    output_gain_payload = read_config_bin_item(config_bin, 0xA6)
+    if len(output_gain_payload) != 12:
+        raise ValueError("config item 0xa6 must contain 12 bytes")
+
+    for word_index, structure_offset in enumerate((0xBA, 0xBC, 0xBE)):
+        payload_offset = 4 + word_index * 2
+        updated[structure_offset : structure_offset + 2] = output_gain_payload[
+            payload_offset : payload_offset + 2
+        ]
+
+    return bytes(updated)
 
 
 def select_aud_dev_dae_groups(
