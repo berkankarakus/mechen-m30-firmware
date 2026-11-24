@@ -3,12 +3,21 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+if [ "$#" -gt 2 ]; then
+  echo "usage: $0 [KER_INIT.BIN] [zero|sentinel]" >&2
+  exit 2
+fi
 INIT=${1:-$ROOT/analysis/community/fw/ker_init.bin}
+RETURN_MODE=${2:-zero}
 GHIDRA=${GHIDRA:-/opt/homebrew/Cellar/ghidra/12.2/libexec/support/analyzeHeadless}
 EXPECTED_SHA256=f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
 
 [ -f "$INIT" ] || { echo "missing ker_init.bin: $INIT" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
+case "$RETURN_MODE" in
+  zero|sentinel) ;;
+  *) echo "return mode must be zero or sentinel: $RETURN_MODE" >&2; exit 1 ;;
+esac
 actual_sha=$(shasum -a 256 "$INIT" | awk '{print $1}')
 [ "$actual_sha" = "$EXPECTED_SHA256" ] || {
   echo "ker_init.bin SHA-256 $actual_sha != $EXPECTED_SHA256" >&2
@@ -29,15 +38,15 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript FlatLoad32.java "$INIT" 0xbfc32000 0 "$init_size" \
-    -postScript RunKernelInitMmioProbe.java "$INIT" \
+    -postScript RunKernelInitMmioProbe.java "$INIT" "$RETURN_MODE" \
     >"$WORK/run.log" 2>&1 || {
       cat "$WORK/run.log" >&2
       exit 1
     }
 
-grep -Fq 'KERNEL INIT MMIO P-CODE PASS entry=bfc32440' "$WORK/run.log" || {
+grep -Fq "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }
-grep -F 'KERNEL INIT MMIO P-CODE PASS' "$WORK/run.log"
+grep -F "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log"
 grep -F 'KERNEL INIT MMIO STATE' "$WORK/run.log"

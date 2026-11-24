@@ -218,7 +218,14 @@ MIPS16 stubs. The probe checks all 15 final MMIO words and the RAM fields
 written by the function. This verifies the caller's instruction-level
 read/modify/write masks and address calculations for the chosen seed; it does
 not reveal the hardware register meanings, real reset values, or fixed-ROM
-side effects. Consequently, the complete entry-to-constructor path remains
+side effects. Repeating the run with all seven synthetic returns set to
+`0xdeadbeef` also passed the checks: both profiles took 250 steps, reached the
+function return, logged the same seven checked call edges and arguments, and
+produced the same checked MMIO values. This supports that changing the
+synthetic scalar returns preserved these checked outcomes in these runs; it
+does not compare every intermediate PC or exclude a different path with the
+same checked observations. Possible service side effects are outside the
+model. Consequently, the complete entry-to-constructor path remains
 unverified.
 
 ### What the three entry-path helpers do, and what remains unknown
@@ -271,16 +278,19 @@ The extracted instructions support these bounded descriptions:
   seven ROM call edges: five to aligned PC `0xbfc07a50` (odd pointer
   `0xbfc07a51`), one to `0xbfc04fb8` (pointer `0xbfc04fb9`, `a0=1`), and one
   to `0xbfc04f60` (pointer `0xbfc04f61`, `a0=120`). Returns were synthetic
-  zeros and MMIO started at `0xa5a5a5a5`; under those conditions the 15
-  checked final register values matched the instruction-derived masks,
-  including multiple updates to `0xc0020000` and `0xc0000118`. This validates
-  the extracted caller path and probe, not the actual register reset values,
-  peripheral meanings, or ROM-service behavior.
+  zeros or `0xdeadbeef` and MMIO started at `0xa5a5a5a5`; both runs took 250
+  steps, reached the function return, matched the seven checked ROM-call
+  edges/arguments, and produced the same 15 final register values. This
+  supports that changing the synthetic scalar returns preserved these
+  checked outcomes in these runs; intermediate PCs were not differentially
+  compared. This validates the extracted caller path and probe, not actual
+  register reset values, peripheral meanings, or ROM-service behavior.
 
 Reproduce the bounded check with:
 
 ```sh
-bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin>
+bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> zero
+bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> sentinel
 ```
 
 This is not a full semantic interpretation of those functions: the first has

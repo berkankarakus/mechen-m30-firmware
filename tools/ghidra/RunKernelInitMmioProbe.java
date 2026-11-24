@@ -23,6 +23,7 @@ public class RunKernelInitMmioProbe extends GhidraScript {
     private static final long ROM_SERVICE_A = 0xbfc04fb8L;
     private static final long ROM_SERVICE_B = 0xbfc04f60L;
     private static final long MMIO_SEED = 0xa5a5a5a5L;
+    private static final long RETURN_SENTINEL = 0xdeadbeefL;
     private static final int MAX_STEPS = 8000;
     private static final byte[] MIPS16_RETURN = { (byte)0xa0, (byte)0xe8 };
     private static final long[] MMIO_ADDRESSES = {
@@ -71,8 +72,11 @@ public class RunKernelInitMmioProbe extends GhidraScript {
 
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length != 1)
-            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN");
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
+            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|sentinel]");
+        String returnMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "zero";
+        require(returnMode.equals("zero") || returnMode.equals("sentinel"),
+            "return mode must be zero or sentinel");
         byte[] image = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         require(image.length >= 0x828, "ker_init.bin truncated before FUN_bfc32440");
@@ -140,8 +144,9 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                     reg(thread, language.getRegister("a3"), language));
                 calls.add(call);
                 println("KERNEL INIT MMIO ROM EDGE " + call);
-                thread.getState().setVar(v0,
-                    emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
+                long returnValue = returnMode.equals("zero") ? 0 : RETURN_SENTINEL;
+                thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
+                    returnValue, v0.getMinimumByteSize()));
                 thread.stepInstruction();
                 require(thread.getCounter().getOffset() == returnAddress
                         && (thread.getContext().getRegisterValue(isa)
@@ -155,6 +160,7 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             thread.stepInstruction();
         }
         require(returned, "FUN_bfc32440 did not return within step limit");
+        require(steps == 250, "unexpected instruction-step count: " + steps);
         require(calls.size() == 7, "expected seven fixed-ROM calls, got " + calls);
         String[] expectedCalls = {
             "bfc07a50:ra=bfc3256c:a0=13b13b12,a1=9fc1aab4,a2=03030303,a3=04040404",
@@ -199,7 +205,7 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             "expected nonzero derived timing fields at 0x9fc1aab0..0x9fc1aab8");
         println(String.format(
             "KERNEL INIT MMIO P-CODE PASS entry=%08x steps=%d fixed-rom-calls=%d "
-                + "calls-are-synthetic=1 initial-register-pattern=%08x",
-            ENTRY, steps, calls.size(), MMIO_SEED));
+            + "calls-are-synthetic=1 return-mode=%s initial-register-pattern=%08x",
+            ENTRY, steps, calls.size(), returnMode, MMIO_SEED));
     }
 }
