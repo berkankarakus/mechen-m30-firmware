@@ -79,9 +79,12 @@ class StatusNotifierTests(unittest.TestCase):
             result = notifier.tick(sampled_status=2, sampled_level=5)
             refresh_count += result.refresh_key_status
 
+            # The Ghidra probe confirms that low-level status 2 refreshes
+            # every eight calls and never emits 0xF2 during this 120-call run.
             self.assertIsNone(result.event)
 
         self.assertEqual(refresh_count, 15)
+        self.assertEqual(notifier._status_two_ticks, 0)
 
     def test_status_two_level_six_notifies_on_tick_120_without_refresh(self):
         notifier = StatusNotifier(status=2, level=6)
