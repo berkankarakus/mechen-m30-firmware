@@ -291,16 +291,23 @@ first four tuples are `(0x9fc1a48c,0,0x7f4)`,
 `(0xbfc080f8,0x9fc12200,4)`. Those are actual AP call arguments; the ROM
 helpers' memory effects are not modeled.
 
-To observe the indirect-call edge without inventing ROM behavior, the probe
-preseeds `0x9fc1aad8` with synthetic callback address `0x9fc27f00` and fills
-the source window with synthetic bytes. The real AP code then reaches that
-target in 54 steps and presents `(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`; the
-probe stops before executing the callback. Thus it verifies the extracted
-call boundary and consumer arguments under the explicit synthetic fixture.
-It does not verify that either ROM helper copied/cleared memory, that the
-callback exists at the source address in the real boot sequence, or that
-`0x9fc12000` is ROM rather than RAM during normal boot. It also does not
-validate the CPU's mode transition into or out of the stubbed MIPS16 entries.
+The native probe now has a discriminating copy-direction experiment. In
+`forward` mode, the destination callback slot starts zero, the only synthetic
+callback pointer is placed at source `0x9fc12000`, and the harness applies a
+source-to-destination byte copy at each `0xbfc04635` boundary using the observed
+arguments. The real caller then reaches `0x9fc27f00` in 54 steps with
+`(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`. In `reverse` mode, the harness applies
+destination-to-source copies instead; the callback slot stays zero and the
+caller reaches an indirect target of zero, which the probe recognizes as the
+negative control. `seeded` mode retains the earlier fixture that preloads the
+destination callback slot without modeling a copy.
+
+This shows that source-to-destination copying is required by this caller's
+data flow and is sufficient to install the callback pointer under the
+synthetic fixture. It does not prove the absent ROM routine performs that
+copy, that the callback exists at this source address during normal boot, or
+that `0x9fc12000` is ROM rather than RAM in the boot map. The known ROM body
+and its effects remain unobserved.
 
 The `0xbfc045f5` call shape is better constrained than its name: segment entry
 also calls it with `(0x9fc13d00, 0, 0xe0)`, and `FUN_bfc322f8` later calls it
@@ -308,21 +315,29 @@ with `(0x00013d00, 0, 0xe0)`. All three callsites pass a start address, zero,
 and an end-minus-start length. This strongly supports a clear/zero routine,
 but its MIPS16 body is absent, so the effect remains a hypothesis.
 
-`tools/ghidra/run_kernel_init_native_mode_probe.sh` repeats this path with
-Ghidra's native MIPS p-code emulator. On both hash-matching stock and community
-`ker_init.bin`, it configures MIPS16e (`RELP=1`) and enters the two fixed-ROM
-entry points on four calls with `ISA_MODE=1`, recording the arguments and exact
-return addresses `0xbfc32348/6c/90/b4`. Each absent helper is represented by a
-synthetic MIPS16e `jrc ra` stub (`0xe8a0`); the harness seeds `v0=0` and executes
-that instruction. Ghidra's native p-code returns to the observed RA with
-`ISA_MODE=0` and `RELP=1`, without manually forcing the mode. The synthetic
-callback pointer `0x9fc27f00` then receives control in MIPS32 mode with
-`(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps. This demonstrates both
-MIPS16e entry and return transitions for the extracted caller under a
-synthetic one-instruction ROM stub; it does not execute the absent ROM helper
-bodies or establish their actual return code, return value, side effects, the
-real callback pointer/source bytes, or the device's normal-boot mapping. The
+`tools/ghidra/run_kernel_init_native_mode_probe.sh` runs the native MIPS
+p-code scenarios on hash-matching stock and community `ker_init.bin`:
+
+- `forward` (default) copies each observed `(dst,src,len)` at the absent
+  `0xbfc04635` boundary and reaches the callback from a source-only pointer.
+- `reverse` copies `(dst,src,len)` in the opposite direction and asserts the
+  real caller reaches a null indirect target instead of the callback.
+- `seeded` retains the original preloaded-destination control.
+
+Each scenario also confirms four entries into the two ROM call sites with
+`ISA_MODE=1`, exact return addresses `0xbfc32348/6c/90/b4`, and synthetic
+MIPS16e `jrc ra` (`0xe8a0`) returns to MIPS32 mode with `RELP=1`. In `forward`,
+the callback receives `(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps.
+These are caller data-flow experiments under explicit shims: no result proves
+the unavailable ROM routine's implementation or normal-boot mapping. The
 earlier `EmulatorHelper` probe remains a simpler call-boundary cross-check.
+
+Example:
+
+```sh
+bash tools/ghidra/run_kernel_init_native_mode_probe.sh <hash-matching-ker_init.bin> forward
+bash tools/ghidra/run_kernel_init_native_mode_probe.sh <hash-matching-ker_init.bin> reverse
+```
 
 The ATJ2127 Boot ROM map is documented in the public
 [`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).

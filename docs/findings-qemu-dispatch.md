@@ -102,6 +102,14 @@ drive another loop iteration. This confirms the AP reaches a module-`0x0f`
 operation-`0x31` boundary while handling a next event. It does not reveal the
 resident operation's implementation or prove what timing unit it uses.
 
+The `actions_flash` [ATJ2127 syscall notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L250-L259)
+map import 15 operation 49 (`a3=0x31`) to `sleep_ms(a0)` for US212D V1.101.25.
+M30 code provides a useful independent call-pattern match: playlist error and
+retry paths call the same import/selector with `a0=0x23` (35), while this
+scroll wait path passes `a0=1`. This makes “sleep for the `a0` duration” a
+strong cross-firmware hypothesis for M30 operation `0x31`; the M30 resident
+implementation and time unit have not been directly observed.
+
 The repeatable entry point is:
 
 ```sh

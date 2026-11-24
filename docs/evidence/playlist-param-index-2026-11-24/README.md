@@ -62,3 +62,11 @@ callbacks with success. It therefore shows which AP paths follow those
 synthetic results; it does not show the real op-9 meaning, filesystem effects,
 or how the resident launcher forwards an app parameter. No device test was
 performed, and the card-insertion cause remains unproven.
+
+There is a cross-firmware semantic candidate: the public ATJ2127
+[`actions_flash` RE_NOTES](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L250-L259)
+labels import 15, `a3=9`, “Close Driver / File.” M30's call is to the matching
+kernel import entry and uses `(1,0,0,9)` immediately before its index-update
+gate, which is compatible with that label. The external note describes US212D
+V1.101.25, not M30; the M30 ROM implementation is absent, so this remains a
+cross-firmware hypothesis rather than a verified M30 method meaning.

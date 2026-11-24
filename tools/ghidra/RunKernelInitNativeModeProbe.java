@@ -62,10 +62,20 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         emulator.getSharedState().setVar(space, at, bytes.length, true, bytes);
     }
 
+    private void copy(PcodeEmulator emulator, AddressSpace space,
+            long destination, long source, int length) {
+        byte[] bytes = emulator.getSharedState().getVar(space, source, length,
+            true, Reason.INSPECT);
+        emulator.getSharedState().setVar(space, destination, length, true, bytes);
+    }
+
     @Override
     public void run() throws Exception {
-        if (getScriptArgs().length != 1)
-            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN");
+        if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
+            throw new Exception("usage: RunKernelInitNativeModeProbe.java KER_INIT.BIN [forward|reverse|seeded]");
+        String copyMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "forward";
+        require(copyMode.equals("forward") || copyMode.equals("reverse") || copyMode.equals("seeded"),
+            "copy mode must be forward, reverse, or seeded");
         SleighLanguage language = (SleighLanguage)currentProgram.getLanguage();
         AddressSpace space = language.getDefaultSpace();
         Register isa = language.getRegister("ISA_MODE");
@@ -96,7 +106,8 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
         source[2] = (byte)0xc2;
         source[3] = (byte)0x9f;
         emulator.getSharedState().setVar(space, 0x9fc12000L, source.length, true, source);
-        putWord(emulator, space, 0x9fc1aad8L, STOP_CALLBACK);
+        if (copyMode.equals("seeded"))
+            putWord(emulator, space, 0x9fc1aad8L, STOP_CALLBACK);
 
         PcodeThread<byte[]> thread = emulator.newThread();
         var library = thread.getUseropLibrary();
@@ -116,10 +127,18 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
 
         List<String> calls = new ArrayList<>();
         boolean reachedCallback = false;
+        boolean reachedNullDispatch = false;
         long callbackA0 = 0, callbackA1 = 0, callbackA2 = 0, callbackA3 = 0;
         int steps = 0;
         for (; steps < MAX_STEPS; steps++) {
             long address = thread.getCounter().getOffset() & 0xffffffffL;
+            if (address == 0 && copyMode.equals("reverse")) {
+                require(word(thread, space, 0x9fc1aad8L, language) == 0,
+                    "reverse-copy control unexpectedly populated callback slot");
+                reachedNullDispatch = true;
+                println("KERNEL TEMPLATE COPY CONTROL PASS direction=reverse callback-slot=0 indirect-target=0");
+                break;
+            }
             if (address == STOP_CALLBACK) {
                 require(mode(thread, isa) == 0 && relpMode(thread, relp) == 1,
                     String.format("expected MIPS32/MIPS16e callback context, ISA_MODE=%d RELP=%d",
@@ -146,6 +165,19 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                     reg(thread, language.getRegister("a3"), language));
                 calls.add(call);
                 println("NATIVE KERNEL ROM EDGE " + call);
+                if (address == ROM_COPY && !copyMode.equals("seeded")) {
+                    long a0 = reg(thread, language.getRegister("a0"), language);
+                    long a1 = reg(thread, language.getRegister("a1"), language);
+                    long a2 = reg(thread, language.getRegister("a2"), language);
+                    require(a2 <= 0x1000, String.format("implausible copy length %08x", a2));
+                    if (copyMode.equals("forward")) {
+                        copy(emulator, space, a0, a1, (int)a2);
+                        println(String.format("SYNTHETIC ROM COPY direction=forward dst=%08x src=%08x len=%08x", a0, a1, a2));
+                    } else {
+                        copy(emulator, space, a1, a0, (int)a2);
+                        println(String.format("SYNTHETIC ROM COPY direction=reverse dst=%08x src=%08x len=%08x", a1, a0, a2));
+                    }
+                }
                 thread.getState().setVar(v0,
                     emulator.getArithmetic().fromConst(0, v0.getMinimumByteSize()));
                 // The absent routine's result remains synthetic, but execute
@@ -166,9 +198,11 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
             thread.stepInstruction();
         }
 
-        require(reachedCallback, "did not reach callback within step limit");
-        require(word(thread, space, 0x9fc1aad8L, language) == STOP_CALLBACK,
-            "synthetic callback slot changed before indirect call");
+        require(copyMode.equals("reverse") ? reachedNullDispatch : reachedCallback,
+            "did not reach the expected callback/negative-control boundary within step limit");
+        if (reachedCallback)
+            require(word(thread, space, 0x9fc1aad8L, language) == STOP_CALLBACK,
+                "callback slot does not contain the expected synthetic pointer");
         String[] expected = {
             "9fc1a48c,00000000,000007f4,",
             "9fc1aad8,9fc12000,00000014,",
@@ -192,16 +226,18 @@ public class RunKernelInitNativeModeProbe extends GhidraScript {
                     && returnAddress < 0xbfc32400L,
                 "unexpected return address for call " + i + ": " + calls.get(i));
         }
-        require(callbackA0 == 0xfffffff0L && callbackA1 == 0xbfc0855dL
-                && callbackA2 == 0,
-            String.format("unexpected callback args %08x,%08x,%08x,%08x",
-                callbackA0, callbackA1, callbackA2, callbackA3));
-        println(String.format(
-            "KERNEL TEMPLATE ISA MODE PASS entry=%08x callback=%08x "
-                + "rom-entry-isa-mode=1 relp=1 callback-isa-mode=%d relp=1 "
-                + "synthetic-mips16-return-stubs=2 "
-                + "args=%08x,%08x,%08x,%08x steps=%d",
-            ENTRY, STOP_CALLBACK, mode(thread, isa), callbackA0, callbackA1,
-            callbackA2, callbackA3, steps));
+        if (reachedCallback) {
+            require(callbackA0 == 0xfffffff0L && callbackA1 == 0xbfc0855dL
+                    && callbackA2 == 0,
+                String.format("unexpected callback args %08x,%08x,%08x,%08x",
+                    callbackA0, callbackA1, callbackA2, callbackA3));
+            println(String.format(
+                "KERNEL TEMPLATE ISA MODE PASS mode=%s entry=%08x callback=%08x "
+                    + "rom-entry-isa-mode=1 relp=1 callback-isa-mode=%d relp=1 "
+                    + "synthetic-mips16-return-stubs=2 "
+                    + "args=%08x,%08x,%08x,%08x steps=%d",
+                copyMode, ENTRY, STOP_CALLBACK, mode(thread, isa), callbackA0, callbackA1,
+                callbackA2, callbackA3, steps));
+        }
     }
 }
