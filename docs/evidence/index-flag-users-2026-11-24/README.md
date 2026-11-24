@@ -126,13 +126,12 @@ Ghidra log padding was trimmed for the retained text. Run
 `bash tools/ghidra/run_music_index_return_probe.sh <hash-matching-music.ap>`
 to repeat. These are control-state values, not decoded product labels. Their
 playlist-side behavior is traced in
-[`playlist parameter evidence`](../playlist-param-index-2026-11-24/README.md):
-`0x42` and `0xc2` pass the bit-`0x40` gate in `FUN_40054c54` and select the
-M3U.LIB callback if resident op 9 does not return `-1`; `0x82` skips that
-update block. Boot parameter `0x4e` passes the same gate with a different
-low-five-bit mode. This establishes the AP's conditional M3U builder path, not
-the resident op-9 semantics, ROM-to-AP launch forwarding, or a connection to
-card insertion.
+[`playlist parameter evidence`](../playlist-param-index-2026-11-24/README.md).
+P-code with a synthetic op-9 return of 0 reaches both MUSIC.LIB and M3U.LIB
+callbacks for `0x42`, `0xc2`, and boot parameter `0x4e`; `0x82` reaches neither.
+For `0x42`, changing op 9's synthetic return to `-1` suppresses both callbacks.
+This narrows the caller's control contract, but the resident op-9 semantics,
+ROM-to-AP launch forwarding, and connection to card insertion remain unknown.
 
 ## Application ID table
 

@@ -39,10 +39,26 @@ observed bit-`0x40` callback is the M3U.LIB builder pass, not the MUSIC.LIB
 callback. `0x42` and `0xc2` also have the same low-five-bit value, while `0x4e`
 passes 14 to the function's final mode callback.
 
-This narrows the behavior of the AP caller but does not identify resident op
-`9`'s meaning or return conditions, prove the ROM-to-AP launch handoff, or tie
-the route to card insertion. No p-code execution or device test was done for
-this route yet. The next useful probe is to run the real AP caller with a
-synthetic op-9 service returning success versus `-1`, record which update
-callback is reached, and preserve the boundary as an explicit ROM-service
-contract hypothesis.
+## P-code boundary probe
+
+`bash tools/ghidra/run_playlist_param_gate_probe.sh <hash-matching-playlist.ap>`
+executes the real `FUN_40054c54` MIPS16 code and changes the synthetic return
+from the resident call `(1,0,0,9)`. The retained trace is
+[`playlist-gate-pcode.log`](playlist-gate-pcode.log), SHA-256
+`fd0684f565cd4d2dd919f489eb133d114136bb7750d25f42767cad85557c8e30`.
+
+Observed call sequences:
+
+- `0x42`, `0xc2`, and `0x4e` with op-9 return `0`: the code reaches the
+  `MUSIC.LIB` callback, then the `M3U.LIB` callback.
+- `0x82`: op 9 is not called and neither builder callback is reached.
+- `0x42` with op-9 return `-1`: the op-9 call occurs, but neither builder
+  callback is reached.
+
+This is a controlled caller-contract experiment, not execution of the ROM
+method. The probe returns zero for other resident calls, returns one from the
+directory-walker stub, and intercepts file-create/finalize and both builder
+callbacks with success. It therefore shows which AP paths follow those
+synthetic results; it does not show the real op-9 meaning, filesystem effects,
+or how the resident launcher forwards an app parameter. No device test was
+performed, and the card-insertion cause remains unproven.

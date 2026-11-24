@@ -82,9 +82,11 @@ Open: code 3's localized menu label; its relation to setting.ap's separate
 EQ list; overlay address reuse with config.ap's indexing flag; resident
 flash-save semantics; the aud_dev bank-to-file mapping and ROM dispatch
 remain unproven even though candidate bank-5 groups are now decompiled and
-p-code checked under a synthetic service; MEngine's initializer is independently decompiled, but its
-persistent-block wrapper is not; actual device behavior and audible DSP
-result.
+p-code checked under synthetic services; playlist's `0x42/0x82/0xc2/0x4e`
+update routes are also p-code checked with controlled op-9 returns, while that
+resident method's meaning and card-event causality remain unknown; MEngine's
+initializer is independently decompiled, but its persistent-block wrapper is
+not; actual device behavior and audible DSP result.
 
 Validation: Ghidra headless decompile/disassembly and raw hash/byte reads.
 git diff --check passed. No device test or flash write was performed.
