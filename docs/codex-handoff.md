@@ -4,22 +4,23 @@ Bu belge yalnızca güncel çalışma durumunu ve değişmez güvenlik kurallar�
 tutar. Ayrıntılı kanıtlar ilgili `findings-*.md` belgelerinde, emulator
 kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
-## Güncel durum — 2026-11-17
+## Güncel durum — 2026-11-24
 
 - Dal: `main`. Yerel commit sayısı ve çalışma ağacı değişiklikleri dönüşümlü
   olarak güncelleniyor; geçiş öncesi `git status --short --branch` ve
   `git log --oneline origin/main..HEAD` ile kontrol et.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
-- Host-only ve tam statik suite son doğrulamada başarılıdır:
-  `bash tools/emu/run_static_suite.sh --host-only` ve
-  `bash tools/emu/run_static_suite.sh`.
+- `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
+  toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
+  checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU
+  probe'larının tümü için tam-suite pass iddiası yok.
 - Tam suite; Ghidra driver/kernel, gerçek MIPS16 scroll/navigation ve altı
   firmware corpus'u üzerindeki host kontrollerini kapsar. QEMU leaf/chain
   probe'ları ayrıca çalıştırılır; bunlar tam ATJ2127 boot iddiası değildir.
-- Son yüksek etkili düzeltme: `kernel.drv` içindeki
-  `FUN_bfc0a408`/`FUN_bfc0a578` adaylarının loader değil resident-table
-  yardımcıları olduğu doğrulandı. `yqhx.py` ve sparse materializer yalnızca
-  header/segment/BSS sözleşmesini modeller.
+- Loader sınırı: `kernel.drv` içindeki `FUN_bfc0a408`/`FUN_bfc0a578`
+  adaylarının loader değil resident-table yardımcıları olduğu doğrulandı.
+  `yqhx.py` ve sparse materializer yalnızca header/segment/BSS sözleşmesini
+  modeller.
 - `analysis/community/dec.bin` kritik extracted üyeleri birer kez içerir ve
   `0xbfc06d6c` handler işaretçisi içermez. `tools/emu/dec_container_probe.py`
   bu sınırı kontrol eder; eksik fixed-ROM handler'ı mevcut dump'tan çıkarılamaz.
@@ -38,11 +39,35 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   argümanı kaydeder. `0x10` libc modülü, `0x0f` çekirdek modülüdür; servis
   gövdeleri/etkileri host modelinde çalıştırılmaz.
 - Yeni ses/indeks bulgularının ayrıntısı [`findings-auddev-driver.md`](findings-auddev-driver.md),
-  [`findings-eq-usound.md`](findings-eq-usound.md) ve
-  [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md)'te:
-  YQHX dört segmenti parse edilir; USB descriptor yaması host modelinde
-  doğrulanır; `usound`/`aud_dev` için `table[op]` hâlâ inference; MUSIC.LIB'de
-  tek kalan seeded-run sapması Indelible/Indelible’ node eşitliğidir.
+  [`findings-eq-usound.md`](findings-eq-usound.md),
+  [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md) ve
+  [`findings-upgrade-flow.md`](findings-upgrade-flow.md)'te: YQHX dört segmenti
+  parse edilir; stock/community EQ producer→MEngine builder zinciri iki hash
+  eşleşmesinde p-code ile yürütüldü, fakat ROM copy-service etkisi sentetik;
+  `usound`/`aud_dev` için `table[op]` hâlâ inference. MUSIC.LIB'de bir terminal
+  converter adayı tek cihaz kütüphanesinin indeks tablolarını eşleştiriyor,
+  ikinci public örneğe genellenmiyor.
+- EQ Custom slider kodu artık community `mainmenu.ap` içinde bulundu:
+  `FUN_40154f44` artış olayıyla p-code'da çalıştı ve `{7,7}` producer mesajına
+  ulaştı; servisler sentetik. Ek disassembly raporu state pointer tablosunun
+  selector/editor'e ulaştığını ve `0x38` bloğun yalnızca AP çıkışında
+  kalıcılaştırıldığını bildiriyor. State-1 giriş öğesi bilinmiyor; iptal
+  motoru yeniden güncellemeden yerel yedeği geri yüklüyor; üç yollu yerel
+  p-code koşusu da RAM tamponlarının ayrışmasını doğruladı. Azaltma taraması
+  sentetik `0x2904` için başlangıç `-3`'te no-op, `-2..+3`'te doğrudan `-3`
+  gösterdi. Event ABI çıkarım olduğundan cihaz tuş semantiği açık.
+  Ayrıntı ve tekrar üretim: [`findings-eq-selector-writer.md`](findings-eq-selector-writer.md)
+  ve [`p-code çıktısı`](evidence/mainmenu-eq-slider-pcode-2026-11-24/README.md).
+- `config.ap` `FUN_40dd4d60` factory band kayıtlarını `config.bin` öğe
+  `0x86..0x95` içinden `dae_cfg` 16-band alanına kuruyor. EQ builder çağrısı
+  bu 16 alanı yeniden yazar ve son dokuz bandı sıfırlar; FullSound/hoparlör
+  telafisi olduğu veya açılışta duyulduğu kanıtlanmadı. Hash ve decode:
+  [`config dae_cfg kanıtı`](evidence/config-dae-factory-2026-11-24/README.md).
+- Config item `0x96` defaults the DAE image flag to `audiopp.dsp` through
+  shared byte `+2`; `mmm_pp.al` chooses `adppext.dsp` when that byte is zero.
+  Item `0x98` maps to builder guard `+0x0c` (default zero). The DSP's EQ role
+  and linkage from config state to MEngine's separate active/selector globals
+  remain unproven.
 - DAC caller taraması da tekrar üretilebilir durumda:
   `tools/emu/dac_caller_scan.py`. Doğrudan helper pointer'ları yalnızca
   sürücü/container kopyalarında bulunur; codec register anlamı çözülmüş
