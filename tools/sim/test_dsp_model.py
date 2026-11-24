@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dsp_model import MMM_MP_DSP_NAMES, select_dsp, select_mengine_dsp
+from dsp_model import (
+    MMM_MP_DSP_NAMES,
+    select_dsp,
+    select_initial_mengine_dsp_from_config_item_96,
+    select_mengine_dsp,
+)
 
 
 class DspSelectorTests(unittest.TestCase):
@@ -61,6 +66,38 @@ class DspSelectorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):
                 select_mengine_dsp(1, Path(tmp))
+
+    def test_initial_config_item_96_default_selects_processing_dsp(self):
+        config_item = bytes.fromhex("01 00 02 00 00 00 01 00")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            selection = select_initial_mengine_dsp_from_config_item_96(
+                config_item,
+                Path(tmp),
+            )
+
+        self.assertEqual(selection.format_index, 13)
+        self.assertEqual(selection.firmware_name, "audiopp.dsp")
+
+    def test_initial_config_item_96_selects_bypass_for_values_other_than_one(self):
+        config_item = bytes.fromhex("02 00 02 00 00 00 01 00")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            selection = select_initial_mengine_dsp_from_config_item_96(
+                config_item,
+                Path(tmp),
+            )
+
+        self.assertEqual(selection.format_index, 14)
+        self.assertEqual(selection.firmware_name, "adppext.dsp")
+
+    def test_initial_config_item_96_requires_eight_bytes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                select_initial_mengine_dsp_from_config_item_96(
+                    bytes(7),
+                    Path(tmp),
+                )
 
 
 if __name__ == "__main__":

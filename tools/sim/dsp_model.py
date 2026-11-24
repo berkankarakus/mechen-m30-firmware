@@ -104,3 +104,21 @@ def select_mengine_dsp(processing_flag: bool, directory: Path) -> DspSelection:
         else MENGINE_FLAG_CLEAR_DSP_INDEX
     )
     return select_dsp(format_index, directory)
+
+
+def select_initial_mengine_dsp_from_config_item_96(
+    config_item: bytes,
+    directory: Path,
+) -> DspSelection:
+    """Resolve the initial DSP choice from config.bin item 0x96.
+
+    The firmware copies the item's first little-endian u16 to state+0x18 and
+    selects the processing DSP only when that value equals one. This models
+    first-time structure initialization; a valid persistent DAE block bypasses
+    this config.bin path on later boots.
+    """
+    if len(config_item) != 8:
+        raise ValueError("config item 0x96 must contain exactly 8 bytes")
+
+    processing_flag = struct.unpack_from("<H", config_item)[0] == 1
+    return select_mengine_dsp(processing_flag, directory)
