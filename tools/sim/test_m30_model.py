@@ -16,7 +16,9 @@ from m30_model import (
     FIRMWARE_EQ_Q_VALUES,
     FIRMWARE_EQ_SELECTOR_OFFSET,
     FIRMWARE_EQ_SLIDER_INCREASE_EVENT,
+    ApplicationLaunchRequest,
     IndexState,
+    IndexBootHandoff,
     IndexStatus,
     MAX_VOLUME_LEVEL,
     SleepTimerPersistence,
@@ -86,6 +88,40 @@ class IndexStatusTests(unittest.TestCase):
         status.advance(1)
         with self.assertRaises(RuntimeError):
             status.complete()
+
+
+class IndexBootHandoffTests(unittest.TestCase):
+    def test_invalid_persistent_settings_block_sets_flag_and_launches_playlist(self):
+        handoff = IndexBootHandoff()
+
+        request = handoff.config_start(settings_block_valid=False)
+
+        self.assertEqual(handoff.flag_word, 0x10000)
+        self.assertEqual(request, ApplicationLaunchRequest(0x201, 10, 0x4E))
+
+    def test_existing_flag_launches_playlist_until_successful_update_clears_it(self):
+        handoff = IndexBootHandoff(flag_word=0x10000)
+
+        request = handoff.config_start(settings_block_valid=True)
+        self.assertEqual(request, ApplicationLaunchRequest(0x201, 10, 0x4E))
+
+        handoff.playlist_update_succeeded()
+
+        self.assertEqual(handoff.flag_word, 0)
+        self.assertIsNone(handoff.config_start(settings_block_valid=True))
+
+    def test_invalid_block_overwrites_old_flag_word_with_index_flag(self):
+        handoff = IndexBootHandoff(flag_word=0x20)
+
+        handoff.config_start(settings_block_valid=False)
+
+        self.assertEqual(handoff.flag_word, 0x10000)
+
+    def test_config_start_requires_a_boolean_validity_result(self):
+        handoff = IndexBootHandoff()
+
+        with self.assertRaises(ValueError):
+            handoff.config_start(settings_block_valid=1)
 
 
 class VolumeLimitTests(unittest.TestCase):

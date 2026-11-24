@@ -129,6 +129,44 @@ class IndexStatus:
         self.message = message
 
 
+INDEX_REQUIRED_FLAG = 0x10000
+PLAYLIST_APPLICATION_ID = 10
+PLAYLIST_INDEX_UPDATE_PARAM = 0x4E
+
+
+@dataclass(frozen=True)
+class ApplicationLaunchRequest:
+    message_id: int
+    application_id: int
+    parameter: int
+
+
+@dataclass
+class IndexBootHandoff:
+    """Model config.ap's verified persistent-flag handoff to playlist.ap."""
+
+    flag_word: int = 0
+
+    def config_start(self, settings_block_valid: bool) -> ApplicationLaunchRequest | None:
+        if not isinstance(settings_block_valid, bool):
+            raise ValueError("settings block validity must be a boolean")
+
+        if not settings_block_valid:
+            self.flag_word = INDEX_REQUIRED_FLAG
+
+        if self.flag_word & INDEX_REQUIRED_FLAG:
+            return ApplicationLaunchRequest(
+                message_id=0x201,
+                application_id=PLAYLIST_APPLICATION_ID,
+                parameter=PLAYLIST_INDEX_UPDATE_PARAM,
+            )
+
+        return None
+
+    def playlist_update_succeeded(self) -> None:
+        self.flag_word &= ~INDEX_REQUIRED_FLAG
+
+
 MAX_VOLUME_LEVEL = 100
 DEFAULT_VOLUME_LIMIT = MAX_VOLUME_LEVEL
 
