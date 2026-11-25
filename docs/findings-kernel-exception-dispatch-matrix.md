@@ -30,8 +30,8 @@ Reproduce against the local 2025-06-26 extracted members:
 
 ```sh
 bash tools/ghidra/run_kernel_initialized_exception_probe.sh \
-  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/kernel.drv \
-  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_init.bin
+  /path/to/hash-matching/kernel.drv \
+  /path/to/hash-matching/ker_init.bin
 ```
 
 The observed run passed all 14 cases. The kernel and init members have the
@@ -63,11 +63,37 @@ the code decrements the next-stack pointer at `0x9fc1a8a0` by 184 bytes, moves
 increments bytes at `0x9fc1a493` and `0xbfc19930`. The table index byte remains
 unchanged in these profiles.
 
+The same selector was then executed natively on QEMU Malta with the
+hash-matching `ker_xsys.bin`. The BIOS fixture keeps the real table read at
+`0xbfc19974` and substitutes only the six `lui` operands that address
+writable globals (`0x9fc1a495`, `0x9fc1a493`, `0x9fc1a8a0`, and
+`0xbfc19930`) so those accesses land in Malta RAM. It places a return-only
+stub at the fixed-ROM boundary `0xbfc05f90`. QEMU 24Kf and 34Kf both passed
+four cases: at index 0, below and equal use alternate-stack setup while above
+takes the direct path; at index 1, a different table entry selects the direct
+path. For the index-1 discriminator, table[0]=`0x12000`, table[1]=`0x10101`,
+and masked SP=`0x11000`; reading entry 0 or an unaligned table word by mistake
+would switch stacks. The asymmetric bytes also make the tested endianness
+observable through the branch outcome.
+Assertions cover final SP, saved old SP, updated stack-top pointer, both
+counters, unchanged index, and the direct-path canary/state.
+
+This is real extracted MIPS32 execution under compatible generic MIPS CPUs,
+with synthetic RAM globals/table threshold and an instrumented ROM boundary.
+It does not execute the unavailable exception handler or establish Malta as
+an ATJ2127 model, real boot-time global values, caller flow, or hardware
+effects. The harness polls Malta's 16550 THRE status before each serial result
+byte. Reproduce with:
+
+```sh
+python3 tools/emu/run_malta_xsys_stack_probe.py /path/to/hash-matching/ker_xsys.bin
+```
+
 Reproduce with:
 
 ```sh
 bash tools/ghidra/run_ker_xsys_alternate_stack_probe.sh \
-  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_xsys.bin
+  /path/to/hash-matching/ker_xsys.bin
 ```
 
 This establishes the extracted selector's branch and memory effects for the
@@ -100,7 +126,7 @@ the address as RAM; it does not simulate the peripheral. Reproduce with:
 
 ```sh
 bash tools/ghidra/run_ker_xsys_exception_frame_probe.sh \
-  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_xsys.bin
+  /path/to/hash-matching/ker_xsys.bin
 ```
 
 This establishes the extracted consumer's frame-reading and callback ABI,

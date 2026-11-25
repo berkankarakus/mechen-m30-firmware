@@ -63,7 +63,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   doğruladı: `table=0x12000` için `sp&0x3ffff` değerleri `0x11fff` ve
   `0x12000` alternate stack'e, `0x12001` doğrudan ROM sınırına gidiyor.
   Alternate yolda 184-byte slot ayrılıyor, eski SP kaydediliyor ve iki sayaç
-  artıyor; `0xbfc05f90` handler gövdesi çalıştırılmıyor.
+  artıyor; `0xbfc05f90` handler gövdesi çalıştırılmıyor. Aynı selector'ın
+  gerçek MIPS32 talimatları QEMU Malta 24Kf/34Kf'de de geçti; index-0 sınır
+  profilleri ve farklı ikinci tablo girdisini ayırt eden index-1 profili SP,
+  sayaç ve canary kontrolleriyle doğrulandı. Yazılabilir operandlar RAM'e
+  yönlendirildi, sabit-ROM hedefi yalnız `jr ra` stub'ı, tablo eşikleri sentetik.
   Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
   Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
   raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.
