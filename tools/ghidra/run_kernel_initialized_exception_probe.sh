@@ -55,3 +55,4 @@ grep -Fq 'KERNEL INITIALIZED EXCEPTION PASS constructor=0xbfc32bc8 vector=0xbfc0
   exit 1
 }
 grep 'KERNEL INITIALIZED EXCEPTION PASS' "$WORK/run.log"
+grep 'KERNEL ROM HANDLER BOUNDARY' "$WORK/run.log"

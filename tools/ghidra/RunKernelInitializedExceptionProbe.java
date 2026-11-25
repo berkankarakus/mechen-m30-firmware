@@ -138,6 +138,7 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
             require(readWord(emu, CAUSE_SAVE) == INPUT_CAUSE, "saved Cause mismatch");
 
             StringBuilder dispatch = new StringBuilder();
+            long[] handlerEntryRegisters = null;
             for (int exceptionCode = 0; exceptionCode < TABLE_BYTES / 4; exceptionCode++) {
                 long cause = 0x80000003L | ((long)exceptionCode << 2);
                 long expectedHandler = readWord(emu, TABLE + exceptionCode * 4L);
@@ -152,6 +153,14 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
                 emu.writeRegister("EPC", INPUT_EPC + exceptionCode * 4L);
                 emu.writeRegister("Cause", cause);
                 emu.writeRegister("ra", INPUT_RA + exceptionCode * 4L);
+                if (exceptionCode == 9) {
+                    emu.writeRegister("a0", 0xa0a0a0a0L);
+                    emu.writeRegister("a1", 0xa1a1a1a1L);
+                    emu.writeRegister("a2", 0xa2a2a2a2L);
+                    emu.writeRegister("a3", 0xa3a3a3a3L);
+                    emu.writeRegister("v0", 0xb0b0b0b0L);
+                    emu.writeRegister("v1", 0xb1b1b1b1L);
+                }
                 emu.writeRegister("pc", VECTOR);
 
                 boolean caseSelected = false;
@@ -159,6 +168,12 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
                 for (; caseSteps < 128; caseSteps++) {
                     if (reg(emu, "pc") == (expectedHandler & ~1L)) {
                         caseSelected = true;
+                        if (exceptionCode == 9) {
+                            handlerEntryRegisters = new long[] {
+                                reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"),
+                                reg(emu, "a3"), reg(emu, "v0"), reg(emu, "v1")
+                            };
+                        }
                         break;
                     }
                     if (!emu.step(monitor))
@@ -183,6 +198,22 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
                 "KERNEL INITIALIZED EXCEPTION PASS constructor=0x%08x vector=0x%08x cause=0x%08x table-offset=0x%02x handler=0x%08x ctor-steps=%d vector-steps=%d real-table=1 dispatch0-31=%s rom-handler-executed=0",
                 CONSTRUCTOR, VECTOR, INPUT_CAUSE, INPUT_CAUSE & 0x7c,
                 SELECTED_HANDLER, constructorSteps, vectorSteps, dispatch));
+            require(handlerEntryRegisters != null,
+                "ExcCode 9 did not capture registers at the ROM handler boundary");
+            long[] expectedHandlerEntryRegisters = {
+                0xa0a0a0a0L, 0xa1a1a1a1L, 0xa2a2a2a2L,
+                0xa3a3a3a3L, 0xb0b0b0b0L, 0xb1b1b1b1L
+            };
+            for (int index = 0; index < expectedHandlerEntryRegisters.length; index++) {
+                require(handlerEntryRegisters[index] == expectedHandlerEntryRegisters[index],
+                    "exception vector changed ROM-boundary register index " + index);
+            }
+            println(String.format(
+                "KERNEL ROM HANDLER BOUNDARY exc=9 handler=0x%08x a0=%08x a1=%08x a2=%08x a3=%08x v0=%08x v1=%08x",
+                SELECTED_HANDLER,
+                handlerEntryRegisters[0], handlerEntryRegisters[1],
+                handlerEntryRegisters[2], handlerEntryRegisters[3],
+                handlerEntryRegisters[4], handlerEntryRegisters[5]));
         }
         finally {
             emu.dispose();
