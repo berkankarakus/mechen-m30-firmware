@@ -393,6 +393,18 @@ public class RunUsoundDescriptorPatchProbe extends GhidraScript {
             new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
             new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
                 'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
+        runCase(dataSegment, "serial-status-one", 1, 0, 3, "0x10D6", "0xdd01",
+            "M30", "USB AUDIO", 0x10d6, 0xdd01, 3, 2, 16,
+            new byte[] {(byte)0x80, (byte)0xbb, 0}, 200,
+            new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
+            new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
+                'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
+        runCase(dataSegment, "serial-status-three", 3, 0, 3, "0x10D6", "0xdd01",
+            "M30", "USB AUDIO", 0x10d6, 0xdd01, 3, 2, 16,
+            new byte[] {(byte)0x80, (byte)0xbb, 0}, 200,
+            new byte[] {8, 3, 'M', 0, '3', 0, '0', 0},
+            new byte[] {20, 3, 'U', 0, 'S', 0, 'B', 0, ' ', 0,
+                'A', 0, 'U', 0, 'D', 0, 'I', 0, 'O', 0});
         syntheticFwInfoStatus = 2;
         syntheticSerialValue = EMPTY_SERIAL_VALUE;
         runCase(dataSegment, "serial-empty", 2, 0, 3, "0x10D6", "0xdd01",

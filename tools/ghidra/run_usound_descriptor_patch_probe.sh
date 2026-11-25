@@ -42,6 +42,10 @@ for marker in \
   'USOUND DESCRIPTOR P-CODE PASS case=empty-vid-pid vid=10d6 pid=dd00 interfaces=3 format=0' \
   'USOUND DESCRIPTOR P-CODE PASS case=serial-unavailable vid=10d6 pid=dd01 interfaces=3 format=0' \
   'USOUND FW INFO TRACE status=0x00 calls=1 serial-buffer=0x00000000 serial-descriptor-bytes=0 iSerialNumber=3' \
+  'USOUND DESCRIPTOR P-CODE PASS case=serial-status-one vid=10d6 pid=dd01 interfaces=3 format=0' \
+  'USOUND FW INFO TRACE status=0x01 calls=2 serial-buffer=0x9fc33d12 serial-descriptor-bytes=34 iSerialNumber=3' \
+  'USOUND DESCRIPTOR P-CODE PASS case=serial-status-three vid=10d6 pid=dd01 interfaces=3 format=0' \
+  'USOUND FW INFO TRACE status=0x03 calls=1 serial-buffer=0x00000000 serial-descriptor-bytes=0 iSerialNumber=3' \
   'USOUND DESCRIPTOR P-CODE PASS case=serial-empty vid=10d6 pid=dd01 interfaces=3 format=0' \
   'USOUND FW INFO TRACE status=0x02 calls=2 serial-buffer=0x9fc33d12 serial-descriptor-bytes=18 iSerialNumber=0'; do
   if ! grep -Fq "$marker" "$WORK/run.log"; then
@@ -52,4 +56,4 @@ for marker in \
 done
 
 grep -E 'USOUND FW INFO (CALL|TRACE)' "$WORK/run.log" || true
-echo "USOUND DESCRIPTOR PATCH PROBE PASS cases=8 real-mips16=1 synthetic-config=1 rom-stubs=2"
+echo "USOUND DESCRIPTOR PATCH PROBE PASS cases=10 real-mips16=1 synthetic-config=1 rom-stubs=2"
