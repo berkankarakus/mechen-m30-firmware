@@ -139,8 +139,12 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
 
             StringBuilder dispatch = new StringBuilder();
             long[] handlerEntryRegisters = null;
+            long[] expectedHandlerEntryRegisters = {
+                0xa0a0a0a0L, 0xa1a1a1a1L, 0xa2a2a2a2L,
+                0xa3a3a3a3L, 0xb0b0b0b0L, 0xb1b1b1b1L
+            };
+            int handlerBoundaryProfiles = 0;
             for (int exceptionCode = 0; exceptionCode < TABLE_BYTES / 4; exceptionCode++) {
-                long cause = 0x80000003L | ((long)exceptionCode << 2);
                 long expectedHandler = readWord(emu, TABLE + exceptionCode * 4L);
                 long expectedSlot = DEFAULT_HANDLER;
                 if (exceptionCode == 0) expectedSlot = 0xbfc19624L;
@@ -150,45 +154,59 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
                 require(expectedHandler == expectedSlot,
                     String.format("constructor slot %d mismatch: 0x%08x",
                         exceptionCode, expectedHandler));
-                emu.writeRegister("EPC", INPUT_EPC + exceptionCode * 4L);
-                emu.writeRegister("Cause", cause);
-                emu.writeRegister("ra", INPUT_RA + exceptionCode * 4L);
-                if (exceptionCode == 9) {
-                    emu.writeRegister("a0", 0xa0a0a0a0L);
-                    emu.writeRegister("a1", 0xa1a1a1a1L);
-                    emu.writeRegister("a2", 0xa2a2a2a2L);
-                    emu.writeRegister("a3", 0xa3a3a3a3L);
-                    emu.writeRegister("v0", 0xb0b0b0b0L);
-                    emu.writeRegister("v1", 0xb1b1b1b1L);
-                }
-                emu.writeRegister("pc", VECTOR);
-
-                boolean caseSelected = false;
-                int caseSteps = 0;
-                for (; caseSteps < 128; caseSteps++) {
-                    if (reg(emu, "pc") == (expectedHandler & ~1L)) {
-                        caseSelected = true;
-                        if (exceptionCode == 9) {
-                            handlerEntryRegisters = new long[] {
-                                reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"),
-                                reg(emu, "a3"), reg(emu, "v0"), reg(emu, "v1")
-                            };
-                        }
-                        break;
+                long[] causeValues = exceptionCode == 9
+                    ? new long[] {
+                        0x00000024L, 0x00000027L, 0x80000024L,
+                        0x7fffffa7L, 0xdeadbe24L
                     }
-                    if (!emu.step(monitor))
-                        throw new Exception(String.format(
-                            "vector stopped for ExcCode %d at 0x%08x: %s",
-                            exceptionCode, reg(emu, "pc"), emu.getLastError()));
+                    : new long[] {0x80000003L | ((long)exceptionCode << 2)};
+
+                for (long cause : causeValues) {
+                    emu.writeRegister("EPC", INPUT_EPC + exceptionCode * 4L);
+                    emu.writeRegister("Cause", cause);
+                    emu.writeRegister("ra", INPUT_RA + exceptionCode * 4L);
+                    if (exceptionCode == 9) {
+                        emu.writeRegister("a0", expectedHandlerEntryRegisters[0]);
+                        emu.writeRegister("a1", expectedHandlerEntryRegisters[1]);
+                        emu.writeRegister("a2", expectedHandlerEntryRegisters[2]);
+                        emu.writeRegister("a3", expectedHandlerEntryRegisters[3]);
+                        emu.writeRegister("v0", expectedHandlerEntryRegisters[4]);
+                        emu.writeRegister("v1", expectedHandlerEntryRegisters[5]);
+                    }
+                    emu.writeRegister("pc", VECTOR);
+
+                    boolean caseSelected = false;
+                    for (int caseSteps = 0; caseSteps < 128; caseSteps++) {
+                        if (reg(emu, "pc") == (expectedHandler & ~1L)) {
+                            caseSelected = true;
+                            if (exceptionCode == 9) {
+                                handlerEntryRegisters = new long[] {
+                                    reg(emu, "a0"), reg(emu, "a1"), reg(emu, "a2"),
+                                    reg(emu, "a3"), reg(emu, "v0"), reg(emu, "v1")
+                                };
+                                for (int index = 0; index < expectedHandlerEntryRegisters.length; index++) {
+                                    require(handlerEntryRegisters[index]
+                                            == expectedHandlerEntryRegisters[index],
+                                        "exception vector changed ROM-boundary register index " + index);
+                                }
+                                handlerBoundaryProfiles++;
+                            }
+                            break;
+                        }
+                        if (!emu.step(monitor))
+                            throw new Exception(String.format(
+                                "vector stopped for ExcCode %d at 0x%08x: %s",
+                                exceptionCode, reg(emu, "pc"), emu.getLastError()));
+                    }
+                    require(caseSelected, "vector did not select table handler for ExcCode "
+                        + exceptionCode);
+                    require(readWord(emu, EPC_SAVE) == INPUT_EPC + exceptionCode * 4L,
+                        "saved EPC mismatch for ExcCode " + exceptionCode);
+                    require(readWord(emu, RA_SAVE) == INPUT_RA + exceptionCode * 4L,
+                        "saved RA mismatch for ExcCode " + exceptionCode);
+                    require(readWord(emu, CAUSE_SAVE) == cause,
+                        "saved Cause mismatch for ExcCode " + exceptionCode);
                 }
-                require(caseSelected, "vector did not select table handler for ExcCode "
-                    + exceptionCode);
-                require(readWord(emu, EPC_SAVE) == INPUT_EPC + exceptionCode * 4L,
-                    "saved EPC mismatch for ExcCode " + exceptionCode);
-                require(readWord(emu, RA_SAVE) == INPUT_RA + exceptionCode * 4L,
-                    "saved RA mismatch for ExcCode " + exceptionCode);
-                require(readWord(emu, CAUSE_SAVE) == cause,
-                    "saved Cause mismatch for ExcCode " + exceptionCode);
                 if (dispatch.length() != 0) dispatch.append(',');
                 dispatch.append(String.format("%d:0x%08x", exceptionCode,
                     expectedHandler));
@@ -200,17 +218,11 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
                 SELECTED_HANDLER, constructorSteps, vectorSteps, dispatch));
             require(handlerEntryRegisters != null,
                 "ExcCode 9 did not capture registers at the ROM handler boundary");
-            long[] expectedHandlerEntryRegisters = {
-                0xa0a0a0a0L, 0xa1a1a1a1L, 0xa2a2a2a2L,
-                0xa3a3a3a3L, 0xb0b0b0b0L, 0xb1b1b1b1L
-            };
-            for (int index = 0; index < expectedHandlerEntryRegisters.length; index++) {
-                require(handlerEntryRegisters[index] == expectedHandlerEntryRegisters[index],
-                    "exception vector changed ROM-boundary register index " + index);
-            }
+            require(handlerBoundaryProfiles == 5,
+                "unexpected ExcCode 9 Cause variation profile count");
             println(String.format(
-                "KERNEL ROM HANDLER BOUNDARY exc=9 handler=0x%08x a0=%08x a1=%08x a2=%08x a3=%08x v0=%08x v1=%08x",
-                SELECTED_HANDLER,
+                "KERNEL ROM HANDLER BOUNDARY exc=9 handler=0x%08x profiles=%d a0=%08x a1=%08x a2=%08x a3=%08x v0=%08x v1=%08x",
+                SELECTED_HANDLER, handlerBoundaryProfiles,
                 handlerEntryRegisters[0], handlerEntryRegisters[1],
                 handlerEntryRegisters[2], handlerEntryRegisters[3],
                 handlerEntryRegisters[4], handlerEntryRegisters[5]));
