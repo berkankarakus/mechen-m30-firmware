@@ -20,6 +20,7 @@ from m30_model import (
     IndexState,
     IndexBootHandoff,
     IndexStatus,
+    PlaylistUpdateGateResult,
     MAX_VOLUME_LEVEL,
     SleepTimerPersistence,
     SleepTimerState,
@@ -34,6 +35,7 @@ from m30_model import (
     firmware_eq_command,
     firmware_eq_payload,
     find_firmware_eq_profile,
+    playlist_update_gate,
     route_music_app_return_code,
     shared_message_return_code,
     sort_filenames,
@@ -127,6 +129,44 @@ class IndexBootHandoffTests(unittest.TestCase):
 
 
 class IndexReturnPathTests(unittest.TestCase):
+    def test_playlist_gate_uses_parameter_bit_0x40(self):
+        for parameter in (0x3F, 0x80, 0x82):
+            with self.subTest(parameter=parameter):
+                self.assertEqual(
+                    playlist_update_gate(parameter, 0),
+                    PlaylistUpdateGateResult(False, ()),
+                )
+
+        for parameter in (0x40, 0x41, 0x42, 0x4E, 0x7F, 0xC2):
+            with self.subTest(parameter=parameter):
+                self.assertEqual(
+                    playlist_update_gate(parameter, 0),
+                    PlaylistUpdateGateResult(True, ("MUSIC.LIB", "M3U.LIB")),
+                )
+
+    def test_playlist_gate_rejects_only_the_all_ones_resident_result(self):
+        self.assertEqual(
+            playlist_update_gate(0x42, -1),
+            PlaylistUpdateGateResult(True, ()),
+        )
+        self.assertEqual(
+            playlist_update_gate(0x42, 0xFFFFFFFF),
+            PlaylistUpdateGateResult(True, ()),
+        )
+
+        for resident_result in (-(1 << 31), -2, 0, 1, (1 << 31) - 1):
+            with self.subTest(resident_result=resident_result):
+                self.assertEqual(
+                    playlist_update_gate(0x42, resident_result),
+                    PlaylistUpdateGateResult(True, ("MUSIC.LIB", "M3U.LIB")),
+                )
+
+    def test_playlist_gate_rejects_parameters_outside_the_app_parameter_byte(self):
+        for parameter in (-1, 0x100):
+            with self.subTest(parameter=parameter):
+                with self.assertRaises(ValueError):
+                    playlist_update_gate(parameter, 0)
+
     def test_shared_message_b0_returns_the_observed_index_handoff_code(self):
         self.assertEqual(shared_message_return_code(0xB0), 0x861C)
         self.assertIsNone(shared_message_return_code(0xB1))

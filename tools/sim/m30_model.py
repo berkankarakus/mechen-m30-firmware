@@ -137,6 +137,8 @@ INDEX_UPDATE_APPLICATION_RETURN = 0x861C
 INDEX_UPDATE_CLEANUP_BYTES = 0xA8
 INDEX_UPDATE_RETURN_PARAMS = (0x42, 0x82, 0xC2)
 APPLICATION_LAUNCH_MESSAGE = 0x201
+PLAYLIST_INDEX_PARAMETER_FLAG = 0x40
+PLAYLIST_RESIDENT_REJECT_RESULT = 0xFFFFFFFF
 
 
 @dataclass(frozen=True)
@@ -144,6 +146,14 @@ class ApplicationLaunchRequest:
     message_id: int
     application_id: int
     parameter: int
+
+
+@dataclass(frozen=True)
+class PlaylistUpdateGateResult:
+    """Caller-side playlist update gate; resident op 9 is not implemented."""
+
+    resident_op9_called: bool
+    library_passes: tuple[str, ...]
 
 
 @dataclass
@@ -178,6 +188,32 @@ def shared_message_return_code(message_id: int) -> int | None:
         return INDEX_UPDATE_APPLICATION_RETURN
 
     return None
+
+
+def playlist_update_gate(
+    parameter: int,
+    resident_op9_result: int,
+) -> PlaylistUpdateGateResult:
+    """Model playlist.ap's observed parameter and resident-return gate.
+
+    The probe executes playlist.ap with a synthetic resident op-9 return and
+    synthetic successful library callbacks. This function models only which
+    callbacks the caller reaches; it does not assign semantics to op 9 or
+    emulate either library builder.
+    """
+    if not isinstance(parameter, int) or not 0 <= parameter <= 0xFF:
+        raise ValueError("playlist parameter must be an unsigned byte")
+
+    if not isinstance(resident_op9_result, int):
+        raise ValueError("resident op-9 result must be an integer")
+
+    if (parameter & PLAYLIST_INDEX_PARAMETER_FLAG) == 0:
+        return PlaylistUpdateGateResult(False, ())
+
+    if (resident_op9_result & 0xFFFFFFFF) == PLAYLIST_RESIDENT_REJECT_RESULT:
+        return PlaylistUpdateGateResult(True, ())
+
+    return PlaylistUpdateGateResult(True, ("MUSIC.LIB", "M3U.LIB"))
 
 
 def route_music_app_return_code(
