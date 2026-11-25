@@ -152,9 +152,18 @@ public class RunPlaylistParamGateProbe extends GhidraScript {
 
         byte[] ap = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(getScriptArgs()[0]));
         require(ap.length > 0x5500, "playlist AP is truncated");
-        long[] params = { 0x42, 0x82, 0xc2, 0x4e };
+        long[] params = { 0x3f, 0x40, 0x41, 0x42, 0x4e, 0x7f, 0x80, 0x82, 0xc2 };
         for (long param : params) runCase(memory, param, 0);
-        runCase(memory, 0x42, -1);
+
+        int[] serviceResults = {
+            Integer.MIN_VALUE,
+            -2,
+            -1,
+            0,
+            1,
+            Integer.MAX_VALUE,
+        };
+        for (int serviceResult : serviceResults) runCase(memory, 0x42, serviceResult);
         println("PLAYLIST PARAM P-CODE PASS service=resident-op9-0xbfc16bb1 semantics=synthetic-return callback=synthetic-indexer");
     }
 }
