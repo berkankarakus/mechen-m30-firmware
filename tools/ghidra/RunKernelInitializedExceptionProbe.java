@@ -138,13 +138,14 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
             require(readWord(emu, CAUSE_SAVE) == INPUT_CAUSE, "saved Cause mismatch");
 
             StringBuilder dispatch = new StringBuilder();
-            for (int exceptionCode = 0; exceptionCode <= 13; exceptionCode++) {
+            for (int exceptionCode = 0; exceptionCode < TABLE_BYTES / 4; exceptionCode++) {
                 long cause = 0x80000003L | ((long)exceptionCode << 2);
                 long expectedHandler = readWord(emu, TABLE + exceptionCode * 4L);
                 long expectedSlot = DEFAULT_HANDLER;
                 if (exceptionCode == 0) expectedSlot = 0xbfc19624L;
                 if (exceptionCode == 9) expectedSlot = SELECTED_HANDLER;
                 if (exceptionCode == 10) expectedSlot = 0xbfc195d4L;
+                if (exceptionCode >= 14) expectedSlot = SENTINEL;
                 require(expectedHandler == expectedSlot,
                     String.format("constructor slot %d mismatch: 0x%08x",
                         exceptionCode, expectedHandler));
@@ -179,7 +180,7 @@ public class RunKernelInitializedExceptionProbe extends GhidraScript {
             }
 
             println(String.format(
-                "KERNEL INITIALIZED EXCEPTION PASS constructor=0x%08x vector=0x%08x cause=0x%08x table-offset=0x%02x handler=0x%08x ctor-steps=%d vector-steps=%d real-table=1 dispatch0-13=%s rom-handler-executed=0",
+                "KERNEL INITIALIZED EXCEPTION PASS constructor=0x%08x vector=0x%08x cause=0x%08x table-offset=0x%02x handler=0x%08x ctor-steps=%d vector-steps=%d real-table=1 dispatch0-31=%s rom-handler-executed=0",
                 CONSTRUCTOR, VECTOR, INPUT_CAUSE, INPUT_CAUSE & 0x7c,
                 SELECTED_HANDLER, constructorSteps, vectorSteps, dispatch));
         }
