@@ -246,26 +246,29 @@ The manager-side call boundary is now more specific. In the hash-matched
 `manager.ap`, the `key.drv` string at file offset `0x1e40` maps to
 `0x7f056240`; its only code reference is in `FUN_7f056200`, called from
 `FUN_7f056250`. The wrapper calls the in-overlay config getter
-`FUN_7f0962bc` with IDs `0x52`, `0x51`, and `0x50`, then reaches fixed-ROM
-pointer `0xbfc13de1` with `(a0=9, a1=packed, a2=0x7f056240, a3=10)`. The
+`FUN_7f0962bc` with IDs `0x52`, `0x51`, and `0x50`, then calls the resident
+MIPS16 stub at `0xbfc13de0` with `(a0=9, a1=packed, a2=0x7f056240, a3=10)`.
+The stub loads `v1=15` and executes `break`; the exception handler that
+services selector 15 is not present in this overlay. The
 getter's decompiled code reads an indexed config record and returns its first
 16-bit field. In the compared stock, community, and V1.101.11 config images,
-the first words for items `0x50/0x51/0x52` are `1/2/2`; executing the real manager caller with
-those getter results reaches the ROM boundary with `a1=0x01000202`. A second
+the first words for items `0x50/0x51/0x52` are `1/2/2`; executing the real
+manager caller with those getter results reaches the break boundary with
+selector 15 and `a1=0x01000202`. A second
 synthetic input `(0x11,0x22,0x33)` produces `0x11002233`, confirming the
-caller's bit packing. The config-getter and fixed-ROM service returns are
+caller's bit packing. The config-getter and exception-service returns are
 synthetic in this probe. This narrows which config values manager submits,
-but does not prove the fixed-ROM operation's meaning or that it initializes
+but does not prove selector 15's meaning or that it initializes
 the driver's B+8..B+15 normalization table.
 
 Reproduce with:
 
 ```sh
-bash tools/ghidra/run_manager_key_driver_rom_call_probe.sh <hash-matching-manager.ap> <matching-config.bin>
+bash tools/ghidra/run_manager_key_driver_service_stub_probe.sh <hash-matching-manager.ap> <matching-config.bin>
 ```
 
 The evidence record is in
-[`key-driver-rom-boundary-2026-11-25`](evidence/key-driver-rom-boundary-2026-11-25/README.md).
+[`key-driver-service-stub-2026-11-25`](evidence/key-driver-service-stub-2026-11-25/README.md).
 
 ## Kernel exception-vector table (separate from the key table)
 

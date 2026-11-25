@@ -17,28 +17,28 @@ actual_sha256=$(shasum -a 256 "$MANAGER" | awk '{print $1}')
   exit 1
 }
 
-WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-manager-key-rom-call.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/private/tmp}/m30-manager-key-service-stub.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home" "$WORK/project"
 
 if ! JAVA_HOME="$JAVA_HOME_OVERRIDE" \
   JAVA_TOOL_OPTIONS="-Duser.home=$WORK/home" \
-  "$GHIDRA" "$WORK/project" managerkeyromcall \
+  "$GHIDRA" "$WORK/project" managerkeyservicestub \
     -import "$MANAGER" \
     -loader BinaryLoader \
     -processor 'MIPS:LE:32:default' \
     -noanalysis \
     -scriptPath "$ROOT/tools/ghidra" \
     -postScript LoadAP.java "$MANAGER" \
-    -postScript RunManagerKeyDriverRomCallProbe.java "$MANAGER" "$CONFIG" \
+    -postScript RunManagerKeyDriverServiceStubProbe.java "$MANAGER" "$CONFIG" \
     >"$WORK/run.log" 2>&1; then
   cat "$WORK/run.log" >&2
   exit 1
 fi
 
-if ! grep -Fq 'MANAGER KEY-DRIVER ROM-CALL COMPLETE' "$WORK/run.log"; then
+if ! grep -Fq 'MANAGER KEY-DRIVER SERVICE-STUB COMPLETE' "$WORK/run.log"; then
   cat "$WORK/run.log" >&2
-  echo "manager key-driver ROM-call probe did not report completion" >&2
+  echo "manager key-driver service-stub probe did not report completion" >&2
   exit 1
 fi
-grep -E 'MANAGER KEY-DRIVER ROM-CALL (PASS|COMPLETE)' "$WORK/run.log"
+grep -E 'MANAGER KEY-DRIVER SERVICE-STUB (PASS|COMPLETE)' "$WORK/run.log"
