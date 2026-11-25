@@ -292,6 +292,22 @@ selector 9 as close, but does not identify selector 10
 Without the M30 ROM handler or another trace source, selector 10's semantics
 remain unresolved.
 
+### Selector-10 return values are unused by the manager callers
+
+A read-only Ghidra decompile of the hash-verified `manager.ap`
+(`d94d2406…af7a`) confirms that both selector-10 call results are ignored.
+`FUN_7f056200` reads config items `0x52`, `0x51`, and `0x50`, packs them, and
+calls the resident stub with `(9, packed, "key.drv", 10)` before returning
+without reading `v0`. Its parent `FUN_7f056250` calls selector 10 for
+`"nor_ud.drv"`, invokes `FUN_7f216200` and `FUN_7f056200`, then ultimately
+returns constant `0`; it does not branch on either call result.
+
+Therefore, sweeping synthetic selector-10 return values cannot distinguish
+caller-side behavior. This does not reveal selector 10's meaning or any
+out-of-band effect inside the unavailable ROM handler. The raw decompile is
+kept in the ignored `analysis/local-evidence/manager-key-driver-callers.c`;
+the checked-in evidence summary and JSONL fact capture the interpretation.
+
 Reproduce with:
 
 ```sh

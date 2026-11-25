@@ -57,6 +57,20 @@ it does not execute the loop, prove that boot enters this parent function, or
 show that either driver was loaded. The selector-10 “driver open/load”
 interpretation remains a caller-pattern hypothesis.
 
+## Selector-10 caller return use
+
+Read-only Ghidra decompilation of the hash-verified `manager.ap`
+(`d94d2406…af7a`) shows `FUN_7f056200` calling selector 10 for `key.drv` and
+returning without consuming the service's `v0`. Its parent `FUN_7f056250`
+similarly ignores the selector-10 result for `nor_ud.drv` and returns constant
+zero. The raw output is preserved locally at
+`analysis/local-evidence/manager-key-driver-callers.c`; it is ignored by Git
+because raw decompiler output stays outside tracked files.
+
+This rules out caller-return-value sweeps as a way to infer selector
+semantics. ROM-side effects remain unknown. The Ghidra project was opened with
+`-readOnly`; its recorded executable SHA-256 matched the hash above.
+
 ## Config payload and p-code check
 
 In the compared stock, community, and V1.101.11 `config.bin` files, the first
