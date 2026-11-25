@@ -261,6 +261,22 @@ synthetic in this probe. This narrows which config values manager submits,
 but does not prove selector 15's meaning or that it initializes
 the driver's B+8..B+15 normalization table.
 
+### Selector-10 driver-open/load hypothesis
+
+The parent `FUN_7f056250` supplies one more clue: it first calls the same
+resident selector-15 stub with `(0, 0, &"nor_ud.drv", 10)`, then later calls
+`FUN_7f056200`, which submits `&"key.drv"` and the packed config using the
+same `a3=10` selector. This makes “open/load a driver” a plausible role for
+selector 10, and possibly the point where key-driver configuration is
+applied. It remains a hypothesis: a public ATJ2127 note for the different
+US212D firmware documents import-15 selector 8 as mount and selector 9 as
+close, but does not identify selector 10
+([reference notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L241-L259)).
+The current M30 probe covers the `key.drv` call only and stubs the exception
+return. The next discriminating probe is to execute the full parent path,
+capture both selector-10 calls, and trace the exception-dispatch handler or
+table if available.
+
 Reproduce with:
 
 ```sh
