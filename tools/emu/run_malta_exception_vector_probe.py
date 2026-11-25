@@ -27,6 +27,8 @@ def tool(name: str, override: str | None = None) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("kernel_driver", type=Path)
+    parser.add_argument("--xsys", type=Path,
+                        help="also execute the extracted ker_xsys entry through a synthetic slot-9 bridge")
     parser.add_argument("--qemu", help="QEMU executable (default: qemu-system-mipsel)")
     parser.add_argument("--as", dest="assembler", help="MIPS assembler override")
     parser.add_argument("--ld", dest="linker", help="MIPS linker override")
@@ -37,6 +39,9 @@ def main() -> None:
     kernel = args.kernel_driver.resolve()
     if not kernel.is_file():
         raise SystemExit(f"missing kernel.drv: {kernel}")
+    xsys = args.xsys.resolve() if args.xsys else None
+    if xsys is not None and not xsys.is_file():
+        raise SystemExit(f"missing ker_xsys.bin: {xsys}")
 
     assembler = tool("mipsel-linux-gnu-as", args.assembler)
     linker = tool("mipsel-linux-gnu-ld", args.linker)
@@ -50,14 +55,17 @@ def main() -> None:
         harness = temp / "harness.bin"
         bios = temp / "m30-probe-bios.bin"
 
+        bios_command = ["python3", str(EMU / "build_malta_exception_probe_bios.py"),
+                        str(kernel), str(harness), str(bios)]
+        if xsys is not None:
+            bios_command.extend(["--xsys", str(xsys)])
         commands = [
             [assembler, "-EL", "-march=24kc", "-mips32r2", "-o", str(obj),
              str(EMU / "malta_exception_vector_probe.S")],
             [linker, "-EL", "-T", str(EMU / "malta_exception_vector_probe.ld"),
              str(obj), "-o", str(elf)],
             [objcopy, "-O", "binary", str(elf), str(harness)],
-            ["python3", str(EMU / "build_malta_exception_probe_bios.py"),
-             str(kernel), str(harness), str(bios)],
+            bios_command,
         ]
         for command in commands:
             try:
@@ -81,49 +89,52 @@ def main() -> None:
             if result.stderr:
                 print(result.stderr, end="")
 
-        qemu_command = [
-            qemu,
-            "-M", "malta",
-            "-cpu", "24Kf",
-            "-m", "256M",
-            "-bios", str(bios),
-            "-display", "none",
-            "-serial", "null",
-            "-serial", "null",
-            "-serial", "stdio",
-            "-monitor", "none",
-            "-no-reboot",
-            "-no-shutdown",
-        ]
-        try:
-            result = subprocess.run(
-                qemu_command,
-                text=True,
-                capture_output=True,
-                timeout=args.timeout,
-                env={**os.environ, "QEMU_AUDIO_DRV": "none"},
-            )
-            stdout, stderr = result.stdout, result.stderr
-            timed_out = False
-        except subprocess.TimeoutExpired as exc:
-            stdout = exc.stdout or ""
-            stderr = exc.stderr or ""
-            timed_out = True
-            if isinstance(stdout, bytes):
-                stdout = stdout.decode(errors="replace")
-            if isinstance(stderr, bytes):
-                stderr = stderr.decode(errors="replace")
+        cpus = ["24Kf", "34Kf"] if xsys is not None else ["24Kf"]
+        for cpu in cpus:
+            qemu_command = [
+                qemu,
+                "-M", "malta",
+                "-cpu", cpu,
+                "-m", "256M",
+                "-bios", str(bios),
+                "-display", "none",
+                "-serial", "null",
+                "-serial", "null",
+                "-serial", "stdio",
+                "-monitor", "none",
+                "-no-reboot",
+                "-no-shutdown",
+            ]
+            try:
+                result = subprocess.run(
+                    qemu_command,
+                    text=True,
+                    capture_output=True,
+                    timeout=args.timeout,
+                    env={**os.environ, "QEMU_AUDIO_DRV": "none"},
+                )
+                stdout, stderr = result.stdout, result.stderr
+                timed_out = False
+            except subprocess.TimeoutExpired as exc:
+                stdout = exc.stdout or ""
+                stderr = exc.stderr or ""
+                timed_out = True
+                if isinstance(stdout, bytes):
+                    stdout = stdout.decode(errors="replace")
+                if isinstance(stderr, bytes):
+                    stderr = stderr.decode(errors="replace")
 
-        if stdout.strip() != "PASS" or not timed_out:
-            raise SystemExit(
-                "QEMU did not halt after emitting exactly the expected PASS marker.\n"
-                f"timed_out={timed_out}\nstdout:\n{stdout}\nstderr:\n{stderr}"
-            )
-        if "FAIL" in stdout or "qemu: fatal:" in stderr:
-            raise SystemExit(f"QEMU reported failure:\n{stdout}\n{stderr}")
-        print("MALTA M30 EXCEPTION VECTOR PASS saved-EPC-RA-ExcCode=9")
-        if stderr.strip():
-            print(stderr.strip())
+            if stdout.strip() != "PASS" or not timed_out:
+                raise SystemExit(
+                    f"QEMU {cpu} did not halt after emitting exactly the expected PASS marker.\n"
+                    f"timed_out={timed_out}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+                )
+            if "FAIL" in stdout or "qemu: fatal:" in stderr:
+                raise SystemExit(f"QEMU {cpu} reported failure:\n{stdout}\n{stderr}")
+            label = "M30 EXCEPTION VECTOR+XSYS" if xsys is not None else "M30 EXCEPTION VECTOR"
+            print(f"MALTA {label} PASS cpu={cpu} saved-EPC-RA-ExcCode=9")
+            if stderr.strip():
+                print(stderr.strip())
 
 
 if __name__ == "__main__":

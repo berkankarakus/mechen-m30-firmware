@@ -22,7 +22,9 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 QEMU exception güncellemesi: `ker_xsys.bin` içindeki gerçek `0xbfc34074`
 prologue’u Malta 24Kf/34Kf’de sentetik CP0 EPC ve TLB eşlemesiyle yürütüldü;
 `0x13dd8/0x13ddc` EPC/RA kayıtları ve frame çevresi canary’leri doğrulandı.
-Doğal exception zinciri ve `FUN_bfc344f4` çağrı bağı hâlâ açık.
+Ardından gerçek QEMU `break 0` → `kernel.drv` vector → slot 9 (`0xbfc06f18`)
+→ sentetik doğrudan-jump bridge → gerçek xsys entry birleşimi çalıştı; beş frame
+sözcüğü doğrulandı. Gerçek ROM handoff'u ve `FUN_bfc344f4` çağrı bağı hâlâ açık.
 
 ## Dinamik inceleme havuzu
 

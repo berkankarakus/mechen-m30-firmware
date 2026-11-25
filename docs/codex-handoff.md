@@ -72,6 +72,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   RA'sı TLB ile RAM'e eşlenen `0x13dd8/0x13ddc` alanlarına yazıldı; `0xbfc06d6c`
   yalnız dönüş stub'ı. Bu doğal exception/caller veya consumer bağlantısını
   kanıtlamıyor.
+  Daha güçlü birleşik Malta koşusunda gerçek `break 0` olayı kernel vector'ını
+  çalıştırdı; slot 9'daki sentetik `j 0xbfc34074` bridge'i gerçek xsys girişine
+  aktardı. Beş frame sözcüğü ve çevre canary'leri 24Kf/34Kf'de doğrulandı.
+  Gerçek ROM handoff'u veya boot sırası kanıtlanmış değil.
   Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
   Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
   raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.

@@ -117,6 +117,36 @@ raise a hardware exception or reproduce the natural caller, Cause, kernel
 vector sequence, or fixed-ROM handler. In particular, it does not establish
 that this entry leads to `FUN_bfc344f4`; that call edge remains unresolved.
 
+## Malta QEMU vector-to-entry composition with a synthetic slot-9 bridge
+
+The Malta exception-vector probe now has an optional `--xsys` mode. It raises
+a real QEMU `break 0`, executes the hash-pinned `kernel.drv` vector at
+`0xbfc08180`, and reads slot 9 from the BIOS-mapped exception table. The
+builder seeds that slot with the constructor-observed value `0xbfc06f18`.
+At that address, a synthetic direct-jump bridge enters the hash-pinned
+`ker_xsys.bin` prologue at `0xbfc34074`; this replaces the unavailable fixed
+ROM handler for the experiment and is not a recovered call edge.
+
+The vector writes EPC, interrupted `$ra`, and Cause to `0x13dcc..0x13dd4`.
+The real xsys entry then appends CP0 EPC and `$ra` at `0x13dd8/0x13ddc` and
+jumps to a harness checkpoint at `0xbfc06d6c`. Since both the bridge and the
+vector transfer use `j`/`jr` without linking, the seeded interrupted `$ra`
+remains `0x12345678`; the probe asserts it in both RA frame slots. It also
+checks the EPC values and canaries at `0x13dc8` and `0x13de0`. QEMU 24Kf and
+34Kf pass. Reproduce with:
+
+```sh
+python3 tools/emu/run_malta_exception_vector_probe.py \
+  /path/to/hash-matching/kernel.drv \
+  --xsys /path/to/hash-matching/ker_xsys.bin
+```
+
+This composes the extracted vector and entry instructions under a real QEMU
+exception event. The slot-9 table value is seeded, the ROM bridge and final
+checkpoint are synthetic, and the firmware's actual handler-to-entry
+relationship, constructor invocation, complete device boot, and ATJ2127
+hardware behavior remain unknown.
+
 ## Extracted five-word exception-frame consumer
 
 The hash-pinned `ker_xsys.bin` also contains MIPS16 function
