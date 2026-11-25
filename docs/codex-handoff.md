@@ -51,9 +51,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   taraması `ker_xsys.bin` içindeki `FUN_bfc344f4`'ün `0x13dcc..0x13ddc`
   aralığından beş sözcük okuyup her birini `exc:` descriptor'ıyla bir ROM
   callback'ine verdiğini gösterdi. Ghidra p-code bunu sentetik callback ve
-  canary'lerle doğruladı. Eksik fixed-ROM exception handler'ıyla bağlantısı
-  henüz kanıtlanmadı; sonraki adım indirect caller'ı ve `0xc012001c` yazımının
-  çevresindeki koşulu çözmek.
+  canary'lerle doğruladı. Aynı prob iki yolu da çalıştırdı: `0x9fc1aa5c`
+  bit 1 clear → watchdog adresine `0x5d`; set → `0x69`. Donanım etkisi ve
+  missing fixed-ROM handler'la bağlantısı kanıtlanmadı. Sonraki adım: indirect
+  caller'ı / callback slot'unu izlemek ve watchdog değerlerinin board-level
+  etkisini belirlemek.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU

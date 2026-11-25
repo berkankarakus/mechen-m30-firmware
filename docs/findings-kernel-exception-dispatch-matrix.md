@@ -56,23 +56,27 @@ with a descriptor at `0xbfc3454c`, the next 32-bit word beginning at
 `0x13dcc`, and argument `2`. The descriptor bytes are `exc:`. The five reads
 therefore cover `0x13dcc..0x13ddc`: the three words saved by the kernel
 exception vector and the EPC/RA pair saved by the `ker_xsys` entry. The
-function later checks a state bit and writes `0x5d` or `0x69` to
-`0xc012001c`; the meanings of that state and address are unknown.
+function checks bit 1 of the word at `0x9fc1aa5c`: clear writes `0x5d` and set
+writes `0x69` to `0xc012001c`. The kernel-init trace independently identifies
+that address as the watchdog register. These byte values' hardware effect is
+still unknown.
 
 The real MIPS16 function was run in Ghidra p-code with five distinct seeded
 words and a synthetic callback stub replacing the unavailable ROM callback.
 The probe observed five calls in order, each with the expected frame word,
 descriptor, and width argument, and verified canaries immediately before and
-after the frame. Reproduce with:
+after the frame. Two RAM-backed status/MMIO profiles then confirmed the real
+code writes `0x5d` when bit 1 is clear and `0x69` when it is set. This models
+the register as RAM; it does not simulate watchdog hardware. Reproduce with:
 
 ```sh
 bash tools/ghidra/run_ker_xsys_exception_frame_probe.sh \
   /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_xsys.bin
 ```
 
-This establishes the extracted consumer's frame-reading and callback ABI
-under a synthetic callback. It does **not** establish that the missing fixed
-ROM handler calls this function, that it is the ExcCode 9 path, or what the
-callback and subsequent hardware writes do. A direct-pointer scan of the
-locally extracted members found no reference to `0xbfc344f4`; an indirect ROM
-call remains possible.
+This establishes the extracted consumer's frame-reading and callback ABI,
+plus its conditional values written to the watchdog address, under synthetic
+callback and RAM-backed MMIO. It does **not** establish that the missing fixed
+ROM handler calls this function or that it is the ExcCode 9 path. A
+direct-pointer scan of the locally extracted members found no reference to
+`0xbfc344f4`; an indirect ROM call remains possible.

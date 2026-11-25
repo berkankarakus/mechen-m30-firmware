@@ -34,11 +34,19 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     exit 1
   }
 
-grep -Fq 'KER XSYS EXCEPTION FRAME P-CODE PASS entry=0xbfc344f4 frame=0x00013dcc words=5 callback=0x00070001 synthetic-rom-callback=1' "$WORK/run.log" || {
+grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000000 frame-words=5 watchdog-write=0x5d' "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }
-grep 'KER XSYS EXCEPTION FRAME P-CODE PASS' "$WORK/run.log"
+grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000002 frame-words=5 watchdog-write=0x69' "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
+grep -Fq 'KER XSYS EXCEPTION FRAME P-CODE PASS entry=0xbfc344f4 frame=0x00013dcc profiles=2 callback=0x00070001 synthetic-rom-callback=1' "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
+grep 'KER XSYS EXCEPTION FRAME' "$WORK/run.log"
 AFTER_SHA=$(shasum -a 256 "$XSYS" | awk '{print $1}')
 [ "$INPUT_SHA" = "$AFTER_SHA" ] || {
   echo "input SHA-256 changed: before=$INPUT_SHA after=$AFTER_SHA" >&2
