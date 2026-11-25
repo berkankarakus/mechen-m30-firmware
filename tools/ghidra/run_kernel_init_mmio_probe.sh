@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 if [ "$#" -gt 2 ]; then
-  echo "usage: $0 [KER_INIT.BIN] [zero|sentinel]" >&2
+  echo "usage: $0 [KER_INIT.BIN] [zero|sentinel|call0..call6|clobberN-REGISTER]" >&2
   exit 2
 fi
 INIT=${1:-$ROOT/analysis/community/fw/ker_init.bin}
@@ -15,8 +15,8 @@ EXPECTED_SHA256=f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
 [ -f "$INIT" ] || { echo "missing ker_init.bin: $INIT" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 case "$RETURN_MODE" in
-  zero|sentinel|call[0-6]) ;;
-  *) echo "return mode must be zero, sentinel, or call0 through call6: $RETURN_MODE" >&2; exit 1 ;;
+  zero|sentinel|call[0-6]|clobber[0-6]-*) ;;
+  *) echo "unsupported ROM probe mode: $RETURN_MODE" >&2; exit 1 ;;
 esac
 actual_sha=$(shasum -a 256 "$INIT" | awk '{print $1}')
 [ "$actual_sha" = "$EXPECTED_SHA256" ] || {
@@ -51,3 +51,6 @@ grep -Fq "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log" || {
 grep -F "KERNEL INIT MMIO P-CODE PASS entry=bfc32440" "$WORK/run.log"
 grep -F 'KERNEL INIT MMIO STATE' "$WORK/run.log"
 grep -F 'KERNEL INIT MMIO TRACE SHA256=' "$WORK/run.log"
+case "$RETURN_MODE" in
+  clobber*) grep -F 'KERNEL INIT MMIO ROM EDGE RESULT' "$WORK/run.log" ;;
+esac

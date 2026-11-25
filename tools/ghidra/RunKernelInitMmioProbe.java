@@ -1,5 +1,6 @@
 // Execute extracted FUN_bfc32440 against seeded RAM/MMIO state.
 // Fixed-ROM services return synthetically; register values are not device observations.
+// clobberN-register modes mutate one caller-saved register at a synthetic return.
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.app.script.GhidraScript;
 import ghidra.pcode.emu.PcodeEmulator;
@@ -84,6 +85,8 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|sentinel|call0..call6]");
         String returnMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "zero";
         int isolatedCall = -1;
+        int clobberCall = -1;
+        String clobberRegister = null;
         if (returnMode.startsWith("call")) {
             try {
                 isolatedCall = Integer.parseInt(returnMode.substring(4));
@@ -92,9 +95,22 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                 throw new Exception("isolated return mode must be call0 through call6");
             }
         }
+        else if (returnMode.startsWith("clobber")) {
+            String[] parts = returnMode.split("-", 2);
+            require(parts.length == 2, "clobber mode must be clobberN-REGISTER");
+            try {
+                clobberCall = Integer.parseInt(parts[0].substring(7));
+            }
+            catch (NumberFormatException e) {
+                throw new Exception("clobber call must be clobber0 through clobber6");
+            }
+            clobberRegister = parts[1];
+        }
         require(returnMode.equals("zero") || returnMode.equals("sentinel")
-                || (isolatedCall >= 0 && isolatedCall < 7),
-            "return mode must be zero, sentinel, or call0 through call6");
+                || (isolatedCall >= 0 && isolatedCall < 7)
+                || (clobberCall >= 0 && clobberCall < 7
+                    && isCallerSavedRegister(clobberRegister)),
+            "return mode must be zero, sentinel, call0..call6, or clobberN-REGISTER");
         byte[] image = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         require(image.length >= 0x828, "ker_init.bin truncated before FUN_bfc32440");
@@ -173,10 +189,20 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                 println("KERNEL INIT MMIO ROM EDGE " + call);
                 int callIndex = calls.size() - 1;
                 long returnValue = returnMode.equals("zero")
+                        || returnMode.startsWith("clobber")
                         || (isolatedCall >= 0 && isolatedCall != callIndex)
                     ? 0 : RETURN_SENTINEL;
                 thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
                     returnValue, v0.getMinimumByteSize()));
+                if (callIndex == clobberCall) {
+                    Register clobbered = language.getRegister(clobberRegister);
+                    long poison = 0xd3ad0000L | ((long)callIndex << 8)
+                        | (clobbered.getOffset() & 0xffL);
+                    thread.getState().setVar(clobbered, emulator.getArithmetic().fromConst(
+                        poison, clobbered.getMinimumByteSize()));
+                    println(String.format("KERNEL INIT MMIO ROM RETURN CLOBBER call=%d register=%s value=%08x",
+                        callIndex, clobberRegister, poison));
+                }
                 thread.stepInstruction();
                 require(thread.getCounter().getOffset() == returnAddress
                         && (thread.getContext().getRegisterValue(isa)
@@ -201,10 +227,20 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             "bfc07a50:ra=bfc32774:a0=c0020038,a1=c0020048,a2=00000000,a3=04040404",
             "bfc04f60:ra=bfc32814:a0=00000078,a1=00000000,a2=00000000,a3=04040404"
         };
-        for (int i = 0; i < expectedCalls.length; i++)
-            require(calls.get(i).equals(expectedCalls[i]), String.format(
-                "fixed-ROM edge %d mismatch: got %s expected %s",
-                i, calls.get(i), expectedCalls[i]));
+        for (int i = 0; i < expectedCalls.length; i++) {
+            if (clobberCall >= 0) {
+                String expectedEdge = expectedCalls[i].split(":a0=", 2)[0];
+                String actualEdge = calls.get(i).split(":a0=", 2)[0];
+                require(actualEdge.equals(expectedEdge), String.format(
+                    "fixed-ROM control edge %d mismatch: got %s expected %s",
+                    i, actualEdge, expectedEdge));
+            }
+            else {
+                require(calls.get(i).equals(expectedCalls[i]), String.format(
+                    "fixed-ROM edge %d mismatch: got %s expected %s",
+                    i, calls.get(i), expectedCalls[i]));
+            }
+        }
         int sleepCalls = 0, serviceACalls = 0, serviceBCalls = 0;
         for (String call : calls) {
             if (call.startsWith("bfc07a50:")) sleepCalls++;
@@ -213,6 +249,10 @@ public class RunKernelInitMmioProbe extends GhidraScript {
         }
         require(sleepCalls == 5 && serviceACalls == 1 && serviceBCalls == 1,
             "unexpected fixed-ROM call mix: " + calls);
+        if (clobberCall >= 0) {
+            for (int i = 0; i < calls.size(); i++)
+                println(String.format("KERNEL INIT MMIO ROM EDGE RESULT index=%d %s", i, calls.get(i)));
+        }
         for (int i = 0; i < MMIO_ADDRESSES.length; i++) {
             long actual = word(thread, space, MMIO_ADDRESSES[i], language);
             println(String.format("KERNEL INIT MMIO STATE address=%08x initial=%08x final=%08x expected=%08x",
@@ -238,5 +278,11 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             + "calls-are-synthetic=1 return-mode=%s initial-register-pattern=%08x",
             ENTRY, steps, calls.size(), returnMode, MMIO_SEED));
         println("KERNEL INIT MMIO TRACE SHA256=" + digestHex(traceDigest));
+    }
+
+    private boolean isCallerSavedRegister(String name) {
+        if (name == null) return false;
+        if (name.equals("v1") || name.matches("a[0-3]")) return true;
+        return name.matches("t[0-9]");
     }
 }
