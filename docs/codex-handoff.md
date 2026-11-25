@@ -59,6 +59,11 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   Guard sözcüğü eşleşirken mesafe `0x93` hata, `0x94` normal dönüş verdi;
   `0x180` mesafede sentinel uyuşmazlığı da hata dalına girdi. ROM servislerinin
   doğal dönüşleri ve bu fonksiyonlara gerçek caller bağı bilinmiyor.
+  Ayrı `FUN_bfc340a4` p-code profili gerçek alternatif stack selector'ını
+  doğruladı: `table=0x12000` için `sp&0x3ffff` değerleri `0x11fff` ve
+  `0x12000` alternate stack'e, `0x12001` doğrudan ROM sınırına gidiyor.
+  Alternate yolda 184-byte slot ayrılıyor, eski SP kaydediliyor ve iki sayaç
+  artıyor; `0xbfc05f90` handler gövdesi çalıştırılmıyor.
   Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
   Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
   raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.

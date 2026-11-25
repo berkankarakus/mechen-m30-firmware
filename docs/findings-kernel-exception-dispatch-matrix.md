@@ -46,6 +46,35 @@ none of the handlers, fixed ROM, or real exception entry conditions were
 executed. It identifies routing, not handler semantics, hardware exception
 behavior, or boot-time invocation.
 
+## Extracted alternate exception-stack selector
+
+The neighboring MIPS32 code at `0xbfc340a4` reads a stack-table index from
+`0x9fc1a495`, loads the corresponding word from `0xbfc19974 + index*4`, and
+compares it with `sp & 0x3ffff`. A hash-pinned Ghidra p-code probe executes the
+real instructions with RAM-backed globals/table and stops at the fixed-ROM
+boundary `0xbfc05f90`.
+
+With a synthetic table word of `0x12000`, masked `sp=0x11fff` and equality
+`sp=0x12000` both take the alternate-stack path; `sp=0x12001` takes the direct
+path. This confirms the strict comparison: `table_word < masked_sp` selects
+the direct path, while equality selects alternate-stack setup. In that setup
+the code decrements the next-stack pointer at `0x9fc1a8a0` by 184 bytes, moves
+`sp` to the previous pointer minus four, stores the old `sp` there, and
+increments bytes at `0x9fc1a493` and `0xbfc19930`. The table index byte remains
+unchanged in these profiles.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_ker_xsys_alternate_stack_probe.sh \
+  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_xsys.bin
+```
+
+This establishes the extracted selector's branch and memory effects for the
+tested synthetic table values. It does not identify the table's real contents,
+the meanings of the two counters, how callers reach this code, the writable
+hardware mapping of `0xbfc19930`, or the fixed-ROM handler's behavior.
+
 ## Extracted five-word exception-frame consumer
 
 The hash-pinned `ker_xsys.bin` also contains MIPS16 function
