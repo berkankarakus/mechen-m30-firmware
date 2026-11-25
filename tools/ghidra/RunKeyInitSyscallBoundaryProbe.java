@@ -50,6 +50,16 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
             | ((bytes[3] & 0xffL) << 24);
     }
 
+    private String memorySha256(
+            EmulatorHelper emulator,
+            long start,
+            int length
+    ) throws Exception {
+        byte[] bytes = emulator.readMemory(address(start), length);
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+        return HexFormat.of().formatHex(digest);
+    }
+
     private void addBlock(
             Memory memory,
             long start,
@@ -73,15 +83,22 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
         block.setExecute(executable);
     }
 
-    private void returnFromSyntheticRom(EmulatorHelper emulator) throws Exception {
+    private void returnFromSyntheticRom(
+            EmulatorHelper emulator,
+            long returnValue
+    ) throws Exception {
         long returnAddress = register(emulator, "ra");
         require((returnAddress & 1L) == 1L,
             String.format("syscall return address lacks MIPS16 tag: 0x%08x", returnAddress));
-        emulator.writeRegister("v0", 0);
+        emulator.writeRegister("v0", returnValue);
         emulator.writeRegister("pc", returnAddress & ~1L);
     }
 
-    private void invokeInit(EmulatorHelper emulator) throws Exception {
+    private void invokeInit(
+            EmulatorHelper emulator,
+            int selectedCall,
+            long selectedReturn
+    ) throws Exception {
         emulator.writeRegister("sp", STACK);
         emulator.writeRegister("ra", STOP | 1L);
         emulator.writeRegister("a0", 0);
@@ -107,6 +124,7 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
                 long payloadWord = argument1 >= STACK - 0x100 && argument1 < STACK + 0x100
                     ? word(emulator, argument1)
                     : 0;
+                int callIndex = calls.size();
                 calls.add(String.format(
                     "v1_at_trap=0x%08x args=(0x%x,0x%08x,0x%x,0x%x) payload_word=0x%08x",
                     module,
@@ -116,7 +134,8 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
                     argument3,
                     payloadWord
                 ));
-                returnFromSyntheticRom(emulator);
+                long returnValue = callIndex == selectedCall ? selectedReturn : 0;
+                returnFromSyntheticRom(emulator, returnValue);
                 continue;
             }
 
@@ -130,6 +149,43 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
         }
 
         throw new Exception("key init did not return within 500 instructions");
+    }
+
+    private List<String> runCase(int selectedCall, long selectedReturn)
+            throws Exception {
+        calls.clear();
+        EmulatorHelper emulator = new EmulatorHelper(currentProgram);
+        try {
+            emulator.registerCallOtherCallback("setISAMode", new BreakCallBack() {
+                @Override
+                public boolean pcodeCallback(PcodeOpRaw op) {
+                    return true;
+                }
+            });
+            emulator.setContextRegister(currentProgram.getRegister("ISA_MODE"), BigInteger.ONE);
+            invokeInit(emulator, selectedCall, selectedReturn);
+
+            List<String> observation = new ArrayList<>(calls);
+            observation.add(String.format(
+                "exit_regs=v0:%08x,v1:%08x,a0:%08x,a1:%08x,a2:%08x,a3:%08x,sp:%08x,ra:%08x",
+                register(emulator, "v0"),
+                register(emulator, "v1"),
+                register(emulator, "a0"),
+                register(emulator, "a1"),
+                register(emulator, "a2"),
+                register(emulator, "a3"),
+                register(emulator, "sp"),
+                register(emulator, "ra")
+            ));
+            observation.add("bss_sha256=" + memorySha256(emulator, BSS, 0xd6));
+            observation.add("mmio9_sha256=" + memorySha256(emulator, MMIO_9, 0x20));
+            observation.add("mmiob_sha256=" + memorySha256(emulator, MMIO_B, 0x20));
+            observation.add("stack_sha256=" + memorySha256(emulator, STACK, 0x100));
+            return observation;
+        }
+        finally {
+            emulator.dispose();
+        }
     }
 
     @Override
@@ -149,32 +205,35 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
         addBlock(memory, MMIO_B, 0x20, "key_init_boundary_mmio_b", false);
         addBlock(memory, STACK, 0x100, "key_init_boundary_stack", false);
 
-        EmulatorHelper emulator = new EmulatorHelper(currentProgram);
-        try {
-            emulator.registerCallOtherCallback("setISAMode", new BreakCallBack() {
-                @Override
-                public boolean pcodeCallback(PcodeOpRaw op) {
-                    return true;
-                }
-            });
-            emulator.setContextRegister(currentProgram.getRegister("ISA_MODE"), BigInteger.ONE);
-            invokeInit(emulator);
+        List<String> baseline = runCase(-1, 0);
+        require(baseline.size() == 7, "expected two calls and final state: " + baseline);
+        require(baseline.get(0).contains("args=(0x6,0x00000000,0x0,0x1a)"),
+            "first initialization call arguments changed: " + baseline.get(0));
+        require(baseline.get(1).contains("args=(0x6,0x10003ee8,0x0,0x18)"),
+            "second initialization call arguments changed: " + baseline.get(1));
+        require(baseline.get(1).endsWith("payload_word=0x20000a00"),
+            "second initialization payload changed: " + baseline.get(1));
 
-            require(calls.size() == 2, "expected two fixed-ROM calls, observed " + calls.size());
-            require(calls.get(0).contains("args=(0x6,0x00000000,0x0,0x1a)"),
-                "first initialization call arguments changed: " + calls.get(0));
-            require(calls.get(1).contains("args=(0x6,0x10003ee8,0x0,0x18)"),
-                "second initialization call arguments changed: " + calls.get(1));
-            require(calls.get(1).endsWith("payload_word=0x20000a00"),
-                "second initialization payload changed: " + calls.get(1));
+        for (int index = 0; index < 2; index++) {
+            println("KEY INIT ROM CALL " + index + " " + baseline.get(index));
+        }
 
-            for (int index = 0; index < calls.size(); index++) {
-                println("KEY INIT ROM CALL " + index + " " + calls.get(index));
+        long[] returnValues = {1, 0xffffffffL, 0xdeadbeefL};
+        for (int callIndex = 0; callIndex < 2; callIndex++) {
+            for (long returnValue : returnValues) {
+                List<String> observation = runCase(callIndex, returnValue);
+                boolean sameAsBaseline = baseline.equals(observation);
+                println(String.format(
+                    "KEY INIT RETURN SWEEP call=%d value=0x%08x same-as-baseline=%s observation=%s",
+                    callIndex,
+                    returnValue,
+                    sameAsBaseline,
+                    observation
+                ));
             }
-            println("KEY INIT SYSCALL BOUNDARY PASS calls=2 synthetic_return=0");
         }
-        finally {
-            emulator.dispose();
-        }
+
+        println("KEY INIT SYSCALL BOUNDARY PASS calls=2 return-sweep=6 "
+            + "observed=registers,bss,mmio,stack synthetic-mmio=1 synthetic-return=1");
     }
 }

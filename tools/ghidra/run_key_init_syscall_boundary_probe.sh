@@ -35,10 +35,10 @@ if ! JAVA_HOME="$JAVA_HOME_OVERRIDE" \
   exit 1
 fi
 
-if ! grep -Fq 'KEY INIT SYSCALL BOUNDARY PASS calls=2' "$WORK/run.log"; then
+if ! grep -Fq 'KEY INIT SYSCALL BOUNDARY PASS calls=2 return-sweep=6' "$WORK/run.log"; then
   cat "$WORK/run.log" >&2
   echo "key init syscall boundary probe did not report PASS" >&2
   exit 1
 fi
 
-grep -E 'KEY INIT (ROM CALL|SYSCALL BOUNDARY PASS)' "$WORK/run.log"
+grep -E 'KEY INIT (ROM CALL|RETURN SWEEP|SYSCALL BOUNDARY PASS)' "$WORK/run.log"
