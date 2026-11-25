@@ -107,6 +107,25 @@ called by the ADC classifier. Reproduce with:
 bash tools/ghidra/run_key_export3_range_probe.sh <hash-matching-key.drv>
 ```
 
+Two more banked paths from the pulled probes were executed against the
+hash-matched driver. `FUN_bfc10064` stores the low byte of `a0` at
+`0x9fc1433a`, returns pointer `0x9fc14334`, and ORs bit 31 into the
+RAM-backed word at `0xc009005c` only when the low input byte is zero. This
+records code behavior, not the MMIO register's hardware meaning. Separately,
+the real `FUN_bfc10220` event formatter was run with synthetic normalized-key
+sequences: input `0x02` emits payload `00020020` on sample 1, no payload on
+samples 2–4, `00020010` on sample 5, then `00020008` on samples 6 and 7.
+Special inputs `0x30`, `0x32`, and `0x34` emitted `00020004`, `000c0020`, and
+`000d0020`, respectively; tested neighboring values did not emit. The
+resident operations are stubbed, normalized inputs are supplied by the
+harness, and sample counts do not establish elapsed time or physical button
+identity. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export7_effect_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_export8_abi_probe.sh <hash-matching-key.drv>
+```
+
 `tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16
 `FUN_bfc10178` against all 256 input bytes with the override MMIO bit both
 clear and set. The code and threshold table remain from the extracted
