@@ -211,19 +211,22 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
                 emulator.setContextRegister(isaMode, BigInteger.ONE);
 
                 if ((pc & ~1L) == SERVICE_TRAP) {
+                    long v1AtTrap = register(emulator, "v1");
                     long a0 = register(emulator, "a0");
                     long a1 = register(emulator, "a1");
                     long a2 = register(emulator, "a2");
                     long a3 = register(emulator, "a3");
                     long ra = register(emulator, "ra");
+                    require((ra & 1L) == 1L,
+                        String.format("service return address lacks MIPS16 tag: %08x", ra));
                     if (a3 == 9) {
                         require(a0 == 1 && a1 == 0 && a2 == 0,
                             String.format("unexpected status-call ABI %08x/%08x/%08x",
                                 a0, a1, a2));
                         statusCallCount++;
                         serviceCalls.add(String.format(
-                            "module=0f op=9 args=%08x/%08x/%08x/%08x ra=%08x",
-                            a0, a1, a2, a3, ra
+                            "v1=%08x op=9 args=%08x/%08x/%08x/%08x ra=%08x",
+                            v1AtTrap, a0, a1, a2, a3, ra
                         ));
                         emulator.writeRegister("v0", statusReturn);
                     }
@@ -234,8 +237,8 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
                         messageCallCount++;
                         messageId = (int)readWord(emulator, a1) & 0xffff;
                         serviceCalls.add(String.format(
-                            "module=0f op=24 args=%08x/%08x/%08x/%08x payload=%04x ra=%08x",
-                            a0, a1, a2, a3, messageId, ra
+                            "v1=%08x op=24 args=%08x/%08x/%08x/%08x payload=%04x ra=%08x",
+                            v1AtTrap, a0, a1, a2, a3, messageId, ra
                         ));
                         emulator.writeRegister("v0", 0);
                     }

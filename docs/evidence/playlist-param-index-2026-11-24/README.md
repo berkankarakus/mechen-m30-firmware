@@ -34,10 +34,12 @@ For the bit-`0x40` case, the code's shifted-bit loop selects callback-table
 index 1. The raw table words at `0x40055204/0x40055208` are
 `0x40055195/0x400551d1`, pointing to `FUN_40055194` and `FUN_400551d0`.
 The parallel mask table has MUSIC.LIB at index 0 and M3U.LIB at index 1, as
-documented in [`library-builder.md`](../../library-builder.md). Thus the
-observed bit-`0x40` callback is the M3U.LIB builder pass, not the MUSIC.LIB
-callback. `0x42` and `0xc2` also have the same low-five-bit value, while `0x4e`
-passes 14 to the function's final mode callback.
+documented in [`library-builder.md`](../../library-builder.md). The bit-
+`0x40` row selects the M3U.LIB callback in the parameter-index table. The
+complete observed update sequence still reaches both the MUSIC.LIB callback
+and the M3U.LIB callback; the bit identifies the table selection, not an
+exclusive callback path. `0x42` and `0xc2` also have the same low-five-bit
+value, while `0x4e` passes 14 to the function's final mode callback.
 
 ## P-code boundary probe
 

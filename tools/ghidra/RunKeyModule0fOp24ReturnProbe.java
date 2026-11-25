@@ -90,6 +90,8 @@ public class RunKeyModule0fOp24ReturnProbe extends GhidraScript {
                             && a2 == 0 && a3 == 24,
                         String.format("unexpected service ABI: module=%x args=%08x/%08x/%08x/%08x",
                             module, a0, a1, a2, a3));
+                    require((ra & 1L) == 1L,
+                        String.format("module-0x0f op-24 return address lacks MIPS16 tag: %08x", ra));
                     calls.add(String.format("module=%02x args=%08x/%08x/%08x/%08x ra=%08x",
                         module, a0, a1, a2, a3, ra));
                     emulator.writeRegister("v0", syntheticReturn);

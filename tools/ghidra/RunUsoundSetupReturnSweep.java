@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,8 +24,45 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
     private static final int BSS_SIZE = 0xd4;
     private static final long STACK = 0x9fc35000L;
 
+    private static final class ProfileResult {
+        private final String label;
+        private final List<String> calls;
+        private final int steps;
+        private final String rate;
+        private final String traceSha256;
+
+        private ProfileResult(String label, List<String> calls, int steps,
+                String rate, String traceSha256) {
+            this.label = label;
+            this.calls = calls;
+            this.steps = steps;
+            this.rate = rate;
+            this.traceSha256 = traceSha256;
+        }
+
+        private String observable() {
+            return "steps=" + steps + ";calls=" + normalizedCalls()
+                + ";rate=" + rate + ";pc-mode-sha256=" + traceSha256;
+        }
+
+        private List<String> normalizedCalls() {
+            List<String> normalized = new ArrayList<>();
+            for (String call : calls)
+                normalized.add(call.replaceAll(",ret=[0-9a-f]{8}$", ""));
+            return normalized;
+        }
+
+        private String report() {
+            return "profile=" + label + " " + observable();
+        }
+    }
+
     private Address address(long value) {
         return currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(value);
+    }
+
+    private void require(boolean condition, String message) throws Exception {
+        if (!condition) throw new Exception(message);
     }
 
     private long register(EmulatorHelper emulator, String name) throws Exception {
@@ -35,7 +73,7 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
         memory.setBytes(address(start), new byte[size]);
     }
 
-    private String runProfile(
+    private ProfileResult runProfile(
         Memory memory,
         byte[] initialData,
         int targetCall,
@@ -50,6 +88,7 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
 
         EmulatorHelper emulator = new EmulatorHelper(currentProgram);
         List<String> calls = new ArrayList<>();
+        MessageDigest traceDigest = MessageDigest.getInstance("SHA-256");
         int callIndex = 0;
         try {
             emulator.registerCallOtherCallback("setISAMode", new BreakCallBack() {
@@ -70,7 +109,8 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
             emulator.writeRegister("pc", ENTRY);
 
             for (int steps = 0; steps < 250000; steps++) {
-                long pc = register(emulator, "pc") & ~1L;
+                long rawPc = register(emulator, "pc");
+                long pc = rawPc & ~1L;
                 if (pc == STOP) {
                     byte[] copiedRate = new byte[3];
                     memory.getBytes(address(DATA + 0xa3), copiedRate);
@@ -82,12 +122,25 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
                             expectedRate[0] & 0xff, expectedRate[1] & 0xff, expectedRate[2] & 0xff
                         ));
                     }
-                    String trace = String.join(";", calls);
-                    return String.format(
-                        "profile=%s steps=%d outcome=stop calls=%d trace=[%s]",
-                        profileName(targetCall, selectedReturn), steps, callIndex, trace
-                    );
+                    if (callIndex != 11)
+                        throw new Exception(String.format(
+                            "%s stopped after %d intercepted calls; expected 11",
+                            profileName(targetCall, selectedReturn), callIndex));
+                    if (targetCall > 0 && targetCall > callIndex)
+                        throw new Exception(String.format(
+                            "%s stopped before selected call %d",
+                            profileName(targetCall, selectedReturn), targetCall));
+                    return new ProfileResult(profileName(targetCall, selectedReturn),
+                        new ArrayList<>(calls), steps,
+                        String.format("%02x%02x%02x", copiedRate[0] & 0xff,
+                            copiedRate[1] & 0xff, copiedRate[2] & 0xff),
+                        digestHex(traceDigest));
                 }
+
+                for (int shift = 24; shift >= 0; shift -= 8)
+                    traceDigest.update((byte)(rawPc >>> shift));
+                traceDigest.update((byte)(register(emulator, "ISA_MODE") & 0xffL));
+                traceDigest.update((byte)(register(emulator, "RELP") & 0xffL));
 
                 if (pc == MODULE0F || pc == MODULE10) {
                     long a0 = register(emulator, "a0");
@@ -120,18 +173,16 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
                 }
 
                 if (!emulator.step(monitor)) {
-                    return String.format(
-                        "profile=%s steps=%d outcome=emulator-stop-at-%08x calls=%d trace=[%s] error=%s",
-                        profileName(targetCall, selectedReturn), steps, pc, callIndex,
-                        String.join(";", calls), emulator.getLastError()
-                    );
+                    throw new Exception(String.format(
+                        "%s emulator stopped at %08x after %d calls: %s",
+                        profileName(targetCall, selectedReturn), pc, callIndex,
+                        emulator.getLastError()));
                 }
             }
 
-            return String.format(
-                "profile=%s outcome=step-limit calls=%d trace=[%s]",
-                profileName(targetCall, selectedReturn), callIndex, String.join(";", calls)
-            );
+            throw new Exception(String.format(
+                "%s exceeded 250000 emulator steps after %d calls",
+                profileName(targetCall, selectedReturn), callIndex));
         }
         finally {
             emulator.dispose();
@@ -144,6 +195,13 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
         }
 
         return String.format("call=%d-return=%08x", targetCall, selectedReturn);
+    }
+
+    private String digestHex(MessageDigest digest) {
+        StringBuilder result = new StringBuilder();
+        for (byte value : digest.digest())
+            result.append(String.format("%02x", value & 0xff));
+        return result.toString();
     }
 
     @Override
@@ -179,15 +237,38 @@ public class RunUsoundSetupReturnSweep extends GhidraScript {
         mapWritableRegion(memory, "usound_setup_sweep_mmio5", 0xc0050000L, 0x1000);
         mapWritableRegion(memory, "usound_setup_sweep_mmio8", 0xc0080000L, 0x5000);
 
-        List<String> profiles = new ArrayList<>();
-        profiles.add(runProfile(memory, data, 0, 0));
+        List<ProfileResult> profiles = new ArrayList<>();
+        ProfileResult baseline = runProfile(memory, data, 0, 0);
+        List<String> expectedCalls = Arrays.asList(
+            "1:module=0x0f,args=00000001/00000000/00000000/0000001d,ra=bfc32325",
+            "2:module=0x0f,args=00000001/00000000/00000000/0000001d,ra=bfc3233f",
+            "3:module=0x0f,args=00000001/00000000/00000000/0000001d,ra=bfc3236f",
+            "4:module=0x0f,args=00000001/00000000/00000000/0000001d,ra=bfc32389",
+            "5:module=0x0f,args=0000000a/00000000/00000000/0000001d,ra=bfc323b3",
+            "6:module=0x0f,args=00000005/00000000/00000000/0000001d,ra=bfc323cd",
+            "7:module=0x0f,args=0000000a/bfc31115/00000000/00000014,ra=bfc323f9",
+            "8:module=0x0f,args=00000014/bfc3125d/00000000/00000014,ra=bfc32407",
+            "9:module=0x0f,args=bfc311a1/00000002/00000000/00000036,ra=bfc324a3",
+            "10:module=0x0f,args=9fc357c1/0000004f/00000001/0000001b,ra=bfc3209b",
+            "11:module=0x10,args=9fc33ca3/9fc33c08/00000003/00000000,ra=bfc321b7"
+        );
+        require(baseline.steps == 1368,
+            "baseline setup instruction count changed: " + baseline.steps);
+        require(baseline.normalizedCalls().equals(expectedCalls),
+            "baseline fixed-ROM call trace changed: " + baseline.normalizedCalls());
+        require("80bb00".equals(baseline.rate),
+            "baseline copied rate bytes changed: " + baseline.rate);
+        profiles.add(baseline);
         for (int callIndex = 1; callIndex <= 11; callIndex++) {
             profiles.add(runProfile(memory, data, callIndex, 1));
             profiles.add(runProfile(memory, data, callIndex, 0xffffffffL));
         }
 
-        for (String profile : profiles) {
-            println("USOUND SETUP RETURN SWEEP " + profile);
+        for (ProfileResult profile : profiles) {
+            require(profile.observable().equals(baseline.observable()),
+                profile.label + " changed checked caller observations\nbaseline="
+                    + baseline.observable() + "\nactual=" + profile.observable());
+            println("USOUND SETUP RETURN SWEEP " + profile.report());
         }
         println(String.format(
             "USOUND SETUP RETURN SWEEP PASS profiles=%d isolated-calls=11 return-values=00000001,ffffffff module-0x10-copy=synthetic-and-verified synthetic-module-return=0-except-selected synthetic-mmio=zeroed",

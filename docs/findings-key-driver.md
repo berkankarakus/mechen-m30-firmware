@@ -131,6 +131,45 @@ The SDK maps module `0x0f` operations `0x18`, `0x19`, and `0x1a` to
 match that mapping. These queue calls do not identify the key normalization
 table initializer.
 
+The real `FUN_bfc10008` caller was also run in Ghidra p-code up to its two
+fixed-ROM exception boundaries with synthetic returns and zeroed synthetic
+MMIO. At both boundaries, the raw `v1` register was `0xbfc10005`; the tagged
+MIPS16 return addresses were `0xbfc1002d` and `0xbfc10041`. The meaning of
+`v1` at this exception point is unresolved and it must not be labeled as a
+module ID. Each call received return values `1`, `0xffffffff`, and
+`0xdeadbeef` in isolation. Across these six profiles, the caller-visible
+registers, driver BSS, mapped MMIO, stack, call arguments, and payload matched
+the zero-return baseline. This is return-insensitivity of this caller under
+the stated synthetic environment, not proof of the fixed-ROM syscall's
+service or hardware effects.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_init_syscall_boundary_probe.sh <hash-matching-key.drv>
+```
+
+Three adjacent fixed-ROM boundaries were separately exercised. The Export-6
+message path receives `a3=9` and `a3=24` cases with tagged MIPS16 return
+addresses; its `v1` value is a RAM pointer in the observed run, not an
+established module number. Under synthetic status/MMIO values, status 0
+reaches operation 9 and then operation 24 with message `0x00b0`; status 1
+suppresses the message. In the module-`0x0f` operation-9 path, flag `0x82`
+reaches operation 24 when operation 9 returns zero or `0x100`; returns 1 and
+`-1` suppress it. The branch therefore distinguishes the observed values by
+more than simple zero/nonzero truthiness. The operation-24 wrapper returns 1 for
+synthetic service return 0 and 0 for returns 1, 2, `-1`, and `0xdeadbeef`.
+These are caller-side branch effects under stubbed services and synthetic
+memory, not descriptions of the unavailable resident implementation.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export6_message_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_module0f_op9_message_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_module0f_op24_return_probe.sh <hash-matching-key.drv>
+```
+
 The SDK's key path provides a separate lead: `key_rcode_scan.c` indexes
 `key_map[i + 1]` for ADC ranges and `key_map[0]` for override, matching the
 M30 driver's B+9+i and B+8 reads. SDK configuration code obtains the table

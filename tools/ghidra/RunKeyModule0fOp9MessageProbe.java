@@ -123,6 +123,8 @@ public class RunKeyModule0fOp9MessageProbe extends GhidraScript {
                     require(module == 0x0f && a2 == 0,
                         String.format("unexpected module call: module=%x args=%08x/%08x/%08x/%08x",
                             module, a0, a1, a2, a3));
+                    require((ra & 1L) == 1L,
+                        String.format("module-0x0f return address lacks MIPS16 tag: %08x", ra));
 
                     long returnValue;
                     if (a3 == 9) {

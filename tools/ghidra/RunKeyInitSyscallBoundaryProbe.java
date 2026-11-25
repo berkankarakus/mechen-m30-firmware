@@ -116,18 +116,22 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
             }
 
             if (pc == SYSCALL_TRAP) {
-                long module = register(emulator, "v1");
+                long v1AtTrap = register(emulator, "v1");
                 long argument0 = register(emulator, "a0");
                 long argument1 = register(emulator, "a1");
                 long argument2 = register(emulator, "a2");
                 long argument3 = register(emulator, "a3");
+                long returnAddress = register(emulator, "ra");
+                require((returnAddress & 1L) == 1L,
+                    String.format("syscall return address lacks MIPS16 tag: 0x%08x", returnAddress));
                 long payloadWord = argument1 >= STACK - 0x100 && argument1 < STACK + 0x100
                     ? word(emulator, argument1)
                     : 0;
                 int callIndex = calls.size();
                 calls.add(String.format(
-                    "v1_at_trap=0x%08x args=(0x%x,0x%08x,0x%x,0x%x) payload_word=0x%08x",
-                    module,
+                    "v1_at_trap=0x%08x ra=0x%08x args=(0x%x,0x%08x,0x%x,0x%x) payload_word=0x%08x",
+                    v1AtTrap,
+                    returnAddress,
                     argument0,
                     argument1,
                     argument2,
@@ -164,6 +168,9 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
             });
             emulator.setContextRegister(currentProgram.getRegister("ISA_MODE"), BigInteger.ONE);
             invokeInit(emulator, selectedCall, selectedReturn);
+            require(calls.size() == 2,
+                String.format("expected exactly two init syscalls, got %d: %s",
+                    calls.size(), calls));
 
             List<String> observation = new ArrayList<>(calls);
             observation.add(String.format(
@@ -213,6 +220,10 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
             "second initialization call arguments changed: " + baseline.get(1));
         require(baseline.get(1).endsWith("payload_word=0x20000a00"),
             "second initialization payload changed: " + baseline.get(1));
+        require(baseline.get(0).contains("v1_at_trap=0xbfc10005 ra=0xbfc1002d"),
+            "first initialization trap observation changed: " + baseline.get(0));
+        require(baseline.get(1).contains("v1_at_trap=0xbfc10005 ra=0xbfc10041"),
+            "second initialization trap observation changed: " + baseline.get(1));
 
         for (int index = 0; index < 2; index++) {
             println("KEY INIT ROM CALL " + index + " " + baseline.get(index));
@@ -223,6 +234,9 @@ public class RunKeyInitSyscallBoundaryProbe extends GhidraScript {
             for (long returnValue : returnValues) {
                 List<String> observation = runCase(callIndex, returnValue);
                 boolean sameAsBaseline = baseline.equals(observation);
+                require(sameAsBaseline, String.format(
+                    "init syscall return changed caller-visible state call=%d return=%08x\nbaseline=%s\nactual=%s",
+                    callIndex, returnValue, baseline, observation));
                 println(String.format(
                     "KEY INIT RETURN SWEEP call=%d value=0x%08x same-as-baseline=%s observation=%s",
                     callIndex,
