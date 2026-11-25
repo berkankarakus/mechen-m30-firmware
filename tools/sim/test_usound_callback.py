@@ -1,7 +1,9 @@
 import unittest
 
 from usound_callback import (
+    FirmwareBreak0Boundary,
     LIBC_MODULE_ID,
+    UDISK_MODULE_ID,
     Break0ExceptionContext,
     UsoundCallbackBoundary,
 )
@@ -15,6 +17,17 @@ class UsoundCallbackBoundaryTests(unittest.TestCase):
         self.assertEqual(call.args, (1, 2, 3, 4))
         self.assertIsNone(call.exception)
         self.assertEqual(boundary.libc_module_call_count, 1)
+
+    def test_udisk_module_call_records_abi_but_not_rom_effect(self) -> None:
+        boundary = FirmwareBreak0Boundary()
+
+        call = boundary.trap(UDISK_MODULE_ID, (0, 0, 0, 3))
+
+        self.assertEqual(call.module_id, UDISK_MODULE_ID)
+        self.assertEqual(call.args, (0, 0, 0, 3))
+
+        with self.assertRaises(NotImplementedError):
+            boundary.service_effect(call)
 
     def test_records_optional_exception_context_as_captured(self) -> None:
         boundary = UsoundCallbackBoundary()

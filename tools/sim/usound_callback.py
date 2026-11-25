@@ -1,4 +1,4 @@
-"""Fail-closed model of the recovered usound MIPS16 module-call envelope."""
+"""Fail-closed model of observed MIPS16 break-0 module-call envelopes."""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 LIBC_MODULE_ID = 0x10
 KERNEL_MODULE_ID = 0x0F
+UDISK_MODULE_ID = 0x01
+OBSERVED_MODULE_IDS = frozenset({UDISK_MODULE_ID, KERNEL_MODULE_ID, LIBC_MODULE_ID})
 EXCEPTION_EPC_SAVE_ADDRESS = 0x00013DD8
 EXCEPTION_RA_SAVE_ADDRESS = 0x00013DDC
 EXCEPTION_HANDLER_TARGET = 0xBFC06D6C
@@ -63,7 +65,7 @@ class Break0Call:
 
 
 @dataclass
-class UsoundCallbackBoundary:
+class FirmwareBreak0Boundary:
     """Record break-0 module calls without executing the missing ROM ABI."""
 
     calls: list[Break0Call] = field(default_factory=list)
@@ -76,7 +78,7 @@ class UsoundCallbackBoundary:
         exception: Break0ExceptionContext | None = None,
     ) -> Break0Call:
         if len(args) != 4:
-            raise ValueError("usound module-call envelope requires four arguments")
+            raise ValueError("firmware module-call envelope requires four arguments")
 
         normalized = tuple(value & 0xFFFFFFFF for value in args)
         call = Break0Call(
@@ -95,6 +97,12 @@ class UsoundCallbackBoundary:
     def service_effect(self, call: Break0Call) -> None:
         """Reject service execution until the fixed-ROM dispatcher is known."""
 
-        if call.module_id not in (LIBC_MODULE_ID, KERNEL_MODULE_ID):
-            raise ValueError(f"unknown usound module: 0x{call.module_id:x}")
-        raise NotImplementedError("fixed-ROM module service is unresolved")
+        if call.module_id not in OBSERVED_MODULE_IDS:
+            raise ValueError(f"unknown firmware module: 0x{call.module_id:x}")
+
+        raise NotImplementedError(
+            f"fixed-ROM service effect for module 0x{call.module_id:x} is unresolved"
+        )
+
+
+UsoundCallbackBoundary = FirmwareBreak0Boundary
