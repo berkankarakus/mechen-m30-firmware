@@ -46,7 +46,9 @@ kapısı dikkate alınarak yazılmıştır; hiçbir madde tek başına cihazda f
 denemesi anlamına gelmez.
 
 1. **M30 sabit-ROM exception/dispatch yolunu daralt:** `ker_xsys` içindeki
-   `0xbfc34074 -> 0xbfc06d6c` handoff'u için AP/DRV kopya taraması tamamlandı:
+   `0xbfc34074 -> 0xbfc06d6c` handoff'u için AP/DRV kopya taraması tamamlandı.
+   Kernel exception slot 9'un seçtiği `0xbfc06f18` de Boot ROM probe kapsamına
+   eklendi; handler baytları hâlâ yok:
    346 artifact içinde `0xbfc166ad` ham pointer'ı yalnız 12 byte-identical
    `usound.ap` kopyasında bulundu; bunlarda `a3=4` çağrısı yok. Bu, `a3` ile
    operation-table slot'u arasındaki eşlemeyi çözmüyor. `module=0x10` etkisini
