@@ -45,3 +45,34 @@ CP0 inputs and RAM. It observes dispatch only up to each selected handler;
 none of the handlers, fixed ROM, or real exception entry conditions were
 executed. It identifies routing, not handler semantics, hardware exception
 behavior, or boot-time invocation.
+
+## Extracted five-word exception-frame consumer
+
+The hash-pinned `ker_xsys.bin` also contains MIPS16 function
+`FUN_bfc344f4`. Its literal at `0xbfc34554` is `0x00013dcc`; the following
+literal at `0xbfc34558` is the tagged callback pointer `0xbfc04841`. A
+read-only Ghidra decompile shows a five-iteration loop that calls that pointer
+with a descriptor at `0xbfc3454c`, the next 32-bit word beginning at
+`0x13dcc`, and argument `2`. The descriptor bytes are `exc:`. The five reads
+therefore cover `0x13dcc..0x13ddc`: the three words saved by the kernel
+exception vector and the EPC/RA pair saved by the `ker_xsys` entry. The
+function later checks a state bit and writes `0x5d` or `0x69` to
+`0xc012001c`; the meanings of that state and address are unknown.
+
+The real MIPS16 function was run in Ghidra p-code with five distinct seeded
+words and a synthetic callback stub replacing the unavailable ROM callback.
+The probe observed five calls in order, each with the expected frame word,
+descriptor, and width argument, and verified canaries immediately before and
+after the frame. Reproduce with:
+
+```sh
+bash tools/ghidra/run_ker_xsys_exception_frame_probe.sh \
+  /Users/berkankarakus/Projects/m30-inputs/extracted/2025-06-26/fw/ker_xsys.bin
+```
+
+This establishes the extracted consumer's frame-reading and callback ABI
+under a synthetic callback. It does **not** establish that the missing fixed
+ROM handler calls this function, that it is the ExcCode 9 path, or what the
+callback and subsequent hardware writes do. A direct-pointer scan of the
+locally extracted members found no reference to `0xbfc344f4`; an indirect ROM
+call remains possible.

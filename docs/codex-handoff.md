@@ -47,8 +47,13 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   `0x13dcc/0x13dd0/0x13dd4` sayısal adresleri var. Zero-fill/no-effect
   sentinel modelleri ve final `v0` dönüşü community'de; no-effect/sentinel
   kontrolü stock'ta geçti. Bu adres çakışması fiziksel RAM alias'ını,
-  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Sonraki iyi
-  adım bu aralığa yapılan bilinen read/write'ları extracted imajlarda taramak.
+  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Aralık
+  taraması `ker_xsys.bin` içindeki `FUN_bfc344f4`'ün `0x13dcc..0x13ddc`
+  aralığından beş sözcük okuyup her birini `exc:` descriptor'ıyla bir ROM
+  callback'ine verdiğini gösterdi. Ghidra p-code bunu sentetik callback ve
+  canary'lerle doğruladı. Eksik fixed-ROM exception handler'ıyla bağlantısı
+  henüz kanıtlanmadı; sonraki adım indirect caller'ı ve `0xc012001c` yazımının
+  çevresindeki koşulu çözmek.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU
