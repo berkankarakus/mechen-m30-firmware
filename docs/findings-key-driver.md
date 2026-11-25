@@ -126,6 +126,19 @@ bash tools/ghidra/run_key_export7_effect_probe.sh <hash-matching-key.drv>
 bash tools/ghidra/run_key_export8_abi_probe.sh <hash-matching-key.drv>
 ```
 
+`FUN_bfc10518` was run through its bounded configuration-export path in two
+synthetic states. With device-status word zero and input bytes `(9,9)`, it
+stored `(9,9)`, left status byte zero, and changed control word
+`a5a5f3ff` to `a5a573ff`. With status word `0x80` and input `(0,0)`, it
+retained seeded config bytes `(2,3)`, set status byte 4, and changed
+`1234abcd` to `123451ad`. Both cases reset the same four driver state bytes
+to `(0,0,0,1)`. This demonstrates the two tested caller-side branches only;
+MMIO is RAM-backed and device-status meaning is unknown. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_config_export_probe.sh <hash-matching-key.drv>
+```
+
 `tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16
 `FUN_bfc10178` against all 256 input bytes with the override MMIO bit both
 clear and set. The code and threshold table remain from the extracted
