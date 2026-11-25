@@ -1,8 +1,9 @@
 # Manager key-driver service-stub boundary
 
 This note records the manager-side caller contract and the resident exception
-stub used by the key-driver path. The exception handler that services the
-stub is unavailable; the probe does not infer selector semantics.
+stubs used by the driver-initialization path. The exception handler that
+services these stubs is unavailable; the probe does not infer selector
+semantics.
 
 ## Static references
 
@@ -27,6 +28,35 @@ stub is unavailable; the probe does not infer selector semantics.
   by `break`. The exception handler that services these selectors is not in
   this segment.
 
+## Parent initializer p-code trace
+
+The same probe now enters the real MIPS16 instructions at
+`FUN_7f056250` directly and runs until just before the resident event-loop
+boundary at `0xbfc13df4`. It intercepts the in-overlay config getter and
+returns the first 16-bit value from each hash-pinned `config.bin` record. The
+observed getter order is `4, 5, 100, 0x52, 0x51, 0x50`. At the resident
+selector stubs, the harness records the import number and four arguments,
+then supplies synthetic `v0=0` service returns. Unmapped MMIO is represented
+by zeroed RAM-backed memory.
+
+The two import-15 calls with `a3=10` are, in order:
+
+```text
+(0, 0, 0x7f0562b4, 10)   # "nor_ud.drv"
+(9, 0x01000202, 0x7f056240, 10)  # "key.drv"
+```
+
+The whole ordered service trace is asserted against the observed hash-pinned
+profile, and the bytes at the runtime string addresses are checked against
+the corresponding NUL-terminated names in `manager.ap`. The stop target is
+also tied to the image: the manager pointer at file offset `0x1ed8` contains
+the MIPS16-tagged address `0xbfc13df5`, and bytes at offset `0x214` map to
+`0xbfc13df4`, where Ghidra decodes the expected MIPS16 `save` entry
+instruction. The run reaches that function entry under synthetic returns;
+it does not execute the loop, prove that boot enters this parent function, or
+show that either driver was loaded. The selector-10 “driver open/load”
+interpretation remains a caller-pattern hypothesis.
+
 ## Config payload and p-code check
 
 In the compared stock, community, and V1.101.11 `config.bin` files, the first
@@ -45,17 +75,19 @@ Reproduce with:
 bash tools/ghidra/run_manager_key_driver_service_stub_probe.sh <hash-matching-manager.ap> <matching-config.bin>
 ```
 
-The probe intercepts `FUN_7f0962bc` and the `break` after the resident stub;
+The probe intercepts `FUN_7f0962bc` and the `break` after the resident stubs;
 their returns are synthetic. It asserts the resident segment header maps file
 `0x200`/size `0xb8` to `0xbfc13de0`, the mapped stub bytes match the
 hash-pinned image, execution enters the stub and steps its selector-load
-instruction, and the next PC is the `break` with `v1=15`. It also executes the
-intervening manager instructions and asserts the getter order,
-Ghidra's MIPS16 listing context at both boundaries, tagged MIPS16 return
-addresses, call arguments, return to caller, manager/config hashes, config
-payload values, and selector 15. `EmulatorHelper` does not expose its active
+instruction, and the next PC is the `break` with the expected selector. It
+also executes the manager caller and parent initializer, asserting config
+getter order, full service-call order, runtime driver-name strings, Ghidra's
+MIPS16 listing context, tagged MIPS16 return addresses, call arguments,
+manager/config hashes, config payload values, and resident selector loads.
+`EmulatorHelper` does not expose its active
 ISA context through `readRegister()`, so this check is the program's decode
 context plus the observed return-address tags; it is not an independent
-runtime-mode assertion. It does not show what selector 15 does, whether the
-exception handler installs `key.drv`, or whether it writes the driver's BSS
-table `0x9fc14330..0x9fc14337`.
+runtime-mode assertion. Every service return is synthetic and the p-code entry
+is directly seeded at the parent function. It does not show what selector 15
+does, whether the exception handler installs either driver, or whether it
+writes the key driver's BSS table `0x9fc14330..0x9fc14337`.

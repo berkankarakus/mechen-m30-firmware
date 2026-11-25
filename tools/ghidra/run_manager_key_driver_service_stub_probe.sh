@@ -41,4 +41,9 @@ if ! grep -Fq 'MANAGER KEY-DRIVER SERVICE-STUB COMPLETE' "$WORK/run.log"; then
   echo "manager key-driver service-stub probe did not report completion" >&2
   exit 1
 fi
-grep -E 'MANAGER KEY-DRIVER SERVICE-STUB (PASS|COMPLETE)' "$WORK/run.log"
+if ! grep -Fq 'MANAGER INIT SERVICE TRACE PASS' "$WORK/run.log"; then
+  cat "$WORK/run.log" >&2
+  echo "manager init service-trace probe did not report completion" >&2
+  exit 1
+fi
+grep -E 'MANAGER (KEY-DRIVER SERVICE-STUB (PASS|COMPLETE)|INIT SERVICE TRACE PASS)' "$WORK/run.log"

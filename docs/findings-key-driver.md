@@ -263,19 +263,34 @@ the driver's B+8..B+15 normalization table.
 
 ### Selector-10 driver-open/load hypothesis
 
-The parent `FUN_7f056250` supplies one more clue: it first calls the same
-resident selector-15 stub with `(0, 0, &"nor_ud.drv", 10)`, then later calls
-`FUN_7f056200`, which submits `&"key.drv"` and the packed config using the
-same `a3=10` selector. This makes “open/load a driver” a plausible role for
-selector 10, and possibly the point where key-driver configuration is
-applied. It remains a hypothesis: a public ATJ2127 note for the different
-US212D firmware documents import-15 selector 8 as mount and selector 9 as
-close, but does not identify selector 10
+The parent `FUN_7f056250` has now been executed from its entry through the
+last setup call, stopping before `0xbfc13df4`. With the hash-pinned manager and
+config, the p-code trace requests config items `4, 5, 100, 0x52, 0x51, 0x50`
+and reaches the resident import-15 stub twice with `a3=10`: first
+`(0, 0, 0x7f0562b4, 10)` for `nor_ud.drv`, then
+`(9, 0x01000202, 0x7f056240, 10)` for `key.drv`. The full ordered service
+trace and runtime string bytes are now asserted by the probe. This strengthens
+the caller-side evidence for a driver-open/load hypothesis and shows that the
+key config word is passed in the same call. It still does not identify the
+service implementation or prove that the config is applied.
+
+The stop target is cross-checked against the same image: manager data at file
+offset `0x1ed8` holds tagged MIPS16 pointer `0xbfc13df5`; the resident bytes
+at file offset `0x214` decode at `0xbfc13df4` as the function's `save`
+prologue. This identifies the observed stop as the event-loop function entry,
+without executing the loop.
+
+The probe starts with PC set directly to `FUN_7f056250`, uses zeroed synthetic
+MMIO and synthetic zero returns at every resident service stub, and stops
+before executing the event loop. Thus it does not prove the device's boot
+path reaches this function or that the calls succeed. The selected ExcCode 9
+target `0xbfc06f18` is in the unavailable fixed-ROM region; the extracted
+kernel members do not contain its body. A public ATJ2127 note for the
+different US212D firmware documents import-15 selector 8 as mount and
+selector 9 as close, but does not identify selector 10
 ([reference notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L241-L259)).
-The current M30 probe covers the `key.drv` call only and stubs the exception
-return. The next discriminating probe is to execute the full parent path,
-capture both selector-10 calls, and trace the exception-dispatch handler or
-table if available.
+Without the M30 ROM handler or another trace source, selector 10's semantics
+remain unresolved.
 
 Reproduce with:
 
