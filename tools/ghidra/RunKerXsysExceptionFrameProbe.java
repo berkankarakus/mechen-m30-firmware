@@ -9,6 +9,7 @@ import ghidra.program.model.mem.Memory;
 import ghidra.program.model.mem.MemoryBlock;
 import java.io.ByteArrayInputStream;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +39,11 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
         memory.setBytes(addr(at), new byte[] {
             (byte)value, (byte)(value >>> 8), (byte)(value >>> 16), (byte)(value >>> 24)
         });
+    }
+
+    private long readWord(byte[] bytes, int offset) {
+        return (bytes[offset] & 0xffL) | ((bytes[offset + 1] & 0xffL) << 8)
+            | ((bytes[offset + 2] & 0xffL) << 16) | ((bytes[offset + 3] & 0xffL) << 24);
     }
 
     private long reg(EmulatorHelper emu, String name) throws Exception {
@@ -125,6 +131,12 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
         byte[] input = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         require(input.length == 0x800, "unexpected ker_xsys.bin size");
+        require(readWord(input, 0x1f8) == 0xbfc04841L,
+            "stack diagnostic callback literal changed");
+        require(new String(input, 0x1d0, 4, StandardCharsets.US_ASCII).equals("sp \0")
+                && new String(input, 0x1d4, 13, StandardCharsets.US_ASCII)
+                    .equals("stk overflow\0"),
+            "stack diagnostic strings changed");
         Memory memory = currentProgram.getMemory();
         MemoryBlock xsys = memory.getBlock(addr(ENTRY));
         require(xsys != null, "ker_xsys segment is not mapped");

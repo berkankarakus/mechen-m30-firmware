@@ -28,6 +28,7 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript MapSegments.java 1 "$XSYS" 0xbfc34000 0 0x800 1 \
+  -postScript DumpAt.java 0xbfc3416c "$WORK/stack-diagnostic.c" \
   -postScript RunKerXsysExceptionFrameProbe.java "$XSYS" \
   >"$WORK/run.log" 2>&1 || {
     cat "$WORK/run.log" >&2
@@ -46,6 +47,23 @@ grep -Fq 'KER XSYS EXCEPTION FRAME P-CODE PASS entry=0xbfc344f4 frame=0x00013dcc
   cat "$WORK/run.log" >&2
   exit 1
 }
+grep -Fq 'pcVar1 = _UNK_bfc341f8;' "$WORK/stack-diagnostic.c" || {
+  cat "$WORK/stack-diagnostic.c" >&2
+  exit 1
+}
+grep -Fq '(*_UNK_bfc341f8)(&UNK_bfc341d0,uVar3,2);' "$WORK/stack-diagnostic.c" || {
+  cat "$WORK/stack-diagnostic.c" >&2
+  exit 1
+}
+grep -Fq '(*pcVar1)(&UNK_bfc341d4,param_2,2);' "$WORK/stack-diagnostic.c" || {
+  cat "$WORK/stack-diagnostic.c" >&2
+  exit 1
+}
+grep -Fq 'func_0xbfc19a74();' "$WORK/stack-diagnostic.c" || {
+  cat "$WORK/stack-diagnostic.c" >&2
+  exit 1
+}
+echo 'KER XSYS STACK DIAGNOSTIC DECOMP PASS callback=0xbfc04840 labels=sp/stk-overflow'
 grep 'KER XSYS EXCEPTION FRAME' "$WORK/run.log"
 AFTER_SHA=$(shasum -a 256 "$XSYS" | awk '{print $1}')
 [ "$INPUT_SHA" = "$AFTER_SHA" ] || {

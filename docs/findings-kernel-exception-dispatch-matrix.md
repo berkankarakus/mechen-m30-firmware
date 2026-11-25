@@ -80,3 +80,20 @@ callback and RAM-backed MMIO. It does **not** establish that the missing fixed
 ROM handler calls this function or that it is the ExcCode 9 path. A
 direct-pointer scan of the locally extracted members found no reference to
 `0xbfc344f4`; an indirect ROM call remains possible.
+
+## Shared ROM diagnostic-callback hypothesis
+
+The same hash-pinned member contains MIPS16 function `FUN_bfc3416c`. Its
+guard-failure branch loads the same callback pointer literal, `0xbfc04841`,
+and calls it with the descriptors `sp ` and `stk overflow`, each paired with
+a 32-bit value and argument `2`. It then calls the default handler at
+`0xbfc19a75`. The runner decompiles this function and checks both call shapes;
+the byte strings and callback pointer are also checked against the pinned
+input. `FUN_bfc344f4` uses the same callback with descriptor `exc:` and five
+words from the exception frame.
+
+These independent call shapes make a diagnostic formatting/emission helper
+the strongest current interpretation for the ROM callback at `0xbfc04840`.
+Its ROM body is unavailable, so the exact formatting contract and output
+destination remain unknown. The stack-check call path is statically
+decompiled; this probe does not execute it or the missing ROM callback.
