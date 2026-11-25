@@ -27,6 +27,7 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
     private static final long STATUS_RAM = 0x9fc09000L;
     private static final int STATUS_RAM_SIZE = 0x1000;
     private static final long STATUS_BYTE = 0x9fc09f71L;
+    private static final long KEY_STATE_BYTE = 0x9fc1437dL;
     private static final long MMIO = 0xc0000000L;
     private static final int MMIO_SIZE = 0x100;
     private static final long INITIAL_MMIO_WORD = 0xa5a50001L;
@@ -155,7 +156,11 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
             "loaded export-slot-6 bytes do not match file offset 0x1254");
     }
 
-    private String runCase(int inputMask, long statusReturn) throws Exception {
+    private String runCase(
+        int inputMask,
+        long statusReturn,
+        int initialStateByte
+    ) throws Exception {
         EmulatorHelper emulator = new EmulatorHelper(currentProgram);
         List<String> serviceCalls = new ArrayList<>();
         int statusCallCount = 0;
@@ -173,6 +178,10 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
                 BigInteger.ONE
             );
             emulator.writeMemory(address(KEY_RAM), new byte[KEY_RAM_SIZE]);
+            emulator.writeMemory(
+                address(KEY_STATE_BYTE),
+                new byte[] {(byte)initialStateByte}
+            );
             emulator.writeMemory(address(STATUS_RAM), new byte[STATUS_RAM_SIZE]);
             emulator.writeMemory(address(MMIO), new byte[MMIO_SIZE]);
             emulator.writeMemory(address(STACK - 0x1000L), new byte[0x2000]);
@@ -249,7 +258,8 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
             }
 
             require(steps < 5000, "key slot-6 exceeded instruction limit");
-            boolean statusQueried = (inputMask & 0x80) != 0;
+            boolean statusQueried = (inputMask & 0x80) != 0
+                || ((inputMask & 0x01) != 0 && initialStateByte >= 1);
             require(statusCallCount == (statusQueried ? 1 : 0),
                 "status-call count mismatch for mask " + Integer.toHexString(inputMask));
             boolean messageExpected = statusQueried
@@ -278,9 +288,11 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
                     actualStatusByte, expectedStatusByte));
 
             return String.format(
-                "mask=%02x status-return=%08x steps=%d status-calls=%d message-calls=%d "
+                "mask=%02x state-byte-start=%02x status-return=%08x steps=%d "
+                    + "status-calls=%d message-calls=%d "
                     + "message=%s mmio=%08x>%08x status-byte=%02x calls=%s",
                 inputMask,
+                initialStateByte,
                 statusReturn,
                 steps,
                 statusCallCount,
@@ -318,10 +330,15 @@ public class RunKeyExport6MessageProbe extends GhidraScript {
         long[] statusReturns = {0, 1};
         for (int mask : masks) {
             for (long statusReturn : statusReturns) {
-                println("KEY EXPORT-6 EFFECT " + runCase(mask, statusReturn));
+                println("KEY EXPORT-6 EFFECT " + runCase(mask, statusReturn, 0));
+            }
+        }
+        for (int repeatState : new int[] {1, 2}) {
+            for (long statusReturn : statusReturns) {
+                println("KEY EXPORT-6 EFFECT " + runCase(1, statusReturn, repeatState));
             }
         }
         println("KEY EXPORT-6 EFFECT PROBE COMPLETE entry=0x29009654 "
-            + "status-service=synthetic message-service=synthetic mmio=plain-ram");
+            + "cases=20 status-service=synthetic message-service=synthetic mmio=plain-ram");
     }
 }
