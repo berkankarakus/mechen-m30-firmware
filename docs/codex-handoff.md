@@ -4,12 +4,51 @@ Bu belge yalnızca güncel çalışma durumunu ve değişmez güvenlik kurallar�
 tutar. Ayrıntılı kanıtlar ilgili `findings-*.md` belgelerinde, emulator
 kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
-## Güncel durum — 2026-11-24
+## Güncel durum — 2026-11-25
 
-- Dal: `main`. Yerel commit sayısı ve çalışma ağacı değişiklikleri dönüşümlü
-  olarak güncelleniyor; geçiş öncesi `git status --short --branch` ve
-  `git log --oneline origin/main..HEAD` ile kontrol et.
+- Dal: `codex/fix-model-coverage`; linked worktree'nin Git deposu
+  `/Users/berkankarakus/Projects/mechen-m30-firmware/.git` ile ortak. Bu turdaki
+  p-code commit'leri `1c19b59` (scroll import-15 op-`0x31` çağrı ABI'si) ve
+  `b96f78a` (kernel ROM copy yönü kontrolü). Bu handoff güncellemesi
+  commit'lendikten sonra çalışma ağacı temiz olmalı; push yapılmadı. Yeni
+  worktree açılırsa `git status --short --branch` ve
+  `git log --oneline origin/main..HEAD` ile teyit et.
 - Cihaza firmware, ROM payload veya başka veri yazılmadı.
+- Son p-code çalışmaları ROM gövdesi yerine gerçek caller davranışını ölçüyor:
+  `music.ap` scroll-next yolu import `0x0f`, selector `0x31`'e
+  `(1,0,0,0x31)` ile ulaşıyor; aynı selector'ün playlist hata/yeniden deneme
+  bağlamında `a0=0x23` kullanımı ve public `actions_flash` notundaki
+  `sleep_ms(a0)` eşlemesi M30 için güçlü ama doğrulanmamış bir hipotez.
+  Playlist op-9 çağrısı `(1,0,0,9)` için `0`/`-1` dönüşleri sınandı;
+  US212D notundaki “Close Driver / File” etiketi M30'a aktarılmış dış kaynak
+  hipotezi olarak kalıyor.
+- `ker_init.bin` `FUN_bfc322f8` p-code probe'u için `forward` modunda gerçek
+  caller'ın kaynak `0x9fc12000`'dan hedef `0x9fc1aad8`'e sentetik kopyayla
+  callback'e ulaştığı, `reverse` kontrolünde hedef sıfır kalıp null indirect
+  target'a gittiği doğrulandı. Bu, caller'ın kopya yönünü gerektirdiğini
+  gösterir; `0xbfc04635` ROM gövdesinin kopyalama yaptığı kanıtı değildir.
+  Ayrıntı: [`findings-kernel-loader.md`](findings-kernel-loader.md) ve
+  [`findings-qemu-dispatch.md`](findings-qemu-dispatch.md).
+- Aynı gerçek caller üzerinde `0xbfc045f5` clear adayı için sentetik
+  zero-fill/no-effect karşılaştırması stock ve community `ker_init.bin`'de
+  geçti. Gerçek çağrı `(0x9fc1a48c,0,0x7f4)`; iki model de aynı callback
+  yoluna ulaşıyor. Zero-fill modeli aralıktaki her 32-bit sözcüğü sıfırlayıp
+  exclusive-end canary'sini koruyor; no-effect modeli sentinel'leri koruyor.
+  Sentetik dönüş değerini `0`, hedef adres ve `0xdeadbeef` yapınca da
+  community caller aynı callback'e aynı argümanlarla ulaşıyor; stock'ta
+  sentinel dönüşü tekrarlandı. Bu, yalnızca sınanan caller devam yolunda
+  dönüşe bağlı kontrol akışı veya callback argümanı değişikliği
+  gözlenmediğini gösterir.
+  ROM gövdesinin gerçek etkisini veya açılış gerekliliğini çözmez. Sabit ROM
+  dump'ı yok; ADFU okuma yolu yalnızca kaynakta incelendi, cihazda denenmedi.
+- `FUN_bfc322f8` callback'ini sentetik no-op dönüşle geçince gerçek extracted
+  caller `0xbfc323d4`'ten devam edip ikinci clear çağrısına
+  `(0x13d00,0,0xe0)` ile ulaşıyor. Bu aralıkta exception vector'ın yazdığı
+  `0x13dcc/0x13dd0/0x13dd4` sayısal adresleri var. Zero-fill/no-effect
+  sentinel modelleri ve final `v0` dönüşü community'de; no-effect/sentinel
+  kontrolü stock'ta geçti. Bu adres çakışması fiziksel RAM alias'ını,
+  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Sonraki iyi
+  adım bu aralığa yapılan bilinen read/write'ları extracted imajlarda taramak.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU

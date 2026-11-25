@@ -54,6 +54,50 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
         return (short)u16(bytes, offset);
     }
 
+    private byte[] read(EmulatorHelper emu, long address, int length) throws Exception {
+        return emu.readMemory(addr(address), length);
+    }
+
+    private void expectBytes(EmulatorHelper emu, long address, byte[] expected, String label)
+            throws Exception {
+        byte[] actual = read(emu, address, expected.length);
+        require(Arrays.equals(actual, expected), String.format(
+            "%s mismatch at 0x%08x expected=%s actual=%s",
+            label, address, hex(expected), hex(actual)));
+    }
+
+    private byte[] le16(int value) {
+        return new byte[] { (byte)value, (byte)(value >>> 8) };
+    }
+
+    private void verifyDecodedGroups(EmulatorHelper emu, byte[] input) throws Exception {
+        require(input[0x0c] == 1 && input[7] == 1 && input[9] == 1
+                && input[10] == 1 && input[11] == 1 && input[13] == 1,
+            "decoded-groups fixture must enable flags +0xc,+7,+9,+0xa,+0xb,+0xd");
+        expectBytes(emu, STATE + 0x40, le16(input[0x0c]), "DRC group enable");
+        expectBytes(emu, STATE + 0x6c, Arrays.copyOfRange(input, 0x9e, 0xa0), "DRC first value");
+        expectBytes(emu, STATE + 0x74, Arrays.copyOfRange(input, 0xa2, 0xba), "DRC records");
+        expectBytes(emu, STATE + 0x8c, le16(50), "DRC constant 50");
+        expectBytes(emu, STATE + 0x8e, le16(500), "DRC constant 500");
+        expectBytes(emu, STATE + 0x44, Arrays.copyOfRange(input, 0x98, 0x9a), "gain value");
+        expectBytes(emu, STATE + 0x48, new byte[] { input[0x9a], 0, 0, 0 }, "gain mode");
+        expectBytes(emu, STATE + 0x5c, new byte[] { input[0x9c], 0, 0, 0 }, "secondary gain value");
+        expectBytes(emu, STATE + 0x60, new byte[] { input[0x9d], 0, 0, 0 }, "secondary gain mode");
+        expectBytes(emu, STATE + 0x64, Arrays.copyOfRange(input, 0x90, 0x92), "bass value");
+        expectBytes(emu, STATE + 0x68, new byte[] { input[0x92], 0, 0, 0 }, "bass mode");
+        expectBytes(emu, STATE + 0x50, Arrays.copyOfRange(input, 0xba, 0xbc), "output gain");
+        expectBytes(emu, STATE + 0x54, Arrays.copyOfRange(input, 0xbc, 0xbe), "output gain item");
+        expectBytes(emu, STATE + 0x58, Arrays.copyOfRange(input, 0xbe, 0xc0), "output gain value");
+    }
+
+    private void verifyDisabledDrcGroup(EmulatorHelper emu, byte[] input) throws Exception {
+        require(input[0x0c] == 0 && input[7] == 1,
+            "disabled-groups fixture must clear +0xc while retaining EQ flag +7");
+        expectBytes(emu, STATE + 0x40, le16(0), "DRC group enable when disabled");
+        expectBytes(emu, STATE + 0x6c, new byte[2], "disabled DRC first value");
+        expectBytes(emu, STATE + 0x74, new byte[0x1c], "disabled DRC records and constants");
+    }
+
     private byte[] expectedBand(byte[] source, byte[] structure, String expectation) {
         byte[] expected = Arrays.copyOf(source, source.length);
         int frequency = u16(source, 0);
@@ -100,10 +144,12 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                 long ra = reg(emu, "ra");
                 require(a2 == 8 && a3 == 0,
                     String.format("unexpected module-0x10 copy request: len=%d flag=%d", a2, a3));
-                require(a0 >= STATE + 0x94 && a0 + a2 <= STATE + 0x114,
-                    String.format("module-0x10 destination outside EQ band region: 0x%08x", a0));
-                require(a1 >= SOURCE + 0x10 && a1 + a2 <= SOURCE + 0x90,
-                    String.format("module-0x10 source outside EQ band region: 0x%08x", a1));
+                boolean eqBandCopy = a0 >= STATE + 0x94 && a0 + a2 <= STATE + 0x114
+                    && a1 >= SOURCE + 0x10 && a1 + a2 <= SOURCE + 0x90;
+                boolean drcRecordCopy = a0 >= STATE + 0x74 && a0 + a2 <= STATE + 0x8c
+                    && a1 >= SOURCE + 0xa2 && a1 + a2 <= SOURCE + 0xba;
+                require(eqBandCopy || drcRecordCopy,
+                    String.format("module-0x10 copy outside known EQ/DRC regions: dest=0x%08x src=0x%08x", a0, a1));
                 calls.add(String.format(
                     "a0=0x%08x a1=0x%08x a2=0x%08x a3=0x%08x ra=0x%08x",
                     a0, a1, a2, a3, ra
@@ -127,7 +173,7 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length < 1 || getScriptArgs().length > 3)
-            throw new Exception("usage: RunAuddevEqCopyProbe.java AUD_DEV.DRV [EQ_STRUCTURE.bin [neutral|decoded-adjustments|observe]]");
+            throw new Exception("usage: RunAuddevEqCopyProbe.java AUD_DEV.DRV [EQ_STRUCTURE.bin [neutral|decoded-adjustments|decoded-groups|observe]]");
         byte[] driver = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         if (driver.length < 0x2500) throw new Exception("aud_dev.drv is truncated before bank 5");
@@ -176,7 +222,9 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
             neutralAdjustments &= input[offset] == 0;
         String expectation = getScriptArgs().length == 3 ? getScriptArgs()[2] : "observe";
         require(expectation.equals("neutral") || expectation.equals("decoded-adjustments")
-                || expectation.equals("observe"), "unknown adjustment expectation: " + expectation);
+                || expectation.equals("decoded-groups") || expectation.equals("disabled-groups")
+                || expectation.equals("observe"),
+            "unknown adjustment expectation: " + expectation);
         if (expectation.equals("neutral"))
             require(neutralAdjustments, "neutral expectation requires zero adjustment words");
         memory.setBytes(addr(SOURCE), input);
@@ -188,7 +236,9 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
             });
             emu.setContextRegister(currentProgram.getRegister("ISA_MODE"), BigInteger.ONE);
             int steps = execute(emu);
-            require(calls.size() == BANDS, "expected 16 module-0x10 calls, got " + calls.size());
+            int expectedCalls = BANDS + (expectation.equals("decoded-groups") ? 3 : 0);
+            require(calls.size() == expectedCalls,
+                "expected " + expectedCalls + " module-0x10 calls, got " + calls.size());
             for (int band = 0; band < BANDS; band++) {
                 String expected = String.format(
                     "a0=0x%08x a1=0x%08x a2=0x00000008 a3=0x00000000",
@@ -209,11 +259,18 @@ public class RunAuddevEqCopyProbe extends GhidraScript {
                     band, unchangedAfterHandler ? "same" : "adjusted",
                     hex(sourceBand), hex(destinationBand), calls.get(band)));
             }
+            if (expectation.equals("decoded-groups")) {
+                verifyDecodedGroups(emu, input);
+                println("AUDDEV EQ GROUPS P-CODE PASS flags=+0xc,+7,+9,+0xa,+0xb,+0xd records=3");
+            } else if (expectation.equals("disabled-groups")) {
+                verifyDisabledDrcGroup(emu, input);
+                println("AUDDEV EQ GROUPS P-CODE PASS flag=+0xc value=0 drc-writes=0");
+            }
             println(String.format(
                 "AUDDEV EQ COPY P-CODE PASS entry=0x%08x steps=%d module0x10-calls=%d copy-writes-verified=%d expectation=%s input=%s module0x10=synthetic-memcpy-candidate",
-                ENTRY, steps, calls.size(), BANDS,
+                ENTRY, steps, calls.size(), calls.size(),
                 expectation,
-                getScriptArgs().length >= 2 ? "mengine-builder-output" : "synthetic-pattern"
+                getScriptArgs().length >= 2 ? "provided-0xf0-structure" : "synthetic-pattern"
             ));
         }
         finally {

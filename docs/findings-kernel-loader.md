@@ -211,10 +211,37 @@ exercised by a separate bounded p-code probe, but the helper effects remain
 opaque. The callback word at `0x9fc1aad8`, its source bytes, and the actual
 boot-stage mapping are not established by the extracted `ker_init.bin`. Do
 not substitute host `memset`/`memcpy` based only on the call shape.
-`FUN_bfc32440` also performs
-read-modify-write MMIO operations whose initial device state and helper-call
-effects are unknown. Therefore the complete entry-to-constructor p-code path
-is still unverified.
+`FUN_bfc32440` now has a bounded p-code probe at its extracted entry. It runs
+the extracted instructions to return in 250 emulated steps, including seven
+synthetic MIPS16 return-stub instructions. It uses `0xa5a5a5a5` seeded RAM-backed
+MMIO words, and intercepts seven fixed-ROM calls with synthetic zero-return
+MIPS16 stubs. The probe checks all 15 final MMIO words and the RAM fields
+written by the function. This verifies the caller's instruction-level
+read/modify/write masks and address calculations for the chosen seed; it does
+not reveal the hardware register meanings, real reset values, or fixed-ROM
+side effects. Repeating the run with all seven synthetic returns set to
+`0xdeadbeef` also passed the checks: both profiles took 250 steps, reached the
+function return, logged the same seven checked call edges and arguments, and
+produced the same checked MMIO values. Its PC-trace digest also matched the
+all-zero baseline. This supports that changing the
+synthetic scalar returns preserved these checked outcomes in these runs; it
+does not by itself identify the fixed-ROM services' behavior. Possible
+service side effects are outside the model. Consequently, the complete
+entry-to-constructor path remains unverified.
+
+The differential was then isolated by call ordinal. In seven more runs,
+exactly one of the seven ROM-call returns was set to `0xdeadbeef` while the
+other six returned zero. Every run passed the 250-step, call-edge/argument,
+function-return, RAM, and MMIO assertions. Thus none of the seven individual
+scalar substitutions changed those checked outcomes. Additionally, the
+SHA-256 of the ordered instruction-boundary sequence (32-bit PC plus
+`ISA_MODE` and `RELP` bytes) matched the all-zero baseline for the all-sentinel
+run and every one-call-at-a-time profile:
+`079eb760cddc1e581c7c4aba54dbff55495e387cc0471577e41cf0e6ffed8eae`.
+This shows that the synthetic caller-side PC sequence and mode tags stayed
+identical for each individual scalar substitution. It does not execute the
+real ROM bodies. Interactions between multiple nonzero returns and real
+ROM-service effects are not tested.
 
 ### What the three entry-path helpers do, and what remains unknown
 
@@ -259,13 +286,33 @@ The extracted instructions support these bounded descriptions:
   unresolved source contents. The function later reads a word from
   `0x9fc12204` into `0xbfc32fc4`; that source word is outside the preceding
   four-byte copy range.
-- `FUN_bfc32440` writes `0x1a` to `0x9fc2a8a8` and `0x9fc2a8aa`, stores
-  derived timing-like values in nearby RAM, and performs a sequence of
-  read-modify-write operations on `0xc000...`, `0xc002...`, and `0xc012...`
-  registers. It makes five calls to `0xbfc07a51`, one to `0xbfc04fb9`
-  (`a0=1`), and one to `0xbfc04f61` (`a0=120`). The calls' scalar results
-  are not used by the visible code, but their hardware effects and the
-  initial values of the RMW registers are unavailable.
+- `FUN_bfc32440` writes `0x1a` to byte address `0x9fc1a8a8` and halfword
+  address `0x9fc1a8aa`; these addresses correct the previous note's sign-
+  extension arithmetic error. It writes derived timing-like values at
+  `0x9fc1aab0`, `0x9fc1aab4`, and `0x9fc1aab8`. Its p-code probe confirms
+  seven ROM call edges: five to aligned PC `0xbfc07a50` (odd pointer
+  `0xbfc07a51`), one to `0xbfc04fb8` (pointer `0xbfc04fb9`, `a0=1`), and one
+  to `0xbfc04f60` (pointer `0xbfc04f61`, `a0=120`). Returns were synthetic
+  zeros or `0xdeadbeef` and MMIO started at `0xa5a5a5a5`; both runs took 250
+  steps, reached the function return, matched the seven checked ROM-call
+  edges/arguments, and produced the same 15 final register values. This
+  supports that changing the synthetic scalar returns preserved these
+  checked outcomes in these runs. The ordered PC+ISA_MODE+RELP trace SHA-256
+  matched between the all-zero baseline, all-sentinel profile, and all seven
+  one-call-at-a-time profiles.
+  This validates the extracted caller path and probe, not actual register
+  reset values, peripheral meanings, or ROM-service behavior.
+  The seven one-call-at-a-time `0xdeadbeef` profiles also passed all assertions;
+  this isolates individual return substitutions but not interactions among
+  multiple changed returns.
+
+Reproduce the bounded check with:
+
+```sh
+bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> zero
+bash tools/ghidra/run_kernel_init_mmio_probe.sh <hash-matching-ker_init.bin> sentinel
+bash tools/ghidra/run_kernel_init_mmio_return_sweep.sh <hash-matching-ker_init.bin>
+```
 
 This is not a full semantic interpretation of those functions: the first has
 unknown external side effects, the second depends on unavailable source bytes,
@@ -291,16 +338,23 @@ first four tuples are `(0x9fc1a48c,0,0x7f4)`,
 `(0xbfc080f8,0x9fc12200,4)`. Those are actual AP call arguments; the ROM
 helpers' memory effects are not modeled.
 
-To observe the indirect-call edge without inventing ROM behavior, the probe
-preseeds `0x9fc1aad8` with synthetic callback address `0x9fc27f00` and fills
-the source window with synthetic bytes. The real AP code then reaches that
-target in 54 steps and presents `(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`; the
-probe stops before executing the callback. Thus it verifies the extracted
-call boundary and consumer arguments under the explicit synthetic fixture.
-It does not verify that either ROM helper copied/cleared memory, that the
-callback exists at the source address in the real boot sequence, or that
-`0x9fc12000` is ROM rather than RAM during normal boot. It also does not
-validate the CPU's mode transition into or out of the stubbed MIPS16 entries.
+The native probe now has a discriminating copy-direction experiment. In
+`forward` mode, the destination callback slot starts zero, the only synthetic
+callback pointer is placed at source `0x9fc12000`, and the harness applies a
+source-to-destination byte copy at each `0xbfc04635` boundary using the observed
+arguments. The real caller then reaches `0x9fc27f00` in 54 steps with
+`(a0=0xfffffff0, a1=0xbfc0855d, a2=0)`. In `reverse` mode, the harness applies
+destination-to-source copies instead; the callback slot stays zero and the
+caller reaches an indirect target of zero, which the probe recognizes as the
+negative control. `seeded` mode retains the earlier fixture that preloads the
+destination callback slot without modeling a copy.
+
+This shows that source-to-destination copying is required by this caller's
+data flow and is sufficient to install the callback pointer under the
+synthetic fixture. It does not prove the absent ROM routine performs that
+copy, that the callback exists at this source address during normal boot, or
+that `0x9fc12000` is ROM rather than RAM in the boot map. The known ROM body
+and its effects remain unobserved.
 
 The `0xbfc045f5` call shape is better constrained than its name: segment entry
 also calls it with `(0x9fc13d00, 0, 0xe0)`, and `FUN_bfc322f8` later calls it
@@ -308,21 +362,71 @@ with `(0x00013d00, 0, 0xe0)`. All three callsites pass a start address, zero,
 and an end-minus-start length. This strongly supports a clear/zero routine,
 but its MIPS16 body is absent, so the effect remains a hypothesis.
 
-`tools/ghidra/run_kernel_init_native_mode_probe.sh` repeats this path with
-Ghidra's native MIPS p-code emulator. On both hash-matching stock and community
-`ker_init.bin`, it configures MIPS16e (`RELP=1`) and enters the two fixed-ROM
-entry points on four calls with `ISA_MODE=1`, recording the arguments and exact
-return addresses `0xbfc32348/6c/90/b4`. Each absent helper is represented by a
-synthetic MIPS16e `jrc ra` stub (`0xe8a0`); the harness seeds `v0=0` and executes
-that instruction. Ghidra's native p-code returns to the observed RA with
-`ISA_MODE=0` and `RELP=1`, without manually forcing the mode. The synthetic
-callback pointer `0x9fc27f00` then receives control in MIPS32 mode with
-`(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps. This demonstrates both
-MIPS16e entry and return transitions for the extracted caller under a
-synthetic one-instruction ROM stub; it does not execute the absent ROM helper
-bodies or establish their actual return code, return value, side effects, the
-real callback pointer/source bytes, or the device's normal-boot mapping. The
+The native p-code probe now runs a differential synthetic-effect check at the
+`FUN_bfc322f8` clear boundary. It fills the requested `0x9fc1a48c..0x9fc1ac80`
+range with `0xa5`, places a canary at the exclusive end, then compares a
+zero-fill shim with a no-effect shim using the actual `(a0=0x9fc1a48c,
+a1=0, a2=0x7f4)` call. In zero-fill mode, every 32-bit word in the range
+becomes zero; in no-effect mode they remain `0xa5a5a5a5`; the canary remains
+`0x13579bdf` in both. Both continuations reach the same synthetic callback
+in 54 steps despite the modeled memory differences. With zero-fill held
+constant, synthetic returns of zero, the destination, and `0xdeadbeef` also
+reach the same callback with the same checked arguments, so no
+return-value-dependent control-flow or callback-argument effect was observed
+on this path. This does not rule out other return-dependent effects in
+unexecuted paths. Stock and community `ker_init.bin` both pass the memory
+effect controls at the pinned SHA-256; both pass the sentinel-return case as
+well. This validates the probe's range/ABI model and constrains this caller's
+observed continuation; it does not identify the real ROM implementation or
+prove that zero-fill is required for boot correctness. Reproduce with
+`tools/ghidra/run_kernel_init_native_mode_probe.sh <ker_init.bin> forward
+clear-zero return-zero` and repeat with `return-dst`, `return-sentinel`, or
+`clear-no-effect return-sentinel`.
+
+The probe also has a `callback-return` mode. It records the callback's actual
+return PC (`0xbfc323d4`), writes synthetic exception-state words at
+`0x13dcc/0x13dd0/0x13dd4`, and resumes the real extracted caller there with a
+no-op callback return. The caller proceeds without a branch or intervening
+call to the second `0xbfc045f5` boundary at callsite `0xbfc32420`, with
+`(a0=0x13d00, a1=0, a2=0xe0)`, then returns from `FUN_bfc322f8` to the harness.
+Under the zero-fill shim, every word in `[0x13d00,0x13de0)` is zero and the
+three synthetic exception-state words are cleared; under no-effect, the
+synthetic words remain and the canary at `0x13de0` is preserved. The same
+no-effect/sentinel-return case also passes on stock; the zero-fill and
+destination-return variants were run on community. With the clear shim's return
+set to zero, the destination, or `0xdeadbeef`, the extracted caller returns
+that value in `v0`; this is caller return-value propagation, not evidence of
+what the unavailable ROM helper itself returns. The callback behavior and
+the memory contents are fixtures. Numeric overlap with the exception vector's
+save slots does not establish the device's physical memory map, nor that this
+helper runs during normal boot. Reproduce with
+`tools/ghidra/run_kernel_init_native_mode_probe.sh <ker_init.bin> forward
+clear-zero return-zero callback-return`; vary the clear and return modes as
+above.
+
+`tools/ghidra/run_kernel_init_native_mode_probe.sh` runs the native MIPS
+p-code scenarios on hash-matching stock and community `ker_init.bin`:
+
+- `forward` (default) copies each observed `(dst,src,len)` at the absent
+  `0xbfc04635` boundary and reaches the callback from a source-only pointer.
+- `reverse` copies `(dst,src,len)` in the opposite direction and asserts the
+  real caller reaches a null indirect target instead of the callback.
+- `seeded` retains the original preloaded-destination control.
+
+Each scenario also confirms four entries into the two ROM call sites with
+`ISA_MODE=1`, exact return addresses `0xbfc32348/6c/90/b4`, and synthetic
+MIPS16e `jrc ra` (`0xe8a0`) returns to MIPS32 mode with `RELP=1`. In `forward`,
+the callback receives `(a0,a1,a2)=(0xfffffff0,0xbfc0855d,0)` after 54 steps.
+These are caller data-flow experiments under explicit shims: no result proves
+the unavailable ROM routine's implementation or normal-boot mapping. The
 earlier `EmulatorHelper` probe remains a simpler call-boundary cross-check.
+
+Example:
+
+```sh
+bash tools/ghidra/run_kernel_init_native_mode_probe.sh <hash-matching-ker_init.bin> forward
+bash tools/ghidra/run_kernel_init_native_mode_probe.sh <hash-matching-ker_init.bin> reverse
+```
 
 The ATJ2127 Boot ROM map is documented in the public
 [`actions_flash` instructions](https://github.com/ilyakurdyukov/actions_flash/blob/main/README.md#instructions).

@@ -87,11 +87,28 @@ function/data pointers to low-address test stubs/RAM, and links the real
 `FUN_40d54f2c` entry with a cancel event.
 
 The same real-bank path now executes in Ghidra's MIPS p-code emulator through
-`tools/ghidra/RunScrollProbe.java`. With the synthetic RAM/context and the
-audited stubs, the probe reaches the caller's return address in 359 steps and
-records the expected dispatcher, timer, and state-storage calls. This is
-instruction-level execution of the real MIPS16 bank, but not a full ATJ2127
-boot: the LCD, SD, decoder and SoC peripherals remain stubbed.
+`tools/ghidra/RunScrollProbe.java`. With the synthetic RAM/context and audited
+stubs, the cancel-event probe reaches the caller's return address in 359 steps
+and records dispatcher/state-storage calls. That cancel path exits before the
+timer call. This is instruction-level execution of the real MIPS16 bank, but
+not a full ATJ2127 boot: the LCD, SD, decoder and SoC peripherals remain
+stubbed.
+
+The renderer's wait branch is separately reachable with the `render-next`
+mode. The probe stops at the first call through literal `0x40d55180` and
+asserts the real caller's ABI is `(a0=1,a1=0,a2=0,a3=0x31)`. The timer stub
+returns synthetic zero in this harness; the probe stops before that return can
+drive another loop iteration. This confirms the AP reaches a module-`0x0f`
+operation-`0x31` boundary while handling a next event. It does not reveal the
+resident operation's implementation or prove what timing unit it uses.
+
+The `actions_flash` [ATJ2127 syscall notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L250-L259)
+map import 15 operation 49 (`a3=0x31`) to `sleep_ms(a0)` for US212D V1.101.25.
+M30 code provides a useful independent call-pattern match: playlist error and
+retry paths call the same import/selector with `a0=0x23` (35), while this
+scroll wait path passes `a0=1`. This makes “sleep for the `a0` duration” a
+strong cross-firmware hypothesis for M30 operation `0x31`; the M30 resident
+implementation and time unit have not been directly observed.
 
 The repeatable entry point is:
 
@@ -109,6 +126,8 @@ bash tools/ghidra/run_scroll_probe.sh \
   build/qemu-minimal-safe/work/verify/fw/music.ap previous
 bash tools/ghidra/run_scroll_probe.sh \
   build/qemu-minimal-safe/work/verify/fw/music.ap redraw
+bash tools/ghidra/run_scroll_probe.sh \
+  build/qemu-minimal-safe/work/verify/fw/music.ap render-next
 ```
 
 Those modes call `FUN_40d54d80` directly and assert the recovered state

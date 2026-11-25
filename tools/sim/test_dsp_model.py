@@ -121,8 +121,10 @@ class AudDevDaeGateTests(unittest.TestCase):
     def test_config_initializer_copies_verified_fields_and_preserves_others(self):
         items = {
             0x82: bytes((0x12,)) + bytes(7),
+            0x83: bytes((0x83,)) + bytes(7),
+            0x84: bytes((0x84,)) + bytes(7),
             0x85: bytes((0x34,)) + bytes(7),
-            0x98: bytes((0x56,)) + bytes(7),
+            0x98: bytes(8),
             0xA5: bytes((0x78,)) + bytes(7),
             0xA6: bytes.fromhex("aa bb cc dd 11 22 33 44 55 66 ee ff"),
         }
@@ -147,8 +149,9 @@ class AudDevDaeGateTests(unittest.TestCase):
         )
 
         self.assertEqual(initialized[0x03], 0x12)
+        self.assertEqual(initialized[0x04:0x07], bytes((0x83, 0, 0)))
         self.assertEqual(initialized[0x07], 0x34)
-        self.assertEqual(initialized[0x0C], 0x56)
+        self.assertEqual(initialized[0x0C], 0)
         self.assertEqual(initialized[0x0D], 0x78)
         for band_index in range(16):
             structure_offset = 0x10 + band_index * 8
@@ -163,9 +166,73 @@ class AudDevDaeGateTests(unittest.TestCase):
 
         self.assertEqual(initialized[0xBA:0xC0], bytes.fromhex("11 22 33 44 55 66"))
         self.assertEqual(initialized[0x02], 0xA5)
-        self.assertEqual(initialized[0x04:0x06], bytes((0xA5, 0xA5)))
         self.assertEqual(initialized[0x90], 0xA5)
         self.assertEqual(initialized[0xC0], 0xA5)
+
+    def test_config_initializer_mode_selects_item_84_and_clears_the_other_field(self):
+        config_bin = bytearray(0x1000)
+        payloads = {
+            0x82: bytes((0x02,)) + bytes(7),
+            0x83: bytes((0x83,)) + bytes(7),
+            0x84: bytes((0x84,)) + bytes(7),
+            0x85: bytes((0x01,)) + bytes(7),
+            0x98: bytes((0x01,)) + bytes(7),
+            0xA5: bytes(8),
+            0xA6: bytes(12),
+            0x99: bytes.fromhex("00 00 00 00 01 00 02 00 03 00 04 00"),
+            0x9A: bytes.fromhex("00 00 00 00 05 00 06 00 07 00 08 00"),
+            0x9B: bytes.fromhex("00 00 00 00 09 00 0a 00 0b 00 0c 00"),
+            0x9C: bytes.fromhex("0d 00 00 00 00 00 00 00"),
+        }
+        for band_index in range(16):
+            payloads[0x86 + band_index] = bytes(12)
+
+        payload_offset = len(config_bin)
+        for item_id, payload in sorted(payloads.items()):
+            struct.pack_into("<II", config_bin, 0x10 + item_id * 8, payload_offset, len(payload))
+            config_bin.extend(payload)
+            payload_offset += len(payload)
+
+        initial = bytearray(0xF0)
+        initial[0x02] = 1
+        initialized = apply_config_bin_dae_defaults(bytes(initial), bytes(config_bin))
+
+        self.assertEqual(initialized[0x04:0x07], bytes((0, 0x84, 0)))
+        # +0x0c is nonzero, so the documented secondary record helper runs.
+        self.assertEqual(initialized[0x0D], 1)
+        self.assertEqual(initialized[0xE2:0xE4], bytes.fromhex("0d 00"))
+        self.assertEqual(initialized[0xA2:0xAA], bytes.fromhex("f3 ff 02 00 03 00 00 00"))
+        self.assertEqual(initialized[0x9E:0xA2], bytes.fromhex("04 00 08 00"))
+
+    def test_config_initializer_early_normalization_path_preserves_plus_6(self):
+        items = {
+            0x82: bytes((1,)) + bytes(7),
+            0x85: bytes(8),
+            0x98: bytes((1,)) + bytes(7),
+            0xA5: bytes(8),
+            0xA6: bytes(12),
+        }
+        for band_index in range(16):
+            items[0x86 + band_index] = bytes(12)
+
+        config_bin = bytearray(0x800)
+        payload_offset = len(config_bin)
+        for item_id, payload in sorted(items.items()):
+            struct.pack_into("<II", config_bin, 0x10 + item_id * 8, payload_offset, len(payload))
+            config_bin.extend(payload)
+            payload_offset += len(payload)
+
+        initial = bytearray(0xF0)
+        initial[0x02] = 1
+        initial[0x06] = 0x66
+        initialized = apply_config_bin_dae_defaults(bytes(initial), bytes(config_bin))
+
+        self.assertEqual(initialized[0x04:0x07], bytes((0, 0, 0x66)))
+
+        initial[0x02] = 0
+        initial[0x04:0x07] = bytes((0x44, 0x55, 0x66))
+        gated = apply_config_bin_dae_defaults(bytes(initial), bytes(config_bin))
+        self.assertEqual(gated[0x04:0x07], bytes((0x44, 0x55, 0x66)))
 
     def test_config_initializer_rejects_missing_items(self):
         config_bin = bytearray(0x800)
@@ -182,6 +249,8 @@ class AudDevDaeGateTests(unittest.TestCase):
     def test_config_initializer_rejects_wrong_sized_band_items(self):
         items = {
             0x82: bytes(8),
+            0x83: bytes(8),
+            0x84: bytes(8),
             0x85: bytes(8),
             0x98: bytes(8),
             0xA5: bytes(8),

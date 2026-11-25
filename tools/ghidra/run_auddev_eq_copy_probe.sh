@@ -46,3 +46,8 @@ if ! grep -Fq 'AUDDEV EQ COPY P-CODE PASS entry=0x00009400' "$WORK/run.log"; the
 fi
 grep 'AUDDEV EQ COPY band=' "$WORK/run.log"
 grep 'AUDDEV EQ COPY P-CODE PASS' "$WORK/run.log"
+if [ "$EXPECTATION" = decoded-groups ]; then
+  grep 'AUDDEV EQ GROUPS P-CODE PASS flags=+0xc,+7,+9,+0xa,+0xb,+0xd records=3' "$WORK/run.log"
+elif [ "$EXPECTATION" = disabled-groups ]; then
+  grep 'AUDDEV EQ GROUPS P-CODE PASS flag=+0xc value=0 drc-writes=0' "$WORK/run.log"
+fi

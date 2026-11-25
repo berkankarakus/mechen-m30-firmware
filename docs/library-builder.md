@@ -633,11 +633,13 @@ untouched.
   (`FUN_48094658` -> `FUN_48094400`). A build that is interrupted therefore restarts on every
   boot until one completes. On the UDisk path, `udisk.ap` registers a resident
   callback for message `0xb0`; the shared handler returns `0x861c`, which the
-  music AP return dispatcher routes to app 10 with parameter `0x42`, `0x82`,
-  or `0xc2`. The `manager.ap` application table confirms app 10 is
-  `playlist.ap`. The meanings of these parameters and their relation to the
-  known index boot parameter `0x4e` remain unverified; the resident event
-  source and its relation to card insertion are also unknown.
+  music AP return dispatcher routes to app 10. It selects parameter `0x42`
+  when state byte `0x9fc15588` is `0x10`, `0x82` when it is `0x07`, and `0xc2`
+  otherwise. The `manager.ap` application table confirms app 10 is
+  `playlist.ap`. The meanings of these parameters and whether they launch the
+  index builder remain unverified; the known boot index parameter is `0x4e`.
+  The resident event source and its relation to card insertion are also
+  unknown.
 - The player keeps its own view of the card's directories and writes it back: scratch files
   deleted from the PC came back after a player run, and a data file copied to the card was
   not found by one diagnostic run. Unmount cleanly before unplugging, and put data a

@@ -133,6 +133,17 @@ enumerated `[default, count, values...]` (item `0x01`: `[1,5,0,1,2,3,4]`).
 These examples support the schema hypothesis; item labels are absent, and this
 is not an independently validated semantic classification of all 121 items.
 
+The host model in `tools/sim/dsp_model.py` also applies the verified
+`FUN_40dd4f50(param, 1)` normalization branch and its `FUN_40dd4e0c(param, 0)`
+secondary-record path. The latter copies items `0x99..0x9b`, clamps their
+first signed words using the selected item `0x9c`, and updates the documented
+derived fields. Its selection of item `0x99..0x9c` follows the observed
+zero-valued second argument; the alternative `0x9f..0xa2` branch is not
+modeled. The retained inputs do not include item `0x9c`'s raw payload, so the
+model's use of its first little-endian u16 as the signed adjustment is an
+explicit format assumption, not a hash-verified payload result. The initializer
+still preserves fields it does not write.
+
 The `+0x2c..+0x32` Custom bytes are not populated from the `setting.ap`
 seven-value default table by `FUN_40dd4c00`. The existing cold/invalid-magic
 `0x38` block path clears the structure before calling this initializer, so
