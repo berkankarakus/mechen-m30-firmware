@@ -34,11 +34,11 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
     exit 1
   }
 
-grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000000 frame-words=5 watchdog-write=0x5d' "$WORK/run.log" || {
+grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000000 frame-words=5 mmio-write=0x5d' "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }
-grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000002 frame-words=5 watchdog-write=0x69' "$WORK/run.log" || {
+grep -Fq 'KER XSYS EXCEPTION FRAME PROFILE PASS state=0x00000002 frame-words=5 mmio-write=0x69' "$WORK/run.log" || {
   cat "$WORK/run.log" >&2
   exit 1
 }

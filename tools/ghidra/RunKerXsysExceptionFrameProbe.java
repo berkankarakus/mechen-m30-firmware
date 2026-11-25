@@ -19,7 +19,7 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
     private static final long CALLBACK_TAGGED = CALLBACK | 1L;
     private static final long FRAME = 0x00013dccL;
     private static final long STATUS = 0x9fc1aa5cL;
-    private static final long WATCHDOG = 0xc012001cL;
+    private static final long MMIO_REGISTER = 0xc012001cL;
     private static final long STACK_BASE = 0x9fc1b000L;
     private static final int STACK_SIZE = 0x2000;
     private static final long[] WORDS = {
@@ -59,13 +59,13 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
         return block;
     }
 
-    private void runProfile(Memory memory, long status, long expectedWatchdog)
+    private void runProfile(Memory memory, long status, long expectedMmio)
             throws Exception {
         for (int i = 0; i < WORDS.length; i++) putWord(memory, FRAME + i * 4L, WORDS[i]);
         putWord(memory, 0x00013dc8L, 0xcafebabeL);
         putWord(memory, 0x00013de0L, 0x0badf00dL);
         putWord(memory, STATUS, status);
-        putWord(memory, WATCHDOG, 0);
+        putWord(memory, MMIO_REGISTER, 0);
 
         EmulatorHelper emu = new EmulatorHelper(currentProgram);
         try {
@@ -77,7 +77,7 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
             emu.writeRegister("pc", ENTRY);
 
             List<Long> observed = new ArrayList<>();
-            boolean watchdogWrite = false;
+            boolean mmioWrite = false;
             for (int step = 0; step < 256; step++) {
                 long pc = reg(emu, "pc");
                 if (pc == CALLBACK) {
@@ -91,8 +91,8 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
                         pc, emu.getLastError()));
                 }
                 if (observed.size() == WORDS.length
-                        && readWord(emu, WATCHDOG) == expectedWatchdog) {
-                    watchdogWrite = true;
+                        && readWord(emu, MMIO_REGISTER) == expectedMmio) {
+                    mmioWrite = true;
                     break;
                 }
             }
@@ -103,16 +103,16 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
                     "frame word %d mismatch: expected 0x%08x got 0x%08x",
                     i, WORDS[i], observed.get(i)));
             }
-            require(watchdogWrite, String.format(
-                "expected watchdog write 0x%08x, observed 0x%08x",
-                expectedWatchdog, readWord(emu, WATCHDOG)));
+            require(mmioWrite, String.format(
+                "expected MMIO write 0x%08x, observed 0x%08x",
+                expectedMmio, readWord(emu, MMIO_REGISTER)));
             require(readWord(emu, 0x00013dc8L) == 0xcafebabeL,
                 "pre-frame canary changed");
             require(readWord(emu, 0x00013de0L) == 0x0badf00dL,
                 "post-frame canary changed");
             println(String.format(
-                "KER XSYS EXCEPTION FRAME PROFILE PASS state=0x%08x frame-words=%d watchdog-write=0x%02x",
-                status, observed.size(), expectedWatchdog));
+                "KER XSYS EXCEPTION FRAME PROFILE PASS state=0x%08x frame-words=%d mmio-write=0x%02x",
+                status, observed.size(), expectedMmio));
         }
         finally {
             emu.dispose();
@@ -133,7 +133,7 @@ public class RunKerXsysExceptionFrameProbe extends GhidraScript {
         mapRam(memory, "exception_frame_probe_ram", 0x00013d00L, 0x100);
         mapRam(memory, "exception_frame_probe_stack", STACK_BASE, STACK_SIZE);
         mapRam(memory, "exception_frame_probe_state", 0x9fc1aa00L, 0x100);
-        mapRam(memory, "watchdog_mmio_probe", 0xc0120000L, 0x100);
+        mapRam(memory, "mmio_probe", 0xc0120000L, 0x100);
         MemoryBlock callback = mapRam(memory, "synthetic_rom_callback", CALLBACK, 2);
         memory.setBytes(addr(CALLBACK), new byte[] {(byte)0xa0, (byte)0xe8}); // jrc ra
         callback.setExecute(true);
