@@ -17,6 +17,8 @@ TABLE_OFFSET = 0x19974
 TABLE_LIMIT_0 = 0x12000
 TABLE_LIMIT_1 = 0x10101
 BOUNDARY_OFFSET = 0x5F90
+ENTRY_BOUNDARY_OFFSET = 0x6D6C
+HARNESS_LIMIT = min(TABLE_OFFSET, BOUNDARY_OFFSET, ENTRY_BOUNDARY_OFFSET, XSYS_BIOS_OFFSET)
 EXPECTED_XSYS_SHA256 = "deaf67edce7eca6397abd1ca91f742ccbe70f451bb4926c75c7e46862e3b2988"
 
 PATCHES = (
@@ -60,13 +62,19 @@ def main() -> None:
 
     image = bytearray(b"\xff" * BIOS_SIZE)
     harness = args.harness.read_bytes()
-    if not harness or len(harness) > XSYS_BIOS_OFFSET:
-        raise SystemExit("harness must fit before the mapped ker_xsys member")
+    if not harness or len(harness) > HARNESS_LIMIT:
+        raise SystemExit(
+            "harness must be non-empty and fit before reserved BIOS data "
+            f"(maximum size 0x{HARNESS_LIMIT:x})"
+        )
     image[: len(harness)] = harness
     image[XSYS_BIOS_OFFSET : XSYS_BIOS_OFFSET + len(xsys)] = xsys
     image[TABLE_OFFSET : TABLE_OFFSET + 4] = TABLE_LIMIT_0.to_bytes(4, "little")
     image[TABLE_OFFSET + 4 : TABLE_OFFSET + 8] = TABLE_LIMIT_1.to_bytes(4, "little")
     image[BOUNDARY_OFFSET : BOUNDARY_OFFSET + 8] = bytes.fromhex(
+        "08 00 e0 03 00 00 00 00"  # jr ra; nop
+    )
+    image[ENTRY_BOUNDARY_OFFSET : ENTRY_BOUNDARY_OFFSET + 8] = bytes.fromhex(
         "08 00 e0 03 00 00 00 00"  # jr ra; nop
     )
 
@@ -78,7 +86,8 @@ def main() -> None:
         "MALTA XSYS BIOS PASS "
         f"entry=0xbfc340{XSYS_ENTRY_OFFSET:02x} "
         f"table[0]=0x{TABLE_LIMIT_0:x} table[1]=0x{TABLE_LIMIT_1:x} "
-        f"patched-ram-operands={len(PATCHES)} xsys-sha256={digest}"
+        f"patched-ram-operands={len(PATCHES)} "
+        f"stubs=0xbfc05f90,0xbfc06d6c xsys-sha256={digest}"
     )
 
 

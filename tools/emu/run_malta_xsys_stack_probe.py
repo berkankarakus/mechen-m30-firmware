@@ -106,7 +106,8 @@ def main() -> None:
                 raise SystemExit(f"QEMU {cpu} failed:\n{stdout}\n{stderr}")
             print(
                 f"MALTA XSYS STACK PASS cpu={cpu} "
-                "index0=below/equal:alternate,above:direct index1:direct"
+                "index0=below/equal:alternate,above:direct index1:direct "
+                "exception-entry=EPC/RA-frame"
             )
 
 

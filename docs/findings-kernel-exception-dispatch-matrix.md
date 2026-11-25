@@ -101,6 +101,22 @@ tested synthetic table values. It does not identify the table's real contents,
 the meanings of the two counters, how callers reach this code, the writable
 hardware mapping of `0xbfc19930`, or the fixed-ROM handler's behavior.
 
+## Extracted `ker_xsys` exception-entry frame stores on Malta
+
+QEMU Malta also executes the separate real MIPS32 entry at `0xbfc34074`. The
+harness maps virtual pages `0x12000/0x13000` to Malta RAM, seeds five words at
+`0x13dcc..0x13ddc` with a canary, sets CP0 EPC to `0x80001234`, and calls the
+entry directly. The code stores that EPC at `0x13dd8`, stores its call-return
+RA at `0x13ddc`, and jumps to a return-only stub at the fixed-ROM boundary
+`0xbfc06d6c`. Both QEMU 24Kf and 34Kf pass: the first three seeded words remain
+untouched and the final two contain the expected EPC/RA. Reproduce with the
+same Malta probe command above.
+
+This executes the extracted frame-producing instructions, but it does not
+raise a hardware exception or reproduce the natural caller, Cause, kernel
+vector sequence, or fixed-ROM handler. In particular, it does not establish
+that this entry leads to `FUN_bfc344f4`; that call edge remains unresolved.
+
 ## Extracted five-word exception-frame consumer
 
 The hash-pinned `ker_xsys.bin` also contains MIPS16 function

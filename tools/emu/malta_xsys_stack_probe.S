@@ -251,6 +251,80 @@ probe_main:
     bne     $t1, $t2, probe_fail
     nop
 
+    # Execute the adjacent real exception-entry prologue and inspect its frame.
+    mtc0    $zero, $5         # PageMask = 4 KiB
+    lui     $t0, 0x0001
+    ori     $t0, $t0, 0x2000 # virtual pair containing 0x13dd8
+    mtc0    $t0, $10          # EntryHi = 0x12000, ASID 0
+    addiu   $t0, $zero, 0x049f
+    mtc0    $t0, $2           # EntryLo0 maps 0x12000 -> physical 0x12000
+    addiu   $t0, $zero, 0x04df
+    mtc0    $t0, $3           # EntryLo1 maps 0x13000 -> physical 0x13000
+    mtc0    $zero, $0         # Index = 0
+    tlbwi
+    ehb
+    mtc0    $zero, $12        # clear ERL so the kuseg frame accesses use the TLB
+    ehb
+    lui     $t1, 0xcccc
+    ori     $t1, $t1, 0xcccc
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dc8 # leading guard before the five-word frame
+    sw      $t1, 0($t0)
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3de0 # trailing guard after the five-word frame
+    sw      $t1, 0($t0)
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dcc
+    addiu   $t2, $zero, 5
+probe_seed_frame:
+    sw      $t1, 0($t0)
+    addiu   $t0, $t0, 4
+    addiu   $t2, $t2, -1
+    bnez    $t2, probe_seed_frame
+    nop
+    lui     $t0, 0x8000
+    ori     $t0, $t0, 0x1234 # synthetic CP0 EPC input
+    mtc0    $t0, $14
+    ehb
+    jal     0xbfc34074
+    nop
+probe_xsys_entry_return:
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dcc
+    lui     $t2, 0xcccc
+    ori     $t2, $t2, 0xcccc
+    lw      $t1, 0($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+    lw      $t1, 4($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+    lw      $t1, 8($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+    lw      $t1, 12($t0)
+    lui     $t3, 0x8000
+    ori     $t3, $t3, 0x1234
+    bne     $t1, $t3, probe_fail
+    nop
+    lw      $t1, 16($t0)
+    lui     $t3, %hi(probe_xsys_entry_return)
+    addiu   $t3, $t3, %lo(probe_xsys_entry_return)
+    bne     $t1, $t3, probe_fail
+    nop
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dc8
+    lw      $t1, 0($t0)
+    lui     $t2, 0xcccc
+    ori     $t2, $t2, 0xcccc
+    bne     $t1, $t2, probe_fail
+    nop
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3de0
+    lw      $t1, 0($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+
     UART_PUTC 0x50
     UART_PUTC 0x41
     UART_PUTC 0x53
@@ -265,10 +339,4 @@ probe_fail:
     UART_PUTC 0x4c
 probe_halt:
     j       probe_halt
-    nop
-
-.section .boundary, "ax", @progbits
-.globl probe_rom_boundary
-probe_rom_boundary:
-    jr      $ra
     nop

@@ -68,6 +68,10 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   profilleri ve farklı ikinci tablo girdisini ayırt eden index-1 profili SP,
   sayaç ve canary kontrolleriyle doğrulandı. Yazılabilir operandlar RAM'e
   yönlendirildi, sabit-ROM hedefi yalnız `jr ra` stub'ı, tablo eşikleri sentetik.
+  QEMU aynı zamanda `0xbfc34074` girişini doğrudan çağırdı: CP0 EPC ve dönüş
+  RA'sı TLB ile RAM'e eşlenen `0x13dd8/0x13ddc` alanlarına yazıldı; `0xbfc06d6c`
+  yalnız dönüş stub'ı. Bu doğal exception/caller veya consumer bağlantısını
+  kanıtlamıyor.
   Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
   Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
   raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.

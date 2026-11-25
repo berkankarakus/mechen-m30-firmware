@@ -19,6 +19,11 @@ alanları tutar. Firmware özelliği veya cihazda güvenli patch önerisi değil
 | P2 | Playback | `run_asrc_music_tick_probe.sh` gerçek `music.ap` tick→mode-4 yolunu doğruluyor; yeni status-3 p-code probe'u sentetik `+0xd0` status=3 ile `0xbfc217a2` compare'ını, state 2 yazımını ve refill olmadan terminal dönüşü doğruluyor. Resident giriş ile `FUN_bfc27520` ring-processing helper stub; gerçek status üreticisi, downstream drain davranışı ve audible fade sonucu bilinmiyor. Hash-pinned modüller arasında doğrudan cross-module pointer/shared-state literal'i yok. `0xbfc164dc` resident servisinin music.ap'te beş çağrısı var; dörtü zaman/ilerleme benzeri çıktı buffer'ı kullanıyor, biri iki argümanlı. Aynı giriş `usound.ap` ve `udisk.ap` event/result-buffer yollarında da çağrılıyor. Sıradaki yüksek getirili iş decoder context `+0xd0` status pointer'ının üreticisini bulmak ve bu ROM servisinin ABI'sini doğrulamak; mevcut iki iz arasında bağ kurulduğu kanıtlanmadı. Ayrıntı: [bridge bulgusu](findings-mmm-bp-music-bridge.md) |
 | P3 | Metadata ve sayaç | MUSIC.LIB writer/recovery ve kalıcı sayaç formatını çöz; offline düzenleyiciyi cihaz eşdeğeri kabul etme |
 
+QEMU exception güncellemesi: `ker_xsys.bin` içindeki gerçek `0xbfc34074`
+prologue’u Malta 24Kf/34Kf’de sentetik CP0 EPC ve TLB eşlemesiyle yürütüldü;
+`0x13dd8/0x13ddc` EPC/RA kayıtları ve frame çevresi canary’leri doğrulandı.
+Doğal exception zinciri ve `FUN_bfc344f4` çağrı bağı hâlâ açık.
+
 ## Dinamik inceleme havuzu
 
 Statik decompile’dan ayrılan bu işler, gerçek AP/driver fonksiyonlarını
