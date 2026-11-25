@@ -53,11 +53,18 @@ kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
   callback'ine verdiğini gösterdi. Ghidra p-code bunu sentetik callback ve
   canary'lerle doğruladı. Aynı prob iki yolu da çalıştırdı: `0x9fc1aa5c`
   bit 1 clear → MMIO adresine `0x5d`; set → `0x69`. Peripheral rolü/etkisi ve
-  missing fixed-ROM handler'la bağlantısı kanıtlanmadı. `FUN_bfc3416c` aynı
-  ROM callback'ini `sp ` / `stk overflow` tanılarıyla kullanıyor; dolayısıyla
-  callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
-  Sonraki adım: callback slot'unun nasıl doldurulduğunu ve MMIO adresinin
-  board-level işlevini belirlemek.
+  missing fixed-ROM handler'la bağlantısı kanıtlanmadı. `FUN_bfc3416c` guard
+  dalı da sentetik ROM dönüşleriyle gerçek p-code'da çalıştırıldı; iki tanı
+  callback'inin argümanları, flag temizliği ve default-handler sınırı geçti.
+  Guard sözcüğü eşleşirken mesafe `0x93` hata, `0x94` normal dönüş verdi;
+  `0x180` mesafede sentinel uyuşmazlığı da hata dalına girdi. ROM servislerinin
+  doğal dönüşleri ve bu fonksiyonlara gerçek caller bağı bilinmiyor.
+  Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
+  Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
+  raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.
+  Sonraki adım missing
+  fixed-ROM exception caller edge'ini mevcut dispatch ile eşleştirmek; bunu
+  kanıtlamadan varsayımsal call edge eklememek.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU

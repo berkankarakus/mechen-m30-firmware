@@ -95,5 +95,37 @@ words from the exception frame.
 These independent call shapes make a diagnostic formatting/emission helper
 the strongest current interpretation for the ROM callback at `0xbfc04840`.
 Its ROM body is unavailable, so the exact formatting contract and output
-destination remain unknown. The stack-check call path is statically
-decompiled; this probe does not execute it or the missing ROM callback.
+destination remain unknown.
+
+The hash-pinned p-code probe now also executes the actual extracted
+`FUN_bfc3416c` instructions through its guard-failure branch. It seeds the
+function's low-RAM lookup table and state flag to force that branch, and uses
+synthetic MIPS16/MIPS32 stubs for unavailable fixed-ROM services: the stack
+classification call, a returned stack value, and the diagnostic callback. It
+observes two callback entries with `(descriptor, value, 2)`:
+`(0xbfc341d0, 0x200, 2)` and `(0xbfc341d4, 0x55, 2)`, then reaches the canonical
+default-handler PC `0xbfc19a74`. The guard branch also clears bit 8 in the
+seeded word at `0x9fc1a9e8`.
+
+This confirms the extracted branch's control flow, argument preparation, and
+state write for this synthetic profile. The ROM stubs supply the values that
+select the branch; the test does not establish their real return values, run
+the diagnostic ROM body, or prove that firmware naturally reaches this
+branch. The full callback-output and fixed-ROM semantics therefore remain
+unknown.
+
+The probe isolates the two guard conditions. With a matching guard word, a
+synthetic stack distance of `0x93` takes the failure path, while `0x94` returns
+normally without diagnostics and preserves the state word, confirming the
+extracted strict `< 0x94` comparison. With distance `0x180` but a mismatched
+guard word, the failure path also runs. These controlled profiles verify both
+failure causes and the boundary in the extracted instructions; the ROM
+service's real return value and natural input state remain unverified.
+
+The exact `ker_xsys.bin` SHA-256 above is shared by the locally available
+dated extracted corpora from 2022-09-14 through 2025-06-26 that contain this
+member. A raw little-endian literal scan across the local extracted corpus found
+neither tagged nor untagged entry pointer for these functions. This is bounded
+negative evidence: a computed address, resident dispatch, or missing fixed-ROM
+call can still reach either function. It means the local extracted code does
+not currently provide the missing caller edge.

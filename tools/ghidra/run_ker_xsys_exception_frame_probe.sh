@@ -47,6 +47,18 @@ grep -Fq 'KER XSYS EXCEPTION FRAME P-CODE PASS entry=0xbfc344f4 frame=0x00013dcc
   cat "$WORK/run.log" >&2
   exit 1
 }
+grep -Fq 'KER XSYS STACK GUARD SENTINEL P-CODE PASS callbacks=2 first=(0xbfc341d0,0x00000200,2) second=(0xbfc341d4,0x00000055,2) handler=0xbfc19a74 distance=0x180 synthetic-rom-services=1' "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
+grep -Fq 'KER XSYS STACK GUARD THRESHOLD P-CODE PASS stack=0x00000113 distance=0x093 outcome=fail callbacks=2 synthetic-rom-services=1' "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
+grep -Fq 'KER XSYS STACK GUARD THRESHOLD P-CODE PASS stack=0x00000114 distance=0x094 outcome=pass callbacks=0 synthetic-rom-services=1' "$WORK/run.log" || {
+  cat "$WORK/run.log" >&2
+  exit 1
+}
 grep -Fq 'pcVar1 = _UNK_bfc341f8;' "$WORK/stack-diagnostic.c" || {
   cat "$WORK/stack-diagnostic.c" >&2
   exit 1
@@ -64,7 +76,7 @@ grep -Fq 'func_0xbfc19a74();' "$WORK/stack-diagnostic.c" || {
   exit 1
 }
 echo 'KER XSYS STACK DIAGNOSTIC DECOMP PASS callback=0xbfc04840 labels=sp/stk-overflow'
-grep 'KER XSYS EXCEPTION FRAME' "$WORK/run.log"
+grep -E 'KER XSYS (EXCEPTION FRAME|STACK GUARD)' "$WORK/run.log"
 AFTER_SHA=$(shasum -a 256 "$XSYS" | awk '{print $1}')
 [ "$INPUT_SHA" = "$AFTER_SHA" ] || {
   echo "input SHA-256 changed: before=$INPUT_SHA after=$AFTER_SHA" >&2
