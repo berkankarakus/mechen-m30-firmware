@@ -116,10 +116,12 @@ the real `FUN_bfc10220` event formatter was run with synthetic normalized-key
 sequences: input `0x02` emits payload `00020020` on sample 1, no payload on
 samples 2–4, `00020010` on sample 5, then `00020008` on samples 6 and 7.
 Special inputs `0x30`, `0x32`, and `0x34` emitted `00020004`, `000c0020`, and
-`000d0020`, respectively; tested neighboring values did not emit. The
-resident operations are stubbed, normalized inputs are supplied by the
-harness, and sample counts do not establish elapsed time or physical button
-identity. Reproduce with:
+`000d0020`, respectively. Regular inputs `0x31`, `0x33`, and `0x35` also
+emitted `00310020`, `00330020`, and `00350020`; the tested `0xff` input emitted
+no operation-18 payload. The probe now asserts both the positive payloads and
+that negative case. Resident operations are stubbed, normalized inputs are
+supplied by the harness, and sample counts do not establish elapsed time or
+physical button identity. Reproduce with:
 
 ```sh
 bash tools/ghidra/run_key_export7_effect_probe.sh <hash-matching-key.drv>
@@ -137,6 +139,22 @@ MMIO is RAM-backed and device-status meaning is unknown. Reproduce with:
 
 ```sh
 bash tools/ghidra/run_key_config_export_probe.sh <hash-matching-key.drv>
+```
+
+The existing status-path probe was rerun against this same driver. Real
+`FUN_bfc103cc` instructions classify the ten-sample average into the seven
+observed levels: `0..80→0`, `81..88→1`, `89..93→2`, `94..95→3`,
+`96..103→4`, `104..107→5`, and `108..127→6`; a `0xd5` sample is masked to
+`0x55` before classification. Its ten-sample batch transition also passed a
+100-invocation sequence with status outputs `1,0`. Synthetic device-status
+bits `0x080` and `0x100` each produced status 1, while `0x100` plus selector
+bit `0x08` produced status 2; zero and `0x200` produced status 0. These are
+verified caller-side inputs and state transitions with RAM-backed registers,
+not interpretations such as battery/charging or real-time cadence. Reproduce
+with:
+
+```sh
+bash tools/ghidra/run_key_status_probe.sh <hash-matching-key.drv>
 ```
 
 `tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16

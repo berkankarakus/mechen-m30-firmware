@@ -252,6 +252,10 @@ public class RunKeyExport8AbiProbe extends GhidraScript {
                             && result.contains("payload=" + expectedOp18Payload),
                         "profile " + profile + " did not produce expected op-18 payload: " + result);
                 }
+                if (tick == 4 && expectedOp18Payload == null) {
+                    require(!result.contains("op=18 "),
+                        "profile " + profile + " unexpectedly produced an op-18 payload: " + result);
+                }
                 if (tick == 4 && expectOp19) {
                     require(result.contains("op=19 ")
                             && result.contains("buffer-before="),
@@ -419,9 +423,9 @@ public class RunKeyExport8AbiProbe extends GhidraScript {
             "000c0020", false);
         runProfile(memory, "card", 0x34, 0, 0, 4, 0, 0,
             "000d0020", false);
-        runProfile(memory, "other-31", 0x31, 0, 0, 4, 0, 0, null, false);
-        runProfile(memory, "other-33", 0x33, 0, 0, 4, 0, 0, null, false);
-        runProfile(memory, "other-35", 0x35, 0, 0, 4, 0, 0, null, false);
+        runProfile(memory, "normal-31", 0x31, 0, 0, 4, 0, 0, "00310020", false);
+        runProfile(memory, "normal-33", 0x33, 0, 0, 4, 0, 0, "00330020", false);
+        runProfile(memory, "normal-35", 0x35, 0, 0, 4, 0, 0, "00350020", false);
         runProfile(memory, "unmapped-ff", 0xff, 0, 0, 4, 0, 0, null, false);
         String op18One = runProfile(memory, "op18-return-one", 2, 0, 0, 6, 1, 0,
             "00020020", false);
