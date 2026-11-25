@@ -95,6 +95,18 @@ and `0x34` to normalized key `0x0d` paths are represented as well. The
 external callback side effect, physical button names, and MMIO register
 meanings remain unmodeled.
 
+The key driver's banked export slot 3 at `0x29009584` was exhaustively run
+for all 256 byte values with the real MIPS16 instructions and a RAM-backed
+sample register. It returns 1 exactly when `(sample & 0x3f)` is in
+`0x33..0x39` (28 input bytes including upper-bit aliases), otherwise 0; the
+probe observed no MMIO writes. This is a verified range predicate for this
+export, not a physical-key mapping or proof that the exported function is
+called by the ADC classifier. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export3_range_probe.sh <hash-matching-key.drv>
+```
+
 `tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16
 `FUN_bfc10178` against all 256 input bytes with the override MMIO bit both
 clear and set. The code and threshold table remain from the extracted
