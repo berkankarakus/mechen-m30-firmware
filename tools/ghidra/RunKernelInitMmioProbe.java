@@ -82,18 +82,21 @@ public class RunKernelInitMmioProbe extends GhidraScript {
     @Override
     public void run() throws Exception {
         if (getScriptArgs().length < 1 || getScriptArgs().length > 2)
-            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|sentinel|call0..call6]");
+            throw new Exception("usage: RunKernelInitMmioProbe.java KER_INIT.BIN [zero|one|minus1|sentinel|call0..call6|clobberN-REGISTER]");
         String returnMode = getScriptArgs().length == 2 ? getScriptArgs()[1] : "zero";
         int isolatedCall = -1;
+        String isolatedReturn = "sentinel";
         int clobberCall = -1;
         String clobberRegister = null;
         if (returnMode.startsWith("call")) {
+            String[] parts = returnMode.split("-", 2);
             try {
-                isolatedCall = Integer.parseInt(returnMode.substring(4));
+                isolatedCall = Integer.parseInt(parts[0].substring(4));
             }
             catch (NumberFormatException e) {
                 throw new Exception("isolated return mode must be call0 through call6");
             }
+            if (parts.length == 2) isolatedReturn = parts[1];
         }
         else if (returnMode.startsWith("clobber")) {
             String[] parts = returnMode.split("-", 2);
@@ -106,11 +109,14 @@ public class RunKernelInitMmioProbe extends GhidraScript {
             }
             clobberRegister = parts[1];
         }
-        require(returnMode.equals("zero") || returnMode.equals("sentinel")
-                || (isolatedCall >= 0 && isolatedCall < 7)
+        boolean validIsolatedReturn = isolatedReturn.equals("sentinel")
+            || isolatedReturn.equals("one") || isolatedReturn.equals("minus1");
+        require(returnMode.equals("zero") || returnMode.equals("one")
+                || returnMode.equals("minus1") || returnMode.equals("sentinel")
+                || (isolatedCall >= 0 && isolatedCall < 7 && validIsolatedReturn)
                 || (clobberCall >= 0 && clobberCall < 7
                     && isCallerSavedRegister(clobberRegister)),
-            "return mode must be zero, sentinel, call0..call6, or clobberN-REGISTER");
+            "return mode must be zero, one, minus1, sentinel, call0..call6[-one|-minus1], or clobberN-REGISTER");
         byte[] image = java.nio.file.Files.readAllBytes(
             java.nio.file.Paths.get(getScriptArgs()[0]));
         require(image.length >= 0x828, "ker_init.bin truncated before FUN_bfc32440");
@@ -188,10 +194,17 @@ public class RunKernelInitMmioProbe extends GhidraScript {
                 calls.add(call);
                 println("KERNEL INIT MMIO ROM EDGE " + call);
                 int callIndex = calls.size() - 1;
-                long returnValue = returnMode.equals("zero")
-                        || returnMode.startsWith("clobber")
-                        || (isolatedCall >= 0 && isolatedCall != callIndex)
-                    ? 0 : RETURN_SENTINEL;
+                long returnValue;
+                if (returnMode.startsWith("clobber") || returnMode.equals("zero")
+                        || (isolatedCall >= 0 && isolatedCall != callIndex)) {
+                    returnValue = 0;
+                }
+                else {
+                    String selectedReturn = isolatedCall >= 0 ? isolatedReturn : returnMode;
+                    if (selectedReturn.equals("one")) returnValue = 1;
+                    else if (selectedReturn.equals("minus1")) returnValue = 0xffffffffL;
+                    else returnValue = RETURN_SENTINEL;
+                }
                 thread.getState().setVar(v0, emulator.getArithmetic().fromConst(
                     returnValue, v0.getMinimumByteSize()));
                 if (callIndex == clobberCall) {

@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 if [ "$#" -gt 2 ]; then
-  echo "usage: $0 [KER_INIT.BIN] [zero|sentinel|call0..call6|clobberN-REGISTER]" >&2
+  echo "usage: $0 [KER_INIT.BIN] [zero|one|minus1|sentinel|call0..call6[-one|-minus1]|clobberN-REGISTER]" >&2
   exit 2
 fi
 INIT=${1:-$ROOT/analysis/community/fw/ker_init.bin}
@@ -15,7 +15,7 @@ EXPECTED_SHA256=f4c62848fb06ccbe6fba4323c4e29e46791c1abb25af648f0518eb0747492ec8
 [ -f "$INIT" ] || { echo "missing ker_init.bin: $INIT" >&2; exit 1; }
 [ -x "$GHIDRA" ] || { echo "missing Ghidra analyzeHeadless: $GHIDRA" >&2; exit 1; }
 case "$RETURN_MODE" in
-  zero|sentinel|call[0-6]|clobber[0-6]-*) ;;
+  zero|one|minus1|sentinel|call[0-6]|call[0-6]-one|call[0-6]-minus1|clobber[0-6]-*) ;;
   *) echo "unsupported ROM probe mode: $RETURN_MODE" >&2; exit 1 ;;
 esac
 actual_sha=$(shasum -a 256 "$INIT" | awk '{print $1}')
