@@ -111,7 +111,13 @@ def select_dsp(format_index: int, directory: Path) -> DspSelection:
 
 
 def select_mengine_dsp(processing_flag: bool, directory: Path) -> DspSelection:
-    """Resolve the DSP member selected by config.ap's processing flag."""
+    """Resolve the DSP member selected by config.ap's processing flag.
+
+    This is the ``mmm_pp.al`` rule (nonzero shared ``+2`` opens ``audiopp.dsp``).
+    The music path uses ``mmm_mp.al``, which additionally opens ``adppdrc.dsp``
+    for a nonzero flag at or below 48000 Hz; see ``dae_shm_flow`` and
+    ``docs/findings-kernel-op-table.md``.
+    """
     if not isinstance(processing_flag, bool):
         raise ValueError("mengine processing flag must be a boolean")
 
