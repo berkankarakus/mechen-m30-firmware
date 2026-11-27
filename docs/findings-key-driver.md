@@ -95,6 +95,68 @@ and `0x34` to normalized key `0x0d` paths are represented as well. The
 external callback side effect, physical button names, and MMIO register
 meanings remain unmodeled.
 
+The key driver's banked export slot 3 at `0x29009584` was exhaustively run
+for all 256 byte values with the real MIPS16 instructions and a RAM-backed
+sample register. It returns 1 exactly when `(sample & 0x3f)` is in
+`0x33..0x39` (28 input bytes including upper-bit aliases), otherwise 0; the
+probe observed no MMIO writes. This is a verified range predicate for this
+export, not a physical-key mapping or proof that the exported function is
+called by the ADC classifier. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export3_range_probe.sh <hash-matching-key.drv>
+```
+
+Two more banked paths from the pulled probes were executed against the
+hash-matched driver. `FUN_bfc10064` stores the low byte of `a0` at
+`0x9fc1433a`, returns pointer `0x9fc14334`, and ORs bit 31 into the
+RAM-backed word at `0xc009005c` only when the low input byte is zero. This
+records code behavior, not the MMIO register's hardware meaning. Separately,
+the real `FUN_bfc10220` event formatter was run with synthetic normalized-key
+sequences: input `0x02` emits payload `00020020` on sample 1, no payload on
+samples 2–4, `00020010` on sample 5, then `00020008` on samples 6 and 7.
+Special inputs `0x30`, `0x32`, and `0x34` emitted `00020004`, `000c0020`, and
+`000d0020`, respectively. Regular inputs `0x31`, `0x33`, and `0x35` also
+emitted `00310020`, `00330020`, and `00350020`; the tested `0xff` input emitted
+no operation-18 payload. The probe now asserts both the positive payloads and
+that negative case. Resident operations are stubbed, normalized inputs are
+supplied by the harness, and sample counts do not establish elapsed time or
+physical button identity. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export7_effect_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_export8_abi_probe.sh <hash-matching-key.drv>
+```
+
+`FUN_bfc10518` was run through its bounded configuration-export path in two
+synthetic states. With device-status word zero and input bytes `(9,9)`, it
+stored `(9,9)`, left status byte zero, and changed control word
+`a5a5f3ff` to `a5a573ff`. With status word `0x80` and input `(0,0)`, it
+retained seeded config bytes `(2,3)`, set status byte 4, and changed
+`1234abcd` to `123451ad`. Both cases reset the same four driver state bytes
+to `(0,0,0,1)`. This demonstrates the two tested caller-side branches only;
+MMIO is RAM-backed and device-status meaning is unknown. Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_config_export_probe.sh <hash-matching-key.drv>
+```
+
+The existing status-path probe was rerun against this same driver. Real
+`FUN_bfc103cc` instructions classify the ten-sample average into the seven
+observed levels: `0..80→0`, `81..88→1`, `89..93→2`, `94..95→3`,
+`96..103→4`, `104..107→5`, and `108..127→6`; a `0xd5` sample is masked to
+`0x55` before classification. Its ten-sample batch transition also passed a
+100-invocation sequence with status outputs `1,0`. Synthetic device-status
+bits `0x080` and `0x100` each produced status 1, while `0x100` plus selector
+bit `0x08` produced status 2; zero and `0x200` produced status 0. These are
+verified caller-side inputs and state transitions with RAM-backed registers,
+not interpretations such as battery/charging or real-time cadence. Reproduce
+with:
+
+```sh
+bash tools/ghidra/run_key_status_probe.sh <hash-matching-key.drv>
+```
+
 `tools/ghidra/run_key_classifier_matrix.sh` executes the real MIPS16
 `FUN_bfc10178` against all 256 input bytes with the override MMIO bit both
 clear and set. The code and threshold table remain from the extracted
@@ -131,6 +193,45 @@ The SDK maps module `0x0f` operations `0x18`, `0x19`, and `0x1a` to
 match that mapping. These queue calls do not identify the key normalization
 table initializer.
 
+The real `FUN_bfc10008` caller was also run in Ghidra p-code up to its two
+fixed-ROM exception boundaries with synthetic returns and zeroed synthetic
+MMIO. At both boundaries, the raw `v1` register was `0xbfc10005`; the tagged
+MIPS16 return addresses were `0xbfc1002d` and `0xbfc10041`. The meaning of
+`v1` at this exception point is unresolved and it must not be labeled as a
+module ID. Each call received return values `1`, `0xffffffff`, and
+`0xdeadbeef` in isolation. Across these six profiles, the caller-visible
+registers, driver BSS, mapped MMIO, stack, call arguments, and payload matched
+the zero-return baseline. This is return-insensitivity of this caller under
+the stated synthetic environment, not proof of the fixed-ROM syscall's
+service or hardware effects.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_init_syscall_boundary_probe.sh <hash-matching-key.drv>
+```
+
+Three adjacent fixed-ROM boundaries were separately exercised. The Export-6
+message path receives `a3=9` and `a3=24` cases with tagged MIPS16 return
+addresses; its `v1` value is a RAM pointer in the observed run, not an
+established module number. Under synthetic status/MMIO values, status 0
+reaches operation 9 and then operation 24 with message `0x00b0`; status 1
+suppresses the message. In the module-`0x0f` operation-9 path, flag `0x82`
+reaches operation 24 when operation 9 returns zero or `0x100`; returns 1 and
+`-1` suppress it. The branch therefore distinguishes the observed values by
+more than simple zero/nonzero truthiness. The operation-24 wrapper returns 1 for
+synthetic service return 0 and 0 for returns 1, 2, `-1`, and `0xdeadbeef`.
+These are caller-side branch effects under stubbed services and synthetic
+memory, not descriptions of the unavailable resident implementation.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_key_export6_message_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_module0f_op9_message_probe.sh <hash-matching-key.drv>
+bash tools/ghidra/run_key_module0f_op24_return_probe.sh <hash-matching-key.drv>
+```
+
 The SDK's key path provides a separate lead: `key_rcode_scan.c` indexes
 `key_map[i + 1]` for ADC ranges and `key_map[0]` for override, matching the
 M30 driver's B+9+i and B+8 reads. SDK configuration code obtains the table
@@ -140,6 +241,81 @@ configuration path is still a hypothesis. `manager.ap` contains the
 `key.drv` name, but the config record layout has not been recovered. No
 writer to B+8..B+15 has been found in `key.drv`; runtime values remain
 unobserved.
+
+The manager-side call boundary is now more specific. In the hash-matched
+`manager.ap`, the `key.drv` string at file offset `0x1e40` maps to
+`0x7f056240`; its only code reference is in `FUN_7f056200`, called from
+`FUN_7f056250`. The wrapper calls the in-overlay config getter
+`FUN_7f0962bc` with IDs `0x52`, `0x51`, and `0x50`, then calls the resident
+MIPS16 stub at `0xbfc13de0` with `(a0=9, a1=packed, a2=0x7f056240, a3=10)`.
+The stub loads `v1=15` and executes `break`; the exception handler that
+services selector 15 is not present in this overlay. The
+getter's decompiled code reads an indexed config record and returns its first
+16-bit field. In the compared stock, community, and V1.101.11 config images,
+the first words for items `0x50/0x51/0x52` are `1/2/2`; executing the real
+manager caller with those getter results reaches the break boundary with
+selector 15 and `a1=0x01000202`. A second
+synthetic input `(0x11,0x22,0x33)` produces `0x11002233`, confirming the
+caller's bit packing. The config-getter and exception-service returns are
+synthetic in this probe. This narrows which config values manager submits,
+but does not prove selector 15's meaning or that it initializes
+the driver's B+8..B+15 normalization table.
+
+### Selector-10 driver-open/load hypothesis
+
+The parent `FUN_7f056250` has now been executed from its entry through the
+last setup call, stopping before `0xbfc13df4`. With the hash-pinned manager and
+config, the p-code trace requests config items `4, 5, 100, 0x52, 0x51, 0x50`
+and reaches the resident import-15 stub twice with `a3=10`: first
+`(0, 0, 0x7f0562b4, 10)` for `nor_ud.drv`, then
+`(9, 0x01000202, 0x7f056240, 10)` for `key.drv`. The full ordered service
+trace and runtime string bytes are now asserted by the probe. This strengthens
+the caller-side evidence for a driver-open/load hypothesis and shows that the
+key config word is passed in the same call. It still does not identify the
+service implementation or prove that the config is applied.
+
+The stop target is cross-checked against the same image: manager data at file
+offset `0x1ed8` holds tagged MIPS16 pointer `0xbfc13df5`; the resident bytes
+at file offset `0x214` decode at `0xbfc13df4` as the function's `save`
+prologue. This identifies the observed stop as the event-loop function entry,
+without executing the loop.
+
+The probe starts with PC set directly to `FUN_7f056250`, uses zeroed synthetic
+MMIO and synthetic zero returns at every resident service stub, and stops
+before executing the event loop. Thus it does not prove the device's boot
+path reaches this function or that the calls succeed. The selected ExcCode 9
+target `0xbfc06f18` is in the unavailable fixed-ROM region; the extracted
+kernel members do not contain its body. A public ATJ2127 note for the
+different US212D firmware documents import-15 selector 8 as mount and
+selector 9 as close, but does not identify selector 10
+([reference notes](https://github.com/kilicdev/actions_flash/blob/main/RE_NOTES.md#L241-L259)).
+Without the M30 ROM handler or another trace source, selector 10's semantics
+remain unresolved.
+
+### Selector-10 return values are unused by the manager callers
+
+A read-only Ghidra decompile of the hash-verified `manager.ap`
+(`d94d2406…af7a`) confirms that both selector-10 call results are ignored.
+`FUN_7f056200` reads config items `0x52`, `0x51`, and `0x50`, packs them, and
+calls the resident stub with `(9, packed, "key.drv", 10)` before returning
+without reading `v0`. Its parent `FUN_7f056250` calls selector 10 for
+`"nor_ud.drv"`, invokes `FUN_7f216200` and `FUN_7f056200`, then ultimately
+returns constant `0`; it does not branch on either call result.
+
+Therefore, sweeping synthetic selector-10 return values cannot distinguish
+caller-side behavior. This does not reveal selector 10's meaning or any
+out-of-band effect inside the unavailable ROM handler. The raw decompile is
+kept in the ignored `analysis/local-evidence/manager-key-driver-callers.c`;
+the checked-in evidence summary and JSONL fact capture the interpretation.
+
+Reproduce with:
+
+```sh
+bash tools/ghidra/run_manager_key_driver_service_stub_probe.sh <hash-matching-manager.ap> <matching-config.bin>
+```
+
+The evidence record is in
+[`key-driver-service-stub-2026-11-25`](evidence/key-driver-service-stub-2026-11-25/README.md).
 
 ## Kernel exception-vector table (separate from the key table)
 

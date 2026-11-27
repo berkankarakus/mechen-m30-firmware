@@ -12,6 +12,7 @@ GUARD_BYTES = bytes.fromhex("ff ff 03 00")
 HANDLERS = {
     0x5F90: "exception dispatch alternate target (candidate)",
     0x6D6C: "EPC exception handler target (candidate)",
+    0x6F18: "ExcCode 9 vector target from ker_init slot 9 (candidate)",
 }
 KERNEL_INIT_SOURCES = {
     0x12000: (0x14, "callback structure source candidate; runtime mapping unverified"),

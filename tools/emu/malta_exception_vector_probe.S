@@ -28,6 +28,28 @@ probe_main:
     ehb
     mtc0    $zero, $12        # clear BEV and ERL; use EBase + 0x180
     ehb
+
+    # Canary-fill the complete five-word frame and its adjacent words. The
+    # vector should write the first three words; the real xsys entry should
+    # append EPC and RA in words four and five.
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dc8
+    lui     $t1, 0xcccc
+    ori     $t1, $t1, 0xcccc
+    sw      $t1, 0($t0)        # leading guard
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dcc
+    addiu   $t2, $zero, 5
+probe_seed_frame:
+    sw      $t1, 0($t0)
+    addiu   $t0, $t0, 4
+    addiu   $t2, $t2, -1
+    bnez    $t2, probe_seed_frame
+    nop
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3de0
+    sw      $t1, 0($t0)        # trailing guard
+
     lui     $ra, 0x1234
     ori     $ra, $ra, 0x5678
 .globl probe_break
@@ -69,6 +91,37 @@ probe_pass:
     j       probe_halt
     nop
 
+.globl probe_xsys_pass
+probe_xsys_pass:
+    # Reaching this checkpoint means the vector dispatched through the
+    # instrumented slot-9 bridge and the real xsys entry returned here.
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dd8
+    lw      $t1, 0($t0)
+    lui     $t2, %hi(probe_break)
+    addiu   $t2, $t2, %lo(probe_break)
+    bne     $t1, $t2, probe_fail
+    nop
+    lw      $t1, 4($t0)
+    lui     $t2, 0x1234
+    ori     $t2, $t2, 0x5678
+    bne     $t1, $t2, probe_fail
+    nop
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3dc8
+    lui     $t2, 0xcccc
+    ori     $t2, $t2, 0xcccc
+    lw      $t1, 0($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+    lui     $t0, 0x8001
+    ori     $t0, $t0, 0x3de0
+    lw      $t1, 0($t0)
+    bne     $t1, $t2, probe_fail
+    nop
+    j       probe_pass
+    nop
+
 probe_halt:
     j       probe_halt
     nop
@@ -77,4 +130,10 @@ probe_halt:
 .globl handler_stub
 handler_stub:
     j       probe_pass
+    nop
+
+.section .checkpoint, "ax", @progbits
+.globl xsys_checkpoint_stub
+xsys_checkpoint_stub:
+    j       probe_xsys_pass
     nop

@@ -157,6 +157,12 @@ candidate template bytes and callback value. It would not by itself prove
 that normal boot maps these addresses to the same ROM bytes; the runtime map
 and `0xbfc04635` behavior still need confirmation.
 
+Separately, kernel exception-vector initialization selects `0xbfc06f18` for
+ExcCode 9 (vector slot 9 at `0xbfc08180`). This makes `0x6f18` another
+high-value candidate offset in a `0x9fc00000` Boot ROM readback. The ROM bytes
+and alias equivalence have not been observed; this is an address-derived probe
+target, not a recovered handler implementation.
+
 The local `actions_dump.c` accepts an arbitrary 32-bit address and size for
 `read_mem2`, splitting requests into chunks of at most `0x1d8` bytes. Once
 `adfus.bin` is already active in ADFU, the focused read is:

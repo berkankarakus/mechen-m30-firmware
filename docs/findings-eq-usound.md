@@ -269,6 +269,20 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound
+- `tools/ghidra/run_usound_setup_return_sweep.sh` runs the extracted
+  `usound.drv` setup function to its stop point while replacing each of its
+  11 fixed-ROM calls, one at a time, with return values `1` and
+  `0xffffffff`. The remaining calls return zero. All 23 profiles (baseline
+  plus 22 isolated-return profiles) stop after 1,368 instructions, preserve
+  the same call sequence/arguments and copied rate bytes `80 bb 00`, and have
+  the same PC+ISA-mode+RELP trace digest. This makes the probe fail closed on an
+  emulator error, step limit, missing call, or changed caller trace. It only
+  establishes that these return substitutions did not change the executed
+  caller path in this setup; mapped MMIO is synthetic/zeroed, module returns
+  are synthetic, and the module-`0x10` rate copy is performed by an explicit
+  harness copy shim. Actual USB, DMA, ROM-service, and codec behavior remains
+  unresolved. Reproduce with:
+  `bash tools/ghidra/run_usound_setup_return_sweep.sh <hash-matching-usound.drv>`.
 - `usound.drv` is now covered by two read-only checks:
   `PYTHONPATH=tools/emu python3 tools/emu/usound_binary_probe.py
   analysis/community/fw/usound.drv` validates the yqhx container and USB

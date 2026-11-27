@@ -25,7 +25,8 @@ class BootRomInspectorTests(unittest.TestCase):
         data = bytearray(ROM_SIZE)
         data[0x1234:0x1238] = bytes.fromhex("ff ff 03 00")
         self.assertEqual(guard_matches(data), [0x1234])
-        self.assertEqual(sorted(HANDLERS), [0x5F90, 0x6D6C])
+        self.assertEqual(sorted(HANDLERS), [0x5F90, 0x6D6C, 0x6F18])
+        self.assertIn("ExcCode 9", HANDLERS[0x6F18])
 
     def test_kernel_init_source_ranges_fit_the_dump(self):
         self.assertEqual(KERNEL_INIT_SOURCES[0x12000][0], 0x14)

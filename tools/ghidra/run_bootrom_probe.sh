@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Map a read-only ATJ2127 Boot ROM dump and decompile the two M30 candidate
+# Map a read-only ATJ2127 Boot ROM dump and decompile the M30 candidate
 # exception targets.  This never writes firmware or executes the dump.
 set -euo pipefail
 
@@ -30,8 +30,8 @@ GHIDRA_JAVA_OPTIONS="${GHIDRA_JAVA_OPTIONS:--Duser.home=$WORK/home}" \
   -noanalysis \
   -scriptPath "$ROOT/tools/ghidra" \
   -postScript MapSegments.java 1 "$ROM" 0x9fc00000 0 0x40000 0 \
-  -postScript MarkFunction.java 0x9fc05f90,0x9fc06d6c \
-  -postScript DumpAt.java 0x9fc05f90,0x9fc06d6c "$WORK/decomp.c" \
+  -postScript MarkFunction.java 0x9fc05f90,0x9fc06d6c,0x9fc06f18 \
+  -postScript DumpAt.java 0x9fc05f90,0x9fc06d6c,0x9fc06f18 "$WORK/decomp.c" \
   2>&1 | tee "$WORK/ghidra.log"
 STATUS=${PIPESTATUS[0]}
 set -e
@@ -39,6 +39,12 @@ set -e
 
 grep -q 'DumpAt: 9fc05f90' "$WORK/ghidra.log"
 grep -q 'DumpAt: 9fc06d6c' "$WORK/ghidra.log"
+grep -q 'DumpAt: 9fc06f18' "$WORK/ghidra.log"
 grep -q 'FUN_9fc05f90' "$WORK/decomp.c"
 grep -q 'FUN_9fc06d6c' "$WORK/decomp.c"
-echo 'BOOT ROM PROBE PASS alternate=0x9fc05f90 epc=0x9fc06d6c'
+grep -q 'FUN_9fc06f18' "$WORK/decomp.c"
+if grep -q '^// failed:' "$WORK/decomp.c"; then
+  echo 'BOOT ROM PROBE FAIL decompiler reported an error' >&2
+  exit 1
+fi
+echo 'BOOT ROM PROBE PASS alternate=0x9fc05f90 epc=0x9fc06d6c exc9=0x9fc06f18'

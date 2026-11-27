@@ -1,6 +1,13 @@
 import unittest
+import json
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+import tempfile
+from unittest.mock import patch
 
-from m30kb import reference_ids, validate_rows
+import m30kb
+from m30kb import validate_rows
 
 
 class KnowledgeFactValidationTests(unittest.TestCase):
@@ -35,34 +42,85 @@ class KnowledgeFactValidationTests(unittest.TestCase):
              "evidence": "finding.md"},
             {"type": "edge", "source": "module:0x10", "target": "module:ram:0x20",
              "kind": "writes-state", "evidence": "finding.md"},
-            {"type": "hypothesis", "id": "candidate:one", "variant": "v1",
-             "status": "inference", "summary": "summary", "evidence": "finding.md"},
-            {"type": "experiment", "id": "experiment:one", "module": "module",
-             "variant": "v1", "address": "0x30", "status": "synthetic-pass",
-             "summary": "summary", "evidence": "finding.md", "reproduce": "probe.sh"},
+            {"type": "experiment", "id": "module:probe:1", "module": "module",
+             "variant": "v1", "address": "0x10", "status": "executed",
+             "summary": "probe summary", "evidence": "finding.md", "reproduce": "probe.sh"},
+            {"type": "hypothesis", "id": "module:hypothesis:1", "variant": "v1",
+             "status": "unconfirmed", "summary": "hypothesis summary",
+             "evidence": "finding.md"},
         ]
         validate_rows(rows)
 
-    def test_rejects_hypothesis_without_evidence_status(self):
-        row = {
-            "type": "hypothesis", "id": "candidate:one", "variant": "v1",
-            "summary": "summary", "evidence": "finding.md",
+    def test_indexes_all_fact_types_but_traces_only_known_function_state_edges(self):
+        function = {
+            "type": "function", "id": "module:0x10", "module": "module",
+            "variant": "v1", "sha256": "abc", "address": "0x10",
+            "symbol": "FUN_10", "isa": "MIPS16", "status": "static",
+            "summary": "function summary", "evidence": "finding.md",
+            "reproduce": "probe.sh",
         }
+        state = {
+            "type": "state", "id": "module:ram:0x20", "module": "module",
+            "variant": "v1", "sha256": "abc", "address": "0x20",
+            "symbol": "state_20", "width_bits": 8, "summary": "state summary",
+            "evidence": "finding.md",
+        }
+        experiment = {
+            "type": "experiment", "id": "module:probe:1", "module": "module",
+            "variant": "v1", "address": "0x10", "status": "pcode-complete",
+            "summary": "distinctive experiment result", "evidence": "finding.md",
+            "reproduce": "probe.sh",
+        }
+        hypothesis = {
+            "type": "hypothesis", "id": "module:hypothesis:1", "variant": "v1",
+            "status": "unconfirmed", "summary": "distinctive marquee candidate",
+            "evidence": "finding.md",
+        }
+        valid_edge = {
+            "type": "edge", "source": function["id"], "target": state["id"],
+            "kind": "writes-state", "evidence": "finding.md",
+        }
+        unresolved_edge = {
+            "type": "edge", "source": function["id"],
+            "target": "resident:unresolved", "kind": "calls-resident-boundary",
+            "summary": "distinctive unresolved timer boundary", "evidence": "finding.md",
+        }
+        rows = [function, state, experiment, hypothesis, valid_edge, unresolved_edge]
 
-        with self.assertRaisesRegex(ValueError, "candidate:one.*status"):
-            validate_rows([row])
+        with tempfile.TemporaryDirectory(prefix="m30kb-test-") as temp:
+            source = Path(temp) / "facts.jsonl"
+            database = Path(temp) / "knowledge.sqlite"
+            source.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
+            with patch.object(m30kb, "SOURCE", source), patch.object(m30kb, "DATABASE", database):
+                with redirect_stdout(StringIO()):
+                    m30kb.build()
 
-    def test_collects_edge_endpoints_without_detailed_facts_as_references(self):
-        edges = [
-            {
-                "source": "module:0x10",
-                "target": "resident:0xbfc00000"
-            }
-        ]
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.search("distinctive marquee candidate")
+                self.assertIn(hypothesis["id"], output.getvalue())
 
-        references = reference_ids(edges, ["module:0x10"])
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.search("distinctive experiment result")
+                self.assertIn(experiment["id"], output.getvalue())
 
-        self.assertEqual(["resident:0xbfc00000"], references)
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.search("distinctive unresolved timer boundary")
+                unresolved_edge_id = m30kb.fact_id(unresolved_edge)
+                self.assertIn(unresolved_edge_id, output.getvalue())
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.show(unresolved_edge_id)
+                self.assertIn("distinctive unresolved timer boundary", output.getvalue())
+
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.trace(function["id"], state["id"])
+                self.assertIn("writes-state", output.getvalue())
+
+                with self.assertRaisesRegex(SystemExit, "unindexed endpoint"):
+                    m30kb.trace(function["id"], "resident:unresolved")
+
+                with redirect_stdout(StringIO()) as output:
+                    m30kb.show(hypothesis["id"])
+                self.assertIn("distinctive marquee candidate", output.getvalue())
 
 
 if __name__ == "__main__":

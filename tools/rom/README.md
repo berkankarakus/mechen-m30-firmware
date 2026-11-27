@@ -76,8 +76,9 @@ while the read-only address sequence is documented in the
 
 No verified M30-specific `adfus.bin` or 256 KiB Boot ROM dump is included in
 this repository. Until one is obtained, the emulator intentionally leaves the
-fixed `0xbfc06d6c` handler unresolved. A dump from a different ATJ2127
-product must not be substituted merely because the chip family matches.
+fixed `0xbfc06d6c` and `0xbfc06f18` handlers unresolved. A dump from a
+different ATJ2127 product must not be substituted merely because the chip
+family matches.
 
 ## Dry run
 
@@ -102,9 +103,11 @@ Before loading the payload, the wrapper calls `adfu_info` and refuses to
 upload unless the client reports `guess: chip = ATJ2127`. This is not a
 device-board or payload-compatibility check. The verifier requires exactly
 256 KiB, prints a SHA-256, and shows the bytes
-at dump offsets `0x5f90` and `0x6d6c`. These are candidates for the
-`0xbfc05f90` and `0xbfc06d6c` targets observed in `ker_xsys.bin`; the alias
-mapping must be confirmed from the dump, not assumed.
+at dump offsets `0x5f90`, `0x6d6c`, and `0x6f18`. These are candidates for the
+`0xbfc05f90` and `0xbfc06d6c` targets observed in `ker_xsys.bin`, plus the
+`0xbfc06f18` ExcCode 9 target selected by `ker_init`'s exception-vector table.
+The `0x9fc00000` readback alias and the actual bytes at each offset must be
+confirmed from a dump, not assumed.
 
 The offline verifier is also covered by the host suite. It rejects partial or
 oversized reads before interpreting candidate offsets, and records every

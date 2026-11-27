@@ -86,8 +86,41 @@ veya sentetik koşu kapsamındadır; gerçek cihaz davranışı anlamına gelmez
   `0x13dcc/0x13dd0/0x13dd4` sayısal adresleri var. Zero-fill/no-effect
   sentinel modelleri ve final `v0` dönüşü community'de; no-effect/sentinel
   kontrolü stock'ta geçti. Bu adres çakışması fiziksel RAM alias'ını,
-  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Sonraki iyi
-  adım bu aralığa yapılan bilinen read/write'ları extracted imajlarda taramak.
+  cihazdaki gerçek clear etkisini veya boot sırasını kanıtlamaz. Aralık
+  taraması `ker_xsys.bin` içindeki `FUN_bfc344f4`'ün `0x13dcc..0x13ddc`
+  aralığından beş sözcük okuyup her birini `exc:` descriptor'ıyla bir ROM
+  callback'ine verdiğini gösterdi. Ghidra p-code bunu sentetik callback ve
+  canary'lerle doğruladı. Aynı prob iki yolu da çalıştırdı: `0x9fc1aa5c`
+  bit 1 clear → MMIO adresine `0x5d`; set → `0x69`. Peripheral rolü/etkisi ve
+  missing fixed-ROM handler'la bağlantısı kanıtlanmadı. `FUN_bfc3416c` guard
+  dalı da sentetik ROM dönüşleriyle gerçek p-code'da çalıştırıldı; iki tanı
+  callback'inin argümanları, flag temizliği ve default-handler sınırı geçti.
+  Guard sözcüğü eşleşirken mesafe `0x93` hata, `0x94` normal dönüş verdi;
+  `0x180` mesafede sentinel uyuşmazlığı da hata dalına girdi. ROM servislerinin
+  doğal dönüşleri ve bu fonksiyonlara gerçek caller bağı bilinmiyor.
+  Ayrı `FUN_bfc340a4` p-code profili gerçek alternatif stack selector'ını
+  doğruladı: `table=0x12000` için `sp&0x3ffff` değerleri `0x11fff` ve
+  `0x12000` alternate stack'e, `0x12001` doğrudan ROM sınırına gidiyor.
+  Alternate yolda 184-byte slot ayrılıyor, eski SP kaydediliyor ve iki sayaç
+  artıyor; `0xbfc05f90` handler gövdesi çalıştırılmıyor. Aynı selector'ın
+  gerçek MIPS32 talimatları QEMU Malta 24Kf/34Kf'de de geçti; index-0 sınır
+  profilleri ve farklı ikinci tablo girdisini ayırt eden index-1 profili SP,
+  sayaç ve canary kontrolleriyle doğrulandı. Yazılabilir operandlar RAM'e
+  yönlendirildi, sabit-ROM hedefi yalnız `jr ra` stub'ı, tablo eşikleri sentetik.
+  QEMU aynı zamanda `0xbfc34074` girişini doğrudan çağırdı: CP0 EPC ve dönüş
+  RA'sı TLB ile RAM'e eşlenen `0x13dd8/0x13ddc` alanlarına yazıldı; `0xbfc06d6c`
+  yalnız dönüş stub'ı. Bu doğal exception/caller veya consumer bağlantısını
+  kanıtlamıyor.
+  Daha güçlü birleşik Malta koşusunda gerçek `break 0` olayı kernel vector'ını
+  çalıştırdı; slot 9'daki sentetik `j 0xbfc34074` bridge'i gerçek xsys girişine
+  aktardı. Beş frame sözcüğü ve çevre canary'leri 24Kf/34Kf'de doğrulandı.
+  Gerçek ROM handoff'u veya boot sırası kanıtlanmış değil.
+  Callback bir diagnostic-format/emission helper adayı, çıkış hedefi bilinmiyor.
+  Yerel tarihli firmware kopyalarında `ker_xsys.bin` byte-identical;
+  raw literal taraması iki fonksiyonun doğrudan entry pointer'ını göstermedi.
+  Sonraki adım missing
+  fixed-ROM exception caller edge'ini mevcut dispatch ile eşleştirmek; bunu
+  kanıtlamadan varsayımsal call edge eklememek.
 - `bash tools/emu/run_static_suite.sh --host-only` 2026-11-24'te geçti:
   toplam 563 test, 3 skip. Tam `bash tools/emu/run_static_suite.sh` bu
   checkpoint'te çalıştırılmadı; bu yüzden merge edilmiş yeni Ghidra/QEMU
