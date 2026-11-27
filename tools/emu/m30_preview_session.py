@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import argparse
+import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,15 +83,27 @@ class M30PreviewSession:
         args: tuple[int, int, int, int],
         *,
         exception: Any | None = None,
+        task_record: bytes | None = None,
     ) -> Any:
         """Record the callback envelope and any supplied exception context."""
 
-        if exception is None:
+        if exception is None and task_record is None:
             return self.callback.trap(module_id, args)
 
-        trap_with_exception = getattr(self.callback, "trap")
+        trap_with_context = getattr(self.callback, "trap")
 
-        return trap_with_exception(module_id, args, exception=exception)
+        if exception is None:
+            return trap_with_context(module_id, args, task_record=task_record)
+
+        if task_record is not None:
+            return trap_with_context(
+                module_id,
+                args,
+                exception=exception,
+                task_record=task_record,
+            )
+
+        return trap_with_context(module_id, args, exception=exception)
 
     def submit_audio_packet(self, payload: bytes) -> int:
         """Queue one observed USB packet and retain only framing statistics."""
@@ -142,7 +155,54 @@ class M30PreviewSession:
             if exception is not None:
                 call_trace["exception"] = exception
 
+            kernel_event = getattr(call, "kernel_event", None)
+
+            if kernel_event is not None:
+                event_trace = {
+                    "label": kernel_event.label,
+                    "index": f"0x{kernel_event.index:02x}",
+                    "pointer": f"0x{kernel_event.pointer:08x}",
+                    "kind": kernel_event.kind,
+                    "mips16": kernel_event.mips16,
+                    "dispatch": "inferred a3 table index",
+                }
+
+                if kernel_event.far is not None:
+                    far = kernel_event.far
+                    event_trace["far"] = {
+                        "group": far.group,
+                        "bank_index": far.bank_index,
+                        "window_address": f"0x{far.window_address:08x}",
+                        "file_offset": (
+                            f"0x{far.file_offset:08x}"
+                            if far.file_offset is not None
+                            else "UNKNOWN"
+                        ),
+                    }
+
+                if kernel_event.task_id is not None:
+                    record = kernel_event.task_record
+                    event_trace["task"] = {
+                        "record_pointer": f"0x{int(call.args[0]):08x}",
+                        "entry": f"0x{record.entry:08x}" if record is not None else "UNKNOWN",
+                        "arg": f"0x{record.arg:08x}" if record is not None else "UNKNOWN",
+                        "stack_top": (
+                            f"0x{record.stack_top:08x}" if record is not None else "UNKNOWN"
+                        ),
+                        "size": f"0x{record.size:04x}" if record is not None else "UNKNOWN",
+                        "id": f"0x{kernel_event.task_id:02x}",
+                        "flags": f"0x{kernel_event.task_flags:02x}",
+                        "record_source": "caller-provided" if record is not None else "UNKNOWN",
+                        "raw_args": call_trace["args"],
+                    }
+
+                if kernel_event.result is not None:
+                    event_trace["result"] = f"0x{kernel_event.result:08x}"
+
+                call_trace["kernel_event"] = event_trace
+
             callbacks.append(call_trace)
+
         return {
             "provenance": {
                 "kind": "hybrid-host-session",
@@ -220,6 +280,18 @@ def main() -> int:
         help="optional caller-provided RA for the extracted exception-handoff trace",
     )
     parser.add_argument(
+        "--kernel-drv",
+        type=Path,
+        help="verified kernel.drv image for synthetic slot-0x0f operation events",
+    )
+    parser.add_argument(
+        "--callback-task-record",
+        type=_parse_int,
+        nargs=4,
+        metavar=("ENTRY", "ARG", "STACK_TOP", "SIZE"),
+        help="caller-observed op-0x4a record fields (little-endian words and u16 size)",
+    )
+    parser.add_argument(
         "--submit-packet",
         action="store_true",
         help="submit one deterministic 200-byte USB-audio test packet",
@@ -228,6 +300,18 @@ def main() -> int:
 
     if args.callback_ra is not None and args.callback_exception is None:
         parser.error("--callback-ra requires --callback-exception")
+
+    task_record = None
+
+    if args.callback_task_record is not None:
+        if args.callback_module_id != 0x0F or args.callback_args[3] != 0x4A:
+            parser.error("--callback-task-record requires module 0x0f operation 0x4a")
+
+        try:
+            task_record = struct.pack("<IIIH", *args.callback_task_record)
+
+        except struct.error:
+            parser.error("--callback-task-record fields must fit three u32s and one u16")
 
     # The emulator directories intentionally use direct-module imports.  Add
     # the simulation directory only at this CLI boundary so the shared host
@@ -241,7 +325,9 @@ def main() -> int:
     session = M30PreviewSession.create(
         args.music_ap,
         args.music_sty,
-        callback=UsoundCallbackBoundary(),
+        callback=UsoundCallbackBoundary(
+            kernel_image=args.kernel_drv.read_bytes() if args.kernel_drv is not None else None
+        ),
         audio=UsbAudioStream(),
         title=args.title,
         artist=args.artist,
@@ -261,6 +347,7 @@ def main() -> int:
         args.callback_module_id,
         tuple(args.callback_args),
         exception=exception,
+        task_record=task_record,
     )
     if args.submit_packet:
         packet_bytes = getattr(session.audio, "contract").packet_bytes
