@@ -12,11 +12,11 @@ PYTHONPATH=tools/emu python3 tools/emu/auddev_binary_probe.py \
 ```
 
 `tools/ghidra/run_auddev_bank_probe.sh` is retained as an exploratory
-disassembly, not as a validated bank-loader probe. Its assumed A/B table
-layout is not established for `aud_dev.drv`; likewise,
-`tools/inspect_drv.py` expects a different compact start/end table. Do not use
-either tool's generic bank-table interpretation as proof of an aud_dev file
-mapping.
+disassembly, not as a validated runtime bank-loader probe. The `aud_dev.drv`
+A/B unit-table layout and bank-5 file offset are now VERIFIED from the header
+bytes and independent bank-5 code checks. The older assumptions in that
+script and in `tools/inspect_drv.py` do not establish the device's bank-load
+mechanism; see [the unit-table evidence](findings-kernel-op-table.md#driver-bank-tables-verified).
 
 The member is byte-identical in the local community, stock, first-pass,
 V1.101.11, V1.101.12, and V5 extractions. SHA-256:
@@ -39,30 +39,32 @@ modules `0x10` and `0x0f`. They are not the COP2-looking words at file `0x200`.
 The loaded table begins `25 9b 08 2c 91 9b 08 2c`; entry 18 at file `0x248`
 is `0x2c149401`.
 
-The reported nonzero payload starts are
-`0x500, 0x800, 0xe00, 0x1600, 0x1700, 0x1f00, 0x2500, 0x2900`. The proposed
-far-pointer encoding is `0x2c000000 | (bank << 18) | window_offset`; entry 18
-`0x2c149401` therefore identifies slot `0x0c`, bank 5, and MIPS16 window
-offset `0x9401` (aligned address `0x9400`). The file mapping of bank 5 to
-`0x1f00` is supported by the independent reference `0x2c149958` at file
-`0x240c`, which resolves to the `spk_comp.dat` name at file `0x2458` under that
-mapping. File `0x2500` is the next bank (bank 6), not bank 5. These are static
-address correlations; the generic `inspect_drv.py` and the current
-`run_auddev_bank_probe.sh` table assumptions do not validate the aud_dev bank
-loader or its runtime mapping. The existing `driver_banks.py` parser is
-specific to the `drv_ui.drv` layout and does not parse this member's table.
+The header's little-endian `u16` bank tables use 0x100-byte units: the upper
+nibble gives size and the low 12 bits give start. Table B begins at header
+`0x100`, with its base at `+0x4c`; entry 5 decodes to file `0x1f00`, size
+`0x600` (VERIFIED bytes). Entry 18 of the loaded far-pointer table,
+`0x2c149401`, identifies group B, bank 5, and tagged MIPS16 window address
+`0x9401` (aligned `0x9400`). The independent `0x2c149958` reference at file
+`0x240c` reaches the `spk_comp.dat` name at file `0x2458` with that mapping;
+file `0x2500` begins bank 6. This verifies the static file/window mapping,
+not the runtime bank-load effect or the fixed-ROM operation dispatcher
+(UNKNOWN). `tools/emu/driver_banks.py` parses the distinct `drv_ui.drv`
+big-endian start/end layout and is not an `aud_dev.drv` decoder.
 
 ## Operation dispatch and EQ shared memory
 
 `mmm_pp.al` calls module `0x0c`, op `0x12` with argument 0 equal to `1` and
 argument 1 pointing to `dae_cfg` shared memory. Other calls use argument 0
-values `0`, `2`, and `3`. The proposed table-index-equals-op mapping is a
-strong inference: the 13 observed operation calls align with their table
-entries, while shifts of one entry do not. The fixed-ROM dispatcher is absent,
-so the mapping is not proven.
+values `0`, `2`, and `3` (VERIFIED code for that module). MEngine requests
+`mmm_mp.al` by name; its EQ command `0x1f` also calls module `0x0c`, op
+`0x12`, with argument 0 equal to `1` and the shared pointer as argument 1
+(VERIFIED decompile; see [the current chain](findings-kernel-op-table.md#from-config-item-0x96-to-the-dsp-file-name)). The path that loads
+`mmm_pp.al` remains UNKNOWN. The table-index-equals-op mapping is an
+INFERENCE: the 13 observed calls align with entries, but the fixed-ROM
+dispatcher is absent.
 
 Under that candidate mapping, entry 18 points to the MIPS16 bytes at `0x9400`.
-The reported static Ghidra analysis of that file range says the `id=1` path checks
+The static Ghidra analysis of that verified file range says the `id=1` path checks
 `SHM+7`, reads flags and values around `SHM+3..+0xd`, consumes sixteen
 8-byte bands from `SHM+0x10..+0x8f`, and reads gain adjustments from
 `SHM+0xc0..+0xcb` into a structure at `cfg+0x94`. This is the first evidence
@@ -116,8 +118,9 @@ copies. The reproducible command and exact scope are in
 [`group-probe evidence`](evidence/auddev-bank5-groups-2026-11-24/README.md).
 
 The runner checks mapped code bytes against file offset `0x1f00` in the
-hash-pinned driver; it does not validate the device bank-loader or ROM dispatch
-mapping. Association with module `0x0c` operation `0x12`, the caller-supplied
+hash-pinned driver. The header table independently verifies that file offset;
+the runner does not validate the runtime bank loader or ROM dispatch mapping.
+Association with module `0x0c` operation `0x12`, the caller-supplied
 structure base, the untested `+8` file/RAM path, and any audible DSP or hardware
 effect remain separate evidence boundaries.
 
@@ -199,6 +202,7 @@ no-partial-write behavior; they validate the model implementation, not the
 firmware-to-ROM dispatch boundary or physical register effects.
 
 Remaining unknowns include whether the ROM dispatcher indexes the table
-directly by op, the exact behavior of non-EQ operations, `spk_comp.dat`
+directly by op, how the runtime bank loader uses the verified static table,
+the exact behavior of non-EQ operations, `spk_comp.dat`
 consumption, and the coefficient/DSP output path. No firmware patch or device
 write has been made.

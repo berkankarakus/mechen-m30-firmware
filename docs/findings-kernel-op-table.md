@@ -31,11 +31,17 @@ Far pointers carry the group in the high nibble of the top byte (1 is A, 2 is
 B), the bank in `byte2 / 4` and the window address in the low 16 bits (bit 0
 is the MIPS16 tag). Implemented in `tools/sim/driver_bank_table.py`.
 
-CONFLICT to resolve: `tools/emu/driver_banks.py` reads the same tables as
-big-endian four-byte `(start, end)` pairs. That reading does not satisfy the
-contiguity evidence above for `kernel.drv` and `aud_dev.drv` (it would reject
-the last `kernel.drv` entry). `drv_ui.drv`, which that module's tests use, may
-use a different layout. The module was left unchanged.
+The `drv_ui.drv` parser in `tools/emu/driver_banks.py` uses big-endian four-byte
+`(start, end)` pairs. The two decoders must remain scoped to their respective
+evidence. On the real `drv_ui.drv` (SHA-256
+`011f4e6a50738026ac641370f493c5df2e59adc435871d8a213e717604d2576a`),
+the observed far pointer `0x26089471` resolves to file `0x8af1` with the
+existing UI parser (aligned entry `0x8af0`, nonzero MIPS16 bytes). Applying the
+kernel/aud_dev unit-table rule directly would resolve bank B2 to file `0x7a71`
+(aligned `0x7a70`, all zero bytes). The known UI B3 pool at file `0x992c..0x996c`
+also falls in B3 under the existing parser, versus B6 under direct unit-table
+indexing. This is VERIFIED for these file bytes and pointer positions; the
+hardware bank loader is still UNKNOWN. No parser was replaced on this evidence.
 
 ## Slot 0x0f operation table (VERIFIED bytes, dispatcher link INFERENCE)
 
@@ -143,8 +149,10 @@ Bank A6 of `kernel.drv`, decompiled and executed with
   lookup `0xbfc196d0` is outside every corpus segment (UNKNOWN).
 
 Consequence (VERIFIED in kernel code, dispatcher link INFERENCE): `config.ap`
-`FUN_40dd5034` (create id 3) and `mmm_pp.al` `FUN_68012d00` (attach id 3, stored
-at context `+0x9c`) receive the same pointer. Only `config.ap` references
+`FUN_40dd5034` creates id 3; both `mmm_mp.al` and `mmm_pp.al`
+`FUN_68012d00` attach id 3 and store the same pointer at context `+0x9c`.
+The music/MEngine path requests `mmm_mp.al`; the loader path for `mmm_pp.al`
+is UNKNOWN. Only `config.ap` references
 `FUN_40dd4fe8` and so creates the segment; `music.ap`, `mainmenu.ap`,
 `playlist.ap`, `setting.ap` and `browser.ap` contain the code but no pointer to
 it (static pointer scan; computed calls are not excluded).
@@ -197,11 +205,12 @@ Models: `tools/sim/dae_shm_flow.py`, tests `tools/sim/test_dae_shm_flow.py`.
    rate is below `0xbb81` (at most 48000 Hz) and `audiopp.dsp` above it. The
    decoder DSP is opened first by index (`ctx+0x80`).
 6. `mmm_pp.al` holds a simpler variant (command 8 to `FUN_68013258`: nonzero
-   `+2` gives `audiopp.dsp` at every rate). It shares its resident base
-   (`0xbfc13500`) with `mmm_mp.al`, so the two cannot be resident together, and no
-   corpus member names `mmm_pp`. Which module a given feature loads is UNKNOWN;
-   the music path uses `mmm_mp.al` (INFERENCE from the slot stubs). The earlier
-   `mmm_pp` probe results stay valid for that module only.
+   `+2` gives `audiopp.dsp` at every rate). Both `mmm_pp.al` and `mmm_mp.al`
+   are present in the extracted stock and community trees and share the
+   resident base `0xbfc13500`; which feature loads `mmm_pp.al` is UNKNOWN.
+   MEngine requests `mmm_mp.al` by name (VERIFIED caller/literal, successful
+   load INFERENCE). See [`findings-mmm-module-selection.md`](findings-mmm-module-selection.md).
+   The earlier `mmm_pp` probe results stay valid for that module only.
 
 Order in `_play` (VERIFIED code): builder copy, mmm_mp command `0x1f`, `AOUT_OPEN`,
 `PLAY` (DSP selection). The copy therefore precedes the DSP choice whenever the

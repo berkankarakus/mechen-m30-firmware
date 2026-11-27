@@ -78,17 +78,26 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
 - DSP selection: `FUN_40dd4c00` loads state `+0x18/+0x19` from config items
   `0x96/0x97` (defaults 1/0). `FUN_40dd4fe8` maps state `+0x18 == 1` to
   `dae_cfg[+2]=1,+3=0`; otherwise it writes `+2=0,+3=1`, then creates the
-  shared buffer. `mmm_pp.al` selects `audiopp.dsp` for nonzero shared `+2` and
-  `adppext.dsp` for zero. This closes the config-to-DSP-image selection path
-  for the default config. Calling `audiopp.dsp` the EQ DSP is still inference;
-  its DSP internals and audible effect are unavailable.
+  shared buffer (VERIFIED). MEngine requests `mmm_mp.al` by name; its
+  `FUN_68312d00` requests `adppext.dsp` when shared `+2` is zero, and for
+  nonzero `+2` requests `adppdrc.dsp` at or below 48 kHz or `audiopp.dsp`
+  above 48 kHz (VERIFIED code and p-code filename requests). With default
+  item `0x96=1`, the builder gate is open; the default DSP choice follows this
+  rate-dependent rule only if the persisted DAE/settings blocks survive the
+  ROM flash round trip and no intervening writer changes them (INFERENCE).
+  `mmm_pp.al` has a different, simpler selector, but its runtime loader path
+  is UNKNOWN. The open service is synthetic in the p-code probe; actual DSP
+  loading, internal role and audible effect are UNKNOWN.
 - Config item `0x98` defaults to zero and initializes DAE `+0x0c`; the MEngine
   builder returns early if its submitted structure's `+0x0c` equals one. The
   byte mapping and guard are verified, but the product meaning of this mode
-  flag is unknown. Config state `+0x18/+0x19` and the MEngine globals at
-  `0x9fc15db4/0x9fc15db5` have not been proven to be the same RAM object or
-  directly connected, so do not infer the MEngine runtime active/selector
-  values from config defaults alone. Decompiles: [factory fields](evidence/config-dae-factory-2026-11-24/factory.c), [state and mode fields](evidence/config-dae-factory-2026-11-24/state.c).
+  flag is unknown. `config.ap` writes the settings and DAE images under flash
+  IDs `0` and `0xf0000`; `mengine.ap` reads those IDs into its own RAM blocks
+  (VERIFIED decompile). The MEngine builder gate is settings-copy byte
+  `0x9fc15db4` (`+0x18`), not the EQ selector; the builder also requires
+  local DAE `+0x0c != 1` (VERIFIED code). These are separate RAM objects
+  linked through the flash service; its actual persistence and intervening
+  writes remain UNKNOWN. Decompiles: [factory fields](evidence/config-dae-factory-2026-11-24/factory.c), [state and mode fields](evidence/config-dae-factory-2026-11-24/state.c), [current kernel/DAE chain](findings-kernel-op-table.md#from-config-item-0x96-to-the-dsp-file-name).
 - Reproducible check: `bash tools/ghidra/run_eq_probe.sh` decompiles the
   community `mengine.ap` EQ loader and checks its pointer pool, seven-band
   frequency table, gain rows, and the `setting.ap` Custom row. It is a static
@@ -142,32 +151,29 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   unresolved.
 - V Shared-memory chain: `config.ap` creates id 3 with a 0xf0-byte buffer and
   copies the source structure; `mengine.ap` builds/copies the same 0xf0-byte
-  structure; `mmm_pp.al` attaches id 3 and stores its handle at object offset
-  +156. `mmm_pp.al` then calls module `0x0c`, op `0x12`, with `a0=1` and the
-  SHM handle as `a1`; the same op is called with `a0=2` for sample rate, `a0=3`
-  for another context structure, and `a0=0` for a channel/rate structure.
-  `a0=1` is the EQ/DAE payload by call shape; the aud_dev target below now
-  supplies matching consumer evidence, while the ROM op-dispatch mapping is
-  still an inference.
-  `mmm_pp.al` directly reads only SHM byte `+2`, selecting `adppext.dsp` when
-  zero and `audiopp.dsp` when nonzero; it does not directly inspect the band
-  range `+0x10..+0x8f` itself. The bank-5 routine reached by table entry 18
-  reads sixteen 8-byte band slots from that range under its `a0=1` path. The
-  actual ROM rule that maps op `0x12` to table entry 18 remains unverified.
-- V `config.ap` sets SHM byte `+2` and `+3` from config state `+0x18` before
-  creating `dae_cfg`: item `0x96` default 1 selects `+2=1,+3=0`. `mmm_pp.al`
-  then selects `audiopp.dsp` for nonzero `+2`. This establishes the default
-  image-selection path, not the DSP's internal role or audible EQ effect.
+  structure. `mmm_mp.al` attaches id 3 during open and forwards its EQ command
+  `0x1f` to module `0x0c`, op `0x12`, with `a0=1` and the SHM pointer as `a1`
+  (VERIFIED decompile; ROM dispatch INFERENCE). `mmm_pp.al` independently
+  attaches id 3 at object offset `+0x9c` and calls the same candidate op, but
+  no runtime path that loads `mmm_pp.al` is known. Its `+2` selector chooses
+  `adppext.dsp` at zero and `audiopp.dsp` otherwise; that rule applies only
+  to `mmm_pp.al`. The `aud_dev` bank-5 routine reads sixteen 8-byte band slots
+  from `+0x10..+0x8f` under `a0=1` (VERIFIED code); the ROM mapping from op
+  `0x12` to table entry 18 and actual copy-service effect remain UNKNOWN.
+- V `config.ap` sets DAE `+2/+3` from state `+0x18` before creating `dae_cfg`:
+  item `0x96` default 1 selects `+2=1,+3=0`. `mmm_mp.al` then applies the
+  rate-dependent DSP request rule above (VERIFIED code; default runtime chain
+  INFERENCE). This does not establish DSP internals or audible EQ effect.
 - V `aud_dev.drv` has two nonempty YQHX segments: the resident module stubs at
   file `0x300` (8 bytes → `0xbfc09f58`) and the 21-word table at file `0x200`
   (`0x54` bytes → `0x9fc09f00`). Table entry 18 is `0x2c149401`; the static
-  far-pointer/file correlation associates it with bank 5, candidate MIPS16
-  address `0x9400`, file `0x1f00`. The generic bank-table assumptions in
-  `inspect_drv.py` and `run_auddev_bank_probe.sh` do not validate this loader
-  mapping. The reported static Ghidra analysis of the candidate bytes shows
+  unit bank table B decodes bank 5 at file `0x1f00`, size `0x600`, with
+  MIPS16 window address `0x9400` (VERIFIED bytes). The generic bank-table
+  assumptions in `inspect_drv.py` and `run_auddev_bank_probe.sh` do not
+  establish the device's runtime bank loader. The reported static Ghidra analysis of these bytes shows
   an `a0=1` path that reads sixteen 8-byte bands from the shared-memory pointer
   and applies per-band adjustments. Treat the code interpretation as static
-  evidence and the bank-to-file execution mapping as a candidate. The
+  evidence and the runtime bank-loading effect as UNKNOWN. The
   table-index-equals-op relationship remains a strong inference because the
   fixed-ROM dispatcher is unavailable; neither point proves audible DSP effect.
 - The reported static disassembly says the `id=1` path iterates over 16
@@ -179,14 +185,16 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
 - Reported follow-up decompile of the same bank-5 candidate adds conditional
   `dae_cfg` groups: `+7` gates the 16-band EQ copy and its adjustments;
   `+8` gates speaker compensation; `+9..+0xd` gate other gain/limiter groups.
-  The report says rates above 48 kHz disable the EQ bank. Config item `0x85`
+  Above 48 kHz the code clears three consumer-state fields; this does not
+  establish that the whole EQ group is disabled. Config item `0x85`
   defaults to zero at `+7`, while the MEngine builder sets `+7=1` when it
   submits EQ data; the builder sets `+0xd` when selector is nonzero. Thus
   Off and a zero-gain Custom curve have identical seven-band values, but may
   differ through the reported `+0xd` group. This group's units and audible
-  effect are unknown. The follow-up decompile and p-code run were not retained;
-  some literal-pool pointers remain unresolved, so the absolute `cfg` base is
-  not verified. See [aud_dev findings](findings-auddev-driver.md).
+  effect are unknown. The follow-up decompile and p-code run are retained in
+  [aud_dev findings](findings-auddev-driver.md); their copy service is a
+  synthetic candidate `memcpy` shim. The device's actual `cfg` base and ROM
+  dispatch remain UNKNOWN.
 - `tools/ghidra/run_auddev_eq_copy_probe.sh` executes this candidate bank-5
   path in Ghidra p-code using a hash-pinned driver and either synthetic `id=1`
   data or a supplied `0xf0`-byte structure. The real instructions issue 16
@@ -208,7 +216,7 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   and synthetic low/high threshold-and-gain settings. Ghidra p-code execution
   confirms the candidate consumer's 16 record transfers and resulting gain
   arithmetic for all twelve cases under a synthetic module-`0x10` memcpy shim.
-  The candidate bank mapping, ROM dispatch/service, actual runtime adjustment
+  The runtime bank loading, ROM dispatch/service, actual runtime adjustment
   values, DSP use, and audibility remain unverified.
 - Device feedback for the experimental V1.292 Custom-curve/50 ms candidate:
   the user reported no audible difference between `Custom` and `Off`; a
@@ -238,14 +246,16 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   units and the DSP's clipping limits remain unknown. The 50 Hz first-band
   value in the 2024-04-24 image proves that value was shipped in that image,
   not that it is safe on another revision or hardware path.
-- V Negative corpus scan: the module 0x42 stub, command 0x1f, and EQ shared
-  structure references are present in `mengine.ap`; the code that receives
-  module 0x42 is absent from the scanned AP/driver/DSP corpus and is expected
-  in fixed ROM or another unavailable component. `coeffi.bin` uses a separate
+- V The module `0x42` stub, command `0x1f`, and EQ shared-structure references
+  are present in `mengine.ap`. The earlier AP/driver/DSP scan omitted `.al`
+  members: `mmm_mp.al` contains the command `0x1f` handler and MEngine requests
+  that module by name (VERIFIED code/callsite; module-`0x42` binding and actual
+  load remain INFERENCE/UNKNOWN). `coeffi.bin` uses a separate
   six-block loader (six blocks of 0x1a00 bytes); the EQ builder does not refer
   to it, and the EQ frequency table was not found inside the DSP blobs. An EQ
-  connection to `coeffi.bin` is therefore unproven. `audiopp.dsp` is listed
-  for loading by `mmm_pp.al`, but that alone does not prove it consumes EQ data.
+  connection to `coeffi.bin` is therefore unproven. Both `mmm_mp.al` and
+  `mmm_pp.al` can request `audiopp.dsp` under different conditions; neither
+  filename request proves that DSP consumes EQ data.
 - V Independent Ghidra decompilation of `mmm_pp.al` (SHA-256
   `9a7a6c2215b2594e2ef816b8a3e592968921afff7747f3cadbd6e71bf74047d6`)
   confirms resident `FUN_bfc138c0` switches on its second argument. Case
@@ -254,8 +264,8 @@ Evidence boundary: the event-decoder helper's success/result (`0x2604`), **music
   with `a0=1` and the object's `+0x9c` handle. Value `0x1f` is not a switch
   case and reaches the default error path. This rejects a direct
   `FUN_bfc138c0(event=0x1f) -> FUN_68013118` mapping. It does not establish
-  whether module `0x42` command `0x1f` is translated into another application
-  event or handled outside `mmm_pp.al`; the command receiver remains unknown.
+  a `mmm_pp.al` command-`0x1f` receiver. `mmm_mp.al` has a command-`0x1f`
+  handler; the exact module-`0x42` dispatch binding remains an inference.
 - V music.ap contains no eq table (no byte pattern match in any member except setting.ap, mengine.ap).
 
 ## B. usound
