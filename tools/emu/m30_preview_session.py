@@ -41,6 +41,28 @@ class AudioStream(Protocol):
         ...
 
 
+class EqAudioSession(Protocol):
+    """Injected host model for the recovered EQ/DAE playback flow."""
+
+    def edit_custom(self, band_index: int, event: int) -> bool:
+        ...
+
+    def confirm_custom(self) -> None:
+        ...
+
+    def cancel_custom(self) -> None:
+        ...
+
+    def music_start(self, stored_selector: int, *, engine_playing: bool) -> bool:
+        ...
+
+    def play(self, sample_rate_hz: int) -> str:
+        ...
+
+    def trace(self) -> dict[str, object]:
+        ...
+
+
 @dataclass
 class M30PreviewSession:
     """One deterministic visible-frame plus boundary-observation session."""
@@ -49,6 +71,7 @@ class M30PreviewSession:
     ui: NowPlaying
     callback: CallbackBoundary
     audio: AudioStream
+    eq: EqAudioSession | None = None
     submitted_packets: int = 0
     submitted_frames: int = 0
 
@@ -65,6 +88,7 @@ class M30PreviewSession:
         album: str,
         filename: str,
         scroll_offset: int,
+        eq: EqAudioSession | None = None,
     ) -> "M30PreviewSession":
         sink, ui = render_preview(
             music_ap,
@@ -75,7 +99,7 @@ class M30PreviewSession:
             filename=filename,
             scroll_offset=scroll_offset,
         )
-        return cls(sink=sink, ui=ui, callback=callback, audio=audio)
+        return cls(sink=sink, ui=ui, callback=callback, audio=audio, eq=eq)
 
     def observe_callback(
         self,
@@ -112,6 +136,36 @@ class M30PreviewSession:
         self.submitted_packets += 1
         self.submitted_frames += frames
         return frames
+
+    def edit_custom_eq(self, band_index: int, event: int) -> bool:
+        if self.eq is None:
+            raise RuntimeError("EQ/DAE host model is not configured")
+
+        return self.eq.edit_custom(band_index, event)
+
+    def confirm_custom_eq(self) -> None:
+        if self.eq is None:
+            raise RuntimeError("EQ/DAE host model is not configured")
+
+        self.eq.confirm_custom()
+
+    def cancel_custom_eq(self) -> None:
+        if self.eq is None:
+            raise RuntimeError("EQ/DAE host model is not configured")
+
+        self.eq.cancel_custom()
+
+    def start_music_eq(self, stored_selector: int, *, engine_playing: bool) -> bool:
+        if self.eq is None:
+            raise RuntimeError("EQ/DAE host model is not configured")
+
+        return self.eq.music_start(stored_selector, engine_playing=engine_playing)
+
+    def play_with_eq(self, sample_rate_hz: int) -> str:
+        if self.eq is None:
+            raise RuntimeError("EQ/DAE host model is not configured")
+
+        return self.eq.play(sample_rate_hz)
 
     def trace(self) -> dict[str, object]:
         """Return JSON-safe evidence from the complete host session."""
@@ -203,7 +257,7 @@ class M30PreviewSession:
 
             callbacks.append(call_trace)
 
-        return {
+        trace = {
             "provenance": {
                 "kind": "hybrid-host-session",
                 "lcd": "real music.ap/music.sty renderer plus recovered LCD sink",
@@ -230,6 +284,11 @@ class M30PreviewSession:
             },
             "callback": {"calls": callbacks},
         }
+
+        if self.eq is not None:
+            trace["eq"] = self.eq.trace()
+
+        return trace
 
     def write_trace(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

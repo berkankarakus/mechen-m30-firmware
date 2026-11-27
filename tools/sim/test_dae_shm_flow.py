@@ -7,10 +7,15 @@ from dae_shm_flow import (
     SHM_BASE_POINTER,
     SHM_ID,
     DaeSharedMemoryFlow,
+    FirmwareEqAudioSession,
     mmm_mp_pp_dsp_name,
     mmm_pp_pp_dsp_name,
 )
 from dsp_model import DAE_CONFIG_BYTES
+from m30_model import (
+    FIRMWARE_EQ_SLIDER_DECREASE_EVENT,
+    FIRMWARE_EQ_SLIDER_INCREASE_EVENT,
+)
 
 
 def dae_with_marker() -> bytes:
@@ -228,6 +233,73 @@ class MusicStartTests(unittest.TestCase):
         flow = self.make()
         flow.music_start(9, engine_playing=False)
         self.assertEqual((flow.eq_type_byte, flow.selector_byte), (0, 0))
+
+
+class FirmwareEqAudioSessionTests(unittest.TestCase):
+    def make(self, *, state_flag=1, active=None):
+        return FirmwareEqAudioSession(
+            state_flag=state_flag,
+            dae_configuration=bytes(DAE_CONFIG_BYTES),
+            custom_gains=(0, 0, 0, 0, 0, 0, 0),
+            engine_active=active,
+        )
+
+    def test_custom_edit_submits_builder_output_and_play_selects_dsp(self):
+        session = self.make()
+
+        self.assertTrue(session.edit_custom(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+        self.assertEqual(session.flow.shared_memory[7], 1)
+        self.assertEqual(
+            struct.unpack_from("<h", session.flow.shared_memory, 0x14)[0],
+            10,
+        )
+        self.assertEqual(session.play(48000), "adppdrc.dsp")
+        self.assertEqual(session.play(48001), "audiopp.dsp")
+        self.assertEqual(session.last_auddev_state.eq_flag_3a, 0)
+        self.assertEqual(session.last_auddev_state.busy_28, 0)
+
+    def test_play_exposes_bounded_auddev_state_at_48_khz(self):
+        session = self.make()
+        session.music_start(1, engine_playing=False)
+
+        self.assertEqual(session.play(48000), "adppdrc.dsp")
+        self.assertEqual(session.last_auddev_state.eq_flag_3a, 1)
+        self.assertEqual(session.last_auddev_state.busy_28, 1)
+        self.assertEqual(session.last_auddev_state.drc_flag_40, 0)
+        self.assertEqual(
+            session.last_auddev_state.bands,
+            session.flow.shared_memory[0x10:0x90],
+        )
+
+    def test_cancel_restores_slider_but_not_the_last_previewed_engine_curve(self):
+        session = self.make()
+        session.edit_custom(0, FIRMWARE_EQ_SLIDER_DECREASE_EVENT)
+        previewed = session.flow.shared_memory
+
+        session.cancel_custom()
+
+        self.assertEqual(session.slider.custom_gains, (0, 0, 0, 0, 0, 0, 0))
+        self.assertEqual(session.flow.shared_memory, previewed)
+        self.assertEqual(struct.unpack_from("<h", previewed, 0x14)[0], -10)
+
+    def test_inactive_override_keeps_slider_edit_out_of_shared_memory(self):
+        session = self.make(active=False)
+
+        self.assertTrue(session.edit_custom(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+        self.assertEqual(session.flow.shared_memory[7], 0)
+        self.assertEqual(session.play(44100), "adppdrc.dsp")
+
+    def test_trace_separates_host_model_from_unexecuted_services(self):
+        session = self.make()
+        session.music_start(2, engine_playing=False)
+        session.play(44100)
+
+        trace = session.trace()
+
+        self.assertEqual(trace["selector"], 2)
+        self.assertEqual(trace["last_dsp_name"], "adppdrc.dsp")
+        self.assertEqual(trace["auddev"]["eq_flag_3a"], 1)
+        self.assertIn("ROM services", trace["provenance"])
 
 
 MENGINE_PATH = (

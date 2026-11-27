@@ -32,9 +32,9 @@ noted):
    chooses the pp DSP from shared byte ``+2``: zero gives ``adppext.dsp``;
    nonzero gives ``adppdrc.dsp`` at or below 48000 Hz and ``audiopp.dsp``
    above it.  ``mmm_pp.al`` holds a simpler variant (nonzero gives
-   ``audiopp.dsp``).  It shares its resident base with ``mmm_mp.al`` and no
-   corpus member names it, so which one runs for music is the mmm_mp path via
-   MEngine's slot-0x42 calls (inference from the slot stubs).
+   ``audiopp.dsp``).  It shares its resident base with ``mmm_mp.al``.  Both
+   members are present in the extracted corpus; MEngine requests
+   ``mmm_mp.al`` by name, while the loader path for ``mmm_pp.al`` is unknown.
 
 Unproven inputs, kept explicit instead of guessed:
 
@@ -56,6 +56,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from auddev_dae_update import AudDevDaeState, apply_dae_update
 from dsp_model import (
     DAE_CONFIG_BYTES,
     DAE_EQ_MAX_SAMPLE_RATE_HZ,
@@ -64,7 +65,11 @@ from dsp_model import (
     MMM_MP_DSP_NAMES,
 )
 from kernel_ops import KernelShmRegistry
-from m30_model import FIRMWARE_EQ_PRESETS, build_firmware_eq_structure
+from m30_model import (
+    FIRMWARE_EQ_PRESETS,
+    FirmwareEqSliderSession,
+    build_firmware_eq_structure,
+)
 
 
 SHM_ID = 3
@@ -214,3 +219,117 @@ class DaeSharedMemoryFlow:
         else:
             self._shm[2] = 0
             self._shm[3] = 1
+
+
+class FirmwareEqAudioSession:
+    """Join the Custom slider producer, MEngine builder, and music DSP choice.
+
+    The slider screen submits each successful edit immediately.  Confirm only
+    changes the selector, while cancel restores the UI/settings copy without
+    sending a compensating message.  The shared DAE image therefore retains
+    the last previewed curve after cancel, matching the p-code observation.
+    """
+
+    def __init__(
+        self,
+        *,
+        state_flag: int,
+        dae_configuration: bytes,
+        custom_gains: Sequence[int],
+        engine_active: bool | None = None,
+        mengine_local_structure: bytes | None = None,
+        registry: KernelShmRegistry | None = None,
+    ) -> None:
+        self.flow = DaeSharedMemoryFlow(
+            state_flag=state_flag,
+            dae_configuration=dae_configuration,
+            engine_active=engine_active,
+            mengine_local_structure=mengine_local_structure,
+            registry=registry,
+        )
+        self.slider = FirmwareEqSliderSession(custom_gains)
+        self.last_dsp_name: str | None = None
+        self.last_auddev_state: AudDevDaeState | None = None
+        self.last_auddev_input_source: str | None = None
+
+    def edit_custom(self, band_index: int, event: int) -> bool:
+        changed = self.slider.edit(band_index, event)
+
+        if not changed:
+            return False
+
+        self.flow.eq_message(7, 7, self.slider.custom_gains)
+
+        return True
+
+    def confirm_custom(self) -> None:
+        self.slider.confirm()
+
+    def cancel_custom(self) -> None:
+        self.slider.cancel()
+
+    def persist_on_mainmenu_exit(self) -> None:
+        self.slider.persist_on_mainmenu_exit()
+
+    def music_start(self, stored_selector: int, *, engine_playing: bool) -> bool:
+        return self.flow.music_start(
+            stored_selector,
+            engine_playing=engine_playing,
+            custom=self.slider.custom_gains,
+        )
+
+    def play(
+        self,
+        sample_rate_hz: int,
+        *,
+        auddev_input: AudDevDaeState | None = None,
+    ) -> str:
+        self.last_dsp_name = self.flow.play(sample_rate_hz)
+        input_state = auddev_input if auddev_input is not None else AudDevDaeState()
+        self.last_auddev_input_source = (
+            "caller-provided" if auddev_input is not None else "fresh-default"
+        )
+        self.last_auddev_state = apply_dae_update(
+            input_state,
+            self.flow.shared_memory,
+            sample_rate_hz,
+        )
+
+        return self.last_dsp_name
+
+    def trace(self) -> dict[str, object]:
+        auddev = self.last_auddev_state
+
+        return {
+            "engine_active": self.flow.engine_active,
+            "eq_type": self.flow.eq_type_byte,
+            "selector": self.flow.selector_byte,
+            "custom_gains": list(self.slider.custom_gains),
+            "persisted_gains": list(self.slider.persisted_gains),
+            "last_submitted_gains": (
+                list(self.slider.last_submitted_gains)
+                if self.slider.last_submitted_gains is not None
+                else None
+            ),
+            "producer_updates": self.slider.producer_updates,
+            "shared_pointer": f"0x{self.flow.shared_pointer:08x}",
+            "shared_plus_2": self.flow.shared_memory[2],
+            "shared_plus_7": self.flow.shared_memory[7],
+            "last_dsp_name": self.last_dsp_name,
+            "auddev": (
+                {
+                    "eq_flag_3a": auddev.eq_flag_3a,
+                    "busy_28": auddev.busy_28,
+                    "drc_flag_40": auddev.drc_flag_40,
+                    "band_bytes": len(auddev.bands),
+                    "input": self.last_auddev_input_source,
+                }
+                if auddev is not None
+                else None
+            ),
+            "provenance": (
+                "host composition of p-code-verified producer/builder/name-selection; "
+                "aud_dev input defaults to a fresh non-busy state; ROM services and "
+                "DSP effects are not executed"
+            ),
+        }

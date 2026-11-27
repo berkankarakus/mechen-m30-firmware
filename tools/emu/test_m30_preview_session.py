@@ -12,6 +12,9 @@ if str(SIM) not in sys.path:
     sys.path.insert(0, str(SIM))
 
 from m30_preview_session import M30PreviewSession
+from dae_shm_flow import FirmwareEqAudioSession
+from dsp_model import DAE_CONFIG_BYTES
+from m30_model import FIRMWARE_EQ_SLIDER_INCREASE_EVENT
 from test_kernel_ops import load_kernel
 from usound_callback import Break0ExceptionContext, UsoundCallbackBoundary
 from usb_audio_stream import UsbAudioStream
@@ -23,7 +26,7 @@ STY = ROOT / "build/qemu-minimal-safe/work/verify/fw/music.sty"
 
 @unittest.skipUnless(AP.exists() and STY.exists(), "extracted firmware resources are not present")
 class M30PreviewSessionTests(unittest.TestCase):
-    def make_session(self) -> M30PreviewSession:
+    def make_session(self, *, eq=None) -> M30PreviewSession:
         return M30PreviewSession.create(
             AP,
             STY,
@@ -34,6 +37,7 @@ class M30PreviewSessionTests(unittest.TestCase):
             album="ALBUM",
             filename="FILE",
             scroll_offset=7,
+            eq=eq,
         )
 
     def test_one_session_records_lcd_audio_and_callback_boundaries(self) -> None:
@@ -185,6 +189,35 @@ class M30PreviewSessionTests(unittest.TestCase):
                 "raw_args": task["args"],
             },
         )
+
+    def test_session_connects_custom_edit_music_start_and_rate_choice(self) -> None:
+        eq = FirmwareEqAudioSession(
+            state_flag=1,
+            dae_configuration=bytes(DAE_CONFIG_BYTES),
+            custom_gains=(0, 0, 0, 0, 0, 0, 0),
+        )
+        session = self.make_session(eq=eq)
+
+        self.assertTrue(session.start_music_eq(0, engine_playing=False))
+        self.assertTrue(session.edit_custom_eq(0, FIRMWARE_EQ_SLIDER_INCREASE_EVENT))
+        session.confirm_custom_eq()
+        self.assertEqual(session.play_with_eq(44100), "adppdrc.dsp")
+        self.assertEqual(session.play_with_eq(96000), "audiopp.dsp")
+
+        trace = session.trace()["eq"]
+
+        self.assertEqual(trace["selector"], 7)
+        self.assertEqual(trace["custom_gains"], [1, 0, 0, 0, 0, 0, 0])
+        self.assertEqual(trace["shared_plus_7"], 1)
+        self.assertEqual(trace["last_dsp_name"], "audiopp.dsp")
+        self.assertEqual(trace["auddev"]["eq_flag_3a"], 0)
+        self.assertEqual(trace["auddev"]["band_bytes"], 0x80)
+
+    def test_session_rejects_eq_actions_without_an_injected_model(self) -> None:
+        session = self.make_session()
+
+        with self.assertRaisesRegex(RuntimeError, "not configured"):
+            session.play_with_eq(44100)
 
 
 if __name__ == "__main__":
