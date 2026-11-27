@@ -4,7 +4,34 @@ Bu belge yalnızca güncel çalışma durumunu ve değişmez güvenlik kurallar�
 tutar. Ayrıntılı kanıtlar ilgili `findings-*.md` belgelerinde, emulator
 kapsamı [`qemu-coverage.md`](qemu-coverage.md) içinde tutulur.
 
-## Güncel durum — 2026-11-25
+## Güncel durum — 2026-11-27
+
+Bu tarihte çalışma dalı `main`; aşağıdaki 2026-11-25 dal/worktree bilgisi
+tarihsel checkpoint'tir.
+
+| Konu | Düzey | Bugünkü sınır / sonraki kanıt |
+| --- | --- | --- |
+| Custom slider → RAM kaynağı → `{7,7}` mesajı | VERIFIED (sentetik servisli p-code) | Gerçek DSP ses etkisi için cihaz gözlemi gerekir. |
+| Config varsayılanları → EQ builder → aud_dev | VERIFIED (ayrı MIPS16 p-code probe'ları, sentetik servislerle) | Off ve Custom(0) için 16 bant aynı; çıkış kazancı alanı Off `00000000000000000000`, Custom(0) `fbffffff020000001e00`. Ön ayar selector 1–6'nın her biri farklı bant çıktısı verdi. Tek bir ortak SHM örneğinde uçtan uca koşulmadı; ses etkisi için cihaz gözlemi gerekir. |
+| Config öğesi `0x96` → state `+0x18` → DAE `+2/+3` → op `0x47`, id 3 çağrısı | VERIFIED (ayrı MIPS16 p-code probe'ları, servisler sentetik) | `tools/ghidra/run_config_item96_shm_probe.sh` PASS: öğe 0/1/2 için DAE ve op `0x47` imajı sırasıyla `+2/+3 = 00/01`, `01/00`, `00/01`. Öğe `0x96` yalnızca kalıcı `0x38` blok geçersiz/soğuk varsayılan kurulum yolunda okunur; geçerli blok değeri korunur. `tools/ghidra/run_kernel_shm_ops_probe.sh` PASS: kernel.drv banka 6 op `0x47` işaretçiyi kaydediyor, op `0x49` aynı işaretçiyi döndürüyor. ROM dağıtıcısının bu tabloyu seçmesi çıkarım; sonraki MEngine kopyasının `+2`'yi ezip ezmediği UNKNOWN. |
+| Kalıcı state `+0x18` yazarı ve config giriş fonksiyonu `FUN_40054f84` | UNKNOWN | Ghidra decompile girişin parametre-0 yolunda `FUN_40dd4fe8` çağırdığını gösteriyor; bu giriş p-code'da henüz çalıştırılmadı. Soğuk başlangıçtan sonraki kullanıcı ayarı yazarı da bulunmadı. |
+| MUSIC.LIB seedsiz stock MIPS16 koşusu | VERIFIED (QEMU; sentetik metin servisi) | 2026-11-19 koşusu repoda kayıtlı: ALLSONG 3963/4000; diğer indeks sayımlarıyla birlikte ayrıntılar [`findings-music-lib-node-format.md`](findings-music-lib-node-format.md) içinde. Bu, gerçek ROM dönüştürücüyü tanımlamaz. |
+| EQ slider azaltma sınırı | VERIFIED (sentetik UI servisli MIPS16 p-code) | `tools/ghidra/run_mainmenu_eq_slider_probe.sh` PASS: SLTI için MIPS16e işaret genişletmesi override edilerek `−3` tabanı ölçüldü; test girdileri `−3…+3`. Fiziksel tuş ABI'si sentetik. |
+| aud_dev tablo indeksi 18, örnekleme hızı sınırı | VERIFIED (sentetik kopya servisli p-code) | `tools/ghidra/run_auddev_idx18_rate_probe.sh` altı koşuda PASS: 48.000 Hz'de iç EQ bayrağı `cfg+0x3a=1`, 48.001/96.000 Hz'de `0`; her hızda 16 bant yine kopyalanır. DSP ses etkisi UNKNOWN. |
+| aud_dev `cfg+0x40` DRC bayrağı | VERIFIED (sentetik kopya servisli p-code) | `tools/ghidra/run_auddev_idx18_drc_probe.sh` altı koşuda PASS: `dae_cfg+0xc=1` iken 48.000 Hz'de `cfg+0x40=1` kalır; 48.001/96.000 Hz'de hız dalı sıfırlar. `+0xc=0` bütün hızlarda alanı 0'a kopyalar. 16 EQ bandı her koşuda kopyalanır. |
+| Config `0x20000` bloğu geçersizken `0x2f0000` bayrağının set edilmesi | VERIFIED (sentetik kayıtlı p-code) | Stock/community ikisinde de `0x10000` bayrağı bir kez yazıldı. Stock gönderici bayrak setken `{0x201,10,0x4e}`, community `{0x201,9,0x0e}` gönderdi. `tools/ghidra/run_config_boot_flag_probe.sh` PASS; cihazdaki upgrade etkisi için cihaz gözlemi gerekir. |
+| Kart değişiminin `0xb0 → 0x861c → playlist.ap` yolunu tetiklemesi | INFERENCE | `0xb0` üreticisi bulunmadı; ROM/çekirdek gövdesi veya cihaz olay izi gerekir. |
+| `0xb0 → 0x861c → {0x201, app 10, param}` AP zinciri | VERIFIED (sentetik servisli p-code) | `tools/ghidra/run_music_b0_app10_handoff_probe.sh` PASS: durum `0x10/0x07/0x00` için param `0x42/0x82/0xc2`. Mesaj üreticisi ve cihazdaki indeksleme etkisi UNKNOWN. |
+| MUSIC.LIB `TERMINAL_OOR_ZERO` ile iki 4.000 kayıtlı kütüphanenin indeks tabloları | VERIFIED (stock MIPS16 + sentetik dönüştürücü) | Gerçek dönüştürücü kuralı UNKNOWN; gövde için ROM gerekir. Seedsiz koşu aşağıda zaten kayıtlıdır. |
+| `0xb0` mesajının üreticisi ve kart takma bağlantısı | UNKNOWN | ROM/çekirdek gövdesi veya cihaz olay izi gerekir. |
+| Off / Custom(0) farkının duyulması | UNKNOWN | Cihaz gözlemi gerekir; p-code yalnızca aud_dev'e giden baytları ölçebilir. |
+| DSP'nin filtreleri ses çıkışına uygulaması | UNKNOWN | Cihaz gözlemi veya DSP/donanım içeriği gerekir. |
+| `mmm_pp.al` `FUN_68013258` DSP dosya adı seçimi | VERIFIED (MIPS16 p-code; açma servisi sentetik) | `tools/ghidra/run_mmm_pp_dsp_select_probe.sh` PASS: SHM `+2=0` → `adppext.dsp`, sıfır dışı → `audiopp.dsp`; iki dalda ilk açılış `adWAVH.dsp`. Gerçek dosya yükleme etkisi ROM/kernel gerektirir. |
+
+Bu tablo kanıtların sınırını gösterir. `VERIFIED` satırları belirtilen statik
+veya sentetik koşu kapsamındadır; gerçek cihaz davranışı anlamına gelmez.
+
+### Önceki checkpoint — 2026-11-25
 
 - Dal: `codex/fix-model-coverage`; linked worktree'nin Git deposu
   `/Users/berkankarakus/Projects/mechen-m30-firmware/.git` ile ortak. Bu turdaki
