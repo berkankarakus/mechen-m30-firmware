@@ -19,6 +19,10 @@ REQUIRED_FIELDS = {
     "state": ("id", "module", "variant", "sha256", "address", "symbol",
               "width_bits", "summary", "evidence"),
     "edge": ("source", "target", "kind", "evidence"),
+    "hypothesis": ("id", "variant", "status", "summary", "evidence"),
+    "experiment": (
+        "id", "module", "variant", "address", "status", "summary", "evidence", "reproduce"
+    ),
 }
 
 
@@ -47,6 +51,17 @@ def validate_rows(rows):
             )
 
 
+def reference_ids(edges, entity_ids):
+    known_ids = set(entity_ids)
+    endpoints = {
+        endpoint
+        for edge in edges
+        for endpoint in (edge["source"], edge["target"])
+    }
+
+    return sorted(endpoints - known_ids)
+
+
 def connect():
     DATABASE.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(DATABASE)
@@ -63,16 +78,13 @@ def build():
     functions = [r for r in rows if r["type"] == "function"]
     states = [r for r in rows if r["type"] == "state"]
     edges = [r for r in rows if r["type"] == "edge"]
-    if len(functions) + len(states) + len(edges) != len(rows):
+    claims = [r for r in rows if r["type"] in ("hypothesis", "experiment")]
+    if len(functions) + len(states) + len(edges) + len(claims) != len(rows):
         raise SystemExit("unknown record type in facts.jsonl")
-    entity_ids = [r["id"] for r in functions + states]
+    entity_ids = [r["id"] for r in functions + states + claims]
     if len(entity_ids) != len(set(entity_ids)):
         raise SystemExit("duplicate function/state id in facts.jsonl")
-    known_ids = set(entity_ids)
-    dangling = sorted({endpoint for r in edges for endpoint in (r["source"], r["target"])
-                       if endpoint not in known_ids})
-    if dangling:
-        raise SystemExit("edge endpoint not defined as a function/state: " + ", ".join(dangling))
+    references = reference_ids(edges, entity_ids)
     DATABASE.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=DATABASE.name + ".", suffix=".tmp", dir=DATABASE.parent
@@ -86,6 +98,8 @@ def build():
             DROP TABLE IF EXISTS edges;
             DROP TABLE IF EXISTS states;
             DROP TABLE IF EXISTS functions;
+            DROP TABLE IF EXISTS claims;
+            DROP TABLE IF EXISTS endpoint_references;
             CREATE TABLE functions (
               id TEXT PRIMARY KEY, module TEXT NOT NULL, variant TEXT NOT NULL,
               sha256 TEXT NOT NULL, address TEXT NOT NULL, symbol TEXT NOT NULL,
@@ -101,6 +115,15 @@ def build():
               id TEXT PRIMARY KEY, module TEXT NOT NULL, variant TEXT NOT NULL,
               sha256 TEXT NOT NULL, address TEXT NOT NULL, symbol TEXT NOT NULL,
               width_bits INTEGER NOT NULL, summary TEXT NOT NULL, evidence TEXT NOT NULL
+            );
+            CREATE TABLE claims (
+              id TEXT PRIMARY KEY, kind TEXT NOT NULL, module TEXT NOT NULL,
+              variant TEXT NOT NULL, sha256 TEXT NOT NULL, address TEXT NOT NULL,
+              symbol TEXT NOT NULL, status TEXT NOT NULL, summary TEXT NOT NULL,
+              evidence TEXT NOT NULL, reproduce TEXT NOT NULL
+            );
+            CREATE TABLE endpoint_references (
+              id TEXT PRIMARY KEY, kind TEXT NOT NULL
             );
             CREATE VIRTUAL TABLE fact_search USING fts5(
               id UNINDEXED, kind UNINDEXED, searchable, tokenize='unicode61'
@@ -121,6 +144,21 @@ def build():
             db.execute("INSERT INTO fact_search VALUES (?,?,?)", (
                 r["id"], "state", " ".join((r["id"], r["module"], r["variant"],
                                                r["address"], r["symbol"], r["summary"], r["evidence"]))))
+        for r in claims:
+            values = (
+                r["id"], r["type"], r.get("module", ""), r["variant"],
+                r.get("sha256", ""), r.get("address", ""), r.get("symbol", ""),
+                r["status"], r["summary"], r["evidence"], r.get("reproduce", ""),
+            )
+            db.execute("INSERT INTO claims VALUES (?,?,?,?,?,?,?,?,?,?,?)", values)
+            db.execute("INSERT INTO fact_search VALUES (?,?,?)", (
+                r["id"], r["type"], " ".join(str(value) for value in values),
+            ))
+        for identifier in references:
+            db.execute(
+                "INSERT INTO endpoint_references VALUES (?,?)",
+                (identifier, "edge-reference")
+            )
         for r in edges:
             db.execute("INSERT INTO edges VALUES (?,?,?,?,?)", (
                 r["source"], r["target"], r["kind"], r.get("message_id", ""), r["evidence"]))
@@ -133,7 +171,11 @@ def build():
         if db:
             db.close()
     os.replace(temporary_database, DATABASE)
-    print(f"Indexed {len(functions)} functions, {len(states)} state fields, and {len(edges)} edges into {DATABASE}")
+    print(
+        f"Indexed {len(functions)} functions, {len(states)} state fields, "
+        f"{len(claims)} claims, {len(references)} edge references, "
+        f"and {len(edges)} edges into {DATABASE}"
+    )
 
 
 def search(query: str):
@@ -146,12 +188,14 @@ def search(query: str):
     with connect() as db:
         rows = db.execute("""
             SELECT fact_search.id, fact_search.kind, snippet(fact_search, 2, '[', ']', '…', 16) AS excerpt,
-                   coalesce(f.address, s.address) AS address,
-                   coalesce(f.symbol, s.symbol) AS symbol,
-                   coalesce(f.module, s.module) AS module,
-                   coalesce(f.status, 'observed-state') AS status
+                   coalesce(f.address, s.address, c.address) AS address,
+                   coalesce(f.symbol, s.symbol, c.symbol) AS symbol,
+                   coalesce(f.module, s.module, c.module) AS module,
+                   coalesce(f.status, c.status, 'observed-state') AS status
             FROM fact_search
-            LEFT JOIN functions f USING (id) LEFT JOIN states s USING (id)
+            LEFT JOIN functions f USING (id)
+            LEFT JOIN states s USING (id)
+            LEFT JOIN claims c USING (id)
             WHERE fact_search MATCH ? ORDER BY bm25(fact_search) LIMIT 30
         """, (match,)).fetchall()
     for row in rows:
@@ -169,11 +213,22 @@ def resolve(db, key):
                              OR lower(address)=lower(?) OR lower(symbol)=lower(?) LIMIT 1""",
                          (key, key, key)).fetchone()
     if row is None:
+        row = db.execute("""SELECT * FROM claims WHERE lower(id)=lower(?)
+                             OR lower(address)=lower(?) OR lower(symbol)=lower(?) LIMIT 1""",
+                         (key, key, key)).fetchone()
+    if row is None:
+        row = db.execute(
+            "SELECT * FROM endpoint_references WHERE lower(id)=lower(?) LIMIT 1",
+            (key,)
+        ).fetchone()
+    if row is None:
         try:
             address = f"0x{(int(key, 0) & ~1):08x}"
             row = db.execute("SELECT * FROM functions WHERE lower(address)=lower(?)", (address,)).fetchone()
             if row is None:
                 row = db.execute("SELECT * FROM states WHERE lower(address)=lower(?)", (address,)).fetchone()
+            if row is None:
+                row = db.execute("SELECT * FROM claims WHERE lower(address)=lower(?)", (address,)).fetchone()
         except ValueError:
             pass
     return row

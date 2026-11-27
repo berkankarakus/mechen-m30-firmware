@@ -1,6 +1,6 @@
 import unittest
 
-from m30kb import validate_rows
+from m30kb import reference_ids, validate_rows
 
 
 class KnowledgeFactValidationTests(unittest.TestCase):
@@ -35,8 +35,34 @@ class KnowledgeFactValidationTests(unittest.TestCase):
              "evidence": "finding.md"},
             {"type": "edge", "source": "module:0x10", "target": "module:ram:0x20",
              "kind": "writes-state", "evidence": "finding.md"},
+            {"type": "hypothesis", "id": "candidate:one", "variant": "v1",
+             "status": "inference", "summary": "summary", "evidence": "finding.md"},
+            {"type": "experiment", "id": "experiment:one", "module": "module",
+             "variant": "v1", "address": "0x30", "status": "synthetic-pass",
+             "summary": "summary", "evidence": "finding.md", "reproduce": "probe.sh"},
         ]
         validate_rows(rows)
+
+    def test_rejects_hypothesis_without_evidence_status(self):
+        row = {
+            "type": "hypothesis", "id": "candidate:one", "variant": "v1",
+            "summary": "summary", "evidence": "finding.md",
+        }
+
+        with self.assertRaisesRegex(ValueError, "candidate:one.*status"):
+            validate_rows([row])
+
+    def test_collects_edge_endpoints_without_detailed_facts_as_references(self):
+        edges = [
+            {
+                "source": "module:0x10",
+                "target": "resident:0xbfc00000"
+            }
+        ]
+
+        references = reference_ids(edges, ["module:0x10"])
+
+        self.assertEqual(["resident:0xbfc00000"], references)
 
 
 if __name__ == "__main__":
